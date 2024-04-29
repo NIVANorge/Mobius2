@@ -1,6 +1,6 @@
 ---
 layout: default
-title: 01 First model
+title: 01 The first model
 parent: Guide
 grand_parent: Model language
 nav_order: 0
@@ -9,11 +9,11 @@ comment: "While we use python markup for code snippets, they are not actually py
 
 # 01. The first model
 
-A model consists of a file with a `.txt` suffix that contains a single `model` declaration that can load one or more modules.
+A model consists of a file with a `.txt` suffix that contains a single `model` declaration. In the body of the model declaration you can load one or more modules.
 
-In the beginning you can inline a `module` declaration into the body of your model. Later you should learn to put modules in separate files so that they are reusable.
+In the beginning you can inline a `module` declaration into the body of your model. Later you will learn how to put modules in separate files so that they are reusable.
 
-You must also declare at least one [state variable](central_concepts.html). For this you need at least one `compartment` and one `property` to form its location. Components are usually declared in the model scope, but properties can also be declared in the module scope.
+You must also declare at least one [state variable](central_concepts.html) for the model to compute. For this you need at least one `compartment` and one `property` to form the *location* of the state variable. Components are usually declared in the model scope, but properties can also be declared in the module scope.
 
 We suggest you use [MobiView2](../mobiviewdocs/mobiview.html) to load and run your model.
 
@@ -51,6 +51,6 @@ data_set {
 }
 ```
 
-Of course, this model is not that interesting yet as the state variable is constant.
+Of course, this model is not that interesting yet as the state variable doesn't change over time.
 
 [Full code for chapter 01](https://github.com/NIVANorge/Mobius2/tree/main/guide/01).

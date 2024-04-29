@@ -14,7 +14,7 @@ This document will guide you through how to take an existing data `.dat` file fo
 
 We will not teach you how to gather data since the available sources and formats will depend on what country you are setting up the model in. Instead, this document will only help you to put the data on a format that is recognizable by Mobius2.
 
-If however you are a NIVA user modelling a location in Norway, we suggest you use the [catchment processing workflows](https://nivanorge.github.io/catchment_processing_workflows/).
+If however you happen to be a NIVA employee modelling a location in Norway, we suggest you use the [catchment processing workflows](https://nivanorge.github.io/catchment_processing_workflows/).
 
 ## The data set file
 
@@ -22,16 +22,16 @@ Each *model application* has a single `.dat` main data file. This is a plain-tex
 
 This file contains a single `data_set` declaration, with all the other declarations inside it.
 
-It can be convenient to put a single docstring inside your data set declaration to document where you got the data from and how you processed it. The docstring is saved if you edit the file in MobiView2, while all other comments are lost. E.g.
+It can be convenient to put a single docstring inside your data set declaration to document where you got the data from and how you processed it. The docstring is saved if you edit the file in MobiView2, while all other comments are lost. E.g.,
 
 ```python
 data_set {
 """
-Meteorological data was obtained from somewhere, and so on.
+Meteorological data was obtained from ..., and so on.
 
-Parameters are calibrated to maximize ...
+Parameters are calibrated to minimize ...
 
-Data set created by Some name for the Project project, 2024-05-01
+Data set created by ... for the ... project, 2024-05-01
 """
 
 	# Everything else goes here

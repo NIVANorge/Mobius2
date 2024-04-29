@@ -16,6 +16,11 @@ Here we specify how these declarations work in model, module, preamble and libra
 
 **This document is currently incomplete**. New guide chapters are prioritized.
 
+## Signatures
+{: .no_toc }
+
+(will explain the signatures here)
+
 ## Table of contents
 {: .no_toc .text-delta }
 
@@ -23,10 +28,6 @@ Here we specify how these declarations work in model, module, preamble and libra
 {:toc}
 
 ---
-
-## Signatures
-
-(will explain the signatures here)
 
 ## model
 

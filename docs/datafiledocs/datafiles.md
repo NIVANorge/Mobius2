@@ -72,7 +72,13 @@ Comparison series are filled with nan (non-numbers). Missing values in observati
 
 ## Series indexing
 
-(to be written).
+A given input series can either have a single instance, or can be distributed over a tuple of one or more [index sets](../mobius2docs/central_concepts.html#index-sets-and-distributions). This can be used e.g. to provide separate meteorological data for different sub-areas of the model domain.
+
+What index sets you are allowed to distribute a model input series over depends on the components forming the *location* of the series and what index sets they are distributed over in the model. Comparison series can be distributed over any combination of index sets that exist in the model.
+
+The distribution must be the same for all instances of the same input name, even if they come from separate files. This means that each series of the same name must have indexes from the same tuple of index sets (though the indexes themselves could of course be different).
+
+How to distribute a series over index sets is described in the pages for the individual series data formats.
 
 ## Series flags
 

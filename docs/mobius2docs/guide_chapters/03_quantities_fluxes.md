@@ -11,7 +11,7 @@ comment: "While we use python markup for code snippets, they are not actually py
 
 In this chapter we will build a simple hydrology model and see how you can use Mobius2 to specify transport of water between different compartments.
 
-We refer to the [environmental modelling notebook](https://nbviewer.org/github/JamesSample/enviro_mod_notes/blob/master/notebooks/05_A_Hydrological_Model.ipynb) for a more detailed description of a very similar model.
+We refer to the [environmental modelling notebooks](https://nbviewer.org/github/JamesSample/enviro_mod_notes/blob/master/notebooks/05_A_Hydrological_Model.ipynb) for a more detailed description of a very similar model.
 
 From now on we will not display the entire model code in the guide page, only the new parts we create.
 

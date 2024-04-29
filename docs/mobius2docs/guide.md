@@ -11,7 +11,7 @@ comment: "While we use python markup for code snippets, they are not actually py
 
 Don't panic!
 
-This guide will help you through building a model from the first steps to more advanced concepts.
+This guide will lead you through the process of building a model from the first steps to more advanced concepts.
 
 It will explain the most important features of Mobius2, but will not cover all details. For that, see the [declaration format documentation](declaration_format.html) and related pages. It is also useful to read about the [central concepts](central_concepts.html).
 

@@ -2,7 +2,7 @@
 layout: default
 title: The xlsx format
 parent: Data files
-nav_order: 2
+nav_order: 1
 ---
 
 # The XLSX format

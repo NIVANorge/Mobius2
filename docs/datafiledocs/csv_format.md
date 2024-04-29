@@ -2,7 +2,7 @@
 layout: default
 title: The csv format
 parent: Data files
-nav_order: 1
+nav_order: 2
 ---
 
 # The CSV format

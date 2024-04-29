@@ -9,9 +9,9 @@ comment: "While we use python markup for code snippets, they are not actually py
 
 # 02. Parameters and forcings (input series)
 
-A parameter is a value that is held constant through each model run, and can be used to e.g. tune the model to fit observed data, or to run scenarios. In Mobius2, parameters are always put inside parameter groups.
+A parameter is a user-provided value that is held constant through each model run, and can be used to e.g. set up the model for a specific geographical location, tune the model to fit observed data, or to run scenarios. In Mobius2, parameters are always put inside parameter groups.
 
-A forcing (input series) is another value that is not computed by the model, but unlike a parameter, varies over time. In Mobius2 any `property` state variable without a math expression is assumed to be an input series.
+A forcing (input series) is another value that is not computed by the model, but unlike a parameter its value varies over time. In Mobius2 any `property` state variable without a math expression is assumed to be an input series.
 
 ```python
 model("The first model") {
@@ -51,6 +51,9 @@ Parameters and series are provided in the data_set. If a parameter is not provid
 
 ```python
 data_set {
+	
+	# The "System" par_group always exists, and is not explicitly
+	# declared in the model.
 	par_group("System") {
 		par_datetime("Start date")
 		[ 2000-01-01 ]
@@ -59,6 +62,8 @@ data_set {
 		[ 2000-12-31 ]
 	}
 	
+	# The module - par_group - parameter nested scoping matches
+	# how these are declared in the model.
 	module("A module", version(0, 0, 1)) {
 		par_group("Growing parameters") {
 			par_real("Base growth rate")
@@ -69,13 +74,13 @@ data_set {
 		}
 	}
 	
-	# This instructs the model to load series data from the 
-	# given .csv format. You can also use .xlsx files.
+	# The series() declaration instructs the model to load series 
+	# data from the provided file. You can also use .xlsx files.
 	series("data.csv")
 }
 ```
 
-The data.csv file:
+The data.csv file (see the [data format documentation](../datafiledocs/datafiles.html)):
 
 ```
 "Soil temperature" [spline_interpolate]
