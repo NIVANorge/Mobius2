@@ -1,6 +1,6 @@
 ---
 layout: default
-title: Mobius2 introduction
+title: About Mobius2
 nav_order: 0
 ---
 

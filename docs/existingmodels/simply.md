@@ -51,7 +51,7 @@ SimplyC is a dissolved organic carbon (DOC). The concentration of DOC in the soi
 
 In the groundwater, the DOC concentration is either constant, set to the soil water average, or follows mass balance (with the recharge and discharge), with a constant decay rate.
 
-In the river, the DOC can be given a [Q10](https://en.wikipedia.org/wiki/Q10_(temperature_coefficient)) -goverened decay rate.
+In the river, the DOC can be given a [Q10](https://en.wikipedia.org/wiki/Q10_(temperature_coefficient))-governed decay rate.
 
 See the [mathematical description](autogen/simplyc.html)
 

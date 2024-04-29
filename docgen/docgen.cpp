@@ -317,11 +317,15 @@ print_equation(Print_Equation_Context &context, Math_Expr_AST *ast, bool outer =
 		
 	} else if (ast->type == Math_Expr_Type::identifier) {
 		auto ident = static_cast<Identifier_Chain_AST *>(ast);
-		print_chain(context, ident->chain);
-		if(!ident->bracketed_chain.empty()) {
-			context.ss << "\\[";
-			print_chain(context, ident->bracketed_chain);
-			context.ss << "\\]";
+		if(ident->chain.size() == 1 && ident->chain[0].string_value == "no_override") {
+			context.ss << "\\mathrm{(mass balance)}";
+		} else {
+			print_chain(context, ident->chain);
+			if(!ident->bracketed_chain.empty()) {
+				context.ss << "\\[";
+				print_chain(context, ident->bracketed_chain);
+				context.ss << "\\]";
+			}
 		}
 	} else if (ast->type == Math_Expr_Type::literal) {
 		auto literal = static_cast<Literal_AST *>(ast);

@@ -10,4 +10,3 @@ nav_order: 0
 This documentation is yet to be written
 
 
-## The sampling step

@@ -11,7 +11,7 @@ The spreadsheet format is very convenient to edit by hand if you have a program 
 
 ## General information
 
-You can have as many tabs (sheets) as you want in the file, and all of them will be loade by default. If you want to make Mobius2 ignore a tab (useful if you want to keep a tab for documentation or as a scratchpad), put `NOREAD` in cell A1 of that tab (apart from that it doesn't matter what you put in A1).
+You can have as many tabs (sheets) as you want in the file, and all of them will be loaded by default. If you want to make Mobius2 ignore a tab (useful if you want to keep a tab for documentation or as a scratchpad), put `NOREAD` in cell A1 of that tab (apart from that it doesn't matter what you put in A1).
 
 The names of the tabs are ignored. Any color coding or borders are also ignored, so you can use these to enhance human readability if you want to.
 
@@ -21,7 +21,7 @@ Each sheet consists of a header and a data block. The header contains informatio
 
 In the easiest example, the header is just the first row and contains the names of some input series. The names have to start in cell B1 and continue along row 1 with one column per name. All names should be formatted as text (this is usually automatic).
 
-In the data block, column A must be filled with dates, and can not have any empty cells between dates. This does not mean that dates must be consecutive (or even sequential), only that you can't have a row that does not start with a date.
+In the data block, column A must be filled with dates, and can not have any empty cells between dates. This does not mean that dates must be consecutive (or even sequential), only that you can't have a data row that does not start with a date.
 
 ![Simple setup](../img/datafiles/simple.png)
 

@@ -39,6 +39,17 @@ If more than one series value is provided for the same series and sampling step,
 
 If some of the series have a lower frequency than the desired sampling step, you could use interpolation (see below).
 
+## Datetime format
+
+Date(-time) values in data files (except some times in `.xlsx` files) are on one of the following formats:
+
+```
+YYYY-mm-dd
+YYYY-mm-dd HH:MM:SS
+```
+
+If the application has sampling step higher than one day, `YYYY-mm-dd` is assumed to be `YYYY-mm-dd 00:00:00`.
+
 ## The series interval
 
 The *series interval* is the largest interval that fits all the series data that is provided in the data set. When loaded into a model application, all series will for technical reasons be expanded to fill this entire window.
@@ -59,6 +70,10 @@ If a model input series is not provided with data, it is filled as 0. If it is p
 
 Comparison series are filled with nan (non-numbers). Missing values in observation series are ignored when e.g. computing goodness-of-fit stats.
 
+## Series indexing
+
+(to be written).
+
 ## Series flags
 
 Both series formats allow you to specify flags. A flag is either a [unit declaration](../mobius2docs/units.html#the-unit-declaration-format) or one of the following:
@@ -71,3 +86,4 @@ Both series formats allow you to specify flags. A flag is either a [unit declara
 - `repeat_yearly`. In this case the first year of the time series is repeated yearly to fill the entire *series interval*.
 
 To put multiple flags they can be listed after one another separated by spaces.
+

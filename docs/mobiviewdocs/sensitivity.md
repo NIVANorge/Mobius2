@@ -25,8 +25,8 @@ Apart from the [simple parameter perturbation](simplesensitivity.html) setup, al
 
 In the toolbar of the setup window you can click buttons to
 
-- [Save](../img/toolbar/Save.png) Save the current setup for future use.
-- [Load](../img/toolbar/Open.png) Load it again. Note that you must make sure that you are using the same data file for the model setup, this is not stored in the setup file.
+- ![Save](../img/toolbar/Save.png) Save the current setup for future use.
+- ![Load](../img/toolbar/Open.png) Load it again. Note that you must make sure that you are using the same data file for the model setup, this is not stored in the setup file.
 
 ### The parameter space
 

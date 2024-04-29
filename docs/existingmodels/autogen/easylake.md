@@ -13,7 +13,7 @@ Since the modules can be dynamically loaded with different arguments, this docum
 
 See the note on [notation](autogen.html#notation).
 
-The file was generated at 2024-04-24 13:41:48.
+The file was generated at 2024-04-29 12:11:16.
 
 ---
 
@@ -1702,7 +1702,7 @@ Unit: kg day⁻¹
 Value:
 
 $$
-\mathrm{in\_s} = \mathrm{in\_flux}\left(\mathrm{downstream},\, \mathrm{epi}.\mathrm{water}.\mathrm{sed}\right) \\ \mathrm{in\_q} = \mathrm{in\_flux}\left(\mathrm{downstream},\, \mathrm{epi}.\mathrm{water}\right) \\ \mathrm{in\_conc} = \left(\frac{\mathrm{in\_s}}{\mathrm{in\_q}}\rightarrow \mathrm{mg}\,\mathrm{l}^{-1}\,\right) \\ \mathrm{excess} = \mathrm{in\_conc}-\mathrm{maxconc} \\ \left(\href{stdlib.html#response}{\mathrm{s\_response}}\left(\mathrm{excess},\, 0,\, 5 \mathrm{mg}\,\mathrm{l}^{-1}\,,\, 0,\, \mathrm{excess}\cdot \mathrm{in\_q}\right)\rightarrow \mathrm{kg}\,\mathrm{day}^{-1}\,\right)
+\mathrm{in\_s} = \mathrm{in\_flux}\left(\mathrm{downstream},\, \mathrm{epi}.\mathrm{water}.\mathrm{sed}\right) \\ \mathrm{in\_q} = \mathrm{in\_flux}\left(\mathrm{downstream},\, \mathrm{epi}.\mathrm{water}\right) \\ \mathrm{in\_conc} = \left(\mathrm{safe\_divide}\left(\mathrm{in\_s},\, \mathrm{in\_q}\right)\rightarrow \mathrm{mg}\,\mathrm{l}^{-1}\,\right) \\ \mathrm{excess} = \mathrm{in\_conc}-\mathrm{maxconc} \\ \left(\href{stdlib.html#response}{\mathrm{s\_response}}\left(\mathrm{excess},\, 0,\, 5 \mathrm{mg}\,\mathrm{l}^{-1}\,,\, 0,\, \mathrm{excess}\cdot \mathrm{in\_q}\right)\rightarrow \mathrm{kg}\,\mathrm{day}^{-1}\,\right)
 $$
 
 

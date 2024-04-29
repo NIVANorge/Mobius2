@@ -13,7 +13,7 @@ Since the modules can be dynamically loaded with different arguments, this docum
 
 See the note on [notation](autogen.html#notation).
 
-The file was generated at 2024-04-24 13:41:48.
+The file was generated at 2024-04-29 12:11:16.
 
 ---
 
@@ -97,7 +97,7 @@ Conc. unit: mg l⁻¹
 Value:
 
 $$
-\begin{cases}\mathrm{gw\_din\_conc} & \text{if}\;\mathrm{gw\_conc\_type}.\mathrm{const} \\ \mathrm{aggregate}\left(\mathrm{conc}\left(\mathrm{soil}.\mathrm{water}.\mathrm{din}\right)\right) & \text{if}\;\mathrm{gw\_conc\_type}.\mathrm{soil\_avg} \\ \mathrm{no\_override} & \text{otherwise}\end{cases}
+\begin{cases}\mathrm{gw\_din\_conc} & \text{if}\;\mathrm{gw\_conc\_type}.\mathrm{const} \\ \mathrm{aggregate}\left(\mathrm{conc}\left(\mathrm{soil}.\mathrm{water}.\mathrm{din}\right)\right) & \text{if}\;\mathrm{gw\_conc\_type}.\mathrm{soil\_avg} \\ \mathrm{(mass balance)} & \text{otherwise}\end{cases}
 $$
 
 Initial value:
