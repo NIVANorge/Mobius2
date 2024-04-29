@@ -150,7 +150,7 @@ In a data file only, a declaration can have a single data block (there is no sep
 
 A data block is enclosed in square brackets `[ .. ]`. A data block can either encode a list, a map, or a directed graph.
 
-### List
+### Lists
 
 A list is a space-separated list of single values. The single values are either numbers, identifiers or quoted strings.
 
@@ -181,4 +181,4 @@ Examples:
 
 ### Directed graph
 
-A directed graph only appears as the data block for a directed graph connection in the data set. Separate documentation will be written.
+A directed graph only appears as the data block for a directed graph connection in the data set. For now, see the [connection data documentation](../datafiledocs/new_project.html#connections).

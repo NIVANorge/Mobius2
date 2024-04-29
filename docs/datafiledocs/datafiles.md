@@ -13,7 +13,7 @@ A model combined with site-specific data is called a *model application*.
 
 Each Mobius2 model application has a single main data file with a `.dat` suffix.
 
-The main data file uses the [common declaration format](../mobius2docs/declaration_format.html), but you don't need to fully learn this format to use existing Mobius2 models. Instead we provide a [guide to set up a new project](new_project.html) from an existing example file for a given model.
+The main data file uses the [common declaration format](../mobius2docs/declaration_format.html), but you don't need to fully learn this format to use existing Mobius2 models. Instead we provide a [guide to set up a new project from an existing example file](new_project.html).
 
 Input time series (forcing and comparison data) are not put directly in the main data file, instead the main data file says what other files series data is loaded from.
 

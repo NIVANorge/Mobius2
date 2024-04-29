@@ -1,11 +1,11 @@
 ---
 layout: default
-title: Model composition and compilation
+title: Model composition
 parent: Model language
 nav_order: 3
 ---
 
-# Model composition and compilation
+# Model composition
 
 This document will explain some more advanced concepts about how a declared model is put together to a runnable program.
 

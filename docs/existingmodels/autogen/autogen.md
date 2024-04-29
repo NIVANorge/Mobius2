@@ -12,7 +12,7 @@ Here is documentation for some of the existing modules we provide with Mobius2.
 
 The mathematical description is auto-generated based on the model files.
 
-It is useful to look at the [central model concepts](../mobius2docs/central_concepts.html) to understand what we mean by certain concepts in the descriptions ("parameter", "state variable", "flux", etc.).
+It is useful to look at the [central model concepts](../../mobius2docs/central_concepts.html) to understand what we mean by certain concepts in the descriptions ("parameter", "state variable", "flux", etc.).
 
 ## Notation
 
@@ -60,13 +60,13 @@ In if-expressions, a condition implicitly includes the exclusion of the conditio
 
 $$
 a = \begin{cases}
-0 & \text{if}\; b > 5 \\
-1 & \text{if}\; b > 3 \\
-2 & \text{otherwise}
+1 & \text{if}\; b > 5 \\
+2 & \text{if}\; b > 3 \\
+3 & \text{otherwise}
 \end{cases}
 $$
 
-the condition $$b > 3$$ implies the exclusion of the above condition $$b > 5$$, so that the implied condition is $$3 < b \leq 5$$.
+the condition $$b > 3$$ in line 2 implies the exclusion of the above condition $$b > 5$$, so that the implied condition in line 2 is $$3 < b \leq 5$$.
 
 
 {% include lib/mathjax.html %}
