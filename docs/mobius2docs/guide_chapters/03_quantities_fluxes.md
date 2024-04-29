@@ -172,7 +172,7 @@ The runoff curve becomes smoother and more delayed if you increase the time cons
 
 [Full code for chapter 03](https://github.com/NIVANorge/Mobius2/tree/main/guide/03).
 
-Note that you can't use the provided calibration series for anything yet since we don't compute the river flow. That is for the next chapter.
+Note that you can't use the provided comparison series for anything yet since we don't compute the river discharge. That is for the next chapter.
 
 ## Discrete step equations
 
