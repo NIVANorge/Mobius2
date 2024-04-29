@@ -22,6 +22,22 @@ Each *model application* has a single `.dat` main data file. This is a plain-tex
 
 This file contains a single `data_set` declaration, with all the other declarations inside it.
 
+It can be convenient to put a single docstring inside your data set declaration to document where you got the data from and how you processed it. The docstring is saved if you edit the file in MobiView2, while all other comments are lost. E.g.
+
+```python
+data_set {
+"""
+Meteorological data was obtained from somewhere, and so on.
+
+Parameters are calibrated to maximize ...
+
+Data set created by Some name for the Project project, 2024-05-01
+"""
+
+	# Everything else goes here
+}
+```
+
 ## Index sets and distributions
 
 The first thing you will do is to edit the [index sets](../mobius2docs/central_concepts.html#index-sets-and-distributions) to match your use case. This can for instance mean to divide your catchment into river sections and sub-catchments, selected lakes and land use types (depending entirely on what model you are running).
@@ -45,11 +61,10 @@ There are also the concepts of *sub-indexed* and *union* index sets as well as p
 
 ## Time series data
 
-The time series data is provided in separate [`.csv`](csv_format.html) or [`.xlsx`](xlsx_format.html) files, but they are loaded by the main dataset file using a `series` declaration, e.g.
+Time series data is provided in separate [`.csv`](csv_format.html) or [`.xlsx`](xlsx_format.html) files, but they are loaded from the main dataset file using a `series` declaration, e.g.
 
 ```python
 series("my_data.xlsx")
-
 series("more_data.csv")
 ```
 
@@ -57,7 +72,7 @@ The path of the series files must be given absolutely or relatively to the path 
 
 ## Connections
 
-If you have a connection of `directed_graph` type, it will be given in the data set. This type of connection is often used to model e.g. connections between river sections and lakes. We start with an example since it is easier to explain with something to refer to. Assume the index sets are as in the example above
+If your model has a connection of `directed_graph` type, it will be specified in the data set. This type of connection is often used to model e.g. connections between river sections and lakes, or downhill flow paths. We start with an example since it is easier to explain when there is something to refer to.
 
 ```python
 sc : index_set("Subcatchment") [ "Kråkstadelva" "Kure" "Vaaler" ]
@@ -76,9 +91,7 @@ connection("Downstream") {
 
 The first part of the graph data consists of declaring the node types and what they index over, in this case `r` ("River") indexing over `sc` ("Subcatchment") and `l` ("Lake") indexing over `lk` ("Lake index"). You should not change this part since it must match objects in the model declaration.
 
-What you edit is the directed graph itself. You must make the node indexes match whatever you put in the index sets.
-
-Whenever you put an arrow `->` between two node instances it creates a connection of the current type (e.g. "Downstream") between these, (and you can assume in this example that discharge will be directed along that connection).
+What you edit is the `directed_graph` block. You must make the node indexes match whatever you put in the index sets. Whenever you put an arrow `->` between two node instances it creates a directed edge (arrow, path) of the current connection between these (and in the "Downstream" example you can assume that discharge will be directed along that edge).
 
 ## Parameter groups
 
@@ -95,9 +108,8 @@ par_group("Soil hydrology", sc, lu) {
 	#...
 }
 
-# Alternatively, change it to be semi-distributed so that the 
-# soil hydrology only depends on the land use type, not the 
-# subcatchment.
+# Alternatively, change it to be "semi-distributed" where the soil hydrology 
+# only depends on the land use type, not the subcatchment.
 par_group("Soil hydrology", lu) {
 	#...
 }
@@ -105,7 +117,7 @@ par_group("Soil hydrology", lu) {
 
 ## Parameter data
 
-One way to edit the parameter data is to delete every parameter declaration and instead edit the values in [MobiView2](../mobiviewdocs/parameters.html). 
+One way to edit the parameter data is to delete every parameter declaration and instead edit the values in [MobiView2](../mobiviewdocs/parameters.html) (the parameters are given default values if they are not originally in the data file). 
 
 If you want to edit them by hand, you have to provide one value for each tuple of indexes in the index sets of the distribution, in the same order they are given in the `index_set` declaration. The rightmost index set in the distribution is considered to be the innermost one. Example:
 
@@ -118,25 +130,21 @@ module("A hydrology module", version(0, 0, 1)) {
 	
 	# One index set
 	par_group("Soil hydrology", lu) {
-	
 		par_real("Soil water time constant")
 		[ 2 7 3 ] # One value per landscape unit
-		
 	}
 
 	# Alternatively, two index sets
 	par_group("Soil hydrology", sc, lu) {
-		
 		par_real("Soil water time constant") [
-			2   7   3.2   # One row per subcatchment, one column per landscape unit
-			2.5 6   4.1
+			2    7   3    # One row per subcatchment, one column per landscape unit
+			2.5  6   4.1
 		]
-		
 	}
 }
 ```
 
-Remember that the format is whitespace-agnostic, so this is just a convenient way to format it for visual readability.
+Remember that the format is whitespace-agnostic, so the example above is just a convenient way to format it for visual readability.
 
 If there are 3 or more dimensions, you just repeat the inner set of value blocks for each index of any "outer" index sets.
 

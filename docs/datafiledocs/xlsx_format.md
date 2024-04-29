@@ -35,7 +35,7 @@ Cell values can be results of Excel formulas. Mobius will read the value resulti
 
 ## Indexing
 
-If you want to index a time series over multiple indexes (for instance to provide a separate series per "Reach" or "Landscape unit"), you must put one row below row 1 per index set you want to use. These rows have to have the name of the index set in cell A.
+If you want to index a time series over [index sets](new_project.html#index-sets-and-distributions) (for instance to provide a separate series per "Subcatchment" or "Landscape unit"), you must put one row below row 1 per index set you want to use. These rows have to have the name of the index set in cell A.
 
 ![Indexing](../img/datafiles/indexes.png)
 

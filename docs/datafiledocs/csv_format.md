@@ -26,7 +26,7 @@ The header is a single row of space-separated input names, optionally with index
 <the value block>
 ```
 
-If a series is not "global", but is instead indexed over one or more index sets, you can provide it with an index tuple indicating index set:index pairs inside a square bracket as follows
+If a series is not "global", but is instead indexed over one or more [index sets](new_project.html#index-sets-and-distributions), you can provide it with an index tuple indicating index set:index pairs inside a square bracket as follows
 
 ```csv
 "Fertilizer N addition"["Subcatchment":"Kråkstadelva" "Landscape units":"Arable"] <rest of header>
