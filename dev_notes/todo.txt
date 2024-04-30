@@ -3,6 +3,8 @@
 	*** High pri ***
 		
 		
+		Merge unit_conversion and aggregation_weight to just "weight".
+		
 		MobiView:
 			Make it so that editing map based parameters works when the last index is not position based (?)
 			

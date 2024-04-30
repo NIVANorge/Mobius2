@@ -102,9 +102,12 @@ par_group("Soil hydrology") {
 	
 	# Add some more parameters
 	tcs : par_real("Soil water time constant", [day], 2)
-	tcg : par_real("Groundwater time constant", [day], 20)
 	bfi : par_real("Baseflow index", [], 0.7)
 	ddfpet : par_real("Degree-day factor for potential evapotranspiration", [m m, deg_c-1, day-1], 0.12)
+}
+
+par_group("Groundwater hydrology") {
+	tcg : par_real("Groundwater time constant", [day], 20)
 }
 
 # Add a couple of meteorological forcings that can drive the system
@@ -166,7 +169,7 @@ flux(gw.water, out, [m m, day-1], "Groundwater runoff") {
 }
 ```
 
-![The model](03.png)
+![The model](images/03.png)
 
 The runoff curve becomes smoother and more delayed if you increase the time constant.
 

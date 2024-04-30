@@ -106,6 +106,9 @@ Model_Application::Edit_Form
 Model_Application::get_parameter_edit_form(Entity_Id par_id) {
 	
 	auto par_id_data = map_id(model, data_set, par_id);
+	if(!is_valid(par_id_data)) // Not sure why this would happen.
+		return Edit_Form::direct; 
+	
 	auto par = data_set->parameters[par_id_data];
 	if(is_valid(par->from_pos))
 		return Edit_Form::disabled;

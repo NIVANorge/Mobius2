@@ -21,8 +21,6 @@ Clone the repository [https://github.com/NIVANorge/Mobius2](https://github.com/N
 
 You can also download a zip archive of the repository from its github front page (click the green "Code" button), but then it is not as convenient to get the latest updates.
 
-![Download](../img/download.png)
-
 ### 2. Get the MobiView2 program.
 
 For now we only support MobiView2 on Windows. It is technically possible to compile it on Linux, so if you need that, please contact us.

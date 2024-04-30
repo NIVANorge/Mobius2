@@ -19,9 +19,12 @@ model("Hydrology model") {
 			fc : par_real("Field capacity", [m m], 50)
 			
 			tcs : par_real("Soil water time constant", [day], 2)
-			tcg : par_real("Groundwater time constant", [day], 20)
 			bfi : par_real("Baseflow index", [], 0.7)
 			ddfpet : par_real("Degree-day factor for potential evapotranspiration", [m m, deg_c-1, day-1], 0.12)
+		}
+		
+		par_group("Groundwater hydrology") {
+			tcg : par_real("Groundwater time constant", [day], 20)
 		}
 
 		# Initializing the soil water volume at field capacity is just a convenience. You could create

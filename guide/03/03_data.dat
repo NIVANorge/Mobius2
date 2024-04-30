@@ -31,6 +31,13 @@ data_set {
 			[ 0.12 ]
 		
 		}
+		
+		par_group("Groundwater hydrology") {
+		
+			par_real("Groundwater time constant") 
+			[ 20 ]
+			
+		}
 	
 	}
 
