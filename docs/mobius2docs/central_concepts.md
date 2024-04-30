@@ -14,8 +14,8 @@ This is an overview. More detailed documentation of how to create the below enti
 ## Names and identifiers
 
 Most entities in the model can have identifiers and names.
-- Identifiers (some times called symbols) are short strings that identify the given entity. An example is `groundwater`.
-- Names are typically more descriptive, e.g. "Groundwater denitrification rate at 20 degrees Celsius".
+- Identifiers (some times called symbols) are short strings that identify the given entity. An example is `gw_denitr`. These are used to refer to the entity inside the model (and also in [mobipy](../mobipydocs/mobipy.html)).
+- Names are typically more descriptive, e.g. "Groundwater denitrification rate at 20 degrees Celsius". These are often used to refer to the entity in contexts outside the model code, for instance in [data files](../datafiledocs/datafiles.html) or in [MobiView2](../mobiviewdocs/mobiview.html).
 
 ## Modules
 

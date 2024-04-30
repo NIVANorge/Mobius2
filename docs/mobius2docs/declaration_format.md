@@ -86,7 +86,7 @@ Units are declared using a completely separate format. See the [unit documentati
 
 ## The declaration body
 
-Some declarations can have or require a declaration body. Declaration bodies are always enclosed in curly brackets `{ .. }`. There are two main types of declaration bodies: Declaration scope and function scope. The body type of a declaration depends on the declaration type.
+Some declarations can have or require a declaration body. Declaration bodies are always enclosed in curly brackets `{ .. }`. There are two main types of declaration bodies: Declaration body and math body. The body type of a declaration depends on the declaration type.
 
 ### Declaration scope bodies
 
@@ -94,9 +94,9 @@ Declaration scope bodies contain a sequence of other declarations. They create a
 
 A declaration scope body can also contain a single so-called docstring. This can be used by the model creator (or dataset creator) to provide the user with information about how to use this model component. The docstring is a free-floating string literal.
 
-### Function scope bodies
+### Math scope bodies
 
-This is a math expression following the [Mobius2 math format](math_format.html). The math expression typically computes a single value. Function scope bodies can reference certain types of entities that are visible in the outer scope, but you can not declare entities there, only local variables. Unlike the declaration scope, the function scope also has a strict ordering of expressions.
+A math body is a \<block\> described by the [Mobius2 math format](math_format.html). The math expression typically computes a single value. Math scope bodies can reference certain types of entities that are visible in the outer scope, but you can not declare entities there, only local variables. Unlike the declaration scope, the math scope also has a strict ordering of expressions.
 
 ### Special
 
@@ -126,7 +126,7 @@ A description of the module
 	}
 }
 ```
-In the above example, the `module` declaration has a body with its own scope containing one `par_group`, one `var` declaration and a `flux` declaration. The par_group creates its own inner scope, but exports the parameter symbols from within it to the module scope. The `flux` declaration has a function body that is able to reference entities in the module scope.
+In the above example, the `module` declaration has a body with its own scope containing one `par_group`, one `var` declaration and a `flux` declaration. The par_group creates its own inner scope, but exports the parameter symbols from within it to the module scope. The `flux` declaration has a math body that is able to reference entities in the module scope.
 
 ## Names
 
@@ -140,7 +140,7 @@ Following the main body (if it has one), a declaration can have zero or more not
 
 Example:
 ```python
-# The @initial note has no arguments, but has a function body.
+# The @initial note has no arguments, but has a math body.
 var(soil.water, [m m], "Soil water") @initial { fc }
 ```
 

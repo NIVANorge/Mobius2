@@ -9,7 +9,7 @@ comment: "While we use python markup for code snippets, they are not actually py
 
 # The Mobius2 math format
 
-Math expressions in Mobius2 are for the most part written using a purely functional style. This means that almost every expression evaluates to a value, and there are no side effects. (There are exceptions to this, but they are only used in rare occations).
+Math expressions in Mobius2 are for the most part written using a purely "functional style". This means that almost every expression evaluates to a value, and there are no side effects. (There are exceptions to this, but they are only used in rare occations).
 
 Like the entire [Mobius2 declaration format](declaration_format.html), the math expressions are whitespace-agnostic, so use of newlines and tabulars are for human readability reasons only.
 

@@ -97,12 +97,11 @@ model("Hydrology model") {
 		# river section to discharge to another, that will be explained
 		# in a later guide.
 		
-		# Note how the unit of the flux doesn't need to have a unit that matches
+		# Note how the flux doesn't need to have a unit that matches
 		# the sampling step of the data set. The model will know on its own how to
 		# convert the flux into the right scale. This also means that you can run
 		# the same model with different sampling steps without making changes to
 		# the model formulation!
-		
 		flux(river.water, out, [m 3, s-1], "River discharge") {
 			# This is just a very simple example formula, and should not be used in practice.
 			

@@ -58,7 +58,7 @@ sc : index_set("Subcatchment") [ "Coull" ] # Just one subcatchment for now
 
 ```python
 # You could let the group index over both lu and sc, but in the data set you are free to
-# reduce the number of index 
+# reduce the number of index set dependencies.
 par_group("Soil hydrology", lu) {
 	
 	# Provide one parameter value per index
@@ -108,12 +108,11 @@ module("River hydrology", version(0, 0, 1)) {
 	# river section to discharge to another, that will be explained
 	# in a later guide.
 	
-	# Note how the unit of the flux doesn't need to have a unit that matches
+	# Note how the flux doesn't need to have a unit that matches
 	# the sampling step of the data set. The model will know on its own how to
 	# convert the flux into the right scale. This also means that you can run
 	# the same model with different sampling steps without making changes to
 	# the model formulation!
-	
 	flux(river.water, out, [m 3, s-1], "River discharge") {
 		# This is just a very simple example formula, and should not be used in practice.
 		
@@ -148,12 +147,13 @@ unit_conversion(soil.water, river.water) { A_c }
 unit_conversion(gw.water,   river.water) { A_c }
 ```
 
-Mobius2 will on its own scale the unit conversion so that the final units match.
+Mobius2 will on its own scale the unit conversion so that the final units match. (That is, you don't have to worry about the fact that `1[m m]*1[k m 2] = 1e3[m 3]`, Mobius2 will figure out that it needs to multiply with the factor of `1e3` to make the units match up).
 
 ![Calibrate](images/04_calibrate.png)
 
 You can now try to calibrate the model. Keep in mind that some of the process descriptions are very simple, so don't expect to get a perfect fit. Here are some tips:
 - In the beginning, Lock ![Lock](../../img/toolbar/Lock.png) the Landscape units index set when you edit the parameters since having separate parameters for each can be overwhelming when trying to create an initial fit. You can then unlock it later and provide separate parameters for more nuance if you want to.
+- See how the [goodness-of-fit statistics](../../mobiviewdocs/statistics.html) in the stat window change when you change a parameter and rerun the model. If the change is green, it means an improvement of that statistic.
 - If there is too much water in the river, increase the Degree-day factor for evapotranspiration.
 - If the flow peaks are too smoothed out, increase the Soil water time constant.
 - If the river empties too quickly during low flow, increase Groundwater time constant, and also experiment with the baseflow index.

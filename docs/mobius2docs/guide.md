@@ -22,4 +22,5 @@ A good complement to the guide is to read the code of [existing modules and mode
 Planned next chapters:
 - Dissolved quantites
 - Graph connections
+- Grids (simple layered lake)
 - (more)

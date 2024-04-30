@@ -3,6 +3,8 @@
 	*** High pri ***
 		
 		
+		Document token types in the common declaration format.
+		
 		Merge unit_conversion and aggregation_weight to just "weight".
 		
 		MobiView:
