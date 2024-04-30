@@ -70,7 +70,7 @@ par_group("Soil hydrology", lu) {
 
 See the data format [documentation](../datafiledocs/new_project.html#parameter-groups) for a more detailed description of how to work with parameter group distributions in the data file.
 
-![The model](images/03.png)
+![The model](images/04.png)
 
 You should now be able to see multiple parameters and state variables (Here we have clicked "Expand" ![Expand](../../img/toolbar/Add.png) under both the parameter index selection and the plot index selection).
 
