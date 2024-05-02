@@ -40,6 +40,29 @@ module("NIVAFjord basin", version(0, 0, 3),
 	sw_sed    : loc,
 	dims      : preamble
 ) {
+"""
+This is the physics component for a single basin of the NIVAFjord model.
+
+The model is loosely based on the model [Eutrofimodell for Indre Oslofjord (Norwegian only)](https://niva.brage.unit.no/niva-xmlui/handle/11250/207887).
+
+Each basin is divided into a set of (assumed horizontally mixed) layers of potentially varying thickness.
+
+Turbulent vertical mixing is computed assuming constant turbulent energy (per layer), which implies a fixed dependency of the mixing rate on the [Brunt-Väisälä frequency](https://en.wikipedia.org/wiki/Brunt%E2%80%93V%C3%A4is%C3%A4l%C3%A4_frequency) proportional to
+
+$$
+r_0(N/N_0)^\alpha
+$$
+
+where $$N$$ is the Brunt-Väisälä frequency, $$N_0$$ a reference frequency, $$r_0$$ the mixing rate at the reference frequency and $$\alpha \sim 1.4$$ an exponential dependency. The reference rate $$r_0$$ can be set separately per layer.
+
+Wind-driven mixing and mixing from ship traffic is added on top.
+
+The basin model is also similar to MyLake.
+
+MyLake—A multi-year lake simulation model code suitable for uncertainty and sensitivity analysis simulations, Tuomo M. Saloranta and Tom Andersen 2007, Ecological Modelling 207(1), 45-60, [https://doi.org/10.1016/j.ecolmodel.2007.03.018](https://doi.org/10.1016/j.ecolmodel.2007.03.018)
+
+Authors: Magnus D. Norling
+"""
 
 	load("stdlib/basic_math.txt", library("Basic"))
 	load("stdlib/physiochemistry.txt", library("Water utils"), library("Basic constants"))

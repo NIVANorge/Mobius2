@@ -28,9 +28,7 @@ It can be convenient to put a single docstring inside your data set declaration 
 data_set {
 """
 Meteorological data was obtained from ..., and so on.
-
 Parameters are calibrated to minimize ...
-
 Data set created by ... for the ... project, 2024-05-01
 """
 

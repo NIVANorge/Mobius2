@@ -748,6 +748,7 @@ main() {
 		{"SimplyN", "simplyn_model.txt", "SimplyN"},
 		{"SimplyP", "simplyp_model.txt", "SimplyP", "SimplySed"},
 		{"EasyLake", "easylake_simplycnp_model.txt", "EasyLake", "AirSea Lake", "EasyChem", "EasyChem-Particulate"},
+		{"NIVAFjord", "nivafjord_simplycnp_model.txt", "NIVAFjord dimensions", "NIVAFjord basin"},
 	};
 	// TODO: Maybe have AirSea lake in a separate file.
 	// Also: snow, evapotranspiration.

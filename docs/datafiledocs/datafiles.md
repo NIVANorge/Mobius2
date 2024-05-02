@@ -23,7 +23,7 @@ Time series can be provided either on a [`.csv`](csv_format.html) or [`.xlsx`](x
 
 Model inputs are forcings that are used by the model for computations. These are declared as [variables](../mobius2docs/central_concepts.html#properties) in the module files, and show up under "Input data series" in [MobiView2](../mobiviewdocs/plotting.html).
 
-You can put as many comparison time series you want into your data files using the same format as model series (name them anything that is not the name of a model series). These will be loaded, but not used in the model computation. This is useful for instance when you want to plot your model results against observations, compute [goodness-of-fit statistics](../mobiviewdocs/statistics.html), [autocalibrate](../mobiviewdocs/sensitivity.html) etc.
+You can put as many comparison time series you want into your data files using the same format as model series (name them anything that is not the name of a model series). These will be loaded and displayed as "Additional series", but not used in the model computation. This is useful for instance when you want to plot your model results against observations, compute [goodness-of-fit statistics](../mobiviewdocs/statistics.html), [autocalibrate](../mobiviewdocs/sensitivity.html) etc.
 
 ## The sampling step
 

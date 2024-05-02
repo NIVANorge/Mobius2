@@ -138,7 +138,7 @@ property(name:quoted_string)
 property(name:quoted_string) { <math-body> }
 ```
 
-The entities are colloquially known as "component".
+These entities are collectively known as "component".
 
 A distribution can create one copy of all state variables with this component in their *location* (whether or not that happens in practice comes down to several factors - will be documented later). It can also be used to distribute [parameter groups](#par_group).
 
@@ -192,7 +192,7 @@ par_enum(name:quoted_string, default:identifier) { <special> }
 par_enum(name:quoted_string, default:identifier, description:quoted_string) { <special> }
 ```
 
-These entities are collquially known as "parameter". Parameters are values that are held constant through each single model run, but unlike `constant`s, can be configured to have different values in e.g. data files or MobiView2. Parameters can also be distributed over index sets (this is determined by the `par_group` they are in).
+These entities are collectively known as "parameter". Parameters are values that are held constant through each single model run, but unlike `constant`s, can be configured to have different values in e.g. data files or MobiView2. Parameters can also be distributed over index sets (this is determined by the `par_group` they are in).
 
 - The `default` value is what you get for the parameter value if a specific value is not provided in the data set.
 - The optional `min` and `max` values are guidelines to the user only, and the model will not complain if the user sets a value outside this bound. The bound is also the defaut bound for [sensitivity and optimization](../mobiviewdocs/sensitivity.html) setups.
@@ -221,7 +221,11 @@ Context: model, module, preamble, library scopes.
 
 Bind to identifier: yes
 
-Signature: function(<special>) { <math-body }
+Signature:
+
+```python
+function(<special>) { <math-body }
+```
 
 Functions in Mobius2 are meant to be used as simple code snippets that can be reused in many places.
 
