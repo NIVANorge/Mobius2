@@ -13,7 +13,7 @@ Since the modules can be dynamically loaded with different arguments, this docum
 
 See the note on [notation](autogen.html#notation).
 
-The file was generated at 2024-05-02 10:56:43.
+The file was generated at 2024-05-02 11:04:39.
 
 ---
 
@@ -151,7 +151,7 @@ Unit: °C
 Value:
 
 $$
-\href{stdlib.html#seawater}{\mathrm{ice\_formation\_temperature}}\left(\mathrm{layer}.\mathrm{water}.\mathrm{salinity}\[\mathrm{vert}.\mathrm{top}\]\right)
+\href{stdlib.html#seawater}{\mathrm{ice\_formation\_temperature}}\left(\mathrm{layer}.\mathrm{water}.\mathrm{salinity}\lbrack\mathrm{vert}.\mathrm{top}\rbrack\right)
 $$
 
 #### **Layer thickness**
@@ -163,7 +163,7 @@ Unit: m
 Value:
 
 $$
-\mathrm{Aavg} = 0.5\cdot \left(\mathrm{A}+\mathrm{A}\[\mathrm{vert}.\mathrm{below}\]\right) \\ \frac{\mathrm{water}}{\mathrm{Aavg}}
+\mathrm{Aavg} = 0.5\cdot \left(\mathrm{A}+\mathrm{A}\lbrack\mathrm{vert}.\mathrm{below}\rbrack\right) \\ \frac{\mathrm{water}}{\mathrm{Aavg}}
 $$
 
 Initial value:
@@ -181,7 +181,7 @@ Unit: m
 Value:
 
 $$
-\mathrm{z}\[\mathrm{vert}.\mathrm{above}\]+\mathrm{dz}\[\mathrm{vert}.\mathrm{above}\]
+\mathrm{z}\lbrack\mathrm{vert}.\mathrm{above}\rbrack+\mathrm{dz}\lbrack\mathrm{vert}.\mathrm{above}\rbrack
 $$
 
 #### **Basin sea level**
@@ -205,7 +205,7 @@ Unit: m²
 Value:
 
 $$
-\mathrm{A}\[\mathrm{vert}.\mathrm{top}\]
+\mathrm{A}\lbrack\mathrm{vert}.\mathrm{top}\rbrack
 $$
 
 #### **Layer water**
@@ -217,7 +217,7 @@ Unit: m³
 Initial value:
 
 $$
-\mathrm{Aavg} = 0.5\cdot \left(\mathrm{A}+\mathrm{A}\[\mathrm{vert}.\mathrm{below}\]\right) \\ \mathrm{Aavg}\cdot \mathrm{dz0}
+\mathrm{Aavg} = 0.5\cdot \left(\mathrm{A}+\mathrm{A}\lbrack\mathrm{vert}.\mathrm{below}\rbrack\right) \\ \mathrm{Aavg}\cdot \mathrm{dz0}
 $$
 
 #### **Layer salt**
@@ -303,7 +303,7 @@ Unit: Pa
 Value:
 
 $$
-\mathrm{pressure}\[\mathrm{vert}.\mathrm{above}\]+\mathrm{rho}\cdot \mathrm{grav}\cdot \mathrm{dz}
+\mathrm{pressure}\lbrack\mathrm{vert}.\mathrm{above}\rbrack+\mathrm{rho}\cdot \mathrm{grav}\cdot \mathrm{dz}
 $$
 
 #### **d(dens)**
@@ -315,7 +315,7 @@ Unit: kg m⁻³
 Value:
 
 $$
-\mathrm{rho}\[\mathrm{vert}.\mathrm{below}\]-\mathrm{rho}
+\mathrm{rho}\lbrack\mathrm{vert}.\mathrm{below}\rbrack-\mathrm{rho}
 $$
 
 #### **Brunt-Väisälä frequency**
@@ -327,7 +327,7 @@ Unit: s⁻¹
 Value:
 
 $$
-\mathrm{mdz} = 0.5\cdot \left(\mathrm{dz}+\mathrm{dz}\[\mathrm{vert}.\mathrm{below}\]\right) \\ \mathrm{N2} = \mathrm{grav}\cdot \frac{\mathrm{ddens}}{\mathrm{mdz}\cdot \mathrm{rho}} \\ \sqrt{\mathrm{max}\left(\mathrm{Nmin}^{2},\, \mathrm{N2}\right)}
+\mathrm{mdz} = 0.5\cdot \left(\mathrm{dz}+\mathrm{dz}\lbrack\mathrm{vert}.\mathrm{below}\rbrack\right) \\ \mathrm{N2} = \mathrm{grav}\cdot \frac{\mathrm{ddens}}{\mathrm{mdz}\cdot \mathrm{rho}} \\ \sqrt{\mathrm{max}\left(\mathrm{Nmin}^{2},\, \mathrm{N2}\right)}
 $$
 
 #### **Wind stress**
@@ -351,7 +351,7 @@ Unit: J
 Value:
 
 $$
-\mathrm{A}\[\mathrm{vert}.\mathrm{top}\]\cdot \sqrt{\frac{\mathrm{stress}^{3}}{\mathrm{layer}.\mathrm{water}.\mathrm{rho}\[\mathrm{vert}.\mathrm{top}\]}}\cdot \mathrm{time}.\mathrm{step\_length\_in\_seconds}
+\mathrm{A}\lbrack\mathrm{vert}.\mathrm{top}\rbrack\cdot \sqrt{\frac{\mathrm{stress}^{3}}{\mathrm{layer}.\mathrm{water}.\mathrm{rho}\lbrack\mathrm{vert}.\mathrm{top}\rbrack}}\cdot \mathrm{time}.\mathrm{step\_length\_in\_seconds}
 $$
 
 #### **Sum V above**
@@ -363,7 +363,7 @@ Unit: m³
 Value:
 
 $$
-\mathrm{sumV}\[\mathrm{vert}.\mathrm{above}\]+\mathrm{A}\[\mathrm{vert}.\mathrm{above}\]\cdot \mathrm{dz}\[\mathrm{vert}.\mathrm{above}\]
+\mathrm{sumV}\lbrack\mathrm{vert}.\mathrm{above}\rbrack+\mathrm{A}\lbrack\mathrm{vert}.\mathrm{above}\rbrack\cdot \mathrm{dz}\lbrack\mathrm{vert}.\mathrm{above}\rbrack
 $$
 
 #### **Potential energy needed for wind mixing**
@@ -399,7 +399,7 @@ Unit: J
 Value:
 
 $$
-\mathrm{emix}\[\mathrm{vert}.\mathrm{above}\]+\mathrm{summix}\[\mathrm{vert}.\mathrm{above}\]
+\mathrm{emix}\lbrack\mathrm{vert}.\mathrm{above}\rbrack+\mathrm{summix}\lbrack\mathrm{vert}.\mathrm{above}\rbrack
 $$
 
 #### **Wind mixing coefficient**
@@ -411,7 +411,7 @@ Unit: m² s⁻¹
 Value:
 
 $$
-\mathrm{rem} = \mathrm{max}\left(0,\, \mathrm{basin}.\mathrm{emix}\[\mathrm{vert}.\mathrm{below}\]-\mathrm{summix}\[\mathrm{vert}.\mathrm{below}\]\right) \\ \mathrm{mixspeed} = 1 \mathrm{m}\,\mathrm{day}^{-1}\, \\ \begin{cases}\left(\mathrm{mixspeed}\cdot \mathrm{dz}\rightarrow \mathrm{m}^{2}\,\mathrm{s}^{-1}\,\right) & \text{if}\;\mathrm{rem}>0\;\text{and}\;\mathrm{potmix}<10^{20} \mathrm{J}\, \\ \left(\mathrm{mixspeed}\cdot \mathrm{dz}\cdot \href{stdlib.html#basic}{\mathrm{safe\_divide}}\left(\mathrm{emix}\[\mathrm{vert}.\mathrm{below}\],\, \mathrm{potmix}\[\mathrm{vert}.\mathrm{below}\]\right)\rightarrow \mathrm{m}^{2}\,\mathrm{s}^{-1}\,\right) & \text{otherwise}\end{cases}
+\mathrm{rem} = \mathrm{max}\left(0,\, \mathrm{basin}.\mathrm{emix}\lbrack\mathrm{vert}.\mathrm{below}\rbrack-\mathrm{summix}\lbrack\mathrm{vert}.\mathrm{below}\rbrack\right) \\ \mathrm{mixspeed} = 1 \mathrm{m}\,\mathrm{day}^{-1}\, \\ \begin{cases}\left(\mathrm{mixspeed}\cdot \mathrm{dz}\rightarrow \mathrm{m}^{2}\,\mathrm{s}^{-1}\,\right) & \text{if}\;\mathrm{rem}>0\;\text{and}\;\mathrm{potmix}<10^{20} \mathrm{J}\, \\ \left(\mathrm{mixspeed}\cdot \mathrm{dz}\cdot \href{stdlib.html#basic}{\mathrm{safe\_divide}}\left(\mathrm{emix}\lbrack\mathrm{vert}.\mathrm{below}\rbrack,\, \mathrm{potmix}\lbrack\mathrm{vert}.\mathrm{below}\rbrack\right)\rightarrow \mathrm{m}^{2}\,\mathrm{s}^{-1}\,\right) & \text{otherwise}\end{cases}
 $$
 
 #### **Tide wave mixing coefficient**
@@ -447,7 +447,7 @@ Unit: m day⁻¹
 Value:
 
 $$
-\mathrm{dz\_} = 0.5\cdot \left(\mathrm{dz}+\mathrm{dz}\[\mathrm{vert}.\mathrm{below}\]\right) \\ \mathrm{K} = \mathrm{Kt}+\mathrm{Ks}+\mathrm{Kw} \\ \left(\frac{\mathrm{K}}{\mathrm{dz\_}}\rightarrow \mathrm{m}\,\mathrm{day}^{-1}\,\right)
+\mathrm{dz\_} = 0.5\cdot \left(\mathrm{dz}+\mathrm{dz}\lbrack\mathrm{vert}.\mathrm{below}\rbrack\right) \\ \mathrm{K} = \mathrm{Kt}+\mathrm{Ks}+\mathrm{Kw} \\ \left(\frac{\mathrm{K}}{\mathrm{dz\_}}\rightarrow \mathrm{m}\,\mathrm{day}^{-1}\,\right)
 $$
 
 #### **Layer shortwave radiation**
@@ -475,7 +475,7 @@ Unit: m³ day⁻¹
 Value:
 
 $$
-\mathrm{wmix}\cdot \mathrm{A}\[\mathrm{vert}.\mathrm{below}\]
+\mathrm{wmix}\cdot \mathrm{A}\lbrack\mathrm{vert}.\mathrm{below}\rbrack
 $$
 
 #### **Shortwave shine-through**
@@ -489,7 +489,7 @@ Unit: J day⁻¹
 Value:
 
 $$
-\left(\mathrm{in\_flux}\left(\mathrm{sw\_vert},\, \mathrm{layer}.\mathrm{water}.\mathrm{heat}\right)\rightarrow \mathrm{J}\,\mathrm{day}^{-1}\,\right)\cdot \left(1-\mathrm{attn}\right)\cdot \frac{\mathrm{A}\[\mathrm{vert}.\mathrm{below}\]}{\mathrm{A}}
+\left(\mathrm{in\_flux}\left(\mathrm{sw\_vert},\, \mathrm{layer}.\mathrm{water}.\mathrm{heat}\right)\rightarrow \mathrm{J}\,\mathrm{day}^{-1}\,\right)\cdot \left(1-\mathrm{attn}\right)\cdot \frac{\mathrm{A}\lbrack\mathrm{vert}.\mathrm{below}\rbrack}{\mathrm{A}}
 $$
 
 #### **Shortwave to sediments**
@@ -503,7 +503,7 @@ Unit: J day⁻¹
 Value:
 
 $$
-\left(\mathrm{in\_flux}\left(\mathrm{sw\_vert},\, \mathrm{layer}.\mathrm{water}.\mathrm{heat}\right)\rightarrow \mathrm{J}\,\mathrm{day}^{-1}\,\right)\cdot \left(1-\mathrm{attn}\right)\cdot \frac{\mathrm{A}-\mathrm{A}\[\mathrm{vert}.\mathrm{below}\]}{\mathrm{A}}
+\left(\mathrm{in\_flux}\left(\mathrm{sw\_vert},\, \mathrm{layer}.\mathrm{water}.\mathrm{heat}\right)\rightarrow \mathrm{J}\,\mathrm{day}^{-1}\,\right)\cdot \left(1-\mathrm{attn}\right)\cdot \frac{\mathrm{A}-\mathrm{A}\lbrack\mathrm{vert}.\mathrm{below}\rbrack}{\mathrm{A}}
 $$
 
 

@@ -322,9 +322,9 @@ print_equation(Print_Equation_Context &context, Math_Expr_AST *ast, bool outer =
 		} else {
 			print_chain(context, ident->chain);
 			if(!ident->bracketed_chain.empty()) {
-				context.ss << "\\[";
+				context.ss << "\\lbrack";
 				print_chain(context, ident->bracketed_chain);
-				context.ss << "\\]";
+				context.ss << "\\rbrack";
 			}
 		}
 	} else if (ast->type == Math_Expr_Type::literal) {
