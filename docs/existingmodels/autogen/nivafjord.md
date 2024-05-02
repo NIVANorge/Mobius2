@@ -3,7 +3,7 @@ layout: default
 title: NIVAFjord
 parent: Mathematical description
 grand_parent: Existing models
-nav_order: 5
+nav_order: 2
 ---
 
 # NIVAFjord
@@ -13,7 +13,7 @@ Since the modules can be dynamically loaded with different arguments, this docum
 
 See the note on [notation](autogen.html#notation).
 
-The file was generated at 2024-05-02 11:04:39.
+The file was generated at 2024-05-02 11:09:16.
 
 ---
 

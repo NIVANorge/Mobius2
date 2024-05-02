@@ -3,7 +3,7 @@ layout: default
 title: Standard library
 parent: Mathematical description
 grand_parent: Existing models
-nav_order: 6
+nav_order: 3
 ---
 
 # The Mobius2 standard library
@@ -14,7 +14,7 @@ The standard library provides common functions and constants for many models.
 
 See the note on [notation](autogen.html#notation).
 
-The file was generated at 2024-05-02 11:04:39.
+The file was generated at 2024-05-02 11:09:16.
 
 ---
 

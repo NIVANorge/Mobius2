@@ -743,10 +743,7 @@ main() {
 	
 	// TODO: Read these from a file:
 	std::vector<std::vector<const char *>> models = {
-		{"SimplyQ", "simplyq_model.txt", "SimplyQ land", "SimplyQ river"},
-		{"SimplyC", "simplyc_model.txt", "SimplyC land", "SimplyC river"},
-		{"SimplyN", "simplyn_model.txt", "SimplyN"},
-		{"SimplyP", "simplyp_model.txt", "SimplyP", "SimplySed"},
+		{"SimplyCNP", "simplycnp_model.txt", "SimplyQ land", "SimplyQ river", "SimplyC land", "SimplyC river", "SimplyN", "SimplyP", "SimplySed"},
 		{"EasyLake", "easylake_simplycnp_model.txt", "EasyLake", "AirSea Lake", "EasyChem", "EasyChem-Particulate"},
 		{"NIVAFjord", "nivafjord_simplycnp_model.txt", "NIVAFjord dimensions", "NIVAFjord basin"},
 	};

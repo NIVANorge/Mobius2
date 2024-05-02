@@ -37,7 +37,7 @@ SimplyQ is a simple hydrology module. It is formulated as a two-box [linear rese
 
 The river component of SimplyQ transports the water along a branched river network.
 
-See the [mathematical description](autogen/simplyq.html)
+See the [mathematical description](autogen/simplycnp.html#simplyq)
 
 ## SimplyCNP
 
@@ -53,25 +53,25 @@ In the groundwater, the DOC concentration is either constant, set to the soil wa
 
 In the river, the DOC can be given a [Q10](https://en.wikipedia.org/wiki/Q10_(temperature_coefficient))-governed decay rate.
 
-See the [mathematical description](autogen/simplyc.html)
+See the [mathematical description](autogen/simplycnp.html#simplyc-land)
 
 ## SimplyN
 
 SimplyN is a dissolved inorganic nitrate (DIN) module. It allows for atmospheric deposition and fixation inputs, fertilizer inputs and uptake+denitrification removal. There is also a Q10-based denitrification loss process in the river.
 
-See the [mathematical description](autogen/simplyn.html)
+See the [mathematical description](autogen/simplycnp.html#simplyn)
 
 ## SimplySed
 
 SimplySed is a suspended sediment mobilization and transport module. Land erosion depends on land slope, and can depend on a dynamic vegetation cover factor. Erosion also depends on the flow of water from land to the river.
 
-See the [mathematical description](autogen/simplyp.html#simplysed)
+See the [mathematical description](autogen/simplycnp.html#simplysed)
 
 ## SimplyP
 
 SimplyP is a module for total dissolved phosphourous (TDP) and particulate phosphorous (PP). TDP in the soil solution is modeled using an *equilibrium phosphate concentration at net zero sorption* (EPC0) - type process, where the EPC0 can change over time. This model was first published in \[JacksonBlake17\].
 
-See the [mathematical description](autogen/simplyp.html#simplyp)
+See the [mathematical description](autogen/simplycnp.html#simplyp)
 
 ## SimplyTox
 
