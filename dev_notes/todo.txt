@@ -3,9 +3,16 @@
 	*** High pri ***
 		
 		
+		Error: We can't find a way to convert between the declared concentration unit mg l⁻¹ and the computed concentration unit kg ha⁻² mm⁻¹.
+			It should be able to do that..
+		
+		NIVAFjord basin.emix[vert.below] doesn't cause an error even though basin is not on that connection.
+		
+		
+		
 		Document token types in the common declaration format.
 		
-		Merge unit_conversion and aggregation_weight to just "weight".
+		Merge unit_conversion and aggregation_weight to just "weight" (?)
 		
 		MobiView:
 			Make it so that editing map based parameters works when the last index is not position based (?)

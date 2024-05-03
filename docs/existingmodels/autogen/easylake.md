@@ -13,7 +13,7 @@ Since the modules can be dynamically loaded with different arguments, this docum
 
 See the note on [notation](autogen.html#notation).
 
-The file was generated at 2024-05-02 11:09:16.
+The file was generated at 2024-05-03 09:31:46.
 
 ---
 
@@ -339,6 +339,8 @@ Source: epi.water
 Target: hyp.water
 
 Unit: m³ day⁻¹
+
+This is a mixing flux (affects dissolved quantities only)
 
 Value:
 

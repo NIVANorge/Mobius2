@@ -610,6 +610,8 @@ document_module(std::stringstream &ss, Mobius_Model *model, std::string &module_
 			print_double_chain(ss, target->chain, target->bracketed_chain);
 			ss << "\n\n";
 			ss << "Unit: " << unit_str(model, flux->unit) << "\n\n";
+			if(flux->mixing)
+				ss << "This is a mixing flux (affects dissolved quantities only)\n\n";
 			
 			Print_Equation_Context context;
 			context.model = model;

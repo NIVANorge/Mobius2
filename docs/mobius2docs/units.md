@@ -92,4 +92,6 @@ Mobius2 internally converts all units down to a standard form which is a single 
 
 For instance, the standard form of `[k W, m m]` is 10³ g m³ s⁻³.
 
-Two units can be converted to one another if they have the same *dimension*, that is if everything except for the scaling factor is the same (the base units and their powers). If two units can be converted to one another, the conversion factor is the ratio of the two scaling factor in one way or another.
+## Conversion
+
+Two units can be converted to one another if they have the same *dimension*, that is if everything in their standard forms except for the scaling factor is the same (the base units and their powers). If two units can be converted to one another, the conversion factor is the ratio of the two scaling factor in one way or another.

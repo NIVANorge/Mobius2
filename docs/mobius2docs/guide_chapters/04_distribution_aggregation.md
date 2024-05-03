@@ -3,7 +3,7 @@ layout: default
 title: 04 Distribution and aggregation
 parent: Guide
 grand_parent: Model language
-nav_order: 1
+nav_order: 3
 comment: "While we use python markup for code snippets, they are not actually python, it just creates convenient coloring for this format."
 ---
 
@@ -151,12 +151,15 @@ Mobius2 will on its own scale the unit conversion so that the final units match.
 
 ![Calibrate](images/04_calibrate.png)
 
-You can now try to calibrate the model. Keep in mind that some of the process descriptions are very simple, so don't expect to get a perfect fit. Here are some tips:
-- In the beginning, Lock ![Lock](../../img/toolbar/Lock.png) the Landscape units index set when you edit the parameters since having separate parameters for each can be overwhelming when trying to create an initial fit. You can then unlock it later and provide separate parameters for more nuance if you want to.
-- See how the [goodness-of-fit statistics](../../mobiviewdocs/statistics.html) in the stat window change when you change a parameter and rerun the model. If the change is green, it means an improvement of that statistic.
-- If there is too much water in the river, increase the Degree-day factor for evapotranspiration.
-- If the flow peaks are too smoothed out, increase the Soil water time constant.
-- If the river empties too quickly during low flow, increase Groundwater time constant, and also experiment with the baseflow index.
+## Exercises
+
+- Calibrate the model. Keep in mind that some of the process descriptions are very simple, so don't expect to get a perfect fit. Here are some tips:
+	- In the beginning, Lock ![Lock](../../img/toolbar/Lock.png) the Landscape units index set when you edit the parameters since having separate parameters for each can be overwhelming when trying to create an initial fit. You can then unlock it later and provide separate parameters for more nuance if you want to.
+	- See how the [goodness-of-fit statistics](../../mobiviewdocs/statistics.html) in the stat window change when you change a parameter and rerun the model. If the change is green, it means an improvement of that statistic.
+	- If there is too much water in the river, increase the Degree-day factor for evapotranspiration.
+	- If the flow peaks are too smoothed out, increase the Soil water time constant.
+	- If the river empties too quickly during low flow, increase Groundwater time constant, and also experiment with the baseflow index.
+- Improve the runoff and/or evapotranspiration fluxes by making them be smoother instead of turning on/off depending on water volume.
 
 [Full code for chapter 04](https://github.com/NIVANorge/Mobius2/tree/main/guide/04).
 

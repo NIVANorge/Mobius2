@@ -144,10 +144,9 @@ Authors: Magnus D. Norling
 	
 	ddens          : property("d(dens)")
 	Nfreq          : property("Brunt-Väisälä frequency")
-	Kt             : property("Tide wave mixing coefficient")
-	Ks             : property("Additional mixing coefficient")
-	Kw             : property("Wind mixing coefficient")
-	wmix           : property("Water mixing")
+	v_t             : property("Tide wave mixing")
+	v_s             : property("Additional mixing")
+	v_w             : property("Wind mixing")
 	
 	var(layer.water.pressure, [Pa]) {
 		pressure[vert.above] + rho*grav*dz
@@ -183,11 +182,11 @@ Authors: Magnus D. Norling
 	}
 	
 	var(layer.water.sumV, [m 3]) {
-		sumV[vert.above] + A[vert.above]*dz[vert.above]
+		sumV[vert.above] + water[vert.above]
 	} @no_store
 	
 	var(layer.water.potmix, [J]) {
-		max(0, grav*ddens*(sumV*A*dz/(sumV + A*dz))*((z+0.5*dz)/2))
+		max(0, grav*ddens*(sumV*water/(sumV + water))*((z+0.5*dz)/2))
 	} @no_store
 	
 	var(layer.water.emix, [J]) {
@@ -199,39 +198,35 @@ Authors: Magnus D. Norling
 		emix[vert.above] + summix[vert.above]
 	} @no_store
 	
-	var(layer.water.Kw, [m 2, s-1]) {
+	var(layer.water.v_w, [m, s-1]) {
+		rem := max(0, basin.emix - summix[vert.below]),
+		mixspeed := 1[m]/time.step_length_in_seconds,
 		
-		rem := max(0, basin.emix[vert.below] - summix[vert.below]),
-		mixspeed := 1[m, day-1],
-		
-		mixspeed*dz->>                                                    if rem > 0 & potmix < 1e-20[J],
-		mixspeed*dz*safe_divide(emix[vert.below], potmix[vert.below])->>  otherwise
+		0=>> if is_at[vert.bottom],
+		mixspeed->>                                                    if rem > 1e-30[J] & potmix[vert.below] < 1e-30[J],
+		mixspeed*safe_divide(emix[vert.below], potmix[vert.below])->>  otherwise
 	}
 	
-	var(layer.water.Kt, [m 2, s-1]) {
-		safe_divide(K0, (Nfreq/N0)^alpha)
+	var(layer.water.v_t, [m, s-1]) {
+		dz_ := 0.5*(dz + dz[vert.below]),
+		safe_divide(K0, dz_*(Nfreq/N0)^alpha)
 	}
 	
-	var(layer.water.Ks, [m 2, s-1]) {
+	var(layer.water.v_s, [m, s-1]) {
+		dz_ := 0.5*(dz + dz[vert.below]),
 		eta := exp(-(z - zshalf)/hsfact),
 		Es  := Es0*eta/(1+eta),
-		Es / Nfreq^2
+		Es / (dz_*Nfreq^2)
 	}
 	
-	var(layer.water.wmix, [m, day-1]) {
-		dz_ := 0.5*(dz + dz[vert.below]),
-		#dz_ := dz,
-		
-		K := Kt + Ks + Kw,
-		K / dz_ ->>
-	}
+	flux(layer.water, vert, [m 3, day-1], "Layer mixing down") { (v_t + v_s + v_w)*A[vert.below]->> } @mixing
 	
 	var(layer.water.sw, [W, m-2], "Layer shortwave radiation") {
-		# TODO: This should instead be an average through the layer. Now it is how much enters at the top.
+		# TODO: Since this variable is for use by biochemistry, 
+		# it should instead be an average through the layer.
+		# Now it is how much enters at the top.
 		in_flux(sw_vert, layer.water.heat)/A ->>
 	}
-	
-	flux(layer.water, vert, [m 3, day-1], "Layer mixing down") { wmix*A[vert.below] } @mixing
 	
 	flux(layer.water.heat, sw_vert, [J, day-1], "Shortwave shine-through") {
 		(in_flux(sw_vert, layer.water.heat)->>)*(1 - attn) * A[vert.below]/A

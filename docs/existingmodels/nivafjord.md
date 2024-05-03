@@ -11,7 +11,7 @@ NIVAFjord is a layered multi-basin model for fjords, lakes and lagoons. Each bas
 
 NIVAFjord is loosely based on the model [Eutrofimodell for Indre Oslofjord (Norwegian only)](https://niva.brage.unit.no/niva-xmlui/handle/11250/207887).
 
-## NIVAFjord basin
+## Basin
 
 This is the physics component of a single basin. It computes water balance, temperature, salinity and vertical mixing fluxes.
 
@@ -31,13 +31,13 @@ Pressure differences can either be barotropic (caused by different water levels,
 
 You can also create boundary basins where all physiochemical characteristics are user-provided instead of being computed, to simulate the open boundary of a basin to the wider ocean.
 
-## NIVAFjord FjordChem
+## FjordChem
 
 This is the biochemical component of NIVAFjord, simulating nutrients (CNP), phytoplankton, microbial processes and suspended particles.
 
 Mathematical description to appear.
 
-## NIVAFjord Sediments
+## Sediments
 
 This is the sediment component of NIVAFjord, simulating nutrients (CNP) and microbial processes.
 

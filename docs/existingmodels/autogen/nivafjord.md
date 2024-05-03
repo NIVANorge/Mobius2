@@ -13,7 +13,7 @@ Since the modules can be dynamically loaded with different arguments, this docum
 
 See the note on [notation](autogen.html#notation).
 
-The file was generated at 2024-05-02 11:09:16.
+The file was generated at 2024-05-03 09:31:46.
 
 ---
 
@@ -363,7 +363,7 @@ Unit: m³
 Value:
 
 $$
-\mathrm{sumV}\lbrack\mathrm{vert}.\mathrm{above}\rbrack+\mathrm{A}\lbrack\mathrm{vert}.\mathrm{above}\rbrack\cdot \mathrm{dz}\lbrack\mathrm{vert}.\mathrm{above}\rbrack
+\mathrm{sumV}\lbrack\mathrm{vert}.\mathrm{above}\rbrack+\mathrm{water}\lbrack\mathrm{vert}.\mathrm{above}\rbrack
 $$
 
 #### **Potential energy needed for wind mixing**
@@ -375,7 +375,7 @@ Unit: J
 Value:
 
 $$
-\mathrm{max}\left(0,\, \mathrm{grav}\cdot \mathrm{ddens}\cdot \mathrm{sumV}\cdot \mathrm{A}\cdot \frac{\mathrm{dz}}{\mathrm{sumV}+\mathrm{A}\cdot \mathrm{dz}}\cdot \frac{\mathrm{z}+0.5\cdot \mathrm{dz}}{2}\right)
+\mathrm{max}\left(0,\, \mathrm{grav}\cdot \mathrm{ddens}\cdot \mathrm{sumV}\cdot \frac{\mathrm{water}}{\mathrm{sumV}+\mathrm{water}}\cdot \frac{\mathrm{z}+0.5\cdot \mathrm{dz}}{2}\right)
 $$
 
 #### **Wind mixing energy**
@@ -402,52 +402,40 @@ $$
 \mathrm{emix}\lbrack\mathrm{vert}.\mathrm{above}\rbrack+\mathrm{summix}\lbrack\mathrm{vert}.\mathrm{above}\rbrack
 $$
 
-#### **Wind mixing coefficient**
+#### **Wind mixing**
 
-Location: **layer.water.Kw**
+Location: **layer.water.v_w**
 
-Unit: m² s⁻¹
-
-Value:
-
-$$
-\mathrm{rem} = \mathrm{max}\left(0,\, \mathrm{basin}.\mathrm{emix}\lbrack\mathrm{vert}.\mathrm{below}\rbrack-\mathrm{summix}\lbrack\mathrm{vert}.\mathrm{below}\rbrack\right) \\ \mathrm{mixspeed} = 1 \mathrm{m}\,\mathrm{day}^{-1}\, \\ \begin{cases}\left(\mathrm{mixspeed}\cdot \mathrm{dz}\rightarrow \mathrm{m}^{2}\,\mathrm{s}^{-1}\,\right) & \text{if}\;\mathrm{rem}>0\;\text{and}\;\mathrm{potmix}<10^{20} \mathrm{J}\, \\ \left(\mathrm{mixspeed}\cdot \mathrm{dz}\cdot \href{stdlib.html#basic}{\mathrm{safe\_divide}}\left(\mathrm{emix}\lbrack\mathrm{vert}.\mathrm{below}\rbrack,\, \mathrm{potmix}\lbrack\mathrm{vert}.\mathrm{below}\rbrack\right)\rightarrow \mathrm{m}^{2}\,\mathrm{s}^{-1}\,\right) & \text{otherwise}\end{cases}
-$$
-
-#### **Tide wave mixing coefficient**
-
-Location: **layer.water.Kt**
-
-Unit: m² s⁻¹
+Unit: m s⁻¹
 
 Value:
 
 $$
-\href{stdlib.html#basic}{\mathrm{safe\_divide}}\left(\mathrm{K0},\, \left(\frac{\mathrm{Nfreq}}{\mathrm{N0}}\right)^{\mathrm{alpha}}\right)
+\mathrm{rem} = \mathrm{max}\left(0,\, \mathrm{basin}.\mathrm{emix}-\mathrm{summix}\lbrack\mathrm{vert}.\mathrm{below}\rbrack\right) \\ \mathrm{mixspeed} = \frac{1 \mathrm{m}\,}{\mathrm{time}.\mathrm{step\_length\_in\_seconds}} \\ \begin{cases}0 \mathrm{m}\,\mathrm{s}^{-1}\, & \text{if}\;\mathrm{is\_at}\lbrack\mathrm{vert}.\mathrm{bottom}\rbrack \\ \left(\mathrm{mixspeed}\rightarrow \mathrm{m}\,\mathrm{s}^{-1}\,\right) & \text{if}\;\mathrm{rem}>10^{30} \mathrm{J}\,\;\text{and}\;\mathrm{potmix}\lbrack\mathrm{vert}.\mathrm{below}\rbrack<10^{30} \mathrm{J}\, \\ \left(\mathrm{mixspeed}\cdot \href{stdlib.html#basic}{\mathrm{safe\_divide}}\left(\mathrm{emix}\lbrack\mathrm{vert}.\mathrm{below}\rbrack,\, \mathrm{potmix}\lbrack\mathrm{vert}.\mathrm{below}\rbrack\right)\rightarrow \mathrm{m}\,\mathrm{s}^{-1}\,\right) & \text{otherwise}\end{cases}
 $$
 
-#### **Additional mixing coefficient**
+#### **Tide wave mixing**
 
-Location: **layer.water.Ks**
+Location: **layer.water.v_t**
 
-Unit: m² s⁻¹
+Unit: m s⁻¹
 
 Value:
 
 $$
-\mathrm{eta} = e^{\frac{-\left(\mathrm{z}-\mathrm{zshalf}\right)}{\mathrm{hsfact}}} \\ \mathrm{Es} = \mathrm{Es0}\cdot \frac{\mathrm{eta}}{1+\mathrm{eta}} \\ \frac{\mathrm{Es}}{\mathrm{Nfreq}^{2}}
+\mathrm{dz\_} = 0.5\cdot \left(\mathrm{dz}+\mathrm{dz}\lbrack\mathrm{vert}.\mathrm{below}\rbrack\right) \\ \href{stdlib.html#basic}{\mathrm{safe\_divide}}\left(\mathrm{K0},\, \mathrm{dz\_}\cdot \left(\frac{\mathrm{Nfreq}}{\mathrm{N0}}\right)^{\mathrm{alpha}}\right)
 $$
 
-#### **Water mixing**
+#### **Additional mixing**
 
-Location: **layer.water.wmix**
+Location: **layer.water.v_s**
 
-Unit: m day⁻¹
+Unit: m s⁻¹
 
 Value:
 
 $$
-\mathrm{dz\_} = 0.5\cdot \left(\mathrm{dz}+\mathrm{dz}\lbrack\mathrm{vert}.\mathrm{below}\rbrack\right) \\ \mathrm{K} = \mathrm{Kt}+\mathrm{Ks}+\mathrm{Kw} \\ \left(\frac{\mathrm{K}}{\mathrm{dz\_}}\rightarrow \mathrm{m}\,\mathrm{day}^{-1}\,\right)
+\mathrm{dz\_} = 0.5\cdot \left(\mathrm{dz}+\mathrm{dz}\lbrack\mathrm{vert}.\mathrm{below}\rbrack\right) \\ \mathrm{eta} = e^{\frac{-\left(\mathrm{z}-\mathrm{zshalf}\right)}{\mathrm{hsfact}}} \\ \mathrm{Es} = \mathrm{Es0}\cdot \frac{\mathrm{eta}}{1+\mathrm{eta}} \\ \frac{\mathrm{Es}}{\mathrm{dz\_}\cdot \mathrm{Nfreq}^{2}}
 $$
 
 #### **Layer shortwave radiation**
@@ -472,10 +460,12 @@ Target: vert
 
 Unit: m³ day⁻¹
 
+This is a mixing flux (affects dissolved quantities only)
+
 Value:
 
 $$
-\mathrm{wmix}\cdot \mathrm{A}\lbrack\mathrm{vert}.\mathrm{below}\rbrack
+\left(\left(\mathrm{v\_t}+\mathrm{v\_s}+\mathrm{v\_w}\right)\cdot \mathrm{A}\lbrack\mathrm{vert}.\mathrm{below}\rbrack\rightarrow \mathrm{m}^{3}\,\mathrm{day}^{-1}\,\right)
 $$
 
 #### **Shortwave shine-through**

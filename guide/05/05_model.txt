@@ -1,0 +1,57 @@
+
+model("Hydrology model") {
+
+	# Declare the index sets
+	lu : index_set("Landscape units")
+	sc : index_set("Subcatchment")
+
+	# Distribute the compartments over index sets. Note that the `soil` indexes over both sc and lu,
+	# meaning that it gets a separate copy per pair of indexes from these two index sets
+	# (i.e. it indexes over the Cartesian product of these index sets).
+	soil   : compartment("Soil", sc, lu)
+	gw     : compartment("Groundwater", sc)
+	river  : compartment("River", sc)
+
+	# We let the atmosphere be uniform over the entire modeled area for now, hence we don't
+	# distribute it.
+	air    : compartment("Atmosphere")
+
+	temp   : property("Temperature")
+	precip : property("Precipitation")
+
+	water : quantity("Water")
+	
+	load("hydro_modules.txt",
+		module("Soil hydrology", air, soil, gw, river, water, temp, precip),
+		module("River hydrology", river, water))
+	
+	in : quantity("Dissolved inorganic Nitrogen")
+	
+	load("din_module.txt",
+		module("DIN processes", air, soil, gw, river, water, in, temp))
+	
+	# Create a new parameter group (this time in model scope) with a parameter 
+	# where the user can provide the land use fraction for each soil unit.
+	par_group("Land use", soil) {
+		f_lu : par_real("Land use fraction", [], 0, 0, 1)
+	}
+
+	# Tell the model to use this as an aggregation weight when summing fluxes 
+	# going from 'soil' to 'gw'.
+	aggregation_weight(soil, gw) { f_lu	}
+	aggregation_weight(soil, river) { f_lu }
+	
+	# Another parameter group to hold subcatchment specific data
+	par_group("Subcatchment data", river) {
+		A_c : par_real("Subcatchment area", [k m 2], 20)
+	}
+	
+	unit_conversion(soil.water, river.water) { A_c }
+	unit_conversion(gw.water,   river.water) { A_c }
+	
+	sol : solver("Hydrology solver", inca_dascru, [2, hr], 1e-2)
+	
+	# Don't forget to solve the river water, or the river flow equation will be unstable!
+	solve(sol, soil.water, gw.water, river.water)
+
+}

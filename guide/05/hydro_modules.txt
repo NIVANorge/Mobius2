@@ -1,0 +1,85 @@
+
+module("Soil hydrology", version(0, 0, 3),
+	air : compartment,
+	soil : compartment,
+	gw : compartment,
+	river : compartment,
+	water : quantity,
+	temp : property,
+	precip : property
+) {
+"""
+This is a hydrology module developed as part of the Mobius2 Guide. It is only for teaching the system, and should not be used as a serious model.
+"""
+	
+	par_group("Soil hydrology", soil) {
+		fc : par_real("Field capacity", [m m], 50)
+		tcs : par_real("Soil water time constant", [day], 2)
+		bfi : par_real("Baseflow index", [], 0.7)
+		ddfpet : par_real("Degree-day factor for potential evapotranspiration", [m m, deg_c-1, day-1], 0.12)
+	}
+	
+	par_group("Groundwater hydrology") {
+		tcg : par_real("Groundwater time constant", [day], 20)
+	}
+
+	var(soil.water, [m m], "Soil water volume") @initial { fc }
+
+	var(gw.water, [m m], "Groundwater volume") @initial { 0[m m] }
+	
+	var(air.temp,   [deg_c], "Air temperature")
+	var(air.precip, [m m, day-1], "Precipitation")
+
+	flux(out, soil.water, [m m, day-1], "Precipitation to soil") {
+		air.precip
+	}
+
+	flow : property("Flow")
+	var(soil.water.flow, [m m, day-1], "Soil water flow") {
+		max(0, water - fc)/tcs
+	}
+
+	flux(soil.water, gw.water, [m m, day-1], "Groundwater recharge") {
+		bfi * flow
+	}
+
+	flux(soil.water, river.water, [m m, day-1], "Runoff to river") {
+		(1 - bfi)*flow
+	}
+
+	flux(soil.water, out, [m m, day-1], "Evapotranspiration") {
+		pet := max(0, air.temp*ddfpet),
+		0     if water < 0.7*fc,
+		pet   otherwise
+	} @no_carry
+
+	flux(gw.water, river.water, [m m, day-1], "Groundwater runoff") {
+		water/tcg
+	}
+}
+
+module("River hydrology", version(0, 0, 2),
+	river : compartment,
+	water : quantity
+) {
+	
+	var(river.water, [m 3], "River water")
+	
+	# Right now we haven't introduced the concepts necessary for one
+	# river section to discharge to another, that will be explained
+	# in a later guide.
+	
+	# Note how the flux doesn't need to have a unit that matches
+	# the sampling step of the data set. The model will know on its own how to
+	# convert the flux into the right scale. This also means that you can run
+	# the same model with different sampling steps without making changes to
+	# the model formulation!
+	flux(river.water, out, [m 3, s-1], "River discharge") {
+		# This is just a very simple example formula, and should not be used in practice.
+		
+		# Set the unit of w to dimensionless so that we don't get unit errors in the formula
+		# (the formula is empirical, and so the units don't make sense).
+		w := water=>[],
+		0.01*w =>> # Set the unit back to the desired form
+	}
+}

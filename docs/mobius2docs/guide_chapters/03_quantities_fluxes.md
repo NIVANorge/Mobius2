@@ -3,7 +3,7 @@ layout: default
 title: 03 Quantities, fluxes and solvers
 parent: Guide
 grand_parent: Model language
-nav_order: 1
+nav_order: 2
 comment: "While we use python markup for code snippets, they are not actually python, it just creates convenient coloring for this format."
 ---
 
