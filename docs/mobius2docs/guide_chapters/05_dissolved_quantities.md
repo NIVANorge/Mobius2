@@ -111,7 +111,7 @@ $$
 \frac{\mathrm{kg}}{\mathrm{m}^2\cdot mm}
 $$
 
-can be converted to $$mg/l$$ with a factor of $$10^{-6}$$, this works. Mobius2 will internally compute the conversion factors, so you don't need to worry about that.
+can be converted to $$\mathrm{mg}/\mathrm{l}$$ with a factor of $$10^{-6}$$, this works. Mobius2 will internally compute the conversion factors, so you don't need to worry about that.
 
 The `@initial_conc` note is similar to `@initial`, but instead of the initial mass you provide the initial concentration. Mobius2 computes the initial mass of the variable by multiplying the initial concentration with the initial volume of water (and the appropriate scaling factor).
 
@@ -169,9 +169,11 @@ Here we add fertilizer N to `soil.in`, which represents N that is not yet dissol
 
 The fertilizer N is then slowly dissolved into the soil water proportionally to the amount of water entering the soil (if you use the hydrology module from the previous chapters, that is only precipitation, but it could also include e.g. snow melt in other hydrology modules). The `in_flux` directive sums up all incoming fluxes of the given quantity.
 
+[Full code for chapter 05](https://github.com/NIVANorge/Mobius2/tree/main/guide/05).
+
 ![DIN calibration](images/05.png)
 
-The calibration is far from perfect, but we can capture some of the main features of the signal, and it is not that bad for such a simple model formulation.
+The calibration is far from perfect, but we can capture some of the main features of the signal.
 
 ## Exercises
 
@@ -180,8 +182,5 @@ The calibration is far from perfect, but we can capture some of the main feature
 - Create a time series input for N deposition.
 - The current groundwater compartment in the hydrology model is only suitable for very shallow groundwater. Add in a retention volume so that the effective retention time of the groundwater is longer. Also add in an initial groundwater DIN concentration. (The result of this will be that the concentration of dissolved quantities in the groundwater will have a smoother signal and not respond as quickly to changes in the soil concentrations).
 - Make two separate quantities `no3` and `nh4` and make a nitrification flux between `soil.water.nh4` and `soil.water.no3` etc.
-
-[Full code for chapter 05](https://github.com/NIVANorge/Mobius2/tree/main/guide/05).
-
 
 {% include lib/mathjax.html %}

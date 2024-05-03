@@ -151,6 +151,11 @@ Mobius2 will on its own scale the unit conversion so that the final units match.
 
 ![Calibrate](images/04_calibrate.png)
 
+[Full code for chapter 04](https://github.com/NIVANorge/Mobius2/tree/main/guide/04).
+
+The image shows how you can use MobiView2 to calibrate the model by looking at what calibration statistics improve or get worse when you change a parameter and re-run. (You can get a much better fit than this though!).
+
+
 ## Exercises
 
 - Calibrate the model. Keep in mind that some of the process descriptions are very simple, so don't expect to get a perfect fit. Here are some tips:
@@ -160,8 +165,6 @@ Mobius2 will on its own scale the unit conversion so that the final units match.
 	- If the flow peaks are too smoothed out, increase the Soil water time constant.
 	- If the river empties too quickly during low flow, increase Groundwater time constant, and also experiment with the baseflow index.
 - Improve the runoff and/or evapotranspiration fluxes by making them be smoother instead of turning on/off depending on water volume.
-
-[Full code for chapter 04](https://github.com/NIVANorge/Mobius2/tree/main/guide/04).
 
 ## Distributing quantities
 
