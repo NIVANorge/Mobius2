@@ -93,19 +93,105 @@ module(name:quoted_string, v:version, load_arguments:any...) { <declaration-body
 
 Multiple modules can be declared in the same file.
 
-Load arguments can be provided if the module is *not* inline-declared. The load arguments are a list of identifiers that are passed to the module from the loading model. **(to be continued)**.
+Load arguments can be provided if the module is *not* inline-declared. The load arguments are a list of identifiers that are passed to the module from the loading model, and must be specified as `identifier : type`. For instance, if the declaration is
+
+```python
+module("A module", version(0, 0, 1),
+	a : compartment,
+	q : quantity
+)
+```
+
+the module must be loaded with load arguments of these types when it is [loaded in the model](#load). The identifiers `a` and `q` are visible in the module scope in the above example. For instance, this module can be loaded in model scope using
+
+```python
+# The names here are arbitrary, they don't need to match the identifiers
+a : compartment("A")
+q : quantity("Q")
+load("the_module_file.txt", module("A module", a, q))
+```
 
 Formally, a `module` declaration internally creates a `module_template`. It is then instantiated when it is loaded using a `load` declaration, and you can instantiate a `module` several times with different load arguments.
 
 An inlined module declaration is immediately loaded (instantiated), and can only have one instance.
 
+If a module has a `preamble` as a load argument, the declaration scope of the passed preamble is loaded into the module scope.
+
 ## preamble
+
+Context: File top scope.
+
+Bind to identifier: no
+
+Signature:
+
+```python
+preamble(name:quoted_string, v:version, load_arguments:any...) { <declaration-body> }
+```
+
+A preamble is used to create a common place to declare certain entities like parameters and properties that are shared among several modules if you don't want to declare them in model scope directly.
+
+A preamble functions like a module in that the preamble declaration is a template that can be instantiated several times (see [`load`](#load) ).
+
+Example:
+
+```python
+# In the module/preamble file(s):
+
+preamble("A preamble", version(0, 0, 1),
+	s : compartment
+) {
+	par_group("Group", s) {
+		p : par_real("The parameter", [], 1)
+	}
+}
+
+module("A module, version(0, 0, 1),
+	r : preamble
+) {
+	# The parameter 'p' and any other symbol declared in
+	# the preamble is visible here since that preamble is
+	# passed as the 'r' argument to this module in the model
+	# load below.
+}
+
+# In the model file
+
+model("A model") {
+	s : compartment("S")
+	load("the_module_file.txt",
+		# Note that we can bind the preamble load to an identifier,
+		# just not the preamble declaration above.
+		r:preamble("A preamble", s),
+		module("A module, r))
+}
+```
 
 ## library
 
+Context: File top scope.
+
+Bind to identifier: no
+
+Signature:
+
+```python
+library(name:quoted_string) { <declaration-body> }
+```
+
+A library is somewhere you can declare constants and functions that you want to reuse in many modules.
+
+These can be loaded into another declaration scope using a `load` declaration.
+
+Mobius2 also has a [standard library](../existingmodels/autogen/stdlib.html) with several reusable functions. These are loaded using e.g.
+
+```python
+load("stdlib/atmospheric.txt", library("Meteorology"))
+```
+
 ## version
 
-Context: module/preamble scope (argument only).
+Context: File top scope (argument to module/preamble only).
 
 Bind to identifier: no
 
@@ -213,7 +299,7 @@ constant(name:quoted_string, u:unit, value:(real|integer))
 constant(value:boolean)
 ```
 
-A constant is a single value (can not be distributed) that can be referenced in function scope. It can be useful to put constants as named entities like this so that they don't appear as "magic value" literals directly in the code. This gives a form of documentation of what the constant is.
+A constant is a single value (can not be distributed) that can be referenced in math scope. It can be useful to put constants as named entities like this so that they don't appear as "magic value" literals directly in the code. This gives a form of documentation of what the constant is.
 
 ## function
 
@@ -245,6 +331,14 @@ Can in a different math body be evaluated using the syntax
 ```python
 very_fun(20, 10)   # Evaluates to 20*10 + 3 = 203
 ```
+
+If the declaration is
+
+```python
+even_more_fun : function(a : [k m], b : [])
+```
+
+the first argument must have unit `[k m]` and the second be dimensionless wherever the function is evaluated.
 
 Declared functions are always "inlined" at every evaluation site, meaning a separate copy of the function body is resolved and pasted in at that site. This means that you can't have recursive functions (functions that call themselves), but that may be implemented separately later.
 

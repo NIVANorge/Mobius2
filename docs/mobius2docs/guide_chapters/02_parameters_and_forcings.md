@@ -103,10 +103,11 @@ Here Mobius2 is instructed to interpolate for missing values, but you could just
 
 Currently we are running with a daily time step. That is configurable, but we will worry about that later.
 
-Try to run the model in MobiView2, plot the "Plant growth rate" series, and see what happens if you edit a parameter value and run the model again.
-
-Try also to experiment with changing the equations or adding more complexity to the model.
-
-Rembember that if you add a new parameter, or parameter group, you don't need to manually add these to the `data_set`. Mobius2 will auto-generate parameter values for these for you.
-
 [Full code for chapter 02](https://github.com/NIVANorge/Mobius2/tree/main/guide/02).
+
+## Exercises
+
+-Run the model in MobiView2, plot the "Plant growth rate" series, and see what happens if you edit a parameter value and run the model again.
+- Try also to experiment with changing the equations or adding more complexity to the model.
+	- Rembember that if you add a new parameter, or parameter group, you don't need to manually add these to the `data_set`. Mobius2 will auto-generate parameter values for these for you.
+
