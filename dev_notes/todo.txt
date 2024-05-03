@@ -8,9 +8,10 @@
 		
 		NIVAFjord basin.emix[vert.below] doesn't cause an error even though basin is not on that connection.
 		
-		Document token types in the common declaration format.
-		
-		Write something about scopes in general wrt loads (non-cascading loads).
+		Document
+			token types in the common declaration format.
+			Write something about scopes in general wrt loads (non-cascading loads).
+			Series selection in MobiView2
 		
 		
 		

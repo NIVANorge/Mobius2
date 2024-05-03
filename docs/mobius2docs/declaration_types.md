@@ -91,7 +91,7 @@ module(name:quoted_string, v:version) { <declaration-body> }
 module(name:quoted_string, v:version, load_arguments:any...) { <declaration-body> } # (top scope only)
 ```
 
-Multiple modules can be declared in the same file.
+Multiple modules and preambles can be declared in the same file.
 
 Load arguments can be provided if the module is *not* inline-declared. The load arguments are a list of identifiers that are passed to the module from the loading model, and must be specified as `identifier : type`. For instance, if the declaration is
 
@@ -129,6 +129,8 @@ Signature:
 preamble(name:quoted_string, v:version, load_arguments:any...) { <declaration-body> }
 ```
 
+Multiple modules and preambles can be declared in the same file.
+
 A preamble is used to create a common place to declare certain entities like parameters and properties that are shared among several modules if you don't want to declare them in model scope directly.
 
 A preamble functions like a module in that the preamble declaration is a template that can be instantiated several times (see [`load`](#load) ).
@@ -146,7 +148,7 @@ preamble("A preamble", version(0, 0, 1),
 	}
 }
 
-module("A module, version(0, 0, 1),
+module("A module", version(0, 0, 1),
 	r : preamble
 ) {
 	# The parameter 'p' and any other symbol declared in
@@ -179,6 +181,8 @@ Signature:
 library(name:quoted_string) { <declaration-body> }
 ```
 
+Multiple libraries can be declared in the same file.
+
 A library is somewhere you can declare constants and functions that you want to reuse in many modules.
 
 These can be loaded into another declaration scope using a `load` declaration.
@@ -188,6 +192,8 @@ Mobius2 also has a [standard library](../existingmodels/autogen/stdlib.html) wit
 ```python
 load("stdlib/atmospheric.txt", library("Meteorology"))
 ```
+
+Since the path starts with "stdlib", Mobius2 will look for it in the "Mobius2/stdlib" path.
 
 ## version
 
@@ -215,7 +221,7 @@ Bind to identifier: yes
 
 Signature:
 
-```python
+```clike
 compartment(name:quoted_string)
 compartment(name:quoted_string, distribution:index_set...)
 quantity(name:quoted_string)
