@@ -335,7 +335,7 @@ A \<block\> can be given an optional *iteration tag* by writing
 <identifier> : <block>
 ```
 
-If you within that or a nested block write `iterate <identifier>`, the function evaluation skips back to the start of that block.
+If you within that or a nested block reach an `iterate <identifier>` statement, the function evaluation skips back to the start of the block with that tag.
 
 You can also update the value of a local variable using the syntax
 
@@ -343,13 +343,13 @@ You can also update the value of a local variable using the syntax
 <identifier> <- <primary-expression>
 ```
 
-where the identifier is that of the local variable.
+where the identifier is that of the local variable. We recommend that you use this only when you need to.
 
-For instance, the below expression uses [Newton's method](https://en.wikipedia.org/wiki/Newton's_method) for finding `sin(x)+e^x = 0` within accuracy `eps`
+For instance, the below expression uses [Newton's method](https://en.wikipedia.org/wiki/Newton's_method) for approximating the solution to `sin(x)+e^x = 0`
 
 ```python
-solve_equation : function(eps) {
-	x   := 0,
+solve_equation : function(eps, x0) {
+	x   := x0,
 	i:{
 		xi := x - (sin(x)+exp(x))/(cos(x)+exp(x)),
 		

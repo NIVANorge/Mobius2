@@ -105,7 +105,7 @@ module("A module", version(0, 0, 1),
 the module must be loaded with load arguments of these types when it is [loaded in the model](#load). The identifiers `a` and `q` are visible in the module scope in the above example. For instance, this module can be loaded in model scope using
 
 ```python
-# The names here are arbitrary, they don't need to match the identifiers
+# The names here are arbitrary
 a : compartment("A")
 q : quantity("Q")
 load("the_module_file.txt", module("A module", a, q))

@@ -27,8 +27,6 @@ An early version of SimplyC was developed in \[Norling21\].
 
 Some of the models also have [Mobius1 versions](https://github.com/NIVANorge/Mobius/tree/master/Applications/SimplyP).
 
-**More detailed documentation is planned**
-
 Note that although all the Simply models are constructed with SimplyQ in mind as the hydrology model, they are in principle independent of the hydrology, and could be combined with other hydrology modules.
 
 ## SimplyQ
