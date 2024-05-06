@@ -211,14 +211,19 @@ format_double_tex(double d) {
 		return str;
 	auto base = str.substr(0, find);
 	
-	if(str.data()[find+1] == '+' || str.data()[find+1] == '-')
+	bool is_minus_power = false;
+	if(str.data()[find+1] == '-') {
+		is_minus_power = true;
+		++find;
+	}
+	if(str.data()[find+1] == '+')
 		++find;
 	std::string power = str.substr(find+1, str.size());
-	// Remove leading zeros. TODO: This didn't work :( . Oh, because it has problem if there is a leading minus...
+	// Remove leading zeros.
 	power.erase(0, std::min(power.find_first_not_of('0'), power.size()-1)); 
 	
 	if(base == "1")
-		return "10^{" + power + "}";
+		return std::string("10^{") + (is_minus_power?"-":"") + power + "}";
 	
 	return base + "\\cdot 10^{" + power + "}";
 }

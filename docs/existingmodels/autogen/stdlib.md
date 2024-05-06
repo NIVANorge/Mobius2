@@ -14,7 +14,7 @@ The standard library provides common functions and constants for many models.
 
 See the note on [notation](autogen.html#notation).
 
-The file was generated at 2024-05-06 13:34:26.
+The file was generated at 2024-05-06 13:40:56.
 
 ---
 
@@ -290,7 +290,7 @@ Reference: Schwarzengack, Gschwend, Imboden, "Environmental organic chemistry" 2
 **molecular_diffusivity_of_compound_in_air(mol_vol : cm³ mol⁻¹, mol_mass : g mol⁻¹, T : K)** = 
 
 $$
-\mathrm{TT} = \left(\mathrm{T}\Rightarrow 1\right) \\ \mathrm{c0} = \sqrt[3]{\left(\mathrm{molvol\_air}\Rightarrow 1\right)}+\sqrt[3]{\left(\mathrm{mol\_vol}\Rightarrow 1\right)} \\ \mathrm{c} = \frac{\sqrt{\frac{1}{\left(\mathrm{molmass\_air}\Rightarrow 1\right)}+\frac{1}{\left(\mathrm{mol\_mass}\Rightarrow 1\right)}}}{\mathrm{c0}^{2}} \\ \left(10^{7}\cdot \mathrm{c}\cdot \mathrm{TT}^{1.75}\Rightarrow \mathrm{m}^{2}\,\mathrm{s}^{-1}\,\right)
+\mathrm{TT} = \left(\mathrm{T}\Rightarrow 1\right) \\ \mathrm{c0} = \sqrt[3]{\left(\mathrm{molvol\_air}\Rightarrow 1\right)}+\sqrt[3]{\left(\mathrm{mol\_vol}\Rightarrow 1\right)} \\ \mathrm{c} = \frac{\sqrt{\frac{1}{\left(\mathrm{molmass\_air}\Rightarrow 1\right)}+\frac{1}{\left(\mathrm{mol\_mass}\Rightarrow 1\right)}}}{\mathrm{c0}^{2}} \\ \left(10^{-7}\cdot \mathrm{c}\cdot \mathrm{TT}^{1.75}\Rightarrow \mathrm{m}^{2}\,\mathrm{s}^{-1}\,\right)
 $$
 
 **molecular_diffusivity_of_compound_in_water(mol_vol : cm³ mol⁻¹, dynamic_viscosity : g m⁻¹ s⁻¹)** = 
@@ -495,7 +495,7 @@ The implementation used here is influenced by the implementation in [GOTM](https
 **surface_stability(wind : m s⁻¹, water_temp : °C, air_temp : °C)** = 
 
 $$
-\mathrm{ww} = \mathrm{wind}+10^{10} \mathrm{m}\,\mathrm{s}^{-1}\, \\ \mathrm{s0} = \left(0.25\cdot \frac{\mathrm{water\_temp}-\mathrm{air\_temp}}{\mathrm{ww}\cdot \mathrm{ww}}\Rightarrow 1\right) \\ \mathrm{s0}\cdot \frac{\left|\mathrm{s0}\right|}{\left|\mathrm{s0}\right|+0.01}
+\mathrm{ww} = \mathrm{wind}+10^{-10} \mathrm{m}\,\mathrm{s}^{-1}\, \\ \mathrm{s0} = \left(0.25\cdot \frac{\mathrm{water\_temp}-\mathrm{air\_temp}}{\mathrm{ww}\cdot \mathrm{ww}}\Rightarrow 1\right) \\ \mathrm{s0}\cdot \frac{\left|\mathrm{s0}\right|}{\left|\mathrm{s0}\right|+0.01}
 $$
 
 **stab_modify(wind : m s⁻¹, stab)** = 
@@ -507,13 +507,13 @@ $$
 **tc_latent_heat(wind : m s⁻¹, stability)** = 
 
 $$
-\mathrm{w} = \left(\mathrm{wind}\Rightarrow 1\right)+10^{12} \\ \left(\begin{cases}0+1.23\cdot e^{-0.16\cdot \mathrm{ln}\left(\mathrm{w}\right)} & \text{if}\;\mathrm{w}<2.2 \\ 0.969+0.0521\cdot \mathrm{w} & \text{if}\;\mathrm{w}<5 \\ 1.18+0.01\cdot \mathrm{w} & \text{if}\;\mathrm{w}<8 \\ 1.196+0.008\cdot \mathrm{w}-0.0004\cdot \left(\mathrm{w}-8\right)^{2} & \text{if}\;\mathrm{w}<25 \\ 1.68-0.016\cdot \mathrm{w} & \text{otherwise}\end{cases}\right)\cdot 0.001\cdot \href{stdlib.html#air-sea}{\mathrm{stab\_modify}}\left(\mathrm{wind},\, \mathrm{stability}\right)
+\mathrm{w} = \left(\mathrm{wind}\Rightarrow 1\right)+10^{-12} \\ \left(\begin{cases}0+1.23\cdot e^{-0.16\cdot \mathrm{ln}\left(\mathrm{w}\right)} & \text{if}\;\mathrm{w}<2.2 \\ 0.969+0.0521\cdot \mathrm{w} & \text{if}\;\mathrm{w}<5 \\ 1.18+0.01\cdot \mathrm{w} & \text{if}\;\mathrm{w}<8 \\ 1.196+0.008\cdot \mathrm{w}-0.0004\cdot \left(\mathrm{w}-8\right)^{2} & \text{if}\;\mathrm{w}<25 \\ 1.68-0.016\cdot \mathrm{w} & \text{otherwise}\end{cases}\right)\cdot 0.001\cdot \href{stdlib.html#air-sea}{\mathrm{stab\_modify}}\left(\mathrm{wind},\, \mathrm{stability}\right)
 $$
 
 **tc_sensible_heat(wind : m s⁻¹, stability)** = 
 
 $$
-\mathrm{w} = \left(\mathrm{wind}\Rightarrow 1\right)+10^{12} \\ \left(\begin{cases}0+1.185\cdot e^{-0.157\cdot \mathrm{ln}\left(\mathrm{w}\right)} & \text{if}\;\mathrm{w}<2.2 \\ 0.927+0.0546\cdot \mathrm{w} & \text{if}\;\mathrm{w}<5 \\ 1.15+0.01\cdot \mathrm{w} & \text{if}\;\mathrm{w}<8 \\ 1.17+0.0075\cdot \mathrm{w}-0.00045\cdot \left(\mathrm{w}-8\right)^{2} & \text{if}\;\mathrm{w}<25 \\ 1.652-0.017\cdot \mathrm{w} & \text{otherwise}\end{cases}\right)\cdot 0.001\cdot \href{stdlib.html#air-sea}{\mathrm{stab\_modify}}\left(\mathrm{wind},\, \mathrm{stability}\right)
+\mathrm{w} = \left(\mathrm{wind}\Rightarrow 1\right)+10^{-12} \\ \left(\begin{cases}0+1.185\cdot e^{-0.157\cdot \mathrm{ln}\left(\mathrm{w}\right)} & \text{if}\;\mathrm{w}<2.2 \\ 0.927+0.0546\cdot \mathrm{w} & \text{if}\;\mathrm{w}<5 \\ 1.15+0.01\cdot \mathrm{w} & \text{if}\;\mathrm{w}<8 \\ 1.17+0.0075\cdot \mathrm{w}-0.00045\cdot \left(\mathrm{w}-8\right)^{2} & \text{if}\;\mathrm{w}<25 \\ 1.652-0.017\cdot \mathrm{w} & \text{otherwise}\end{cases}\right)\cdot 0.001\cdot \href{stdlib.html#air-sea}{\mathrm{stab\_modify}}\left(\mathrm{wind},\, \mathrm{stability}\right)
 $$
 
 ---

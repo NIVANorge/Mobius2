@@ -13,7 +13,7 @@ Since the modules can be dynamically loaded with different arguments, this docum
 
 See the note on [notation](autogen.html#notation).
 
-The file was generated at 2024-05-06 13:34:26.
+The file was generated at 2024-05-06 13:40:56.
 
 ---
 
@@ -538,7 +538,7 @@ Unit: W m⁻²
 Value:
 
 $$
-\mathrm{z\_surf} = 1 \mathrm{m}\, \\ \mathrm{K\_ice} = 200 \mathrm{W}\,\mathrm{m}^{-3}\,\mathrm{°C}^{-1}\, \\ \mathrm{e} = \left(\mathrm{freeze\_temp}-\mathrm{top\_water}.\mathrm{temp}\right)\cdot \mathrm{z\_surf}\cdot \mathrm{K\_ice} \\ \begin{cases}0 & \text{if}\;\mathrm{ice}<10^{6} \mathrm{m}\,\;\text{and}\;\mathrm{e}<0 \\ \mathrm{e} & \text{otherwise}\end{cases}
+\mathrm{z\_surf} = 1 \mathrm{m}\, \\ \mathrm{K\_ice} = 200 \mathrm{W}\,\mathrm{m}^{-3}\,\mathrm{°C}^{-1}\, \\ \mathrm{e} = \left(\mathrm{freeze\_temp}-\mathrm{top\_water}.\mathrm{temp}\right)\cdot \mathrm{z\_surf}\cdot \mathrm{K\_ice} \\ \begin{cases}0 & \text{if}\;\mathrm{ice}<10^{-6} \mathrm{m}\,\;\text{and}\;\mathrm{e}<0 \\ \mathrm{e} & \text{otherwise}\end{cases}
 $$
 
 #### **Ice indicator**

@@ -13,7 +13,7 @@ Since the modules can be dynamically loaded with different arguments, this docum
 
 See the note on [notation](autogen.html#notation).
 
-The file was generated at 2024-05-06 13:34:26.
+The file was generated at 2024-05-06 13:40:56.
 
 ---
 
@@ -411,7 +411,7 @@ Unit: m s⁻¹
 Value:
 
 $$
-\mathrm{rem} = \mathrm{max}\left(0,\, \mathrm{basin}.\mathrm{emix}-\mathrm{summix}\lbrack\mathrm{vert}.\mathrm{below}\rbrack\right) \\ \mathrm{mixspeed} = \frac{1 \mathrm{m}\,}{\mathrm{time}.\mathrm{step\_length\_in\_seconds}} \\ \begin{cases}0 \mathrm{m}\,\mathrm{s}^{-1}\, & \text{if}\;\mathrm{is\_at}\lbrack\mathrm{vert}.\mathrm{bottom}\rbrack \\ \left(\mathrm{mixspeed}\rightarrow \mathrm{m}\,\mathrm{s}^{-1}\,\right) & \text{if}\;\mathrm{rem}>10^{30} \mathrm{J}\,\;\text{and}\;\mathrm{potmix}\lbrack\mathrm{vert}.\mathrm{below}\rbrack<10^{30} \mathrm{J}\, \\ \left(\mathrm{mixspeed}\cdot \href{stdlib.html#basic}{\mathrm{safe\_divide}}\left(\mathrm{emix}\lbrack\mathrm{vert}.\mathrm{below}\rbrack,\, \mathrm{potmix}\lbrack\mathrm{vert}.\mathrm{below}\rbrack\right)\rightarrow \mathrm{m}\,\mathrm{s}^{-1}\,\right) & \text{otherwise}\end{cases}
+\mathrm{rem} = \mathrm{max}\left(0,\, \mathrm{basin}.\mathrm{emix}-\mathrm{summix}\lbrack\mathrm{vert}.\mathrm{below}\rbrack\right) \\ \mathrm{mixspeed} = \frac{1 \mathrm{m}\,}{\mathrm{time}.\mathrm{step\_length\_in\_seconds}} \\ \begin{cases}0 \mathrm{m}\,\mathrm{s}^{-1}\, & \text{if}\;\mathrm{is\_at}\lbrack\mathrm{vert}.\mathrm{bottom}\rbrack \\ \left(\mathrm{mixspeed}\rightarrow \mathrm{m}\,\mathrm{s}^{-1}\,\right) & \text{if}\;\mathrm{rem}>10^{-30} \mathrm{J}\,\;\text{and}\;\mathrm{potmix}\lbrack\mathrm{vert}.\mathrm{below}\rbrack<10^{-30} \mathrm{J}\, \\ \left(\mathrm{mixspeed}\cdot \href{stdlib.html#basic}{\mathrm{safe\_divide}}\left(\mathrm{emix}\lbrack\mathrm{vert}.\mathrm{below}\rbrack,\, \mathrm{potmix}\lbrack\mathrm{vert}.\mathrm{below}\rbrack\right)\rightarrow \mathrm{m}\,\mathrm{s}^{-1}\,\right) & \text{otherwise}\end{cases}
 $$
 
 #### **Tide wave mixing**
