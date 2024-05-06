@@ -13,7 +13,7 @@ Since the modules can be dynamically loaded with different arguments, this docum
 
 See the note on [notation](autogen.html#notation).
 
-The file was generated at 2024-05-06 13:32:10.
+The file was generated at 2024-05-06 13:34:26.
 
 ---
 
@@ -46,7 +46,7 @@ We also assume that the discharge is linearly proportional to the water level at
 The lake is partitioned into an epilimnion and a hypolimnion. The epilimnion is assumed to have a temperature profile that does not depend on the depth. In the hypolimnion, the temperature profile follows
 
 $$
-T(z) = (T_e - T_b)\left(\frac{z}{z_{max}}\right)^2 + T_b\; z > z_e
+T(z) = (T_e - T_b)\left(\frac{z}{z_{max}}\right)^2 + T_b,\; z < z_e
 $$
 
 Where $$T_e$$ is current epilimnion temperature and $$T_b$$ is bottom temperature (user-defined constant parameter), and $$z_e$$ is epilimnion thickness. The total heat of the lake is then proportional to
