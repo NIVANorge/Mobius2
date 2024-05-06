@@ -211,17 +211,103 @@ The only purpose of the `version` is to document `module` and `preamble` version
 
 ## load
 
+Context: model, module, preamble or library scope.
+
+Bind to identifier: no
+
+Signature
+
+```python
+load(file:quoted_string, <special>...)
+```
+
+A load can be used to load either a library or a module/preamble.
+
+### Library loads
+
+A library is loaded using the syntax
+
+```python
+load("some_library_path.txt", library("Library name"), ...)
+```
+
+You can load several libraries from the same file in one `load` declaration.
+
+A library will be processed once if it is loaded at least one place (it can be loaded multiple places). Any identifier that is declared in the declaration scope of the library body will be visible in the scope where the `load` declaration is.
+
+Loads do not cascade, so if a library loads another library, the identifiers declared in the second library are not visible to someone else who loads the first library (unless they also directly load the second library). Library loads are allowed to be circular (two libraries are allowed to load one another for instance).
+
+### Module and preamble loads
+
+Modules and preambles can only be loaded in the model scope (not inside another module for instance). 
+
+For these you must also pass load arguments if there are any in the [declaration of the module](#module) or [preamble](#preamble) you want to load.
+
+Moreover, you can create different instantiations of the same module or preamble by providing them with a separate load name. Here are some examples:
+
+```python
+# Here we pass the load arguments a, b, c to the module load.
+load("some_module_path.txt",
+	module("The module declared name", a, b, c))
+
+# Here we load the module using a different name so that one could potentially
+# load a separate instance of it.
+load("some_module_path.txt",
+	module("Another module declared name", "Module load name", e, f, g))
+```
+
+If a module is loaded twice using the same load name (or without a load name), only the first load that is processed counts, and subsequent ones are ignored. Right now, there is no error if two loads with coinciding names have disagreements about their load arguments, but we plan to introduce a check for that later.
+
+If you load a preamble, you can bind it to an identifier that can be passed into module loads (if they have such a preamble load argument). For instance,
+
+```python
+s : compartment("S")
+load("the_module_file.txt",
+	r:preamble("A preamble", s),
+	module("A module, r))
+```
+
 ## extend
+
+Context: `model` scope.
+
+Bind to identifier: no
+
+Signature:
+
+```python
+extend(model_file:quoted_string)
+```
+
+Optional notes:
+
+```python
+@exclude(exclusion:any...)
+```
+
+An `extend` takes all the declarations from another model and puts them in the main scope of the current model. This also works recursively (but you can't have circular extends).
+
+This can for instance be used to build a water quality model on top of a hydrology model.
+
+The `@exclude` note can be used to omit certain declarations in the extended model. For instance,
+
+```python
+extend("some_model.txt") @exclude(a : compartment, b : quantity)
+```
+
+will omit any declaration of a compartment with identifier `a` and quantity with identifier `b` in the extended model.
+
+Since the extended model typically relies on all the entities it declares, this is mostly used if you extend two models that declare the same entites, to avoid conflict. It can also be used to e.g. replace what ODE `solver` is used.
 
 ## compartment, property, quantity
 
-Context: `model` scope (all), or module/preamble scope (property only).
+Context: `model` scope (all), or `module`/`preamble` scope (`property` only).
 
 Bind to identifier: yes
 
 Signature:
 
-```clike
+```python
 compartment(name:quoted_string)
 compartment(name:quoted_string, distribution:index_set...)
 quantity(name:quoted_string)
@@ -352,11 +438,194 @@ The body of a `function` is limited in that it can not refer to parameters or st
 
 ## var
 
+Context: module scope.
+
+Signature:
+
+```python
+var(place:location, u:unit)
+var(place:location, u:unit) { <math-body> }
+var(place:location, u:unit, name:quoted_string)
+var(place:location, u:unit, name:quoted_string) { <math-body> }
+var(place:location, u:unit, conc_u:unit)
+var(place:location, u:unit, conc_u:unit, name:quoted_string)
+```
+
+Optional notes:
+
+```python
+@initial { <math-body> }
+@initial_conc { <math-body> }
+@override { <math-body> }
+@override_conc { <math-body> }
+@no_store
+@add_to_existing { <math-body> }
+@show_conc(medium:location, secondary_conc_u:unit)
+```
+
+A `var` creates a [primary state variable](central_concepts.html#state-variables).
+
+The main component of a primary variable is the rightmost component of its location. We say that the variable is a `property` if the main component is a `property` and a `quantity` if the main component is a `quantity`. The name of the state variable is the `name` argument if it exists, otherwise it is the name of the main component.
+
+You can declare a state variable using the same `place` (location) multiple times across the model, but only one of these are allowed to have any code associated with it (including code from notes). If multiple declarations declare a state variable using the same location, they will only create one single state variable for that location, and all declarations must agree on the name and unit for it.
+
+Only a property variable can be provided with a main math body (i.e. a math body following the declaration and not attached to a note). If a property variable does not have code, it can get it from a separate declaration of the same variable, or from the default code of the property component. If no code is provided at all, the property variable becomes an input series.
+
+Only a dissolved quantity variable can have a concentration unit, and the concentration unit must be [convertible](units.html#conversion) to the ratio of the unit to the unit of what it is dissolved in.
+
+### `@initial` and `@initial_conc`
+
+An `@initial` has a math block that tells Mobius2 how to compute the value of this variable in the initial setup before the first model step. If a property does not have initial code, it is assumed that its initial value is computed using the main code.
+
+For a dissolved quantity, `@initial_conc` can be used instead to give an initial concentration, and the initial mass is then computed by Mobius2 by multiplying the initial concentration with the initial mass of what it is dissolved in.
+
+By default all quantities have initial value 0 unless `@initial` or `@initial_conc` is provided.
+
+### `@override` and `@override_conc`
+
+These can be used to set a value for a quantity directly instead of relying on mass balance, just as if it was a property. The `@override_conc` sets the concentration, and the mass is then computed from that (as with `@initial_conc` above).
+
+These can be useful in some instances where you don't want to simulate mass balance in some part of the system.
+
+If the math block of one of these resolves to `no_override` at compile time, the override is cancelled, an the mass balance is used after all. This allows you to make user-defined switches between mass balance and override, for instance as in "SimplyC":
+
+```python
+var(soil.water.oc, [k g, k m -2], [m g, l-1], "Soil water DOC")
+	@initial_conc { basedoc }
+	@override_conc {
+		basedoc                                             if soildoc_type.const,
+		basedoc*(1 + (kt1 + kt2*temp)*temp - kso4*air.so4)  if soildoc_type.equilibrium,
+		no_override                                         otherwise
+	}
+```
+
+### `@no_store`
+
+The `@no_store` note can only be put on properties. This tells Mobius2 not to record the time series of this variable in memory. This means it can't be plotted in [MobiView2](../mobiviewdocs/mobiview.html) or extracted in [mobipy](../mobipydocs/mobipy.html), but it can save some memory. This is especially recommended for intermediate computations in compartments that are distributed over large index sets.
+
+You can not use `@no_store` on a variable if you access the `last()` value of it in a math scope somewhere.
+
+The `@no_store` note can be ignored if it is overridden by a configuration to MobiView2 or mobipy.
+
+### `@add_to_existing`
+
+This adds the math block of the `@adds_to_existing` note to the value of the declaration of the same state variable if it is declared somewhere else.
+
+### `@show_conc`
+
+This creates time series storage for a separate concentration variable. For instance if you are looking at `river.water.sed.oc`, i.e. the organic carbon in the suspended sediments in the river water (particulate organic carbon), then the main concentration variable that is generated for this is the concentration of `river.water.sed.oc` in `river.water.sed`, i.e. it is the mass fraction of organic carbon in the particles. If you want it to display (e.g in MobiView2) the concentration of `river.water.sed.oc` in `river.water` instead, you can create a note like
+
+```python
+@show_conc(river.water, [m g, l-1])
+```
+
+This will not change what you get when you reference `conc(river.water.sed.oc)` in math scope, so to access this value in math scope, you will still need to write `conc(river.water.sed.oc)*conc(river.water.sed)` to access this value.
+
 ## flux
+
+Context: module scope.
+
+Bind to identifier: yes.
+
+Signature:
+
+```python
+flux(source:location, target:location, u:unit, name:quoted_string)
+```
+
+Optional notes:
+
+```python
+@no_carry
+@no_carry { <special> }
+@no_store
+@specific { <math-body> }
+@bidirectional
+@mixing
+```
+
+The flux declaration creates a [flux state variable](central_concepts.html#fluxes).
+
+The source and target locations can some times be restricted along connections. This will be documented separately.
+
+The flux unit must be [convertible](units.html#conversion) to the unit of the source (if it is a variable, otherwise the unit of the target) divided by the sampling step unit of the model application. Note that this means that Mobius2 will multiply the magnitude of the flux with a unit conversion to make it match the model sampling step unit, so that the same model can be run at different time scales without changes to the model code.
+
+If both the source and the target are variables and the target does not have the same unit as the source, a `unit_conversion` must be declared somewhere in the model between the source and the target.
+
+If the source is distributed over index sets that the target is not distributed over (and the target is not a connection), the flux will be summed over those index sets before being added to the target, applying an `aggregation_weight` if one exists.
+
+### `@no_carry`
+
+By default, a transport flux will be generated if some quantity is dissolved both in the source and target (or only the source if the target is 'out').
+
+If the flux has `@no_carry` without a body, no transport fluxes of any dissolved quantities will be generated for it.
+
+If it has `@no_carry` with a body, the body is a space-separated list of quantity components that should not be transported. All other quantities are transported if they would normally be.
+
+### `@no_store`
+
+This works the same way as a `@no_store` for a [`var`](#var).
+
+### `@specific`
+
+This is used if the source or target has a specific restriction. Will be documented separately.
+
+### `@bidirectional`
+
+It is recommended to put `@bidirectional` on fluxes if you allow it to go in both directions and it can carry dissolved quantities. A flux goes in the opposite direction when its value is negative. In that case, it should be the concentrations of dissolved quantities in the target instead of the source that determines the transport fluxes of these quantities.
+
+The only reason not to put `@bidirectional` on every flux is that it could make transport fluxes a little slower to compute since they have to check the direction of the flux each time.
+
+Note that if you have a flux that goes negative and it is not declared as `@bidirectional`, there will not be any error, so you have to be careful about this yourself.
+
+It will not work correctly to have a discrete flux (one where the target or source is not on a solver) go negative.
+
+### `@mixing`
+
+This declares that the flux goes in both directions with the same magnitude. It also has all the implications of `@bidirectional`. A `@mixing` flux will not change the amount of the source or the target, but it will mix any dissolved quantities that exist both in the source and target.
 
 ## loc
 
+Context: model, module, preamble scope
+
+Bind to identifer: yes
+
+Signature:
+
+```python
+loc(location|parameter|constant|connection)
+```
+
+This allows you bind a location, parameter or constant to a new identifier. This identifier can be referenced in math. If it is a location, it can also be used as a location argument to another declaration.
+
+If it is a location, it can also have connection restrictions in the same way the target of a flux can.
+
+Creating `loc` declarations has a couple of use cases, one important one being to pass the target of a flux as a load argument to the module that declares this flux so that the module becomes independent of how discharges from it are connected up.
+
+It can also be a way to pass some value to a module without that module having to know if the value is a state variable, parameter or constant.
+
 ## index_set
+
+Context: model,
+
+Bind to identifier: yes
+
+Signature:
+
+```python
+index_set(name:quoted_string)
+```
+
+Optional notes:
+
+```python
+@sub(parent:index_set)
+@union(index_set...)
+```
+
+This creates an index set that compartments and quantities (and thus par_groups and state variables) can be distributed over.
+
+Sub-indexed and union index sets will be documented separately.
 
 ## connection
 
