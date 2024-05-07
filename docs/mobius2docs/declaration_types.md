@@ -27,8 +27,6 @@ For a better understanding of how to build a practical model using the declarati
 
 Here we specify how these declarations work in model, module, preamble and library files. [Declarations in data_set files function differently](../datafiledocs/new_project.html).
 
-**This document is currently incomplete**. New guide chapters are prioritized over finishing this.
-
 ## Signatures
 {: .no_toc }
 
@@ -44,21 +42,27 @@ Here `decl_type` is the type of the current declaration, each `argname` is usual
 euler : constant("Euler number", [], 2.71)
 ```
 
-If an argument is literally called `name:quoted_string`, it has the formal semantics of an [entity name](central_concepts.html/names-and-identifiers).
-
 The `type` is one of the following
-- A simple literal type, like `quoted_string`, `real`, `integer`, `boolean`. In this case, the argument must be a single literal value, e.g. `8`, `3.14`, `"Water"`, `true`.
+- A [token type](declaration_format.html#token-types), like `quoted_string`, `real`, `integer`, `boolean`. In this case, the argument must be a single literal value, e.g. `8`, `3.14`, `"Water"`, `true`.
 - Another declaration type. In this case you must pass either the identifier of a declared entity of that type, or inline a declaration of that type.
-- `location`. Here you must pass a location identifier, e.g. `soil.water`. In some cases these can have bracketed restrictions (this will be specified individually). Alternatively, you can pass the identifier to a `loc` entity.
+- `location`. Here you must pass a [location](central_concepts.html#components-and-locations), e.g. `soil.water`. In some cases these can have bracketed restrictions (this will be documented separately). Alternatively, you can pass an entity of `loc` type.
 - `any`. Any argument type, but limitations may be specified in the text.
 
-If an argument is specified as `argname:type...`, it means you can pass multiple arguments of that type after one another
+If an argument is literally called `name:quoted_string`, it has the formal semantics of an [entity name](central_concepts.html/names-and-identifiers).
+
+If an argument is specified as `argname:type...`, with trailing dots, it means you can pass multiple arguments of that type after one another
 
 If an argument type is `(type1|type2|..)` it means it can have any of those types.
 
 If several signatures are listed, they are different alternatives.
 
-If you see **Bind to identifier: yes** it means that the declaration creates an identity that can be (optionally) bound to an identifier, e.g. `some_identifier : decl(...)`.
+If you see **Bind to identifier: yes** it means that the declaration creates an entity that can be (optionally) bound to an identifier, e.g.
+
+```python
+soil : compartment("Soil")
+```
+
+In this example, the declaration of the compartment with name "Soil" is bound to the identifier `soil`, which now refers to this entity in the rest of this scope. For instance, `soil` can be passed as an argument to another declaration if that argument is of type `compartment`.
 
 ## model
 
@@ -78,9 +82,7 @@ This is the specification of a Mobius2 model. All parts of the model are created
 
 ## module
 
-Context: One of
-- model scope (called inlined module)
-- File top scope.
+Context: One of: file top scope, or model scope (called inlined module).
 
 Bind to identifier: no
 
@@ -111,9 +113,9 @@ q : quantity("Q")
 load("the_module_file.txt", module("A module", a, q))
 ```
 
-Formally, a `module` declaration internally creates a `module_template`. It is then instantiated when it is loaded using a `load` declaration, and you can instantiate a `module` several times with different load arguments.
+Internally, a `module` declaration creates a `module_template`. This template is then instantiated when it is loaded using a `load` declaration, and you can instantiate a `module` several times with different load arguments.
 
-An inlined module declaration is immediately loaded (instantiated), and can only have one instance.
+An inlined module declaration is automatically loaded (instantiated), and can only have one instance.
 
 If a module has a `preamble` as a load argument, the declaration scope of the passed preamble is loaded into the module scope.
 
@@ -705,8 +707,8 @@ The `solver_function` is a separate entity type that you (for now) can't declare
 
 | Name | Description |
 | ---- | ----------- |
-| `euler` | A solver using [Euler's method](https://en.wikipedia.org/wiki/Euler_method) with fixed step size. This solver is mostly included for illustration since it is not that precise. |
-| `inca_dascru` | A 4-5 adaptive Runge-Kutta solver based on \[Wambecq78\] and the implementation in the INCA models. This solver creates precise simulations of many systems. |
+| `euler` | A solver using [Euler's method](https://en.wikipedia.org/wiki/Euler_method) with fixed step size (non-adaptive). This solver is mostly included for illustration since it is not that precise. |
+| `inca_dascru` | A adaptive Runge-Kutta 4-5 solver based on \[Wambecq78\] and its implementation in the INCA models. This solver creates precise simulations of many systems. |
 
 We plan to add more solver algorithms eventually.
 
@@ -732,11 +734,45 @@ Tell the framework to use the solver `sol` to solve one or more quantity primary
 
 ## aggregation_weight
 
+Context: model scope.
+
+Bind to identifier: no.
+
+Signature:
+
+```python
+aggregation_weight(source:compartment, target:compartment) { <math-body> }
+aggregation_weight(source:compartment, target:compartment, c:connection) { <math-body> }
+```
+
+If a flux goes from a compartment that is distributed over index sets that the target is not distributed over, it will be summed over those index sets before it is added to the target. If you provide an aggregation_weight between those compartments, the sum will be weighted with the expression in the math body of the aggregation_weight.
+
+Remember that the weight is only applied to the value that is added to the target of the flux, not the value that is subtracted from the source.
+
+An aggregation_weight (if it exists) is also applied when computing the result of the [`aggregate()` special directive](math_format.html#special-directives).
+
+If a connection is specified on the aggregation weight, the weight will be applied to fluxes that go between those compartments along that connection only.
+
+
 ## unit_conversion
+
+Context: model scope.
+
+Bind to identifier: no.
+
+Signature:
+
+```python
+unit_conversion(source:location, target:location) { <math-body> }
+```
+
+If a flux goes from a source that has a different unit than the target, you must provide a unit_conversion that shows how to convert the value.
+
+The conversion factor will itself be automatically converted to give the right scale. For instance, if the source has unit `[k g, m-2]` and the target has unit `[k g]`, you can provide a conversion factor that has unit `[k m 2]`. The framework will then automatically scale it so that it has unit `[m 2]`.
 
 ## \[unit\], unit_of, compose_unit
 
-Context: model, module, preamble, library, par_group.
+Context: model, module, preamble, library, par_group scopes.
 
 Bind to identifier: yes.
 
@@ -756,6 +792,26 @@ The `unit_of` declaration refers to the unit of another entity like a parameter,
 
 The `compose_unit` declaration uses unit arithmetic to multiply several units together.
 
+All of these declarations create an entity of type `unit`.
+
 ## discrete_order
 
+Context: module scope.
+
+Bind to identifier: no.
+
+Signature:
+
+```python
+discrete_order { <special> }
+```
+
+The discrete order gives the order of evaluation of discrete fluxes. These are fluxes going from quantity primary variables that are not ODE (not on a solver). When a discrete flux is evaluated, it is directly (not using an integration step) subtracted from the source and added to the target, and so the order of evaluation can matter.
+
+The body of a discrete_order declaration is a space-separated list of flux identifiers.
+
+If two discrete fluxes are not given an order relation by a discrete_order, their order of evaluation could be arbitrary.
+
 ## external_computation
+
+This is a feature that for now is only (and can only be) used by NIVAFjord to call into some C++ code. It may be expanded at a later point.

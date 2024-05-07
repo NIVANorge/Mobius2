@@ -38,10 +38,10 @@ Each Mobius2 file is parsed as a sequence of *tokens* that are then further inte
 | ---- | ----------- | -------- |
 | identifier | A sequence of ascii letters `a-zA-Z` possibly also containing underscores `_`, and possibly also containing digits `0-9`, but not as the first character. | `soil`, `water`, `Q10`, `r_denit` |
 | quoted_string | Text between qotation marks. If single quotation marks, it must be on a single line. If triple quotation marks, it could be on multiple lines. | "Soil water", "Denitrification rate" |
-| integer | A whole number | `8`, `-5`, `3762` |
+| integer | A whole number. (In math scope (see below), a leading minus sign is interpreted as a separate token.) | `8`, `-5`, `3762` |
 | real | Something representing a real number, possibly including [E notation](https://en.wikipedia.org/wiki/Scientific_notation#E_notation). | `23.5`, `-4e2`, `0.45e-4`, `nan` |
 | boolean | A truth value | `true`, `false` |
-| Operator, delimiter or bracket | These are many different token types used to group statements or create mathematical expressions | `+`, `-`, `*`, `/`, `|`, `%`, `&`, `!`, `=`, `!=`, `>`, `<`, `>=`, `<=`, `(`, `)`, `{`, `}`, `[`, `]`, `?`, `->`, `<-`, `->>`, `=>`, `=>>` |
+| Operator, delimiter or bracket | These are many different token types used to group statements or create mathematical expressions | `+`, `-`, `*`, `/`, `|`, `%`, `&`, `!`, `=`, `!=`, `>`, `<`, `>=`, `<=`, `(`, `)`, `{`, `}`, `[`, `]`, `?`, `->`, `<-`, `->>`, `=>`, `=>>`, `,`, `.` |
 | Date | A date value, only available in data files | `1999-12-31`, `2024-05-07` |
 | Time | A time value, only available in data files | `12:55:33`, `05:30:00` |
 
