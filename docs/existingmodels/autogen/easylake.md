@@ -13,7 +13,7 @@ Since the modules can be dynamically loaded with different arguments, this docum
 
 See the note on [notation](autogen.html#notation).
 
-The file was generated at 2024-05-07 10:30:23.
+The file was generated at 2024-05-07 10:40:53.
 
 ---
 
@@ -115,7 +115,7 @@ $$
 
 | Name | Symbol | Unit |  Description |
 | ---- | ------ | ---- |  ----------- |
-| **Lake physical** | | | |
+| **Lake physical** | | | Distributes like: `epi` |
 | Lake surface area | **A_surf** | m² |  |
 | Water level at which outflow is 0 | **z_outflow** | m |  |
 | Winter epilimnion thickness | **th_epi_w** | m |  |
@@ -405,7 +405,7 @@ Authors: Magnus D. Norling
 
 | Name | Symbol | Unit |  Description |
 | ---- | ------ | ---- |  ----------- |
-| **Ice** | | | |
+| **Ice** | | | Distributes like: `epi` |
 | Initial ice thickness | **init_ice** | m |  |
 | Ice albedo | **ice_alb** |  |  |
 | Ice attenuation coefficient | **ice_att_c** | m⁻¹ |  |
@@ -763,23 +763,23 @@ Authors: François Clayer, Magnus D. Norling
 
 | Name | Symbol | Unit |  Description |
 | ---- | ------ | ---- |  ----------- |
-| **Lake specific chemistry** | | | |
+| **Lake specific chemistry** | | | Distributes like: `epi` |
 | Initial O₂ saturation | **init_O2** |  |  |
 | Initial lake DOC concentration | **init_c** | mg l⁻¹ |  |
 | Initial lake DIN concentration | **init_in** | mg l⁻¹ |  |
 | Initial lake DIP concentration | **init_ip** | mg l⁻¹ |  |
 | Initial phytoplankton concentration | **init_phyt** | mg l⁻¹ |  |
 | Direct lake DIN deposition | **din_dep** | kg ha⁻¹ year⁻¹ |  |
-| **Oxygen** | | | |
+| **Oxygen** | | | Distributes like: `epi` |
 | Piston velocity scaler for O₂ | **pvel_scaler** |  |  |
 | Background sediment O₂ demand | **sod** | g m⁻² day⁻¹ |  |
-| **Microbes** | | | |
+| **Microbes** | | |  |
 | Respiration rate | **K_OM** | year⁻¹ |  |
 | Respiration Q10 | **respQ10** |  | Adjustment of rate with 10°C change in temperature |
 | Half-saturation concentration O₂ | **Km_o2** | mmol m⁻³ |  |
 | P mineralization rel rate | **relrate_p** |  |  |
 | N mineralization rel rate | **relrate_n** |  |  |
-| **Phytoplankton** | | | |
+| **Phytoplankton** | | |  |
 | Chl-a of phyto at equilibrium | **phyt_eq_20** | mg l⁻¹ | Assuming 20°C and no nutrient or light limitations. |
 | Q10 of Phyto equilibrium | **phyt_q10** |  |  |
 | Phytoplankton turnover rate | **phyt_turnover** | day⁻¹ |  |
@@ -789,7 +789,7 @@ Authors: François Clayer, Magnus D. Norling
 | Molar C/N ratio in Phytoplankton | **phyt_cn** |  |  |
 | Molar C/P ratio in Phytoplankton | **phyt_cp** |  |  |
 | Chl-a fraction | **chl_a_f** | % | How large a fraction of the phytoplankton mass is chlorophyll a |
-| **Lake specific phytoplankton** | | | |
+| **Lake specific phytoplankton** | | | Distributes like: `epi` |
 | Phytoplankton amenability | **phyt_a** |  | Adjustment factor to account for shallow lakes being better for plankton, after taking nutrients and light into consideration |
 
 ### State variables
@@ -1622,7 +1622,7 @@ Authors: Magnus D. Norling
 
 | Name | Symbol | Unit |  Description |
 | ---- | ------ | ---- |  ----------- |
-| **Particles** | | | |
+| **Particles** | | |  |
 | Sediment settling velocity | **sett_vel** | m day⁻¹ | The net settling velocity after taking into account mixing whithin (but not between) each compartment. |
 | Resuspension factor | **resusp_f** |  | Wind-proportional resuspension in epilimnion-sediment interface. |
 | Sediment concentration of fast settling | **maxconc** | mg l⁻¹ | With suspended sediment concentrations in the river higher than this, it is assumed to contain larger grain sizes that settle faster |

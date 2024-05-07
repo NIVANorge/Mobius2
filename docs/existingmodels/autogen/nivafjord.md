@@ -13,7 +13,7 @@ Since the modules can be dynamically loaded with different arguments, this docum
 
 See the note on [notation](autogen.html#notation).
 
-The file was generated at 2024-05-07 10:30:23.
+The file was generated at 2024-05-07 10:40:53.
 
 ---
 
@@ -35,9 +35,9 @@ File: [modules/nivafjord/basin.txt](https://github.com/NIVANorge/Mobius2/tree/ma
 
 | Name | Symbol | Unit |  Description |
 | ---- | ------ | ---- |  ----------- |
-| **Layer thickness** | | | |
+| **Layer thickness** | | |  |
 | Stable layer thickness | **dz0** | m |  |
-| **Layer area** | | | |
+| **Layer area** | | | Distributes like: `layer` |
 | Layer area | **A** | m² |  |
 
 ---
@@ -103,16 +103,16 @@ Authors: Magnus D. Norling
 
 | Name | Symbol | Unit |  Description |
 | ---- | ------ | ---- |  ----------- |
-| **Mixing parameters** | | | |
+| **Mixing parameters** | | | Distributes like: `basin` |
 | Brunt-Väisälä frequency reference | **N0** | s⁻¹ |  |
 | Minimum B-V frequency | **Nmin** | s⁻¹ |  |
 | Mixing non-linear coefficient | **alpha** |  |  |
 | Surface additional mixing energy | **Es0** | m² s⁻³ |  |
 | Halving depth of additional mixing energy | **zshalf** | m |  |
 | Diminishing rate of additional mixing energy | **hsfact** | m |  |
-| **Layer specific mixing** | | | |
+| **Layer specific mixing** | | | Distributes like: `layer` |
 | Mixing factor reference | **K0** | m² s⁻¹ | Mixing factor when the B-V frequency is equal to the reference |
-| **Initial layer physical** | | | |
+| **Initial layer physical** | | | Distributes like: `layer` |
 | Initial layer temperature | **init_t** | °C |  |
 | Initial layer salinity | **init_s** |  |  |
 

@@ -537,7 +537,17 @@ document_module(std::stringstream &ss, Mobius_Model *model, std::string &module_
 		
 		for(auto group_id : groups) {
 			auto group = model->par_groups[group_id];
-			ss << "| **" << group->name << "** | | | |\n";
+			std::string possible_distr;
+			if(!group->components.empty()) {
+				possible_distr = "Distributes like: ";
+				bool first = true;
+				for(auto id : group->components) {
+					if(!first) possible_distr += ", ";
+					possible_distr += "`" + model->get_symbol(id) + "`";
+					first = false;
+				}
+			}
+			ss << "| **" << group->name << "** | | | " << possible_distr << " |\n";
 			
 			for(auto par_id : group->scope.by_type<Reg_Type::parameter>()) {
 				auto par = model->parameters[par_id];

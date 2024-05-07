@@ -13,7 +13,7 @@ Since the modules can be dynamically loaded with different arguments, this docum
 
 See the note on [notation](autogen.html#notation).
 
-The file was generated at 2024-05-07 10:30:23.
+The file was generated at 2024-05-07 10:40:53.
 
 ---
 
@@ -52,13 +52,13 @@ Authors: James E. Sample, Leah A. Jackson-Blake, Magnus D. Norling
 
 | Name | Symbol | Unit |  Description |
 | ---- | ------ | ---- |  ----------- |
-| **Hydrology general** | | | |
+| **Hydrology general** | | |  |
 | Baseflow index | **bfi** |  |  |
 | Quick flow inflection point | **qqinfl** | mm day⁻¹ |  |
-| **Hydrology land** | | | |
+| **Hydrology land** | | | Distributes like: `soil` |
 | Field capacity | **fc** | mm |  |
 | Soil water time constant | **tc_s** | day |  |
-| **Groundwater** | | | |
+| **Groundwater** | | | Distributes like: `gw` |
 | Groundwater time constant | **tc_g** | day |  |
 | Groundwater retention volume | **gw_ret** | mm |  |
 
@@ -199,7 +199,7 @@ Authors: Leah A. Jackson-Blake, Magnus D. Norling
 
 | Name | Symbol | Unit |  Description |
 | ---- | ------ | ---- |  ----------- |
-| **Reach parameters** | | | |
+| **Reach parameters** | | | Distributes like: `river` |
 | Reach slope | **slope** |  | Roughly the altitude difference between the uppermost and lowermost points divided by the length |
 | Reach length | **len** | m |  |
 | Manning's roughness coefficient | **c_mann** | s m⁻¹′³ | Default of 0.04 is for clean winding natural channels. See e.g. Chow 1959 for a table of values for other channel types |
@@ -288,16 +288,16 @@ Authors: Magnus D. Norling, Leah A. Jackson-Blake
 
 | Name | Symbol | Unit |  Description |
 | ---- | ------ | ---- |  ----------- |
-| **DOC general** | | | |
+| **DOC general** | | |  |
 | Soil temperature DOC creation linear coefficient | **kt1** | °C⁻¹ |  |
 | Soil temperature DOC creation second-order coefficient | **kt2** | °C⁻² |  |
 | Soil DOC linear SO4 dependence | **kso4** | l mg⁻¹ |  |
 | Baseline soil DOC dissolution rate | **cdoc** | mg l⁻¹ day⁻¹ | Only used if the soil DOC computation type is dynamic. |
 | Soil DOC computation type | **soildoc_type** | Possible values: `const`, `equilibrium`, `dynamic` |  |
 | Groundwater DOC computation type | **gwdoc_type** | Possible values: `const`, `soil_avg`, `mass_bal` |  |
-| **DOC land** | | | |
+| **DOC land** | | | Distributes like: `soil` |
 | Baseline soil DOC concentration | **basedoc** | mg l⁻¹ | Soil water equilibrium DOC concentration when temperature is 0°C and there is no SO4. |
-| **DOC deep soil** | | | |
+| **DOC deep soil** | | | Distributes like: `gw` |
 | Groundwater DOC half-life | **gwdochl** | day | Half life of decay rate if groundwater DOC follows mass balance. |
 | Groundwater DOC concentration | **gwdocconc** | mg l⁻¹ | Concentration if groundwater DOC is set to be constant. |
 
@@ -423,7 +423,7 @@ Authors: Magnus D. Norling
 
 | Name | Symbol | Unit |  Description |
 | ---- | ------ | ---- |  ----------- |
-| **DOC river** | | | |
+| **DOC river** | | | Distributes like: `river` |
 | River DOC loss rate at 20°C | **r_loss** | day⁻¹ |  |
 | River DOC loss Q10 | **r_q10** |  |  |
 
@@ -492,20 +492,20 @@ Authors: Leah A. Jackson-Blake, Magnus D. Norling
 
 | Name | Symbol | Unit |  Description |
 | ---- | ------ | ---- |  ----------- |
-| **DIN universal params** | | | |
+| **DIN universal params** | | |  |
 | Soilwater DIN uptake rate at 20°C | **din_immob_rate** | m day⁻¹ | (name is outdated, should be changed). This represents uptake and denitrification. |
 | Soilwater DIN uptake rate response to 10°C change (Q10) | **din_immob_q10** |  |  |
 | Groundwater DIN computation type | **gw_conc_type** | Possible values: `const`, `soil_avg`, `mass_bal` |  |
 | Groundwater DIN concentration | **gw_din_conc** | mg l⁻¹ | Only used if type is const |
 | Reach denitrification rate at 20°C | **reach_denit_rate** | day⁻¹ |  |
 | (Q10) Reach denitrification rate response to 10°C change in temperature | **reach_denit_q10** |  |  |
-| **Soil DIN params varying by land use** | | | |
+| **Soil DIN params varying by land use** | | | Distributes like: `soil` |
 | Initial soilwater DIN concentration | **sw_din_init** | mg l⁻¹ |  |
 | Net annual DIN input to soil | **net_annual_N_input** | kg ha⁻¹ year⁻¹ | (name outdated, should be changed) These are the gross DIN inputs to soil disregarding fertilizer inputs. Represents atmospheric deposition and fixation. |
 | Fertilizer addition day | **fert_day** | day |  |
 | Fertilizer N | **fert_n** | kg ha⁻¹ |  |
 | Fertilizer DIN release | **fert_rel** | mm⁻¹ | Per mm of soil water input (giving less dissolution in dry years) |
-| **River DIN** | | | |
+| **River DIN** | | | Distributes like: `river` |
 | Reach effluent DIN inputs | **eff_din** | kg day⁻¹ |  |
 
 ### State variables
@@ -757,19 +757,19 @@ Authors: Leah A. Jackson-Blake, Magnus D. Norling
 
 | Name | Symbol | Unit |  Description |
 | ---- | ------ | ---- |  ----------- |
-| **P general** | | | |
+| **P general** | | |  |
 | Dynamic EPC0, TDP and soil labile P | **dyn_epc0** |  |  |
 | Soil mass per m2 | **m_soil_m2** | kg m⁻² |  |
 | Phosphorous sorption coefficient | **kf** | l mg⁻¹ |  |
 | Particulate P enrichment factor | **pp_enrich** |  |  |
-| **Soil P** | | | |
+| **Soil P** | | | Distributes like: `soil` |
 | Initial soil TDP concentration and EPC0 | **init_epc0** | mg l⁻¹ |  |
 | Initial total soil P content | **init_soil_p_conc** | mg kg⁻¹ |  |
 | Inactive soil P content | **inactive_soil_p_conc** | mg kg⁻¹ |  |
 | Net annual P input to soil | **p_input** | kg ha⁻¹ year⁻¹ |  |
-| **Groundwater P** | | | |
+| **Groundwater P** | | | Distributes like: `gw` |
 | Groundwater TDP concentration | **gw_tdp** | mg l⁻¹ |  |
-| **River P** | | | |
+| **River P** | | | Distributes like: `river` |
 | Effluent TDP inputs | **eff_tdp** | kg day⁻¹ |  |
 
 ### State variables
@@ -1004,16 +1004,16 @@ $$
 
 | Name | Symbol | Unit |  Description |
 | ---- | ------ | ---- |  ----------- |
-| **Soil erodibility** | | | |
+| **Soil erodibility** | | | Distributes like: `soil` |
 | Vegetation cover factor | **c_cov** |  | Vegetation cover factor, describing ratio between long-term erosion under the land use class, compared to under bare soil of the same soil type, slope, etc. Source from (R)USLE literature and area-weight as necessary to obtain a single value for the land class. |
 | Day of year when soil erodibility is max for spring-grown crops | **doy_spring** | day |  |
 | Day of year when soil erodibility is max for autumn-grown crops | **doy_autumn** | day |  |
 | Proportion of spring-grown crops | **p_spring** |  |  |
 | Reduction of load in sediment | **loadred** |  |  |
 | Cover factor shape | **shp** | Possible values: `flat`, `step`, `triangular`, `smooth` |  |
-| **Land slope** | | | |
+| **Land slope** | | | Distributes like: `soil` |
 | Mean slope of land | **land_slope** | ° |  |
-| **River erosion** | | | |
+| **River erosion** | | | Distributes like: `river` |
 | Erosion scaling factor | **ksed** | day mm⁻¹ |  |
 | Erosion power factor | **psed** |  |  |
 
