@@ -19,7 +19,7 @@ The basin model assumes that each vertical layer is always completely horizontal
 
 Turbulent mixing energy is assumed to be constant, only depending on basin and depth, and is thus calibrated instead of simulated. Wind mixing and mixing from ship activity is added on top.
 
-See the [mathematical description](autogen/nivafjord.html).
+See the [mathematical description](autogen/nivafjord.html#nivafjord-basin).
 
 ## Horizontal exchange
 

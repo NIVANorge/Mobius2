@@ -2,13 +2,20 @@
 layout: default
 title: Model composition
 parent: Model language
-nav_order: 3
+nav_order: 4
 ---
 
 # Model composition
 
-This document will explain some more advanced concepts about how a declared model is put together to a runnable program.
+This document will loosely describe how a declared model is put together to a runnable program.
 
-Since Mobius2 composes and compiles a model when you load it, it takes care of all these steps for you, but it can be important to understand some of them in order to understand how a model behaves.
+This document is yet to be written. The guide is prioritized for now.
 
-This document is yet to be written.
+## Instruction sorting
+
+## Solver assignment
+
+## Batch creation and batch function compilation
+
+## Memory layout
+
