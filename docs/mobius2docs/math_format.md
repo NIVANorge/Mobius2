@@ -93,7 +93,7 @@ The conditions must be dimensionless, and are cast to boolean if they are not al
 
 ### Literal
 
-A \<literal\> is a number or value placed directly in the code. Examples
+A \<literal\> is a number or value placed directly in the code. It is one of the [real, integer or boolean token types](declaration_format.html#token-types). Examples
 
 ```python
 5
@@ -101,7 +101,6 @@ A \<literal\> is a number or value placed directly in the code. Examples
 false
 2.8e12
 ```
-These are formatted like in most other programming languages, including the use of [E notation](https://en.wikipedia.org/wiki/Scientific_notation#E_notation) for reals.
 
 Literals are dimensionless by default, but can be given a unit by following them directly with a [unit declaration](units.html#the-unit-declaration-format):
 

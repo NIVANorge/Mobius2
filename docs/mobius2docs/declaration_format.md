@@ -30,11 +30,26 @@ Mobius2 uses the following file types
 
 Anywhere you put a `#` symbol, the rest of the line is treated as a comment and will be disregarded by the framework. You can also create multi-line comments using `/*` and `*/`.
 
+## Token types
+
+Each Mobius2 file is parsed as a sequence of *tokens* that are then further interpreted as a sequence of declarations. A token is one of the following
+
+| Name | Description | Examples |
+| ---- | ----------- | -------- |
+| identifier | A sequence of ascii letters `a-zA-Z` possibly also containing underscores `_`, and possibly also containing digits `0-9`, but not as the first character. | `soil`, `water`, `Q10`, `r_denit` |
+| quoted_string | Text between qotation marks. If single quotation marks, it must be on a single line. If triple quotation marks, it could be on multiple lines. | "Soil water", "Denitrification rate" |
+| integer | A whole number | `8`, `-5`, `3762` |
+| real | Something representing a real number, possibly including [E notation](https://en.wikipedia.org/wiki/Scientific_notation#E_notation). | `23.5`, `-4e2`, `0.45e-4`, `nan` |
+| boolean | A truth value | `true`, `false` |
+| Operator, delimiter or bracket | These are many different token types used to group statements or create mathematical expressions | `+`, `-`, `*`, `/`, `|`, `%`, `&`, `!`, `=`, `!=`, `>`, `<`, `>=`, `<=`, `(`, `)`, `{`, `}`, `[`, `]`, `?`, `->`, `<-`, `->>`, `=>`, `=>>` |
+| Date | A date value, only available in data files | `1999-12-31`, `2024-05-07` |
+| Time | A time value, only available in data files | `12:55:33`, `05:30:00` |
+
 ## Entities and identifiers
 
-Most (but not all) declarations create a model entity. If a model entity is created you may be able to create an identifier for it to reference it in other parts of the code.
+Most (but not all) declarations create a model entity. If a model entity is created you may be able to bind it to an identifier. You can then use that identifier to refer to the entity in other parts of the code.
 
-An identifier is a sequence of ascii letters `a-z` possibly also containing underscores `_`, and possibly also containing digits `0-9`, but not as the first character. An identifier is declared by writing it followed by a colon `:` and the rest of the declaration. Example:
+An entity identifier is declared by writing it followed by a colon `:` and the rest of the declaration. Example:
 
 ```python
 my_identifier : <declaration>

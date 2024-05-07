@@ -58,7 +58,7 @@ If an argument type is `(type1|type2|..)` it means it can have any of those type
 
 If several signatures are listed, they are different alternatives.
 
-If you see **Bind to identifier: yes** it means that the declaration creates an identity that can be bound to an identifier, e.g. `some_identifier : decl(...)`.
+If you see **Bind to identifier: yes** it means that the declaration creates an identity that can be (optionally) bound to an identifier, e.g. `some_identifier : decl(...)`.
 
 ## model
 
@@ -84,7 +84,7 @@ Context: One of
 
 Bind to identifier: no
 
-Signatures:
+Signature:
 
 ```python
 module(name:quoted_string, v:version) { <declaration-body> }
@@ -629,9 +629,106 @@ Sub-indexed and union index sets will be documented separately.
 
 ## connection
 
+Context: model, module scopes.
+
+Bind to identifier: yes.
+
+Signature:
+
+```python
+connection(name:quoted_string)
+```
+
+Optional notes:
+
+```python
+@grid1d(comp:compartment, set:index_set)
+@directed_graph() { <regex-body> }
+@directed_graph(edge_set:index_set) { <regex-body> }
+@no_cycles
+```
+
+This creates a connection that you can direct fluxes along, and some times do value lookups along.
+
+You must provide either a `@grid1d` or `@directed_graph` note to specify the connection type.
+
+### `@grid1d`
+
+This arranges instances of the compartment `comp` next to one another along the index set `set` (in linear order of that index set). The compartment `comp` is required to have been declared as distributed over `set` (but not restricted to that index set).
+
+The specifics of how you can use this will be documented separately
+
+### `@directed_graph`
+
+This arranges one or more indexed compartments along a directed graph. You can use it to path fluxes along networks of different compartments or different instances of these compartments.
+
+If you want to allow a single node to have multiple outgoing arrows, you need to provide an edge index set for the connection. The `edge_set` must have been declared as sub-indexed to the index_set of the node(s) that can have multiple outgoing edges, or potentially to a union of these if they are different.
+
+The regex body is currently not fully functional. It is supposed to describe how paths in the graph can look. For now just follow one of the below examples
+
+```python
+# Each path is one or more instances of the compartment 'a'
+@directed_graph { a+ }
+
+# Each path is one or more instances of the compartments 'a', 'b' or 'c'
+@directed_graph { (a|b|c)+ }
+
+# Each path is one or more instances of the compartments 'a', 'b' or 'c',
+# followed by an 'out' (the last arrow can point out of the model domain)
+@directed_graph { (a|b|c)+ out }
+```
+
+More detailed documentation will follow later.
+
+### `@no_cycles`
+
+This can only be used if the connection is `@directed_graph`, and it disallows the data_set to specify cycles (circular paths) in the graph.
+
 ## solver
 
+Context: model scope.
+
+Bind to identifier: yes.
+
+Signature:
+
+```python
+solver(name:quoted_string, f:solver_function, init_step:unit)
+solver(name:quoted_string, f:solver_function, init_step:unit, rel_min:real)
+solver(name:quoted_string, f:solver_function, init_step:par_real)
+solver(name:quoted_string, f:solver_function, init_step:par_real, rel_min:par_real)
+```
+
+A solver is an ordinary differential equation (ODE) solver algorithm. You can tell Mobius2 to treat quantity primary variables as ODE variables if you `solve()` them using a solver (see below).
+
+The `solver_function` is a separate entity type that you (for now) can't declare. Instead Mobius2 provides the following solver functions
+
+| Name | Description |
+| ---- | ----------- |
+| `euler` | A solver using [Euler's method](https://en.wikipedia.org/wiki/Euler_method) with fixed step size. This solver is mostly included for illustration since it is not that precise. |
+| `inca_dascru` | A 4-5 adaptive Runge-Kutta solver based on \[Wambecq78\] and the implementation in the INCA models. This solver creates precise simulations of many systems. |
+
+We plan to add more solver algorithms eventually.
+
+The `init_step` is the time unit of the solver integration step, which is typically smaller than the sampling step of the model. The algorithm is more precise the smaller the integration step is, but it also causes it to run slower. If the solver is adaptive, it is allowed to dynamically adjust its step size to achieve higher precision. In that case, the `rel_min` gives the relative minimum size of the step it is allowed to adjust to. The minimum step will be `init_step*rel_min`.
+
+If either `init_step` or `rel_min` are given as parameters, they can be adjusted by users of the model (`init_step` must have a unit that is convertible to the sampling step unit of the model, while `rel_min` must be dimensionless.
+
+\[Wambecq78\] Wambecq, A.: Rational Runge–Kutta methods for solving systems of ordinary differential equations, Computing, 20, 333–342, [https://doi.org/10.1007/BF02252381](https://doi.org/10.1007/BF02252381), 1978. 
+
 ## solve
+
+Context: model scope.
+
+Bind to identifier: no.
+
+Signature:
+
+```python
+solve(sol:solver, variable:location...)
+```
+
+Tell the framework to use the solver `sol` to solve one or more quantity primary variables given by their locations.
 
 ## aggregation_weight
 
@@ -641,7 +738,7 @@ Sub-indexed and union index sets will be documented separately.
 
 Context: model, module, preamble, library, par_group.
 
-Bind to identifier: yes
+Bind to identifier: yes.
 
 Signature:
 

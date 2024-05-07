@@ -115,6 +115,8 @@ can be converted to $$\mathrm{mg}/\mathrm{l}$$ with a factor of $$10^{-6}$$, thi
 
 The `@initial_conc` note is similar to `@initial`, but instead of the initial mass you provide the initial concentration. Mobius2 computes the initial mass of the variable by multiplying the initial concentration with the initial volume of water (and the appropriate scaling factor).
 
+Note how we haven't explicitly done a `solve()` declaration to make the model treat the new variables as ODE variables. This is because any quantity is automatically given the same solver as what it is dissolved in.
+
 If you run the model now, you will notice how you get a nonzero concentration of DIN in the groundwater and river even though you didn't explicitly put any there. This is because all fluxes in Mobius2 will automatically transport dissolved quantities. Aggregation will also be applied in a similar way. This means that all you runoff and discharge fluxes will carry DIN proportionally to the concentration in the source compartments.
 
 The concentration currently drops off quickly. This is because any new water coming in (precipitation) doesn't carry DIN, and so this clean water replaces the water with DIN over time. Let's provide some DIN sources to ameliorate it
