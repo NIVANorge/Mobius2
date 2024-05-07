@@ -16,6 +16,10 @@ The EasyLake model is a two-box lake model consisting of an upper epilimnion and
 ![EasyLake](../img/EasyLake.png)
 Figure: The water and energy balance in EasyLake. Discharge enters the lake through possibly multiple inlets $$Q_{in}$$, and exits through one outlet $$Q_{out}$$. Precipitation $$P$$ and evaporation $$E$$ also affect the water balance. The lake has a water level (from the max depth up to the surface) and an epilimnion thickness. Discharge is a function of how much the level is above a certain height. The energy balance in summer is governed by surface heat fluxes (shortwave, longwave, sensible and latent). When there is ice cover, ice thickness instead follows Stefan's law. The temperature curve is self-similar and is continuous between the variable epilimnion temperature and the constant bottom temperature. The epilimnion temperature is adjusted to match the heat balance for the entire lake. (This figure is a bit out of date and will be replaced, the bathymetry is differently parametrized now, and no longer uses the $$w$$ and $$L$$ parameters).
 
+An earlier version of EasyLake was first deployed in
+
+Norling, M. D., Clayer, F., Gundersen, C. B.: Levels of nitramines and nitrosamines in lake drinking water close to a CO2 capture plant: A modelling perspective, Env. Res. 212(D), [https://doi.org/10.1016/j.envres.2022.113581](https://doi.org/10.1016/j.envres.2022.113581), 2022
+
 See the [mathematical description](autogen/easylake.html).
 
 ## EasyChem

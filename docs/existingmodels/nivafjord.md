@@ -9,7 +9,7 @@ nav_order: 2
 
 NIVAFjord is a layered multi-basin model for fjords, lakes and lagoons. Each basin is a 1D layered model, but you can horizontally couple several basins.
 
-NIVAFjord is loosely based on the model [Eutrofimodell for Indre Oslofjord (Norwegian only)](https://niva.brage.unit.no/niva-xmlui/handle/11250/207887).
+The physics component of NIVAFjord is loosely based on the model [Eutrofimodell for Indre Oslofjord (Norwegian only)](https://niva.brage.unit.no/niva-xmlui/handle/11250/207887).
 
 ## Basin
 
@@ -25,7 +25,7 @@ See the [mathematical description](autogen/nivafjord.html#nivafjord-basin).
 
 With multiple basins, you can have horizontal exchange between the basins.
 
-Horizontal flow velocity is proportional to the square root of the pressure difference between two neighboring layers. A layer will discharge to the first neighboring layer below it that has the same density as itself.
+Horizontal flow velocity is proportional to the square root of the pressure difference between two neighboring layers. A layer will discharge to the first neighboring layer next to or below it that has the same density as itself.
 
 Pressure differences can either be barotropic (caused by different water levels, e.g. due to tides or river inputs) or barocline (caused by differences in the pressure gradient due to temperature or salinity).
 
