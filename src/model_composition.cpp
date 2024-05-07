@@ -847,7 +847,11 @@ prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
 		for(auto flux_id : generate) {
 			std::string &flux_name = app->vars[flux_id]->name;
 			sprintf(varname, "carried_flux(%s, %s)", var_name.data(), flux_name.data());
-			Var_Id gen_flux_id = register_state_variable<State_Var::Type::dissolved_flux>(app, invalid_entity_id, false, varname);
+			
+			// It is just much cleaner in MobiView if this is off, but on the other hand we do want to know some of these fluxes quite often. Make a more granular way to specify which ones to store?
+			bool no_store = true;
+			
+			Var_Id gen_flux_id = register_state_variable<State_Var::Type::dissolved_flux>(app, invalid_entity_id, false, varname, no_store);
 			auto gen_flux = as<State_Var::Type::dissolved_flux>(app->vars[gen_flux_id]);
 			auto flux = app->vars[flux_id];
 			gen_flux->type = State_Var::Type::dissolved_flux;
@@ -871,9 +875,6 @@ prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
 			gen_flux->loc2.type = flux->loc2.type;
 			gen_flux->loc2.r1 = flux->loc2.r1;
 			gen_flux->loc2.r2 = flux->loc2.r2;
-			
-			// It is just much cleaner in MobiView if this is off, but on the other hand we do want to know some of these fluxes quite often. Make a more granular way to specify which ones to store?
-			gen_flux->store_series = false;
 			
 			gen_flux->allowed_index_sets = get_allowed_index_sets(app, gen_flux->loc1, gen_flux->loc2);
 		}

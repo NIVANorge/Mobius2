@@ -13,7 +13,7 @@ Since the modules can be dynamically loaded with different arguments, this docum
 
 See the note on [notation](autogen.html#notation).
 
-The file was generated at 2024-05-06 13:40:56.
+The file was generated at 2024-05-07 10:30:23.
 
 ---
 
@@ -293,8 +293,8 @@ Authors: Magnus D. Norling, Leah A. Jackson-Blake
 | Soil temperature DOC creation second-order coefficient | **kt2** | °C⁻² |  |
 | Soil DOC linear SO4 dependence | **kso4** | l mg⁻¹ |  |
 | Baseline soil DOC dissolution rate | **cdoc** | mg l⁻¹ day⁻¹ | Only used if the soil DOC computation type is dynamic. |
-| Soil DOC computation type | **soildoc_type** |  |  |
-| Groundwater DOC computation type | **gwdoc_type** |  |  |
+| Soil DOC computation type | **soildoc_type** | Possible values: `const`, `equilibrium`, `dynamic` |  |
+| Groundwater DOC computation type | **gwdoc_type** | Possible values: `const`, `soil_avg`, `mass_bal` |  |
 | **DOC land** | | | |
 | Baseline soil DOC concentration | **basedoc** | mg l⁻¹ | Soil water equilibrium DOC concentration when temperature is 0°C and there is no SO4. |
 | **DOC deep soil** | | | |
@@ -495,7 +495,7 @@ Authors: Leah A. Jackson-Blake, Magnus D. Norling
 | **DIN universal params** | | | |
 | Soilwater DIN uptake rate at 20°C | **din_immob_rate** | m day⁻¹ | (name is outdated, should be changed). This represents uptake and denitrification. |
 | Soilwater DIN uptake rate response to 10°C change (Q10) | **din_immob_q10** |  |  |
-| Groundwater DIN computation type | **gw_conc_type** |  |  |
+| Groundwater DIN computation type | **gw_conc_type** | Possible values: `const`, `soil_avg`, `mass_bal` |  |
 | Groundwater DIN concentration | **gw_din_conc** | mg l⁻¹ | Only used if type is const |
 | Reach denitrification rate at 20°C | **reach_denit_rate** | day⁻¹ |  |
 | (Q10) Reach denitrification rate response to 10°C change in temperature | **reach_denit_q10** |  |  |
@@ -1010,7 +1010,7 @@ $$
 | Day of year when soil erodibility is max for autumn-grown crops | **doy_autumn** | day |  |
 | Proportion of spring-grown crops | **p_spring** |  |  |
 | Reduction of load in sediment | **loadred** |  |  |
-| Cover factor shape | **shp** |  |  |
+| Cover factor shape | **shp** | Possible values: `flat`, `step`, `triangular`, `smooth` |  |
 | **Land slope** | | | |
 | Mean slope of land | **land_slope** | ° |  |
 | **River erosion** | | | |

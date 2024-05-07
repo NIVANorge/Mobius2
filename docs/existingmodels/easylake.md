@@ -11,10 +11,10 @@ EasyLake is a set of lake modules consisting of one physical module for water tr
 
 ## EasyLake physical
 
-![EasyLake](../img/EasyLake.png)
-(this figure is a bit out of date and will be replaced, the bathymetry is differently parametrized now).
-
 The EasyLake model is a two-box lake model consisting of an upper epilimnion and a lower hypolimnion. The epilimnion thickness can vary, and the two compartments are mixed if their temperature becomes close to one another. Temperatures, evaporation and ice are computed using physically based processes. Lake bathymetry (cross-section area as a function of depth) can be parametrized to fit several different types of profiles.
+
+![EasyLake](../img/EasyLake.png)
+Figure: The water and energy balance in EasyLake. Discharge enters the lake through possibly multiple inlets $$Q_{in}$$, and exits through one outlet $$Q_{out}$$. Precipitation $$P$$ and evaporation $$E$ also affect the water balance. The lake has a water level (from the max depth up to the surface) and an epilimnion thickness. Discharge is a function of how much the level is above a certain height. The energy balance in summer is governed by surface heat fluxes (shortwave, longwave, sensible and latent). When there is ice cover, ice thickness instead follows Stefan's law. The temperature curve is self-similar and is continuous between the variable epilimnion temperature and the constant bottom temperature. The epilimnion temperature is adjusted to match the heat balance for the entire lake. (This figure is a bit out of date and will be replaced, the bathymetry is differently parametrized now, and no longer uses the $$w$$ and $$L$$ parameters).
 
 See the [mathematical description](autogen/easylake.html).
 
@@ -37,3 +37,5 @@ This is a contaminant module for EasyLake meant for use in combination with [Sim
 There is also surface-air and surface-sediment exchange of contaminants that works similarly to the SimplyTox river compartment.
 
 Mathematical description is forthcoming.
+
+{% include lib/mathjax.html %}

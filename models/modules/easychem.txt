@@ -357,7 +357,7 @@ Authors: Magnus D. Norling
 		maxconc   : par_real("Sediment concentration of fast settling", [m g, l-1], 10, 0, 20, "With suspended sediment concentrations in the river higher than this, it is assumed to contain larger grain sizes that settle faster")
 	}
 	
-	load("stdlib/basic_math.txt", library("Response"))
+	load("stdlib/basic_math.txt", library("Response"), library("Basic"))
 
 	var(epi.water.sed, [k g], [m g, l-1], "Epilimnion suspended sediments")
 	var(hyp.water.sed, [k g], [m g, l-1], "Hypolimnion suspended sediments")

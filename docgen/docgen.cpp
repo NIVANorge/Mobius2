@@ -541,11 +541,23 @@ document_module(std::stringstream &ss, Mobius_Model *model, std::string &module_
 			
 			for(auto par_id : group->scope.by_type<Reg_Type::parameter>()) {
 				auto par = model->parameters[par_id];
-				//if(par->decl_type != Decl_Type::par_real) continue; //TODO!
+				
+				std::string unit;
+				if(par->decl_type == Decl_Type::par_enum) {
+					unit = "Possible values: ";
+					bool first = true;
+					for(auto &val : par->enum_values) {
+						if(!first) unit += ", ";
+						unit += "`" + val + "`";
+						first = false;
+					}
+				} else {
+					unit = unit_str(model, par->unit);
+				}
 				
 				ss << "| " << par->name 
 				   << " | **" << model->get_symbol(par_id)
-				   << "** | " << unit_str(model, par->unit)
+				   << "** | " << unit
 				   //<< " | " << par->default_val.val_real
 				   //<< " | " << par->min_val.val_real
 				   //<< " | " << par->max_val.val_real
