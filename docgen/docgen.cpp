@@ -228,8 +228,6 @@ format_double_tex(double d) {
 	return base + "\\cdot 10^{" + power + "}";
 }
 
-// TODO: Also have to make a precedence system like in the other print_expression.
-// Could we unify code with that??
 void
 print_equation(Print_Equation_Context &context, Math_Expr_AST *ast, bool outer = false) {
 	if(ast->type == Math_Expr_Type::block) {

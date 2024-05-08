@@ -23,6 +23,10 @@ The Mobius2 framework comes with several [existing modules and models](existingm
 
 All Mobius2 models can be coupled to one another in larger transport networks.
 
+![Catchment](img/catchment_3d_plot.png)
+
+Figure: Example of a model setup. The terrain is delineated into subcatchments (one of which is higlighted in red), and lakes (blue), and the outlet is connected to a fjord section (purple). Each subcatchment is also divided into land use classes (not shown). (The visualization is not on its own a part of Mobius2, it was created using [pygmt](https://www.pygmt.org/latest/) and [OpenStreetMap](https://www.openstreetmap.org/copyright) - © OpenStreetMap providers).
+
 ## Support infrastructure
 
 Any model created in Mobius2 can be run from the graphical user interface [MobiView2](mobiviewdocs/mobiview.html) and in the [mobipy](mobipydocs/mobipy.html) python package. This allows model creators and users to interact with the models in powerful and user friendly ways. Included are multiple types of plots, and state-of-the-art autocalibration, uncertainty and sensitivity analysis.
