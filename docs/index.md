@@ -25,7 +25,7 @@ All Mobius2 models can be coupled to one another in larger transport networks.
 
 ![Catchment](img/catchment_3d_plot.png)
 
-Figure: Example of a Mobius2 model application. The drainage basin of a river is delineated into subcatchments (one of which is higlighted in red) and lakes (dark blue). The outlet is connected to a fjord basin (purple). Each subcatchment is also divided into land use classes (not shown). (The visualization is not a part of Mobius2, it was created using [pygmt](https://www.pygmt.org/latest/) and [OpenStreetMap](https://www.openstreetmap.org/copyright) - © OpenStreetMap providers).
+Figure: Example of a Mobius2 model application. The drainage basin of a river is delineated into subcatchments (light green)  and lakes (dark blue). The outlet is connected to a fjord basin (purple). The subcatchments are subdivided into land use, shown in one of the subcatchments with urban (red), agricultural (yellow), semi-natural (green). (The visualization is not a part of Mobius2, it was created using [pygmt](https://www.pygmt.org/latest/) and [OpenStreetMap](https://www.openstreetmap.org/copyright) - © OpenStreetMap providers).
 
 ## Support infrastructure
 
