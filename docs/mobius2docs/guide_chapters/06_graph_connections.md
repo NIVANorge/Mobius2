@@ -13,7 +13,7 @@ Until now we have learned how to direct fluxes between different types of compar
 
 The example we will look at today is how to make river sections discharge to other river sections.
 
-The general mathematical object describing arrows going between different objects is that of a [directed graph](https://en.wikipedia.org/wiki/Directed_graph). In Mobius2 you can use `directed_graph` *connections* to describe arbitrary flow graphs of e.g. rivers, lakes, soil patches, hydraulic units, etc.
+The general mathematical object describing arrows going between different nodes is that of a [directed graph](https://en.wikipedia.org/wiki/Directed_graph). In Mobius2 you can use `directed_graph` *connections* to describe arbitrary flow graphs of e.g. rivers, lakes, soil patches, hydraulic units, etc.
 
 We start by declaring the connection entity in the model scope
 
@@ -103,5 +103,7 @@ In the example data set, the concentration of DIN in the branch "Main02" is high
 
 ## Exercises
 
+- If you have your own study catchment, set up the model for it.
+- Modify the hydrology model to have multiple soil compartments (indexed over a new index set) that discharge to one another.
 
 {% include lib/mathjax.html %}
