@@ -60,7 +60,8 @@ This is a hydrology module developed as part of the Mobius2 Guide. It is only fo
 
 module("River hydrology", version(0, 0, 2),
 	river : compartment,
-	water : quantity
+	water : quantity,
+	river_target : loc
 ) {
 	
 	var(river.water, [m 3], "River water")
@@ -74,7 +75,7 @@ module("River hydrology", version(0, 0, 2),
 	# convert the flux into the right scale. This also means that you can run
 	# the same model with different sampling steps without making changes to
 	# the model formulation!
-	flux(river.water, out, [m 3, s-1], "River discharge") {
+	flux(river.water, river_target, [m 3, s-1], "River discharge") {
 		# This is just a very simple example formula, and should not be used in practice.
 		
 		# Set the unit of w to dimensionless so that we don't get unit errors in the formula

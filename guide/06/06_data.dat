@@ -1,0 +1,108 @@
+data_set {
+	series("../03/tarland_series.xlsx")
+	
+	series("../05/obs_n.xlsx")
+	
+	lu : index_set("Landscape units") [ "Natural" "Agricultural" "Grasslands" ]
+	
+	sc : index_set("Subcatchment") [ "Side01" "Main01" "Main02" "Main03" ]
+	
+	connection("Downstream") {
+		
+		r : compartment("River", sc)
+		
+		directed_graph [ 
+			r[ "Main01" ] -> r[ "Main02" ] -> r[ "Main03" ] -> out
+			r[ "Side01" ] -> r[ "Main02" ]
+		]
+	}
+	
+	par_group("System") {
+		
+		par_datetime("Start date") 
+		[ 2004-01-01 ]
+		
+		par_datetime("End date") 
+		[ 2005-09-30 ]
+	
+	}
+	
+	par_group("Land use", sc, lu) {
+		
+		par_real("Land use fraction") [
+			0 1 0 
+			0.5 0.2 0.3 
+			0.3 0 0.7 
+			0.2 0.5 0.3 
+		]
+	
+	}
+	
+	par_group("Subcatchment data", sc) {
+		
+		par_real("Subcatchment area") 
+		[ 51.7 20 30 40 ]
+	
+	}
+	
+	module("Soil hydrology", version(0, 0, 3)) {
+		
+		par_group("Soil hydrology", lu) {
+			
+			par_real("Field capacity") 
+			[ 270 270 270 ]
+			
+			par_real("Soil water time constant") 
+			[ 10 2 2 ]
+			
+			par_real("Baseflow index") 
+			[ 0.65 0.65 0.65 ]
+			
+			par_real("Degree-day factor for potential evapotranspiration") 
+			[ 0.15 0.15 0.15 ]
+		
+		}
+		
+		par_group("Groundwater hydrology") {
+			
+			par_real("Groundwater time constant") 
+			[ 120 ]
+		
+		}
+	
+	}
+	
+	module("DIN processes", version(0, 0, 1)) {
+		
+		par_group("DIN global") {
+			
+			par_real("Non-agricultural DIN inputs") 
+			[ 10 ]
+			
+			par_real("DIN loss rate at 20°C") 
+			[ 0.01 ]
+			
+			par_real("DIN loss response to 10°C change in temperature") 
+			[ 4 ]
+		
+		}
+		
+		par_group("Land specific DIN", lu) {
+			
+			par_real("Initial soil DIN concentration") 
+			[ 4 4 4 ]
+			
+			par_real("Fertilizer IN addition") 
+			[ 0 100 0 ]
+			
+			par_int("Fertilizer addition day") 
+			[ 150 150 150 ]
+			
+			par_real("Fertilizer N dissolution rate") 
+			[ 0.01 0.01 0.01 ]
+		
+		}
+	
+	}
+
+}

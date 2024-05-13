@@ -34,20 +34,29 @@ module("Soil hydrology", version(0, 0, 3),
 
 module("River hydrology", version(0, 0, 2),
 	river : compartment,
-	water : quantity
+	water : quantity,
+	river_target : loc,
 ) {
 	# ...
+	
+	flux(river.water, river_target, [m 3, s-1], "River discharge") {
+	#...
+	}
 }
 ```
 
-This also provides a form of documentation about what entities the module is concerned. Later, it is possible to not pass `river` to "Soil hydrology", and instead just pass an arbitrary location target for the soil and groundwater runoffs, making it possible to connect these up in different ways without changing the module itself, but we will not cover that now.
+This also provides a form of documentation about what entities the module is concerned.
+
+For the river we pass the river discharge target to the "River hydrology" module so that we can connect the rivers up easily in the next chapter.
+
+It would also have been possible to not take `river` as an argument to the module "Soil hydrology", and instead just take a location target for the soil and groundwater runoffs as an argument, making it possible to connect these up in different ways without changing the module itself.
 
 Inside the model, you have to load the modules from their file, passing the load arguments.
 
 ```python
 load("hydro_modules.txt",
 	module("Soil hydrology", air, soil, gw, river, water, temp, precip),
-	module("River hydrology", river, water))
+	module("River hydrology", river, water, loc(out)))  # Let the river target be 'out' for now.
 ```
 
 We will have to make one small change to the soil hydrology inside "hydro_modules.txt": The evapotranspiration flux should not carry dissolved quantities. We do this by placing a `@no_carry` note on the flux declaration

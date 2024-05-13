@@ -7,7 +7,7 @@ nav_order: 1
 comment: "While we use python markup for code snippets, they are not actually python, it just creates convenient coloring for this format."
 ---
 
-# 02. Parameters and forcings (input series)
+# Parameters and forcings (input series)
 
 A parameter is a user-provided value that is held constant through each model run, and can be used to e.g. set up the model for a specific geographical location, tune the model to fit observed data, or to run scenarios. In Mobius2, parameters are always put inside parameter groups.
 

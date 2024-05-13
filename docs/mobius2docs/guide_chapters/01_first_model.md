@@ -7,7 +7,7 @@ nav_order: 0
 comment: "While we use python markup for code snippets, they are not actually python, it just creates convenient coloring for this format."
 ---
 
-# 01. The first model
+# The first model
 
 A model consists of a file with a `.txt` suffix that contains a single `model` declaration. In the body of the model declaration you can load one or more modules.
 
