@@ -67,7 +67,7 @@ Declared state variables can either be primary variables or fluxes.
 
 ### Primary variables
 
-Primary variables have a single *location*, e.g. `soil.water` or `river.water.oc`. This can be thought of as the address of the variable, and is used to refer to it in several contexts, including equation code.
+Primary variables have a single *location*, e.g. `soil.water` or `river.water.oc`. This can be thought of as the address of the variable, and is used to refer to it in several contexts, including in math expressions.
 
 We say that the type of the variable is the same as the type of the last component of the location, e.g. `soil.water` is a quantity if `water` is a quantity, and `soil.water.temp` is a property if `temp` is a property.
 

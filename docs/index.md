@@ -16,7 +16,7 @@ See how to quickly [get started](gettingstarted/gettingstarted.html).
 
 ## Existing models
 
-The Mobius2 framework comes with several [existing modules and models](existingmodels/existingmodels.html) that can be used directly or modified to accomodate other use cases, different data availability, or new research questions.
+The Mobius2 framework comes with several [existing modules and models](existingmodels/existingmodels.html) that can be used directly or modified to accommodate other use cases, different data availability, or new research questions.
 - The [Simply family](existingmodels/simply.html) is a family of catchment models building on the hydrology model SimplyQ. Modules for nutrients and contaminants exist.
 - [EasyLake](existingmodels/easylake.html) is a simple 2-box lake model that is intended for inclusion into a larger catcment model. It predicts residence time, temperature and ice in the lake, and has modules for nutrients retention and contaminants.
 - [NIVAFjord](existingmodels/nivafjord.html) is a 1-dimensional layered basin model that can be used to model e.g. fjords, lagoons and lakes. It has biochemistry modules for nutrients, phytoplankton and sediments.
@@ -25,7 +25,7 @@ All Mobius2 models can be coupled to one another in larger transport networks.
 
 ![Catchment](img/catchment_3d_plot.png)
 
-Figure: Example of a Mobius2 model application at the [Vannsjø-Moss watershed](https://en.wikipedia.org/wiki/Vansj%C3%B8). The drainage basin of the river is delineated into subcatchments (light green) and lakes (dark blue). The outlet is connected to a fjord basin (purple). The subcatchments are subdivided into land use, shown in one of the subcatchments with urban (red), agricultural (yellow), semi-natural (green). (The visualization is not a part of Mobius2, it was created using [pygmt](https://www.pygmt.org/latest/) and [OpenStreetMap](https://www.openstreetmap.org/copyright) - © OpenStreetMap providers).
+Figure: Example of a Mobius2 model application at the [Vannsjø-Moss watershed](https://en.wikipedia.org/wiki/Vansj%C3%B8). The drainage basin of the river is delineated into subcatchments (light green) and lakes (dark blue). The outlet is connected to a fjord basin (purple). The subcatchments are subdivided into land use, shown in one of the subcatchments with urban (red), agricultural (yellow) and semi-natural (green). (The visualization is not a part of Mobius2, it was created using [pygmt](https://www.pygmt.org/latest/) and [OpenStreetMap](https://www.openstreetmap.org/copyright) - © OpenStreetMap providers).
 
 ## Support infrastructure
 
