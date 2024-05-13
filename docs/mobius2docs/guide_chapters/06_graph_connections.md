@@ -69,9 +69,7 @@ graph TD;
 	Side01-->Main02;
 ```
 
-We do this using the following syntax. We declare that we refer to the "River" compartment using the identifier `r`, and index it over the subcatchment `sc`. Any arrow `->` between two nodes creates a connection between these.
-
-Right now each river section is only allowed to have one outlet. We may cover how to handle multiple outgoing arrows in another chapter (but that is not as relevant for rivers).
+We do this using the following syntax.
 
 ```python
 connection("Downstream") {
@@ -85,6 +83,10 @@ connection("Downstream") {
 }
 ```
 
+We declare that we refer to the "River" compartment using the identifier `r`, and index it over the subcatchment `sc`. Any arrow `->` between two nodes creates a connection between these.
+
+As this connection is set up, each river section is only allowed to have one outlet. We may cover how to handle multiple outgoing arrows in another chapter (but that is not as relevant for rivers).
+
 Finally, when we load the "River hydrology" module we must pass the downstream connection as the discharge target of the river.
 
 ```python
@@ -93,8 +95,11 @@ load("../05/hydro_modules.txt",
 	module("River hydrology", river, water, loc(downstream)))
 ```
 
-**(more to follow, just testing deployment)**
+![DIN concentrations](images/06.png)
 
+In the example data set, the concentration of DIN in the branch "Main02" is high even though the agricultural land use fraction in this subcatchment is low. This is because the agricultural land use fraction in the subcatchment of "Side01" is very high, and the "Side01" branch discharges to "Main02".
+
+[Full code for chapter 06](https://github.com/NIVANorge/Mobius2/tree/main/guide/06).
 
 ## Exercises
 
