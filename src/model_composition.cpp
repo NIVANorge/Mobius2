@@ -533,6 +533,7 @@ register_external_computations(Model_Application *app, std::unordered_map<Var_Lo
 		"nivafjord_vertical_realignment",
 		"nivafjord_vertical_realignment_even_distrib",
 		"nivafjord_vertical_realignment_slow",
+		"magic_core",
 	};
 	
 	auto model = app->model;

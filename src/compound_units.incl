@@ -13,6 +13,7 @@ COMPOUND_UNIT(month, "month")
 COMPOUND_UNIT(year, "year")
 COMPOUND_UNIT(K, "K")             // Kelvin. May want some autoconvert between it and deg_c eventually, but tricky.
 COMPOUND_UNIT(A, "A")             // Ampere
+COMPOUND_UNIT(eq, "eq")
 COMPOUND_UNIT(min, "min")
 COMPOUND_UNIT(hr, "hr")
 COMPOUND_UNIT(day, "day")

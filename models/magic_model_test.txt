@@ -1,0 +1,10 @@
+
+
+model("MAGIC (test)") {
+
+	comp : compartment("Compartment")
+
+	load("modules/magic/magic_test.txt",
+		module("MAGIC core test", comp))
+
+}
