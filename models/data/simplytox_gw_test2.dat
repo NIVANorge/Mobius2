@@ -281,7 +281,7 @@ data_set {
 			[ equilibrium ]
 			
 			par_enum("Groundwater DOC computation type") 
-			[ half_life ]
+			[ mass_bal ]
 		
 		}
 		

@@ -522,11 +522,29 @@ register_external_computations(Model_Application *app, std::unordered_map<Var_Lo
 	
 	// Unfortunately we have to do the below checks before resolving the function tree, because we need to know what locations are the targets of external computations before state variables are registered. Otherwise, a variable could be erroneously registered as an input series (since it lacked code), but should instead be computed by the external computation.
 	
+	// For now we just have a list here of allowed external functions (so that somebody don't call into some system function or something).
+	// This should be replaced with a better system later.
+	
+	auto allowed = {
+		"_special_test_",
+		"nivafjord_place_river_flux",
+		"nivafjord_place_horizontal_fluxes",
+		"nivafjord_compute_pressure_difference",
+		"nivafjord_vertical_realignment",
+		"nivafjord_vertical_realignment_even_distrib",
+		"nivafjord_vertical_realignment_slow",
+	};
+	
 	auto model = app->model;
 	
 	for(auto external_id : model->external_computations) {
 		
 		auto external = model->external_computations[external_id];
+		
+		if(std::find(allowed.begin(), allowed.end(), external->function_name) == allowed.end()) {
+			external->source_loc.print_error_header();
+			fatal_error("The function \"", external->function_name, "\" is not among the allowed functions in an external computation.");
+		}
 
 		Var_Id var_id = register_state_variable<State_Var::Type::external_computation>(app, invalid_entity_id, false, external->name);
 		as<State_Var::Type::external_computation>(app->vars[var_id])->decl_id = external_id;

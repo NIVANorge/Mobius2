@@ -95,9 +95,9 @@ What you edit is the `directed_graph` block. You must make the node indexes matc
 
 Every parameter is scoped inside a parameter group, which is some times scoped inside a module. This matches exactly how they are declared in the model and module files.
 
-A parameter group can be distributed over 0 or more index sets. All parameters in the group are 
+A parameter group can be distributed over 0 or more index sets. All parameters in the group are indexed over the same index sets as the group.
 
-The index set distribution is limited by the distribution of the attached component(s) in the model declaration. For instance, if a parameter group is declared to be attached to `soil` in the model, the index sets for this parameter group will be limited to the ones `soil` is distributed over. If you delete a parameter group declaration from the data set, ![Load](../img/toolbar/Open.png) load the file in MobiView2, then ![Load](../img/toolbar/Save.png) save it again, the parameter group will be given its maximal index set distribution.
+The index set distribution is limited by the distribution of the attached component(s) in the model declaration. For instance, if a parameter group is declared to be attached to `soil` in the model, the index sets for this parameter group will be limited to the ones `soil` is distributed over. If you delete a parameter group declaration from the data set, ![Load](../img/toolbar/Open.png) load the file in MobiView2, and then ![Save](../img/toolbar/Save.png) save it again, the parameter group will be given its maximal index set distribution.
 
 You can reduce the amount of index sets in the data file if you want to make the model setup more semi-distributed. For instance you could decide that some parameters that could index over both "Subcatchment" and "Landscape units" should index over the latter only. Example:
 

@@ -19,9 +19,9 @@ We start by declaring the connection entity in the model scope
 
 ```python
 downstream : connection("Downstream") @directed_graph {
-	# Don't worry too much about this regex for now, it is experimental
-	# functionality. It says that any path in the graph must be one or
-	# more river sections followed by an 'out'
+	# Don't worry too much about this "regex" for now, it is experimental
+	# functionality. It says that any maximal path in the graph must be one or
+	# more river sections followed by an 'out'.
 	river+ out
 } @no_cycles
 # '@no_cycles' just declares that instances of this connection should not contain circles.
@@ -59,7 +59,7 @@ par_group("Subcatchment data", sc) {
 }
 ```
 
-Next, we want to connect the "Downstream" connection so that the three main branches follow one another, while the side branch enters the second main branch as illustrated in the below diagram.
+Next, we want to connect the "Downstream" connection so that the sections of the main branch follow one another, while the side branch enters the second part of the main branch as illustrated in the below diagram.
 
 ```mermaid
 graph TD;
@@ -85,7 +85,7 @@ connection("Downstream") {
 
 We declare that we refer to the "River" compartment using the identifier `r`, and index it over the subcatchment `sc`. Any arrow `->` between two nodes creates a connection between these.
 
-As this connection is set up, each river section is only allowed to have one outlet. We may cover how to handle multiple outgoing arrows in another chapter (but that is not as relevant for rivers).
+As this connection is set up, each river section is only allowed to have one outlet. We may cover how to handle multiple outgoing arrows in another chapter (but that is not as relevant for rivers). We will also see later how you can have different compartments (such as lakes) in the same connection.
 
 Finally, when we load the "River hydrology" module we must pass the downstream connection as the discharge target of the river.
 

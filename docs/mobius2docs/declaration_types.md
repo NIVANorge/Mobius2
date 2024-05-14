@@ -669,13 +669,13 @@ If you want to allow a single node to have multiple outgoing arrows, you need to
 The regex body is currently not fully functional. It is supposed to describe how paths in the graph can look. For now just follow one of the below examples
 
 ```python
-# Each path is one or more instances of the compartment 'a'
+# Each maximal path is one or more instances of the compartment 'a'
 @directed_graph { a+ }
 
-# Each path is one or more instances of the compartments 'a', 'b' or 'c'
+# Each maximal path is one or more instances of the compartments 'a', 'b' or 'c'
 @directed_graph { (a|b|c)+ }
 
-# Each path is one or more instances of the compartments 'a', 'b' or 'c',
+# Each maximal path is one or more instances of the compartments 'a', 'b' or 'c',
 # followed by an 'out' (the last arrow can point out of the model domain)
 @directed_graph { (a|b|c)+ out }
 ```

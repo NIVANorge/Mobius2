@@ -64,7 +64,7 @@ This is a specialized version of SimplyTox where there are several groundwater l
 	load("modules/simplysoiltemp.txt", module("Simply soil temperature", air, soil, snow_box, snow, temp))
 	
 	load("modules/simplytox.txt",
-		phys : preamble("SimplyTox physiochemical", air, tox, temp),
+		phys : preamble("SimplyTox physiochemical", tox, temp),
 		module("SimplyTox partitioning", "SimplyTox soil water", soil, water, oc, tox, temp, loc(soil.oc), [n g, m-2], constant(true), phys),
 		module("SimplyTox soil", air, soil, dsoil, soilair, gw, water, oc, tox, temp, phys),
 		module("SimplyTox partitioning", "SimplyTox groundwater", gw, water, oc, tox, temp, loc(gw.oc), [n g, m-2], constant(false), phys)

@@ -16,9 +16,9 @@ model("Hydrology model") {
 	water : quantity("Water")
 	
 	downstream : connection("Downstream") @directed_graph {
-		# Don't worry too much about this regex for now, it is experimental
-		# functionality. It says that any path in the graph must be one or
-		# more river sections followed by an 'out'
+		# Don't worry too much about this "regex" for now, it is experimental
+		# functionality. It says that any maximal path in the graph must be one or
+		# more river sections followed by an 'out'.
 		river+ out
 	} @no_cycles
 	# '@no_cycles' just declares that instances of this connection should not contain circles.
