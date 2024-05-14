@@ -14,7 +14,5 @@ Mobius2 also provides special support for transport along directed graphs and gr
 
 Any model created in Mobius2 can be explored in the graphical user interface MobiView and interacted with through python in the mobipy package, without the model creator having to write any binding code between the model and various user interfaces.
 
-**insert nice plots**
-
 The old version of Mobius, Mobius 1, can be found here:
 https://github.com/NIVANorge/Mobius
