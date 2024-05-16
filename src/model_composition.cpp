@@ -812,6 +812,11 @@ prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
 			
 			auto state_var = as<State_Var::Type::declared>(app->vars[var_id]);
 			state_var->allowed_index_sets = get_allowed_index_sets(app, state_var->loc1);
+			
+			if(var->clear_nan) {
+				// TODO: We should check this one for conflicts between overlapping declarations too.
+				state_var->set_flag(State_Var::clear_series_to_nan);
+			}
 		}
 	}
 	

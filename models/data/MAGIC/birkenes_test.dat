@@ -1,0 +1,334 @@
+data_set {
+	time_step([month])
+	
+	series("birkenes_inputs.xlsx")
+	
+	ci : index_set("Compartment index") [ "Soil" "River" ]
+	
+	connection("Compartment connection") {
+		
+		comp : compartment("Compartment", ci)
+		
+		directed_graph [ 
+			comp[ "Soil" ] -> comp[ "River" ] -> out
+		]
+	}
+	
+	par_group("System") {
+		
+		par_datetime("Start date") 
+		[ 1850-01-01 ]
+		
+		par_datetime("End date") 
+		[ 2020-12-01 ]
+	
+	}
+	
+	par_group("Area", ci) {
+		
+		par_real("Relative area") 
+		[ 0.95 0.05 ]
+	
+	}
+	
+	module("MAGIC core test", version(0, 0, 3)) {
+		
+		par_group("Compartment parameters", ci) {
+			
+			par_real("Depth") 
+			[ 0.4 0.4 ]
+			
+			par_real("Porosity") 
+			[ 0.5 0.5 ]
+			
+			par_real("Bulk density") 
+			[ 738 0 ]
+			
+			par_real("Cation exchange capacity") 
+			[ 109 0 ]
+			
+			par_real("Soil sulfate adsorption capacity, half saturation") 
+			[ 100 0 ]
+			
+			par_real("Soil sulfate adsorption max capacity") 
+			[ 0.1 0 ]
+			
+			par_real("(log10) Al(OH)3 dissociation equilibrium constant") 
+			[ 11.32 11.32 ]
+			
+			par_real("Al(OH)3 dissociation equation exponent") 
+			[ 3 3 ]
+			
+			par_real("(-log10) pK 1st equilibrium constant for triprotic organic acid") 
+			[ 3.04 3.04 ]
+			
+			par_real("(-log10) pK 2nd equilibrium constant for triprotic organic acid") 
+			[ 4.51 4.51 ]
+			
+			par_real("(-log10) pK 3rd equilibrium constant for triprotic organic acid") 
+			[ 6.46 6.46 ]
+			
+			par_real("(-log10) pK Al(A) equilibrium constant for [(Al3+)(A3-)]") 
+			[ 0 0 ]
+			
+			par_real("(-log10) pK Al(HA)+ equilibrium constant for [(Al3+)(HA2-)+]") 
+			[ 0 0 ]
+			
+			par_real("Initial exchangeable Ca on soil as % of CEC") 
+			[ 10.8 0 ]
+			
+			par_real("Initial exchangeable Mg on soil as % of CEC") 
+			[ 3.1 0 ]
+			
+			par_real("Initial exchangeable Na on soil as % of CEC") 
+			[ 1 0 ]
+			
+			par_real("Initial exchangeable K on soil as % of CEC") 
+			[ 3.1 0 ]
+			
+			par_bool("This is a soil compartment") 
+			[ true false ]
+		
+		}
+		
+		par_group("Climate parameters", ci) {
+			
+			par_real("Temperature") 
+			[ 0.4 0.4 ]
+			
+			par_real("CO2 partial pressure") 
+			[ 0.33 0.33 ]
+			
+			par_real("Organic acid concentration") 
+			[ 43 43 ]
+		
+		}
+		
+		par_group("Test parameters", ci) {
+			
+			par_real("Discharge") 
+			[ 1 1 ]
+		
+		}
+		
+		par_group("Convergence") {
+			
+			par_real("Maximal charge difference before convergence") 
+			[ 1 ]
+		
+		}
+		
+		par_group("Weathering", ci) {
+			
+			par_real("Ca weathering") 
+			[ 20 0 ]
+			
+			par_real("Mg weathering") 
+			[ 10 0 ]
+			
+			par_real("Na weathering") 
+			[ 5 0 ]
+			
+			par_real("K weathering") 
+			[ 5 0 ]
+			
+			par_real("NH4 weathering") 
+			[ 0 0 ]
+			
+			par_real("SO4 weathering") 
+			[ 20 0 ]
+			
+			par_real("Cl weathering") 
+			[ 0 0 ]
+			
+			par_real("NO3 weathering") 
+			[ 0 0 ]
+			
+			par_real("F weathering") 
+			[ 0 0 ]
+			
+			par_real("PO4 weathering") 
+			[ 0 0 ]
+		
+		}
+	
+	}
+	
+	module("MAGIC core", version(0, 0, 3)) {
+		
+		par_group("Convergence") {
+			
+			par_real("Maximal charge difference before convergence") 
+			[ 0.1 ]
+		
+		}
+		
+		par_group("Compartment parameters", ci) {
+			
+			par_bool("This is a soil compartment") 
+			[ true false ]
+			
+			par_real("CO2 partial pressure") 
+			[ 0.33 0.07 ]
+			
+			par_real("Depth") 
+			[ 0.4 2 ]
+			
+			par_real("Porosity") 
+			[ 0.5 0 ]
+			
+			par_real("Bulk density") 
+			[ 656 0 ]
+			
+			par_real("Cation exchange capacity") 
+			[ 113.3 0 ]
+			
+			par_real("Soil sulfate adsorption capacity, half saturation") 
+			[ 100 0 ]
+			
+			par_real("Soil sulfate adsorption max capacity") 
+			[ 0.1 0 ]
+			
+			par_real("(log10) Al(OH)3 dissociation equilibrium constant") 
+			[ 7.8 8.6 ]
+			
+			par_real("Al(OH)3 dissociation equation exponent") 
+			[ 3 3 ]
+			
+			par_real("(-log10) pK 1st equilibrium constant for triprotic organic acid") 
+			[ 3.04 3.04 ]
+			
+			par_real("(-log10) pK 2nd equilibrium constant for triprotic organic acid") 
+			[ 4.51 4.51 ]
+			
+			par_real("(-log10) pK 3rd equilibrium constant for triprotic organic acid") 
+			[ 6.46 6.46 ]
+			
+			par_real("(-log10) pK Al(A) equilibrium constant for [(Al3+)(A3-)]") 
+			[ 0 0 ]
+			
+			par_real("(-log10) pK Al(HA)+ equilibrium constant for [(Al3+)(HA2-)+]") 
+			[ 0 0 ]
+			
+			par_real("Initial exchangeable Ca on soil as % of CEC") 
+			[ 16 0 ]
+			
+			par_real("Initial exchangeable Mg on soil as % of CEC") 
+			[ 10.13 0 ]
+			
+			par_real("Initial exchangeable Na on soil as % of CEC") 
+			[ 2 0 ]
+			
+			par_real("Initial exchangeable K on soil as % of CEC") 
+			[ 3 0 ]
+		
+		}
+	
+	}
+	
+	module("MAGIC-Forest drivers", version(0, 0, 2)) {
+		
+		par_group("Climate parameters", ci) {
+			
+			par_real("Organic acid concentration") 
+			[ 52 26 ]
+			
+			par_bool("This is a surface compartment") 
+			[ true true ]
+			
+			par_bool("Adjust OA concentration") 
+			[ true true ]
+			
+			par_real("Reduction in OA by SO4") 
+			[ 0.17 0.17 ]
+			
+			par_real("Minimal compartment temperature") 
+			[ 0.4 0.4 ]
+		
+		}
+		
+		par_group("Weathering", ci) {
+			
+			par_real("Ca weathering") 
+			[ 30 0 ]
+			
+			par_real("Mg weathering") 
+			[ -6.2 0 ]
+			
+			par_real("Na weathering") 
+			[ 23.15 0 ]
+			
+			par_real("K weathering") 
+			[ 0.5 0 ]
+			
+			par_real("NH4 weathering") 
+			[ 0 0 ]
+			
+			par_real("SO4 weathering") 
+			[ 0 0 ]
+			
+			par_real("Cl weathering") 
+			[ 0 0 ]
+			
+			par_real("NO3 weathering") 
+			[ 0 0 ]
+			
+			par_real("F weathering") 
+			[ 0 0 ]
+			
+			par_real("PO4 weathering") 
+			[ 0 0 ]
+		
+		}
+		
+		par_group("Deposition parameters") {
+			
+			par_real("Ca conc in precipitation") 
+			[ 13 ]
+			
+			par_real("Mg conc in precipitation") 
+			[ 28.4 ]
+			
+			par_real("Na conc in precipitation") 
+			[ 127 ]
+			
+			par_real("K conc in precipitation") 
+			[ 2.8 ]
+			
+			par_real("NH4 conc in precipitation") 
+			[ 72.7 ]
+			
+			par_real("SO4 conc in precipitation") 
+			[ 119.6 ]
+			
+			par_real("Cl conc in precipitation") 
+			[ 148 ]
+			
+			par_real("NO3 conc in precipitation") 
+			[ 78.3 ]
+			
+			par_real("F conc in precipitation") 
+			[ 0 ]
+			
+			par_real("PO4 conc in precipitation") 
+			[ 0 ]
+		
+		}
+	
+	}
+	
+	module("MAGIC-Forest CNP", version(0, 0, 0)) {
+		
+		par_group("C, N and P", ci) {
+			
+			par_real("Nitrification") 
+			[ -100 -100 ]
+			
+			par_real("Denitrification") 
+			[ -92 0 ]
+		
+		}
+	
+	}
+
+}

@@ -901,7 +901,9 @@ MagicCoreInitial(const magic_init_input &Input, const magic_param &Param, magic_
 	
 	// Calculate charge balance for all aqueous ions
 	double ChargeBalance = SumBaseCationConc + NetAlCharge + Result.conc_H + Input.conc_NH4 - SumAcidAnionConc - all_DIC - all_DOC - Coeff.K_W/Result.conc_H;
-
+	
+	//log_print("Initial state: CBAL: ", ChargeBalance, " SBC: ", SumBaseCationConc, " NetAl: ", NetAlCharge, " H: ", Result.conc_H, " NH4: ", Input.conc_NH4, " SAA: ", SumAcidAnionConc, " DIC: ", all_DIC, " DOC: ", all_DOC, " KH/H: ", Coeff.K_W/Result.conc_H, "\n", "Ca: ", Input.conc_Ca, " Mg: ", Input.conc_Mg, " Na: ", Input.conc_Na, " K: ", Input.conc_K, " SO4: ", Result.conc_SO4, " Cl: ", Input.conc_Cl, " NO3: ", Input.conc_NO3, "\n");
+	
 	if(abs(ChargeBalance) >= Conv)  // If charge balance is within convergence criterion, the solution has converged. Otherwise, do an iterative solution loop
 	{
 		// Set increment for changing pH and begin the iterative solution loop

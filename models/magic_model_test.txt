@@ -2,7 +2,19 @@
 
 model("MAGIC (test)") {
 
-	comp : compartment("Compartment")
+	ci : index_set("Compartment index")
+	
+	comp : compartment("Compartment", ci)
+	
+	con : connection("Compartment connection") @directed_graph { comp+ out }
+	
+	par_group("Area", comp) {
+		rel_a : par_real("Relative area", [], 1, 0, 1)
+	}
+	
+	aggregation_weight(comp, comp, con) {
+		rel_a / rel_a[below]
+	}
 	
 	ca  : quantity("Ca")
 	mg  : quantity("Mg")
@@ -14,9 +26,25 @@ model("MAGIC (test)") {
 	no3 : quantity("NO3")
 	f   : quantity("F")
 	po4 : quantity("PO4")
-
-	load("modules/magic/magic_test.txt",
-		module("MAGIC core test", comp, ca, mg, na, k, nh4, so4, cl, no3, f, po4))
+	
+	
+	ts         : property("Time step size")
+	concn      : property("Ionic concentration")
+	conc_all   : property("Total concentration")
+	ext_in     : property("External inputs")
+	bal        : property("Mass balance")
+	conc_oa    : property("Organic acid concentration")
+	temp       : property("Temperature")
+	rel_runoff : property("Area-relative runoff")
+	
+	load("modules/magic/magic_core_wrapper.txt",
+		module("MAGIC core", comp, ca, mg, na, k, nh4, so4, cl, no3, f, po4, concn, conc_all, bal, conc_oa, temp, rel_runoff))
+	
+	load("modules/magic/magic_forest_drivers.txt",
+		module("MAGIC-Forest drivers", comp, ca, mg, na, k, nh4, so4, cl, no3, f, po4, ts, ext_in, bal, conc_oa, temp, concn, conc_all, rel_runoff, rel_a, con))
+		
+	load("modules/magic/magic_forest_cnp.txt",
+		module("MAGIC-Forest CNP", comp, nh4, no3, po4, ts, ext_in, bal))
 	
 	# TODO: parametrize:
 	sol : solver("MAGIC solver", euler, [1/10, month], 0.01)

@@ -132,6 +132,7 @@ Var_Registration : Registration_Base {
 	std::string    var_name;
 	
 	bool           store_series = true;
+	bool           clear_nan    = false; // If this ends up being an input series, clear it to NaN initially.
 	
 	Math_Block_AST *code = nullptr;
 	bool initial_is_conc;

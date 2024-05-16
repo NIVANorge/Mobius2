@@ -1,0 +1,37 @@
+
+module("MAGIC-Forest CNP", version(0, 0, 0),
+	comp : compartment,
+	nh4 : quantity,
+	no3 : quantity,
+	po4 : quantity,
+	ts : property,
+	ext_in : property,
+	bal : property
+) {
+"""
+Missing a lot of functionality, only the basics for now
+"""
+	
+	par_group("C, N and P", comp) {
+		nitr : par_real("Nitrification", [m eq, m-2, year-1], 0, -100, 500, "NH4->NO3. Negative rate sets value as % of inputs")
+		denitr : par_real("Denitrification", [m eq, m-2, year-1], 0, -100, 500, "NO3->N2. Negative rate sets value as % of inputs")
+	}
+	
+	nit : property("Nitrification rate")
+	var(comp.nh4.nit, [m eq, m-2, month-1]) {
+		nitr*ts                   if nitr > 0.0,
+		ext_in*(-(nitr=>[])*0.01) otherwise
+	} @no_store
+	denit : property("Denitrification rate")
+	var(comp.no3.denit, [m eq, m-2, month-1]) {
+		denitr*ts                         if denitr > 0.0,
+		(ext_in+nh4.nit)*(-(denitr=>[])*0.01) otherwise
+	} @no_store
+	
+	flux(comp.nh4, comp.no3, [m eq, m-2, month-1], "Nitrification") { nit }
+	flux(comp.no3, out, [m eq, m-2, month-1], "Denitrification") { denit }
+	
+	var(comp.nh4.bal, [m eq, m-2, month-1]) @add_to_existing { -nit }
+	var(comp.no3.bal, [m eq, m-2, month-1]) @add_to_existing { nh4.nit-denit }
+	
+}

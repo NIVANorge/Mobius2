@@ -1,5 +1,5 @@
 
-module("MAGIC core test", version(0, 0, 3),
+module("MAGIC core", version(0, 0, 3),
 	comp : compartment,
 	ca  : quantity,
 	mg  : quantity,
@@ -10,7 +10,13 @@ module("MAGIC core test", version(0, 0, 3),
 	cl  : quantity,
 	no3 : quantity,
 	f   : quantity,
-	po4 : quantity
+	po4 : quantity,
+	concn : property,
+	conc_all : property,
+	bal : property,
+	conc_oa : property,
+	temp : property,
+	rel_runoff : property
 ) {
 """
 This module is for now just for testing calling the MAGIC core from Mobius2. Will be turned into a full MAGIC model eventually.
@@ -22,6 +28,7 @@ This module is for now just for testing calling the MAGIC core from Mobius2. Wil
 	
 	par_group("Compartment parameters", comp) {
 		is_soil   : par_bool("This is a soil compartment", true, "Whether or not there is a solid phase with adsorption")
+		pco2      : par_real("CO2 partial pressure", [perc], 0.3, 0.1, 40.0)
 		depth     : par_real("Depth", [m], 1, 0, 100)
 		porosity  : par_real("Porosity", [], 0.5, 0, 1)
 		bd        : par_real("Bulk density", [k g, m-3], 600, 0, 2000)
@@ -39,29 +46,6 @@ This module is for now just for testing calling the MAGIC core from Mobius2. Wil
 		init_emg  : par_real("Initial exchangeable Mg on soil as % of CEC", [perc], 0, 0, 100, "Only relevant for soils")
 		init_ena  : par_real("Initial exchangeable Na on soil as % of CEC", [perc], 0, 0, 100, "Only relevant for soils")
 		init_ek   : par_real("Initial exchangeable K on soil as % of CEC", [perc], 0, 0, 100, "Only relevant for soils")
-	}
-	
-	par_group("Climate parameters", comp) {
-		temp : par_real("Temperature", [deg_c], 10, -5, 20)
-		pco2 : par_real("CO2 partial pressure", [perc], 0.3, 0.1, 2.0)
-		conc_oa : par_real("Organic acid concentration", [m mol, m-3], 0, 0, 200)
-	}
-	
-	par_group("Test parameters", comp) {
-		discharge : par_real("Discharge", [m, year-1], 1)
-	}
-	
-	par_group("Weathering", comp) {
-		w_ca  : par_real("Ca weathering", [m eq, m-2, year-1], 0)
-		w_mg  : par_real("Mg weathering", [m eq, m-2, year-1], 0)
-		w_na  : par_real("Na weathering", [m eq, m-2, year-1], 0)
-		w_k   : par_real("K weathering", [m eq, m-2, year-1], 0)
-		w_nh4 : par_real("NH4 weathering", [m eq, m-2, year-1], 0)
-		w_so4 : par_real("SO4 weathering", [m eq, m-2, year-1], 0)
-		w_cl  : par_real("Cl weathering", [m eq, m-2, year-1], 0)
-		w_no3 : par_real("NO3 weathering", [m eq, m-2, year-1], 0)
-		w_f   : par_real("F weathering", [m eq, m-2, year-1], 0)
-		w_po4 : par_real("PO4 weathering", [m eq, m-2, year-1], 0)
 	}
 	
 	water : property("Water")
@@ -120,8 +104,7 @@ This module is for now just for testing calling the MAGIC core from Mobius2. Wil
 	
 	var(comp.po4, [m eq, m-2]) @initial { concn * water }
 	
-	concn    : property("Ionic concentration")
-	conc_all : property("Total concentration")
+	
 	
 	ph        : property("pH")
 	exch_ca   : property("Exchangeable Ca on soil as % of CEC")
@@ -151,47 +134,47 @@ This module is for now just for testing calling the MAGIC core from Mobius2. Wil
 	min_init_conc : constant("Minimal initial concentration", [m eq, m-3], 1e-6)
 	
 	var(comp.ca.concn, [m eq, m-3], "Ca(2+) ionic concentration") @initial {
-		max(w_ca / discharge, min_init_conc) #TODO
+		max(bal / rel_runoff, min_init_conc)
 	}
 	
 	var(comp.mg.concn, [m eq, m-3], "Mg(2+) ionic concentration") @initial {
-		max(w_mg / discharge, min_init_conc) #TODO
+		max(bal / rel_runoff, min_init_conc)
 	}
 	
 	var(comp.na.concn, [m eq, m-3], "Na(+) ionic concentration") @initial {
-		max(w_na / discharge, min_init_conc) #TODO
+		max(bal / rel_runoff, min_init_conc)
 	}
 	
 	var(comp.k.concn,  [m eq, m-3], "K(+) ionic concentration") @initial {
-		max(w_k / discharge, min_init_conc) #TODO
+		max(bal / rel_runoff, min_init_conc)
 	}
 	
 	var(comp.nh4.concn, [m eq, m-3], "NH4(+) ionic concentration") @initial {
-		max(w_nh4 / discharge, min_init_conc) #TODO
+		max(bal / rel_runoff, min_init_conc)
 	}
 	
 	var(comp.so4.concn, [m eq, m-3], "SO4(2-) ionic concentration") #No initial, instead set initial conc_all_so4
 	
 	var(comp.cl.concn, [m eq, m-3], "Cl(-) ionic concentration") @initial {
-		max(w_cl / discharge, min_init_conc) #TODO
+		max(bal / rel_runoff, min_init_conc)
 	}
 	
 	var(comp.no3.concn, [m eq, m-3], "NO3(-) ionic concentration") @initial {
-		max(w_no3 / discharge, min_init_conc) #TODO
+		max(bal / rel_runoff, min_init_conc)
 	}
 	
 	var(comp.f.concn, [m eq, m-3], "F(-) ionic concentration") #No initial, instead set initial conc_all_f
 	
 	var(comp.po4.concn, [m eq, m-3], "PO4(3-) ionic concentration") @initial {
-		max(w_po4 / discharge, min_init_conc) #TODO
+		max(bal / rel_runoff, min_init_conc)
 	}
 	
 	var(comp.so4.conc_all, [m eq, m-3], "Total sulfate in solution (ionic + Al complexes)") @initial {
-		max(w_so4 / discharge, min_init_conc) #TODO
+		max(bal / rel_runoff, min_init_conc)
 	}
 	
 	var(comp.f.conc_all, [m eq, m-3], "Total fluoride in solution (ionic + Al complexes)") @initial {
-		max(w_f / discharge, min_init_conc) #TODO
+		max(bal / rel_runoff, min_init_conc)
 	}
 	
 	var(comp.ph, [])
@@ -214,7 +197,7 @@ This module is for now just for testing calling the MAGIC core from Mobius2. Wil
 	var(comp.ionic_str, [])
 	
 	#TODO: @no_store these
-	var(comp.s_al_ca, []) { last(s_al_ca) } #TODO: This should not be necessary
+	var(comp.s_al_ca, []) { last(s_al_ca) } #TODO: Using 'last' here should not be necessary.
 	var(comp.s_al_mg, []) { last(s_al_mg) }
 	var(comp.s_al_na, []) { last(s_al_na) }
 	var(comp.s_al_k, []) { last(s_al_k) }
@@ -261,9 +244,9 @@ This module is for now just for testing calling the MAGIC core from Mobius2. Wil
 		max_diff
 		is_soil
 		depth
-		temp
+		comp.temp
 		pco2
-		conc_oa
+		comp.conc_oa
 		k_al
 		s_al
 		pk1_doc
@@ -308,9 +291,9 @@ This module is for now just for testing calling the MAGIC core from Mobius2. Wil
 		max_diff
 		is_soil
 		depth
-		temp
+		comp.temp
 		pco2
-		conc_oa
+		comp.conc_oa
 		k_al
 		s_al
 		pk1_doc
@@ -323,38 +306,5 @@ This module is for now just for testing calling the MAGIC core from Mobius2. Wil
 		cec
 		so4_hs
 		so4_max
-	}
-	
-	# TODO: Make the framework convert between month and year
-	cv : function(a) {
-		(a/12)=>[m eq, m-2, month-1]
-	}
-	
-	flux(out, comp.ca,  [m eq, m-2, month-1], "Ca weathering inputs")  { cv(w_ca) }
-	flux(out, comp.mg,  [m eq, m-2, month-1], "Mg weathering inputs")  { cv(w_mg) }
-	flux(out, comp.na,  [m eq, m-2, month-1], "Na weathering inputs")  { cv(w_na) }
-	flux(out, comp.k,   [m eq, m-2, month-1], "K weathering inputs")   { cv(w_k) }
-	flux(out, comp.nh4, [m eq, m-2, month-1], "NH4 weathering inputs") { cv(w_nh4) }
-	flux(out, comp.so4, [m eq, m-2, month-1], "SO4 weathering inputs") { cv(w_so4) }
-	flux(out, comp.cl,  [m eq, m-2, month-1], "Cl weathering inputs")  { cv(w_cl) }
-	flux(out, comp.no3, [m eq, m-2, month-1], "NO3 weathering inputs") { cv(w_no3) }
-	flux(out, comp.f,   [m eq, m-2, month-1], "F weathering inputs")   { cv(w_f) }
-	flux(out, comp.po4, [m eq, m-2, month-1], "PO4 weathering inputs") { cv(w_po4) }
-	
-	#TODO: Would be nice to use automatic transport, but it would require more framework functionality
-	# This is because the transported concentration is not the total mass divided by water for all these
-	
-	# TODO: Connect compartments
-	
-	flux(comp.ca,  out, [m eq, m-2, month-1], "Ca discharge")  { cv(ca.concn*discharge) }
-	flux(comp.mg,  out, [m eq, m-2, month-1], "Mg discharge")  { cv(mg.concn*discharge) }
-	flux(comp.na,  out, [m eq, m-2, month-1], "Na discharge")  { cv(na.concn*discharge) }
-	flux(comp.k,   out, [m eq, m-2, month-1], "K discharge")   { cv(k.concn*discharge) }
-	flux(comp.nh4, out, [m eq, m-2, month-1], "NH4 discharge") { cv(nh4.concn*discharge) }
-	flux(comp.so4, out, [m eq, m-2, month-1], "SO4 discharge") { cv(so4.conc_all*discharge) }
-	flux(comp.cl,  out, [m eq, m-2, month-1], "Cl discharge")  { cv(cl.concn*discharge) }
-	flux(comp.no3, out, [m eq, m-2, month-1], "NO3 discharge") { cv(no3.concn*discharge) }
-	flux(comp.f,   out, [m eq, m-2, month-1], "F discharge")   { cv(f.conc_all*discharge) }
-	flux(comp.po4, out, [m eq, m-2, month-1], "PO4 discharge") { cv(po4.concn*discharge) }
-	
+	}	
 }

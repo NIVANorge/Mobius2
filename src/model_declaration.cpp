@@ -602,7 +602,10 @@ Var_Registration::process_declaration(Catalog *catalog) {
 			
 			match_declaration_base(note, {{}}, -1);
 			adds_code_to_existing = static_cast<Function_Body_AST *>(note->body)->block;
+		} else if(str == "clear_nan") {
 			
+			match_declaration_base(note, {{}}, 0);
+			clear_nan = true;
 		} else {
 			note->decl.print_error_header();
 			fatal_error("Urecognized note '", str, "' for var declaration.");
