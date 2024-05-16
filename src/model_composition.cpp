@@ -517,15 +517,15 @@ resolve_no_carry(Model_Application *app, State_Var *var) {
 	delete res.fun;
 }
 
+typedef std::unordered_map<Var_Location, Var_Id, Var_Location_Hash> External_Map;
+
 void
-register_external_computations(Model_Application *app, std::unordered_map<Var_Location, Var_Id, Var_Location_Hash> &external_targets) {
-	
-	// Unfortunately we have to do the below checks before resolving the function tree, because we need to know what locations are the targets of external computations before state variables are registered. Otherwise, a variable could be erroneously registered as an input series (since it lacked code), but should instead be computed by the external computation.
+check_individual_external_code(Model_Application *app, External_Map &external_targets, External_Computation_Registration *external, std::string &function_name, Math_Expr_AST *code, Var_Id var_id) {
 	
 	// For now we just have a list here of allowed external functions (so that somebody don't call into some system function or something).
 	// This should be replaced with a better system later.
 	
-	auto allowed = {
+	constexpr static auto allowed = {
 		"_special_test_",
 		"nivafjord_place_river_flux",
 		"nivafjord_place_horizontal_fluxes",
@@ -534,7 +534,78 @@ register_external_computations(Model_Application *app, std::unordered_map<Var_Lo
 		"nivafjord_vertical_realignment_even_distrib",
 		"nivafjord_vertical_realignment_slow",
 		"magic_core",
+		"magic_core_initial",
 	};
+	
+	if(std::find(allowed.begin(), allowed.end(), function_name) == allowed.end()) {
+		external->source_loc.print_error_header();
+		fatal_error("The function \"", function_name, "\" is not among the allowed functions in an external computation.");
+	}
+	
+	auto model = app->model;
+	
+	bool success = true;
+	for(auto expr : code->exprs) {
+		
+		bool is_result = false;
+		bool is_last   = false;
+		auto check_expr = expr;
+		if(expr->type == Math_Expr_Type::function_call) {
+			auto fun = static_cast<Function_Call_AST *>(expr);
+			
+			auto &name = fun->name.string_value;
+			is_result = (name == "result");
+			is_last   = (name == "last");
+			
+			if((!is_result && !is_last) || fun->exprs.size() != 1) {
+				success = false;
+				break;
+			}
+			
+			check_expr = fun->exprs[0];
+		}
+		if(check_expr->type != Math_Expr_Type::identifier) {
+			success = false;
+			break;
+		}
+		auto ident = static_cast<Identifier_Chain_AST *>(check_expr);
+		if(is_result && !ident->bracketed_chain.empty()) {
+			success = false;
+			break;
+		}
+		if(!is_result) continue;
+		
+		auto scope = model->get_scope(external->scope_id);
+		
+		// TODO: This is a stupid way to do it. Instead make a function that takes the
+		// chain directly.
+		Argument_AST arg;
+		arg.chain = ident->chain;
+		
+		Var_Location loc;
+		resolve_simple_loc_argument(model, scope, &arg, loc);
+		
+		auto find = external_targets.find(loc);
+		if(find != external_targets.end()) {
+			ident->source_loc.print_error_header();
+			error_print("This variable is declared as a 'result' of more than one external computation. See a different declaration here:\n");
+			model->external_computations[as<State_Var::Type::external_computation>(app->vars[find->second])->decl_id]->source_loc.print_error();
+			mobius_error_exit();
+		}
+		external_targets[loc] = var_id;
+	}
+	
+	if(!success) {
+		code->source_loc.print_error_header();
+		fatal_error("An 'external_computation' body should just contain a list of identifiers of variables that go into the computation. Targets of the computation can be enclosed with a result(). Targets can not have a bracket restriction. Targets can not be last()");
+	}
+
+}
+
+void
+register_external_computations(Model_Application *app, External_Map &external_targets, External_Map &external_targets_initial) {
+	
+	// Unfortunately we have to do the below checks before resolving the function tree, because we need to know what locations are the targets of external computations before state variables are registered. Otherwise, a variable could be erroneously registered as an input series (since it lacked code), but should instead be computed by the external computation.
 	
 	auto model = app->model;
 	
@@ -542,69 +613,12 @@ register_external_computations(Model_Application *app, std::unordered_map<Var_Lo
 		
 		auto external = model->external_computations[external_id];
 		
-		if(std::find(allowed.begin(), allowed.end(), external->function_name) == allowed.end()) {
-			external->source_loc.print_error_header();
-			fatal_error("The function \"", external->function_name, "\" is not among the allowed functions in an external computation.");
-		}
-
 		Var_Id var_id = register_state_variable<State_Var::Type::external_computation>(app, invalid_entity_id, false, external->name);
 		as<State_Var::Type::external_computation>(app->vars[var_id])->decl_id = external_id;
 		
-		bool success = true;
-		for(auto expr : external->code->exprs) {
-			
-			bool is_result = false;
-			bool is_last   = false;
-			auto check_expr = expr;
-			if(expr->type == Math_Expr_Type::function_call) {
-				auto fun = static_cast<Function_Call_AST *>(expr);
-				
-				auto &name = fun->name.string_value;
-				is_result = (name == "result");
-				is_last   = (name == "last");
-				
-				if((!is_result && !is_last) || fun->exprs.size() != 1) {
-					success = false;
-					break;
-				}
-				
-				check_expr = fun->exprs[0];
-			}
-			if(check_expr->type != Math_Expr_Type::identifier) {
-				success = false;
-				break;
-			}
-			auto ident = static_cast<Identifier_Chain_AST *>(check_expr);
-			if(is_result && !ident->bracketed_chain.empty()) {
-				success = false;
-				break;
-			}
-			if(!is_result) continue;
-			
-			auto scope = model->get_scope(external->scope_id);
-			
-			// TODO: This is a stupid way to do it. Instead make a function that takes the
-			// chain directly.
-			Argument_AST arg;
-			arg.chain = ident->chain;
-			
-			Var_Location loc;
-			resolve_simple_loc_argument(model, scope, &arg, loc);
-			
-			auto find = external_targets.find(loc);
-			if(find != external_targets.end()) {
-				ident->source_loc.print_error_header();
-				error_print("This variable is declared as a 'result' of more than one external computation. See a different declaration here:\n");
-				model->external_computations[as<State_Var::Type::external_computation>(app->vars[find->second])->decl_id]->source_loc.print_error();
-				mobius_error_exit();
-			}
-			external_targets[loc] = var_id;
-		}
-		
-		if(!success) {
-			external->code->source_loc.print_error_header();
-			fatal_error("A 'external_computation' body should just contain a list of identifiers of variables that go into the computation. Targets of the computation can be enclosed with a result(). Targets can not have a bracket restriction. Targets can not be last()");
-		}
+		check_individual_external_code(app, external_targets, external, external->function_name, external->code, var_id);
+		if(external->init_code)
+			check_individual_external_code(app, external_targets_initial, external, external->init_function_name, external->init_code, var_id);
 	}
 }
 
@@ -676,8 +690,9 @@ prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
 	
 	auto model = app->model;
 	
-	std::unordered_map<Var_Location, Var_Id, Var_Location_Hash> external_targets;
-	register_external_computations(app, external_targets);
+	External_Map external_targets;
+	External_Map external_targets_initial;
+	register_external_computations(app, external_targets, external_targets_initial);
 	
 	// NOTE: There can be multiple var() declarations of the same state variable, so we have to decide on a canonical one.
 	std::unordered_map<Var_Location, Entity_Id, Var_Location_Hash> has_location;
@@ -762,10 +777,23 @@ prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
 			if(find_external != external_targets.end()) {
 				external_id = find_external->second;
 				is_series = false;
-				if(with_code) {
+				// Specifically allow initial code for a property even if it is on an external_computation.
+				if(var->code || comp->default_code) {
 					var->source_loc.print_error_header(Mobius_Error::model_building);
 					error_print("This property is defined with code, but it is also assigned as a target of an 'external_computation' here: ");
 					auto ext_id = as<State_Var::Type::external_computation>(app->vars[external_id])->decl_id;
+					model->external_computations[ext_id]->source_loc.print_error();
+					mobius_error_exit();
+				}
+			}
+			auto find_external_init = external_targets_initial.find(var->var_location);
+			if(find_external_init != external_targets_initial.end()) {
+				auto external_id_init = find_external_init->second;
+				is_series = false;
+				if(var->initial_code) {
+					var->source_loc.print_error_header(Mobius_Error::model_building);
+					error_print("This property is defined with initial code, but it is also assigned as an initial target of an 'external_computation' here: ");
+					auto ext_id = as<State_Var::Type::external_computation>(app->vars[external_id_init])->decl_id;
 					model->external_computations[ext_id]->source_loc.print_error();
 					mobius_error_exit();
 				}
@@ -1379,6 +1407,92 @@ process_state_var_code(Model_Application *app, Var_Id var_id, Code_Special_Looku
 }
 
 void
+process_external_computation_code(Model_Application *app, Var_Id var_id, bool initial) {
+	
+	auto model = app->model;
+	
+	auto var = app->vars[var_id];
+	auto var2 = as<State_Var::Type::external_computation>(var);
+	auto external = model->external_computations[var2->decl_id];
+	
+	Math_Expr_AST *code = external->code;
+	std::string function_name = external->function_name;
+	
+	if(initial) {
+		if(!external->init_code) return;
+		code = external->init_code;
+		function_name = external->init_function_name;
+	}
+	
+	Function_Resolve_Data res_data;
+	res_data.app = app;
+	res_data.scope = model->get_scope(external->scope_id);
+	//res_data.baked_parameters = &baked_parameters; // We don't want to bake parameters unless we implement passing literals to external_computation.
+	res_data.allow_result = true;
+	res_data.value_last_only = false; // This is a list of expressions, not a function evaluating to a single value.
+
+	
+	auto res = resolve_function_tree(code, &res_data);
+	
+	// TODO: This could be separated out in its own function
+	auto external_comp = new External_Computation_FT();
+	external_comp->source_loc = code->source_loc;
+	external_comp->function_name = function_name;
+	external_comp->connection_component = external->connection_component;
+	external_comp->connection = external->connection;
+	
+	for(auto arg : res.fun->exprs) {
+		if(arg->expr_type != Math_Expr_Type::identifier)
+			fatal_error(Mobius_Error::internal, "Got a '", name(arg->expr_type), "' expression in the body of an external_computation.");
+		
+		auto ident = static_cast<Identifier_FT *>(arg);
+		// TODO: Also implement for input series
+		if(!ident->is_computed_series() && ident->variable_type != Variable_Type::parameter) {
+			ident->source_loc.print_error_header(Mobius_Error::model_building);
+			fatal_error("We only support state variables and parameters as the arguments to a 'external_computation'.");
+		}
+		
+		external_comp->arguments.push_back(*ident);
+		if(ident->has_flag(Identifier_FT::result)) {
+			if(!ident->is_computed_series()) {
+				ident->source_loc.print_error_header(Mobius_Error::model_building);
+				fatal_error("Only state variables can be a 'result' of a 'external_computation'.");
+			}
+			auto result_var = as<State_Var::Type::declared>(app->vars[ident->var_id]);
+			if(result_var->decl_type != Decl_Type::property) {
+				ident->source_loc.print_error_header(Mobius_Error::model_building);
+				fatal_error("Only a 'property' can be a 'result' of a 'external_computation'.");
+			}
+			
+			if(!initial)
+				var2->targets.push_back(ident->var_id);
+			else
+				var2->initial_targets.push_back(ident->var_id);
+		}
+		if(ident->restriction.r1.type != Restriction::none) {
+			if(ident->has_flag(Identifier_FT::result)) {
+				ident->source_loc.print_error_header(Mobius_Error::model_building);
+				fatal_error("A result of an 'external_computation' can't have a connection restriction.");
+			}
+			if(!ident->is_computed_series()) {
+				ident->source_loc.print_error_header(Mobius_Error::model_building);
+				fatal_error("Connection restrictions are not supported for parameters in 'external_computation'.");
+			}
+			auto ident_var = app->vars[ident->var_id];
+			if(external->connection_component != ident_var->loc1.first() || external->connection != ident->restriction.r1.connection_id) {
+				ident->source_loc.print_error_header(Mobius_Error::model_building);
+				fatal_error("To allow looking up a variable with a connection restriction, that connection and source compartment must be specified with an 'allow_connection' note.");
+			}
+		}
+	}
+	delete res.fun;
+	if(!initial)
+		var2->code = owns_code(external_comp);
+	else
+		var2->initial_code = owns_code(external_comp);
+}
+
+void
 Model_Application::compose_and_resolve() {
 	
 	for(auto par_id : model->parameters) {
@@ -1410,68 +1524,8 @@ Model_Application::compose_and_resolve() {
 		auto var = vars[var_id];
 		if(var->type != State_Var::Type::external_computation) continue;
 		
-		auto var2 = as<State_Var::Type::external_computation>(var);
-		auto external = model->external_computations[var2->decl_id];
-		
-		Function_Resolve_Data res_data;
-		res_data.app = this;
-		res_data.scope = model->get_scope(external->scope_id);
-		res_data.baked_parameters = &baked_parameters;
-		res_data.allow_result = true;
-		res_data.value_last_only = false; // This is a list of expressions, not a function evaluating to a single value.
-		
-		auto res = resolve_function_tree(external->code, &res_data);
-		
-		// TODO: This could be separated out in its own function
-		auto external_comp = new External_Computation_FT();
-		external_comp->source_loc = external->code->source_loc;
-		external_comp->function_name = external->function_name;
-		external_comp->connection_component = external->connection_component;
-		external_comp->connection = external->connection;
-		
-		for(auto arg : res.fun->exprs) {
-			if(arg->expr_type != Math_Expr_Type::identifier)
-				fatal_error(Mobius_Error::internal, "Got a '", name(arg->expr_type), "' expression in the body of a external_computation.");
-			
-			auto ident = static_cast<Identifier_FT *>(arg);
-			// TODO: Also implement for input series
-			if(!ident->is_computed_series() && ident->variable_type != Variable_Type::parameter) {
-				ident->source_loc.print_error_header(Mobius_Error::model_building);
-				fatal_error("We only support state variables and parameters as the arguments to a 'external_computation'.");
-			}
-			
-			external_comp->arguments.push_back(*ident);
-			if(ident->has_flag(Identifier_FT::result)) {
-				if(!ident->is_computed_series()) {
-					ident->source_loc.print_error_header(Mobius_Error::model_building);
-					fatal_error("Only state variables can be a 'result' of a 'external_computation'.");
-				}
-				auto result_var = as<State_Var::Type::declared>(vars[ident->var_id]);
-				if(result_var->decl_type != Decl_Type::property) {
-					ident->source_loc.print_error_header(Mobius_Error::model_building);
-					fatal_error("Only a 'property' can be a 'result' of a 'external_computation'.");
-				}
-					
-				var2->targets.push_back(ident->var_id);
-			}
-			if(ident->restriction.r1.type != Restriction::none) {
-				if(ident->has_flag(Identifier_FT::result)) {
-					ident->source_loc.print_error_header(Mobius_Error::model_building);
-					fatal_error("A result of an 'external_computation' can't have a connection restriction.");
-				}
-				if(!ident->is_computed_series()) {
-					ident->source_loc.print_error_header(Mobius_Error::model_building);
-					fatal_error("Connection restrictions are not supported for parameters in 'external_computation'.");
-				}
-				auto ident_var = vars[ident->var_id];
-				if(external->connection_component != ident_var->loc1.first() || external->connection != ident->restriction.r1.connection_id) {
-					ident->source_loc.print_error_header(Mobius_Error::model_building);
-					fatal_error("To allow looking up a variable with a connection restriction, that connection and source compartment must be specified with an 'allow_connection' note.");
-				}
-			}
-		}
-		delete res.fun;
-		var2->code = owns_code(external_comp);
+		process_external_computation_code(this, var_id, false);
+		process_external_computation_code(this, var_id, true);
 	}
 	
 	for(auto flux_id : vars.all_fluxes()) {

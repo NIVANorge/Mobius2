@@ -182,7 +182,11 @@ External_Computation_Registration : Registration_Base {
 	Entity_Id        connection_component = invalid_entity_id;
 	Entity_Id        connection           = invalid_entity_id;
 	
-	Math_Block_AST  *code;
+	Math_Block_AST  *code = nullptr;
+	
+	std::string      init_function_name;
+	
+	Math_Block_AST  *init_code = nullptr;
 	
 	void process_declaration(Catalog *catalog);
 };

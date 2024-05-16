@@ -3,8 +3,22 @@
 model("MAGIC (test)") {
 
 	comp : compartment("Compartment")
+	
+	ca  : quantity("Ca")
+	mg  : quantity("Mg")
+	na  : quantity("Na")
+	k   : quantity("K")
+	nh4 : quantity("NH4")
+	so4 : quantity("SO4")
+	cl  : quantity("Cl")
+	no3 : quantity("NO3")
+	f   : quantity("F")
+	po4 : quantity("PO4")
 
 	load("modules/magic/magic_test.txt",
-		module("MAGIC core test", comp))
-
+		module("MAGIC core test", comp, ca, mg, na, k, nh4, so4, cl, no3, f, po4))
+	
+	# TODO: parametrize:
+	sol : solver("MAGIC solver", euler, [1/10, month], 0.01)
+	solve(sol, comp.ca, comp.mg, comp.na, comp.k, comp.nh4, comp.so4, comp.cl, comp.no3, comp.f, comp.po4)
 }

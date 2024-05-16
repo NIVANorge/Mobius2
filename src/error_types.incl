@@ -5,4 +5,5 @@ ENUM_VALUE(file)
 ENUM_VALUE(api_usage)
 ENUM_VALUE(spreadsheet)
 ENUM_VALUE(numerical)
+ENUM_VALUE(model_specific)
 //etc.

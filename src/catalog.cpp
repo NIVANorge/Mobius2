@@ -14,8 +14,10 @@ Scope_Entity *
 Decl_Scope::add_local(const std::string &identifier, Source_Location source_loc, Entity_Id id, bool is_locally_declared) {
 	
 	if(!identifier.empty()) {
-		if(is_reserved(identifier))
-			fatal_error(Mobius_Error::internal, "Somehow we got a reserved identifier '", identifier, "' at a stage after it should have been ruled out.");
+		if(is_reserved(identifier)) {
+			source_loc.print_error_header();
+			fatal_error("The identifier '", identifier, "' is reserved.");
+		}
 		
 		auto find = visible_entities.find(identifier);
 		if(find != visible_entities.end()) {

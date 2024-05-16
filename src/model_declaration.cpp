@@ -760,6 +760,9 @@ Discrete_Order_Registration::process_declaration(Catalog *catalog) {
 void
 External_Computation_Registration::process_declaration(Catalog *catalog) {
 	// NOTE: Since we disambiguate entities on their name right now, we can't let the name and function_name be the same in case you want to reuse the same function many times in the same scope.
+	
+	// TODO: Should maybe make it possible to only have the initial block and not the main block.
+	
 	int which = match_declaration(decl,
 		{
 			{ Token_Type::quoted_string, Token_Type::quoted_string },
@@ -774,17 +777,21 @@ External_Computation_Registration::process_declaration(Catalog *catalog) {
 		component = scope->resolve_argument(Reg_Type::component, decl->args[2]);
 	
 	auto body = static_cast<Function_Body_AST *>(decl->body);
-	
 	code = body->block;
 	
 	for(auto note : decl->notes) {
-		if(note->decl.string_value != "allow_connection") {
+		if(note->decl.string_value == "allow_connection") {
+			match_declaration_base(note, {{Decl_Type::compartment, Decl_Type::connection}}, 0);
+			connection_component = scope->resolve_argument(Reg_Type::component, note->args[0]);
+			connection           = scope->resolve_argument(Reg_Type::connection, note->args[1]);
+		} else if (note->decl.string_value == "initial") {
+			match_declaration_base(note, {{Token_Type::quoted_string}}, -1);
+			init_function_name = single_arg(note, 0)->string_value;
+			init_code = static_cast<Function_Body_AST *>(note->body)->block;
+		} else {
 			note->decl.print_error_header();
 			fatal_error("Unrecognized note type '", note->decl.string_value, "' for 'external_computation'.");
 		}
-		match_declaration_base(note, {{Decl_Type::compartment, Decl_Type::connection}}, 0);
-		connection_component = scope->resolve_argument(Reg_Type::component, note->args[0]);
-		connection           = scope->resolve_argument(Reg_Type::connection, note->args[1]);
 	}
 	
 	has_been_processed = true;

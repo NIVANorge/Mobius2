@@ -388,7 +388,7 @@ set_identifier_location(Function_Resolve_Data *data, Standardized_Unit &unit, Id
 
 Math_Expr_FT *
 fixup_potentially_baked_value(Model_Application *app, Math_Expr_FT *expr, std::vector<Entity_Id> *baked_parameters) {
-	if(expr->expr_type != Math_Expr_Type::identifier) return expr;
+	if(!baked_parameters || expr->expr_type != Math_Expr_Type::identifier) return expr;
 	
 	auto ident = static_cast<Identifier_FT *>(expr);
 	if(ident->variable_type != Variable_Type::parameter) return expr; //TODO: Could maybe eventually bake others.
@@ -1024,25 +1024,25 @@ resolve_identifier(Identifier_Chain_AST *ident, Function_Resolve_Data *data, Fun
 	// If it looks well-formed (begins with a compartment), try it directly.
 	if(model->components[resolve.loc.components[0]]->decl_type == Decl_Type::compartment) {
 		var_id = app->vars.id_of(resolve.loc);
-		set_identifier_location(data, result.unit, new_ident, var_id, ident->chain, scope);
-		return;
 	}
 	
-	// Otherwise, try to locate it relatively to the context.
-	Var_Location try_loc = data->in_loc;
-	int insert_pos = try_loc.n_components;
-	for(; insert_pos >= 0; --insert_pos) {
-		int try_size = insert_pos + resolve.loc.n_components;
-		if(try_size > max_var_loc_components)
-			continue;
-		
-		for(int idx = 0; idx < resolve.loc.n_components; ++idx)
-			try_loc.components[idx + insert_pos] = resolve.loc.components[idx];
-		try_loc.n_components = try_size;
-		
-		var_id = app->vars.id_of(try_loc);
-		if(is_valid(var_id))
-			break;
+	// Otherwise, try to locate it relatively to the context (if the context is set).
+	if(!is_valid(var_id) && (data->in_loc.type == Var_Location::Type::located)) {
+		Var_Location try_loc = data->in_loc;
+		int insert_pos = try_loc.n_components;
+		for(; insert_pos >= 0; --insert_pos) {
+			int try_size = insert_pos + resolve.loc.n_components;
+			if(try_size > max_var_loc_components)
+				continue;
+			
+			for(int idx = 0; idx < resolve.loc.n_components; ++idx)
+				try_loc.components[idx + insert_pos] = resolve.loc.components[idx];
+			try_loc.n_components = try_size;
+			
+			var_id = app->vars.id_of(try_loc);
+			if(is_valid(var_id))
+				break;
+		}
 	}
 	set_identifier_location(data, result.unit, new_ident, var_id, ident->chain, scope);
 }
@@ -1269,6 +1269,11 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 			
 			auto local = static_cast<Local_Var_AST *>(ast);
 			std::string local_name = local->name.string_value;
+			
+			if(is_reserved(local_name)) {
+				local->name.print_error_header();
+				fatal_error("The identifier '", local_name, "' is reserved.");
+			}
 			
 			if(!local->is_reassignment) { // It is a declaration
 			

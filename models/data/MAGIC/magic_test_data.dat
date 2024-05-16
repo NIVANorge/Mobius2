@@ -1,50 +1,52 @@
 data_set {
+	time_step([month])
+	
 	par_group("System") {
 		
 		par_datetime("Start date") 
-		[ 1970-01-01 ]
+		[ 1850-01-01 ]
 		
 		par_datetime("End date") 
-		[ 1970-01-16 ]
+		[ 2020-12-01 ]
 	
 	}
 	
-	module("MAGIC core test", version(0, 0, 1)) {
+	module("MAGIC core test", version(0, 0, 2)) {
 		
 		par_group("Compartment parameters") {
 			
 			par_real("Depth") 
-			[ 1 ]
+			[ 0.4 ]
 			
 			par_real("Porosity") 
 			[ 0.5 ]
 			
 			par_real("Bulk density") 
-			[ 600 ]
+			[ 738 ]
 			
 			par_real("Cation exchange capacity") 
-			[ 100 ]
+			[ 109 ]
 			
 			par_real("Soil sulfate adsorption capacity, half saturation") 
-			[ 0 ]
+			[ 100 ]
 			
 			par_real("Soil sulfate adsorption max capacity") 
-			[ 0 ]
+			[ 0.1 ]
 			
 			par_real("(log10) Al(OH)3 dissociation equilibrium constant") 
-			[ 0 ]
+			[ 11.32 ]
 			
 			par_real("Al(OH)3 dissociation equation exponent") 
 			[ 3 ]
 			
 			par_real("(-log10) pK 1st equilibrium constant for triprotic organic acid") 
-			[ 0 ]
+			[ 3.04 ]
 			
 			par_real("(-log10) pK 2nd equilibrium constant for triprotic organic acid") 
-			[ 0 ]
+			[ 4.51 ]
 			
 			par_real("(-log10) pK 3rd equilibrium constant for triprotic organic acid") 
-			[ 0 ]
+			[ 6.46 ]
 			
 			par_real("(-log10) pK Al(A) equilibrium constant for [(Al3+)(A3-)]") 
 			[ 0 ]
@@ -53,57 +55,60 @@ data_set {
 			[ 0 ]
 			
 			par_real("Initial exchangeable Ca on soil as % of CEC") 
-			[ 0 ]
+			[ 10.8 ]
 			
 			par_real("Initial exchangeable Mg on soil as % of CEC") 
-			[ 0 ]
+			[ 3.1 ]
 			
 			par_real("Initial exchangeable Na on soil as % of CEC") 
-			[ 0 ]
+			[ 1 ]
 			
 			par_real("Initial exchangeable K on soil as % of CEC") 
-			[ 0 ]
+			[ 3.1 ]
+			
+			par_bool("This is a soil compartment") 
+			[ true ]
 		
 		}
 		
 		par_group("Climate parameters") {
 			
 			par_real("Temperature") 
-			[ 10 ]
+			[ 0.4 ]
 			
 			par_real("CO2 partial pressure") 
-			[ 0.3 ]
+			[ 0.33 ]
 			
 			par_real("Organic acid concentration") 
-			[ 0 ]
+			[ 43 ]
 		
 		}
 		
 		par_group("Test parameters") {
 			
 			par_real("Total Ca") 
-			[ 10 ]
+			[ 3500 ]
 			
 			par_real("Total Mg") 
-			[ 20 ]
+			[ 1000 ]
 			
 			par_real("Total Na") 
-			[ 0 ]
+			[ 330 ]
 			
 			par_real("Total K") 
-			[ 0 ]
+			[ 1030 ]
 			
 			par_real("Total NH4") 
 			[ 0 ]
 			
 			par_real("Total SO4") 
-			[ 25 ]
+			[ 6.6 ]
 			
 			par_real("Total Cl") 
-			[ 0 ]
+			[ 4 ]
 			
 			par_real("Total NO3") 
-			[ 0 ]
+			[ 0.2 ]
 			
 			par_real("Total F") 
 			[ 0 ]
@@ -111,16 +116,48 @@ data_set {
 			par_real("Total PO4") 
 			[ 0 ]
 			
-			par_real("Al-Ca selectivity coefficient") 
+			par_real("Discharge") 
+			[ 1 ]
+		
+		}
+		
+		par_group("Convergence") {
+			
+			par_real("Maximal charge difference before convergence") 
+			[ 1 ]
+		
+		}
+		
+		par_group("Weathering") {
+			
+			par_real("Ca weathering") 
+			[ 20 ]
+			
+			par_real("Mg weathering") 
+			[ 10 ]
+			
+			par_real("Na weathering") 
+			[ 5 ]
+			
+			par_real("K weathering") 
+			[ 5 ]
+			
+			par_real("NH4 weathering") 
 			[ 0 ]
 			
-			par_real("Al-Mg selectivity coefficient") 
+			par_real("SO4 weathering") 
+			[ 20 ]
+			
+			par_real("Cl weathering") 
 			[ 0 ]
 			
-			par_real("Al-Na selectivity coefficient") 
+			par_real("NO3 weathering") 
 			[ 0 ]
 			
-			par_real("Al-K selectivity coefficient") 
+			par_real("F weathering") 
+			[ 0 ]
+			
+			par_real("PO4 weathering") 
 			[ 0 ]
 		
 		}

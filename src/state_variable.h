@@ -170,7 +170,9 @@ State_Var_Sub<State_Var::Type::external_computation> : State_Var {
 	
 	Entity_Id           decl_id = invalid_entity_id;
 	owns_code           code    = nullptr;
+	owns_code           initial_code = nullptr;
 	std::vector<Var_Id> targets;
+	std::vector<Var_Id> initial_targets;
 	
 	State_Var_Sub() {}
 };

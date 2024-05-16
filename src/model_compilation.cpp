@@ -988,7 +988,7 @@ maybe_ensure_initial_vars_for_external_computation_arguments(Model_Application *
 }
 
 void
-set_up_external_computation_instruction(Model_Application *app, Var_Id var_id, std::vector<Model_Instruction> &instructions) {
+set_up_external_computation_instruction(Model_Application *app, Var_Id var_id, std::vector<Model_Instruction> &instructions, bool initial) {
 	
 	auto instr = &instructions[var_id.id];
 	
@@ -1003,8 +1003,12 @@ set_up_external_computation_instruction(Model_Application *app, Var_Id var_id, s
 	if(is_valid(external->component))
 		index_sets = model->components[external->component]->index_sets;
 	
+	auto targets = &var2->targets;
+	if(initial)
+		targets = &var2->initial_targets; //TODO: Remember to build this list!
+	
 	// TODO: Check for solver conflicts.
-	for(auto target_id : var2->targets) {
+	for(auto target_id : *targets) {
 		auto &target = instructions[target_id.id];
 		instr->solver = target.solver;
 		target.depends_on_instruction.insert(var_id.id);
@@ -1020,7 +1024,10 @@ set_up_external_computation_instruction(Model_Application *app, Var_Id var_id, s
 		}
 	}
 	
-	instr->code = copy(var2->code.get());
+	if(!initial)
+		instr->code = copy(var2->code.get());
+	else
+		instr->code = copy(var2->initial_code.get());
 	
 	for(auto index_set : index_sets)
 		insert_dependency(app, instr, index_set);
@@ -1073,9 +1080,12 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 		instr.type = Model_Instruction::Type::compute_state_var;
 
 		if(fun)
-			//instr.code = copy(fun);
 			instr.code = prune_tree(copy(fun));
-		else if(initial && var->type != State_Var::Type::parameter_aggregate)
+		else if(initial && var->type == State_Var::Type::external_computation) {
+			auto var2 = as<State_Var::Type::external_computation>(var);
+			if(!var2->initial_code)
+				instr.type = Model_Instruction::Type::invalid;
+		} else if(initial && var->type != State_Var::Type::parameter_aggregate)
 			instr.type = Model_Instruction::Type::invalid;
 		
 		if(var->type == State_Var::Type::step_resolution)    // These are treated separately, should not be a part of the instruction generation.
@@ -1110,7 +1120,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 		bool has_aggregate = var->has_flag(State_Var::has_aggregate);
 		
 		if(var->type == State_Var::Type::external_computation) {
-			set_up_external_computation_instruction(app, var_id, instructions);
+			set_up_external_computation_instruction(app, var_id, instructions, initial);
 			continue;
 		}
 		

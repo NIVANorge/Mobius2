@@ -744,8 +744,10 @@ MagicCore(const magic_input &Input, const magic_param &Param, magic_output &Resu
 			
 			ChargeBalance = ChargeBalance0;
 			
+			// TODO: Have to come up with a specific way to signal an error in an
+			// external_computation, because we can't throw exceptions
 			//if(Iter++ > 100)
-			//	FatalError("ERROR: (MAGIC, timestep: ", Timestep, ", compartment: ", CompartmentIdx, ") Core solution ion balance failed to converge in 100 iterations\n CBAL: ", ChargeBalance0, " SBC: ", Result.SumBaseCationConc, " NetAl: ", NetAlCharge, " H: ", Result.conc_H, " NH4: ", Result.conc_NH4, " SAA: ", Result.SumAcidAnionConc, " DIC: ", Result.all_DIC, " DOC: ", Result.all_DOC, " KH/H: ", Coeff.K_W/Result.conc_H, "\n", "Ca: ", Result.conc_Ca, " Mg: ", Result.conc_Mg, " Na: ", Result.conc_Na, " K: ", Result.conc_K, " SO4: ", Result.conc_SO4, " Cl: ", Result.conc_Cl, " NO3: ", Result.conc_NO3, "\n");
+			//	fatal_error(Mobius_Error::model_specific, "(timestep: ", Timestep, ", compartment: ", CompartmentIdx, ") Core solution ion balance failed to converge in 100 iterations\n CBAL: ", ChargeBalance0, " SBC: ", Result.SumBaseCationConc, " NetAl: ", NetAlCharge, " H: ", Result.conc_H, " NH4: ", Result.conc_NH4, " SAA: ", Result.SumAcidAnionConc, " DIC: ", Result.all_DIC, " DOC: ", Result.all_DOC, " KH/H: ", Coeff.K_W/Result.conc_H, "\n", "Ca: ", Result.conc_Ca, " Mg: ", Result.conc_Mg, " Na: ", Result.conc_Na, " K: ", Result.conc_K, " SO4: ", Result.conc_SO4, " Cl: ", Result.conc_Cl, " NO3: ", Result.conc_NO3, "\n");
 		}
 	}
 	
@@ -938,7 +940,7 @@ MagicCoreInitial(const magic_init_input &Input, const magic_param &Param, magic_
 			ChargeBalance = ChargeBalance0;
 			
 			//if(Iter++ > 1000)
-			//	FatalError("ERROR: (MAGIC) Core solution ion balance failed to converge in 1000 iterations (initial value step).\n");
+			//	fatal_error(Mobius_Error::model_specific, "Core solution ion balance failed to converge in 1000 iterations (initial value step).\n");
 		}
 	}
 	
@@ -948,7 +950,7 @@ MagicCoreInitial(const magic_init_input &Input, const magic_param &Param, magic_
 		double exchangeable_Al = 1.0 - Input.exchangeable_Ca - Input.exchangeable_Mg - Input.exchangeable_Na - Input.exchangeable_K;
 		
 		//if(exchangeable_Al < 0.0)
-		//	FatalError("ERROR: (MAGIC Core) Initial exchangeable Ca, Mg, Na, and K sum to more than 100%\n");
+		//	fatal_error(Mobius_Error::model_specific, "Initial exchangeable Ca, Mg, Na, and K sum to more than 100%\n");
 		
 		double Ratio = log10(exchangeable_Al / conc_Al);
 		
@@ -957,7 +959,8 @@ MagicCoreInitial(const magic_init_input &Input, const magic_param &Param, magic_
 		Result.Log10NaAlSelectCoeff = Ratio + 3.0*log10(Input.conc_Na / Input.exchangeable_Na)     - 12.0;
 		Result.Log10KAlSelectCoeff  = Ratio + 3.0*log10(Input.conc_K / Input.exchangeable_K)       - 12.0;
 		
-		//WarningPrint("H: ", Result.conc_H, "    Ca-Al: ", Result.Log10CaAlSelectCoeff, "     Ratio: ", Ratio, "     conc Ca: ", Input.conc_Ca, "\n");
+		//log_print("conc_Al ", conc_Al, " conc_Ca ", Input.conc_Ca, " exch_Ca ", Input.exchangeable_Ca, "\n");
+		//log_print("select: ", Result.Log10CaAlSelectCoeff, "\n");
 		
 		// If SO4 adsorption, calculate fraction of adsorption capacity filled (convert mmol to meq for adsorption isotherm)
 		Result.exchangeable_SO4 = 0.0;
