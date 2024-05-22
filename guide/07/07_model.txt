@@ -1,0 +1,25 @@
+
+model("Lake model") {
+
+	layer_idx : index_set("Layer index")
+	
+	layer : compartment("Lake layer", layer_idx)
+	
+	water : quantity("Water")
+	heat  : quantity("Heat")
+	
+	temp  : property("Temperature")
+	rho   : property("Density")
+	
+	vert : connection("Lake vertical") @grid1d(layer, layer_idx)
+	
+	
+	load("lake_module.txt",
+		module("Simple layered lake", layer, water, heat, temp, rho, vert))
+	
+	
+	sol : solver("Lake solver", inca_dascru, [2, hr], 1e-2)
+	
+	solve(sol, layer.water)
+
+}

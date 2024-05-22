@@ -152,8 +152,8 @@ module("NIVAFjord chemistry", version(0, 0, 5),
 	
 	flux(out, layer.water.o2[vert.top], [k g, day-1], "Precipitation O₂") {
 		precip_saturation := 0.9, # Probably ok estimate? Not extremely important in any case.
-		conc := precip_saturation*o2_saturation(air.temp, 0)*o2_mol_mass,
-		air.precip*A[vert.top]*conc->>
+		cnc := precip_saturation*o2_saturation(air.temp, 0)*o2_mol_mass,
+		air.precip*A[vert.top]*cnc->>
 	}
 
 	flux(layer.water.o2[vert.top], out,  [k g, day-1], "O₂ gas exchange at surface") {

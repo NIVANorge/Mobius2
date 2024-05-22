@@ -1,0 +1,48 @@
+data_set {
+	
+"""
+TODO: Replace with Langtjern series
+"""
+	
+	series("../03/tarland_series.xlsx")
+	
+	li : index_set("Layer index") [ 30 ]
+	
+	par_group("System") {
+		
+		par_datetime("Start date") 
+		[ 2004-01-01 ]
+		
+		par_datetime("End date") 
+		[ 2005-09-30 ]
+	
+	}
+	
+	module("Simple layered lake", version(0, 0, 1)) {
+		
+		par_group("Layer parameters", li) {
+			
+			par_real("Thickness") 
+			[ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 ]
+			
+			par_real("Cross-section area") 
+			[ 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 ]
+			
+			par_real("Initial temperature") 
+			[ 20 20 20 20 20 20 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 ]
+		
+		}
+		
+		par_group("Mixing parameters") {
+			
+			par_real("Mixing factor reference") 
+			[ 0.00706 ]
+			
+			par_real("Mixing factor during ice") 
+			[ 0.000898 ]
+		
+		}
+	
+	}
+
+}

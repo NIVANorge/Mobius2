@@ -1,0 +1,55 @@
+
+
+model("SimplyToxGroundwater") {
+"""
+This is a specialized version of SimplyQ where there are several groundwater layers, but no river.
+"""
+
+	# NOTE: We can't extend simplyc_model.txt because of the different groundwater configuration.
+	#   Although we should split the main simplyq module into soil and groundwater (although it is annoying because it would invalidate existing parameter files).
+	
+	lu       : index_set("Landscape units")
+	gw_layer : index_set("Groundwater layer")
+	
+	
+	air      : compartment("Atmosphere")
+	soil     : compartment("Soil",        lu)
+	snow_box : compartment("Snow layer")
+	gw       : compartment("Groundwater", gw_layer)
+	
+	snow     : quantity("Snow")
+	water    : quantity("Water")
+	oc       : quantity("Organic carbon")
+	
+	temp     : property("Temperature")
+	precip   : property("Precipitation")
+	flow     : property("Flow")
+	pet      : property("Potential evapotranspiration")
+	
+	par_group("Solver step") {
+		solver_h     : par_real("Solver desired step", [hr], 2, 0.01, 24)
+		solver_rel_h : par_real("Solver minimal relative step", [], 0.01, 1e-5, 0.1)
+	}
+	
+	par_group("Land cover", soil) {
+		lu_prop  : par_real("Land use proportions", [], 1, 0, 1)
+	}
+
+	load("modules/pet.txt",       module("Degree-day PET", air, soil, pet, temp))
+	load("modules/hbv_snow.txt",  module("HBVSnow", air, snow_box, snow, water, temp, precip, loc(soil.water)))
+	
+	aggregation_weight(soil, gw)    { lu_prop }
+
+	sol : solver("Simply solver", inca_dascru, solver_h, solver_rel_h)
+	
+	solve(sol, soil.water, gw.water)
+	
+	gw_vert : connection("Groundwater vertical") @grid1d(gw, gw_layer)
+	
+	load("modules/simplyq_layered_gw.txt", 
+		module("SimplyQ groundwater", soil, gw, water, flow, pet, gw_vert, loc(out), loc(out)))
+	load("modules/simplyc.txt",
+		module("SimplyC land", air, soil, gw, water, oc, temp))
+	
+	load("modules/simplysoiltemp.txt", module("Simply soil temperature", air, soil, snow_box, snow, temp))
+}

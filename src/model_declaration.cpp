@@ -1954,7 +1954,7 @@ Decl_Scope::check_for_unreferenced_things(Catalog *catalog) {
 				scope_type = "model";
 				scope_name = catalog->model_name;
 			}
-			log_print("Warning: The ", scope_type, " \"", scope_name, "\" loads the library \"", catalog->find_entity(pair.first)->name, "\", but doesn't use any of it.\n");
+			log_print(Log_Mode::dev, "Warning: The ", scope_type, " \"", scope_name, "\" loads the library \"", catalog->find_entity(pair.first)->name, "\", but doesn't use any of it.\n");
 		}
 	}
 }

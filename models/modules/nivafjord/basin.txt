@@ -142,9 +142,9 @@ Authors: Magnus D. Norling
 		seawater_pot_dens(temp, salinity)
 	} @no_store
 	
-	ddens          : property("d(dens)")
-	Nfreq          : property("Brunt-Väisälä frequency")
-	v_t             : property("Tide wave mixing")
+	ddens           : property("d(dens)")
+	Nfreq           : property("Brunt-Väisälä frequency")
+	v_t             : property("Turbulent mixing")
 	v_s             : property("Additional mixing")
 	v_w             : property("Wind mixing")
 	
@@ -219,7 +219,9 @@ Authors: Magnus D. Norling
 		Es / (dz_*Nfreq^2)
 	}
 	
-	flux(layer.water, vert, [m 3, day-1], "Layer mixing down") { (v_t + v_s + v_w)*A[vert.below]->> } @mixing
+	flux(layer.water, vert, [m 3, day-1], "Layer mixing down") {
+		(v_t + v_s + v_w)*A[vert.below]->>
+	} @mixing
 	
 	var(layer.water.sw, [W, m-2], "Layer shortwave radiation") {
 		# TODO: Since this variable is for use by biochemistry, 

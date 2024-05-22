@@ -67,15 +67,27 @@ SimplyQ but with deep layered groundwater.
 
 	var(gw.water.flow, [m m, day-1], "Groundwater flow") {   max_rate*h   }
 	
+	# Don't have loss when water is smaller than a minimum.
+	# This is to not have concentrations become numerically unstable.
+	lim : property("Dry limit")
+	var(gw.water.lim, []) {
+		min := 0.5[m m],
+		s_response(water, 0[m m], min, 0, 1)
+	}
+	
 	flux(gw.water, vert, [m m, day-1], "Groundwater percolation") {
 		maxperc := flow*(1 - h_loss),
 		cap_below := cap[vert.below],
-		maxperc * s_response(water[vert.below]/cap_below, 0.95, 1, 1, 0) # Slowly turn off percolation when layer below goes above 95% of capacity
+		lim * maxperc * s_response(water[vert.below]/cap_below, 0.95, 1, 1, 0) # Slowly turn off percolation when layer below goes above 95% of capacity
+	}
+	
+	var(gw.runoff, [m m, day-1], "Groundwater runoff") {
+		flow2 := max(max_rate*(water.h - cap), 0),
+		water.lim * flow2 * h_loss
 	}
 	
 	flux(gw.water, gw_target, [m m, day-1], "Groundwater net horizontal loss") {
-		flow2 := max(max_rate*(h - cap), 0),
-		flow2 * h_loss
+		runoff
 	}
 	
 	ext : property("Extraction")
@@ -83,4 +95,9 @@ SimplyQ but with deep layered groundwater.
 	var(gw.water.ext, [m m, day-1])
 	
 	flux(gw.water, out, [m m, day-1], "Groundwater extraction") {   ext + ext_c   }
+	
+	runoff : property("Total runoff")
+	var(soil.runoff, [m m, day-1]) {
+		water.flow * (1 - bfi) + aggregate(gw.runoff) # + quick!?
+	}
 }

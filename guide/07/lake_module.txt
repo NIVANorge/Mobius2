@@ -1,0 +1,70 @@
+
+module("Simple layered lake", version(0, 0, 1),
+	layer : compartment,
+	water : quantity,
+	heat : quantity,
+	temp : property,
+	rho  : property,
+	vert : connection
+) {
+	load("stdlib/physiochemistry.txt",
+		library("Basic constants"),
+		library("Water utils"))
+	load("stdlib/basic_math.txt",
+		library("Basic"))
+
+	par_group("Layer parameters", layer) {
+		dz : par_real("Thickness", [m], 1, 0.1, 5)
+		A  : par_real("Cross-section area", [m 2], 10000, 1, 371e9)
+		init_t : par_real("Initial temperature", [deg_c], 10, 0, 50)
+	}
+	
+	par_group("Mixing parameters") {
+		K0      : par_real("Mixing factor reference", [m 2, day-1], 0.00706)
+		K0_ice  : par_real("Mixing factor during ice", [m 2, day-1], 0.000898)
+	}
+	
+	var(layer.water, [m 3], "Lake layer water") @initial {
+		0.5*(A + A[vert.below])*dz
+	}
+	
+	var(layer.water.heat, [J], "Lake layer heat") @initial {
+		water_temp_to_heat(water, temp)
+	}
+	
+	var(layer.water.temp, [deg_c], "Lake layer temperature") {
+		water_heat_to_temp(water, heat)
+	} @initial { init_t }
+	
+	
+	var(layer.water.rho, [k g, m-3], "Layer potential density") {
+		water_density(temp)
+	}
+	
+	ddens  : property("d(dens)")
+	N2freq : property("Square Brunt-Väisälä frequency")
+	K      : property("Turbulent mixing coefficient")
+	
+	N2min  : constant("Minimum square B-V frequency", [s-2], 7e-5)
+	alpha  : constant("Mixing non-linear coefficient", [], -0.43)
+	
+	var(layer.water.ddens, [k g, m-3]) {
+		(rho[vert.below]-rho)
+	} @no_store
+	
+	var(layer.water.N2freq, [s-2]) {
+		mdz := 0.5*(dz + dz[vert.below]),
+		N2  := grav * ddens / (mdz*rho),
+		max(N2min, N2)
+	} @no_store
+	
+	var(layer.water.K, [m 2, day-1]) {
+		# TODO: Also parametrize K0 by surface area.
+		K0*(N2freq=>[])^alpha
+	}
+	
+	flux(layer.water, vert, [m 3, day-1], "Layer mixing down") { 
+		mdz := 0.5*(dz + dz[vert.below]),
+		K*A[vert.below]/mdz->>
+	} @mixing
+}
