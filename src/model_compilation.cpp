@@ -1650,10 +1650,10 @@ validate_batch_structure(Model_Application *app, const std::vector<Batch> &batch
 				
 				const auto &instr = instructions[instr_id];
 				if(instr.solver != batch.solver)
-					fatal_error(Mobius_Error::internal, init, "Mismatch between solver of instruction \"", instr.debug_string(app), "\" and its batch. ");
+					fatal_error(Mobius_Error::internal, init, "Mismatch between solver of instruction ", instr.debug_string(app), " and its batch. ");
 				
 				if(instr.index_sets != array.index_sets)
-					fatal_error(Mobius_Error::internal, init, "Mismatch between index sets of instruction \"", instr.debug_string(app), "\" and its batch. ");
+					fatal_error(Mobius_Error::internal, init, "Mismatch between index sets of instruction ", instr.debug_string(app), " and its batch. ");
 				
 				// TODO: Check that the tuple itself is valid. (wrt unions, sub-indexing etc.)
 				
@@ -1677,14 +1677,14 @@ validate_batch_structure(Model_Application *app, const std::vector<Batch> &batch
 							int other_instr_id = other_array.instr_ids[other_instr_idx];
 							
 							if(instr.depends_on_instruction.find(other_instr_id) != instr.depends_on_instruction.end())
-								fatal_error(Mobius_Error::internal, init, "The instruction \"", instr.debug_string(app), "\" appears before its dependency \"", instructions[other_instr_id].debug_string(app), "\" in the batch structure.");
+								fatal_error(Mobius_Error::internal, init, "The instruction ", instr.debug_string(app), " appears before its dependency ", instructions[other_instr_id].debug_string(app), " in the batch structure.");
 							
 							if(batch_idx == other_batch_idx && array_idx == other_array_idx) {
 								if(instr.instruction_is_blocking.find(other_instr_id) != instr.instruction_is_blocking.end())
-									fatal_error(Mobius_Error::internal, init, "The instruction \"", instr.debug_string(app), "\" appears in the same array as the instruction it is blocking \"", instructions[other_instr_id].debug_string(app), "\" in the batch structure.");
+									fatal_error(Mobius_Error::internal, init, "The instruction ", instr.debug_string(app), " appears in the same array as the instruction it is blocking \"", instructions[other_instr_id].debug_string(app), "\" in the batch structure.");
 							} else {
 								if(instr.loose_depends_on_instruction.find(other_instr_id) != instr.loose_depends_on_instruction.end()) {
-									fatal_error(Mobius_Error::internal, init, "The instruction \"", instr.debug_string(app), "\" appears strictly before its loose dependency \"", instructions[other_instr_id].debug_string(app), "\" in the batch structure.");
+									fatal_error(Mobius_Error::internal, init, "The instruction ", instr.debug_string(app), " appears strictly before its loose dependency ", instructions[other_instr_id].debug_string(app), " in the batch structure.");
 								}
 							}
 						}
@@ -1806,13 +1806,13 @@ Model_Application::compile(bool store_code_strings) {
 		}
 	}
 	
+	//debug_print_batch_array(this, initial_batch.arrays, initial_instructions, global_log_stream, false);
+	//debug_print_batch_structure(this, batches, instructions, global_log_stream, false);
+	
 	if(mobius_developer_mode) {
 		validate_batch_structure(this, { initial_batch }, initial_instructions, true); // This creates a copy of the initial_batch? :(
 		validate_batch_structure(this, batches, instructions);
 	}
-	
-	//debug_print_batch_array(this, initial_batch.arrays, initial_instructions, global_log_stream, false);
-	//debug_print_batch_structure(this, batches, instructions, global_log_stream, false);
 	
 	set_up_result_structure(this, batches, instructions);
 	

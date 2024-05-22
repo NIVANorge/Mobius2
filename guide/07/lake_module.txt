@@ -1,11 +1,18 @@
 
 module("Simple layered lake", version(0, 0, 1),
+	lake : compartment,
 	layer : compartment,
 	water : quantity,
 	heat : quantity,
+	ice  : quantity,
 	temp : property,
 	rho  : property,
-	vert : connection
+	area : property,
+	sw   : property,
+	attn : property,
+	ind  : property,
+	vert : connection,
+	sw_vert : connection
 ) {
 	load("stdlib/physiochemistry.txt",
 		library("Basic constants"),
@@ -22,6 +29,14 @@ module("Simple layered lake", version(0, 0, 1),
 	par_group("Mixing parameters") {
 		K0      : par_real("Mixing factor reference", [m 2, day-1], 0.00706)
 		K0_ice  : par_real("Mixing factor during ice", [m 2, day-1], 0.000898)
+	}
+	
+	par_group("Light") {
+		att_c   : par_real("Light extinction coefficient", [m-1], 0.5)
+	}
+	
+	var(lake.area, [m 2], "Lake surface area") {
+		A[vert.top]
 	}
 	
 	var(layer.water, [m 3], "Lake layer water") @initial {
@@ -41,30 +56,54 @@ module("Simple layered lake", version(0, 0, 1),
 		water_density(temp)
 	}
 	
-	ddens  : property("d(dens)")
 	N2freq : property("Square Brunt-Väisälä frequency")
 	K      : property("Turbulent mixing coefficient")
 	
 	N2min  : constant("Minimum square B-V frequency", [s-2], 7e-5)
 	alpha  : constant("Mixing non-linear coefficient", [], -0.43)
 	
-	var(layer.water.ddens, [k g, m-3]) {
-		(rho[vert.below]-rho)
-	} @no_store
-	
 	var(layer.water.N2freq, [s-2]) {
 		mdz := 0.5*(dz + dz[vert.below]),
-		N2  := grav * ddens / (mdz*rho),
+		ddens_dz := (rho[vert.below]-rho)/mdz,
+		N2  := (grav/rho) * ddens_dz,
 		max(N2min, N2)
 	} @no_store
 	
 	var(layer.water.K, [m 2, day-1]) {
-		# TODO: Also parametrize K0 by surface area.
-		K0*(N2freq=>[])^alpha
+		# TODO: Also parametrize K0 by surface area?
+		a := (lake.area->[k m 2])=>[],
+		K_ref := {
+			K0*a^0.56   if !lake.ice.ind,
+			K0_ice      otherwise
+		},
+		K_ref*(N2freq=>[])^alpha
 	}
 	
 	flux(layer.water, vert, [m 3, day-1], "Layer mixing down") { 
 		mdz := 0.5*(dz + dz[vert.below]),
 		K*A[vert.below]/mdz->>
 	} @mixing
+	
+	#TODO: There is something wrong with the instruction sorting when this one is not on a solver
+	# It would be on a solver if something on a solver depended on it.
+	# Should be fixed soon also.
+	#var(layer.sw, [W, m-2], "Layer shortwave radiation") {
+	#	in_flux(sw_vert, water.heat)/A ->>
+	#}
+	
+	flux(layer.water.heat, sw_vert, [J, day-1], "Shortwave shine-through") {
+		(in_flux(sw_vert, heat)->>)*(1 - attn) * A[vert.below]/A
+	}
+	
+	#TODO: Target for this one.
+	flux(layer.water.heat, out, [J, day-1], "Shortwave to sediments") {
+		(in_flux(sw_vert, heat)->>)*(1 - attn) * (A - A[vert.below])/A
+	}
+	
+	var(layer.water.attn, []) {
+		#cz := max(0.01, refract(air.cos_z, refraction_index_water)),
+		#th := dz / cz, # Length traveled through the layer by a sun beam taking zenith angle into account.
+		th := dz,
+		1 - exp(-att_c*th)
+	}
 }

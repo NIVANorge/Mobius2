@@ -3,10 +3,10 @@
 	*** High pri ***
 		
 		
-		MAGIC: Initial selectivity coefficients are wrong..
-		
-		Need unit conversion between year and month!
-			Actually, it was omitted by design since each month can have separate lengths. But it is a bit annoying when you just want to do it in a simple way.
+		Sorting instructions between solver batches does not adhere to loose dependencies correctly (something discrete with a loose dependency on something on a solver may be sorted before it. See guide chapter 07, Layer shortwave radiation.
+			Solution is to treat a loose dependency between discrete/solver as a full dependency during sorting.
+			Or always propagate solvers for loose dependencies??
+	
 		
 		Would like to be able to use in_flux in initial code (for e.g. setting initial steady states easily), but then we also need to be able to compute initial values for fluxes in general. With in_flux_connection it could be tricky to determine what initial fluxes must be computed (?).
 		

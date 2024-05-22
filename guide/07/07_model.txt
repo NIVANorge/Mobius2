@@ -3,23 +3,55 @@ model("Lake model") {
 
 	layer_idx : index_set("Layer index")
 	
+	air   : compartment("Atmosphere")
+	lake  : compartment("Lake")
 	layer : compartment("Lake layer", layer_idx)
 	
 	water : quantity("Water")
 	heat  : quantity("Heat")
+	ice   : quantity("Ice")
 	
 	temp  : property("Temperature")
 	rho   : property("Density")
+	area  : property("Area")
+	evap : property("Evaporation")
+	precip   : property("Precipitation")
+	wind     : property("Wind speed")
+	g_rad    : property("Global radiation")
+	pressure : property("Pressure")
+	a_hum    : property("Actual specific humidity")
+	lwd      : property("Downwelling longwave radiation")
+	sw       : property("Shortwave radiation")
+	cos_z    : property("Cosine of the solar zenith angle") 
+	attn     : property("Attenuation")
+	freeze_temp : property("Ice formation temperature")
+	indicator : property("Ice indicator")
 	
-	vert : connection("Lake vertical") @grid1d(layer, layer_idx)
+	vert    : connection("Lake vertical") @grid1d(layer, layer_idx)
+	sw_vert : connection("Shortwave vertical") @grid1d(layer, layer_idx)
 	
 	
 	load("lake_module.txt",
-		module("Simple layered lake", layer, water, heat, temp, rho, vert))
+		module("Simple layered lake", lake, layer, water, heat, ice, temp, rho, area, sw, attn, indicator, vert, sw_vert))
+	
+	load("modules/atmospheric.txt",
+		module("Atmospheric", air, temp, wind, g_rad, pressure, a_hum, rho, lwd, cos_z))
+	
+	load("modules/airsea.txt",
+		module("AirSea", "AirSea Fjord", air, lake, ice, heat, temp, precip, wind, g_rad, pressure, rho, a_hum, lwd, sw, attn, freeze_temp, indicator,
+							evap, cos_z, loc(lake.area), loc(layer.water[vert.top]), loc(layer.water.heat[sw_vert.top])))
 	
 	
 	sol : solver("Lake solver", inca_dascru, [2, hr], 1e-2)
 	
-	solve(sol, layer.water)
+	solve(sol, layer.water, lake.ice)
+	
+	module("Additional vars", version(0, 0, 0)) {
+		
+		var(air.precip, [m m, day-1])
+		var(air.temp, [deg_c], "Air temperature")
+	
+		var(lake.freeze_temp, [deg_c]) { 0[deg_c] } @no_store
+	}
 
 }
