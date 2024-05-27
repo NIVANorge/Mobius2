@@ -20,7 +20,9 @@ Norling, M.D., Jackson-Blake, L.A., Calidonio, J.-L.G., and Sample, J.E.: *Rapid
 
 ### Other research papers
 
-Clayer, F., Norling M.D., Fürst, K., Hurley, R., Creencia, G.B.A., Msojica, D.Z.P., Dizon, J.C., Lin, Y., Nizzetto, L., Sedigo, N.A.: *Modelling plastic fluxes with INCA-macroplastics in the Imus catchment: impacts of long-term accumulation and extreme events*, Environ. Res. Lett., 19,  [https://doi.org/10.1088/1748-9326/ad163f](https://doi.org/10.1088/1748-9326/ad163f), 2024
+Norling, M.D., Kaste, Ø., Wright, R.F. *A biogeochemical model of acidification: MAGIC is alive and well*, Ecological Research, [https://doi.org/10.1111/1440-1703.12487](https://doi.org/10.1111/1440-1703.12487), 2024
+
+Clayer, F., Norling, M.D., Fürst, K., Hurley, R., Creencia, G.B.A., Msojica, D.Z.P., Dizon, J.C., Lin, Y., Nizzetto, L., Sedigo, N.A.: *Modelling plastic fluxes with INCA-macroplastics in the Imus catchment: impacts of long-term accumulation and extreme events*, Environ. Res. Lett., 19,  [https://doi.org/10.1088/1748-9326/ad163f](https://doi.org/10.1088/1748-9326/ad163f), 2024
 
 Norling, M.D., Hurley, R., Schell, T., Futter, M.N., Rico A., Vighi, M., Blanco, A., Ledesma J.L.J., Nizzetto, L.: *Retention efficiency for microplastic in a landscape estimated from empirically validated dynamic model predictions*, J. Haz. Mat., 464
 [https://doi.org/10.1016/j.jhazmat.2023.132993](https://doi.org/10.1016/j.jhazmat.2023.132993), 2024

@@ -56,10 +56,22 @@ module("Simple layered lake", version(0, 0, 1),
 		water_density(temp)
 	}
 	
+	flux(layer.water, out, [m 3, s-1], "Layer discharge") {
+		#TODO: Take into account that the top area would expand if the water expanded, along the same shore shape.
+		a := 0.5*(A + A[vert.below]),
+		dz_est := water / a,
+		excess := max(0, dz_est - dz),
+		
+		rate_c := 1[m 2, s-1],
+		# TODO: Should maybe be nonlinear
+		rate_c*excess
+	}
+	
 	N2freq : property("Square Brunt-Väisälä frequency")
 	K      : property("Turbulent mixing coefficient")
 	
-	N2min  : constant("Minimum square B-V frequency", [s-2], 7e-5)
+	#N2min  : constant("Minimum square B-V frequency", [s-2], 7e-5)
+	N2min  : constant("Minimum square B-V frequency", [s-2], 7e-8)
 	alpha  : constant("Mixing non-linear coefficient", [], -0.43)
 	
 	var(layer.water.N2freq, [s-2]) {
@@ -70,7 +82,7 @@ module("Simple layered lake", version(0, 0, 1),
 	} @no_store
 	
 	var(layer.water.K, [m 2, day-1]) {
-		# TODO: Also parametrize K0 by surface area?
+		# TODO: Is the parametrization by surface area any good?
 		a := (lake.area->[k m 2])=>[],
 		K_ref := {
 			K0*a^0.56   if !lake.ice.ind,
@@ -95,10 +107,9 @@ module("Simple layered lake", version(0, 0, 1),
 		(in_flux(sw_vert, heat)->>)*(1 - attn) * A[vert.below]/A
 	}
 	
-	#TODO: Target for this one.
-	flux(layer.water.heat, out, [J, day-1], "Shortwave to sediments") {
-		(in_flux(sw_vert, heat)->>)*(1 - attn) * (A - A[vert.below])/A
-	}
+	#flux(layer.water.heat, out, [J, day-1], "Shortwave to sediments") {
+	#	(in_flux(sw_vert, heat)->>)*(1 - attn) * (A - A[vert.below])/A
+	#}
 	
 	var(layer.water.attn, []) {
 		#cz := max(0.01, refract(air.cos_z, refraction_index_water)),

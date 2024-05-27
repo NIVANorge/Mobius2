@@ -89,11 +89,11 @@ Authors: François Clayer, Magnus D. Norling
 	par_group("Microbes") {
 		K_OM         : par_real("Respiration rate", [year-1], 1, 0, 10) #TODO: Call it respiration rate at 20 deg_c
 		respQ10      : par_real("Respiration Q10", [], 1.58, 0.25, 4, "Adjustment of rate with 10°C change in temperature")
-		#COS_resp     : par_real("Carbon Oxidation State adjustment coefficient", [], 3, 1, 10)
 		Km_o2        : par_real("Half-saturation concentration O₂", [m mol, m-3], 1.23e-2, 0, 1e-1)
-		#COS_autoch   : par_real("Carbon Oxidation State autoch DOC", [],  0.5,  0, 1)
 		relrate_p    : par_real("P mineralization rel rate", [], 8)
 		relrate_n    : par_real("N mineralization rel rate", [], 1)
+		denit        : par_real("Denitrification rate", [m-2, year-1], 0, 0, 10)
+		denitQ10     : par_real("Denitrification Q10", [], 1.63, 0.25, 4, "Adjustment of rate with 10°C change in temperature")
 	}
 	
 	#TODO: Could some of these be constants and not adjustable parameters? Otherwise there is a lot of covariance in the parameter set when calibrating N and P concs.
@@ -112,6 +112,8 @@ Authors: François Clayer, Magnus D. Norling
 	
 	par_group("Lake specific phytoplankton", epi) {
 		phyt_a : par_real("Phytoplankton amenability", [], 1, 0.5, 1.5, "Adjustment factor to account for shallow lakes being better for plankton, after taking nutrients and light into consideration")
+		
+		denit_a : par_real("Lake specific denitrification", [], 1, 0.5, 1.5) #TODO: This is just teting..
 	}
 	
 	# These should be passed in so that they are the same entity as in NIVAFjord.
@@ -131,9 +133,6 @@ Authors: François Clayer, Magnus D. Norling
 	
 	var(epi.water.sed.oc, [k g], "Epilimnion POC") @show_conc(epi.water, [m g, l-1])
 	var(hyp.water.sed.oc, [k g], "Hypolimnion POC") @show_conc(hyp.water, [m g, l-1])
-	
-	#var(epi.water.oc.o2, [k g], [], "Epilimnion DOC-O₂ content")  @initial_conc { 1 }
-	#var(hyp.water.oc.o2, [k g], [], "Hypolimnion DOC-O₂ content") @initial_conc { 1 }
 	
 	var(epi.water.din, [k g], [m g, l-1], "Epilimnion DIN")  @initial_conc { init_in }
 	var(hyp.water.din, [k g], [m g, l-1], "Hypolimnion DIN") @initial_conc { init_in }
@@ -172,8 +171,8 @@ Authors: François Clayer, Magnus D. Norling
 	}
 	
 	flux(out, epi.water.o2, [k g, day-1], "Precipitation O₂") {
-		conc := 0.9*o2_saturation(air.temp, 0)*o2_mol_mass -> [m g, l-1],  #Not sure what the fraction should be..
-		air.precip*area*conc->>
+		cnc := 0.9*o2_saturation(air.temp, 0)*o2_mol_mass -> [m g, l-1],  #Not sure what the fraction should be..
+		air.precip*area*cnc->>
 	}
 	
 	flux(out, epi.water.o2, [k g, day-1], "O₂ gas exchange at surface") {
@@ -199,13 +198,6 @@ Authors: François Clayer, Magnus D. Norling
 	#}	
 	
 	flux(out, epi.water.din, [k g, day-1], "Lake N deposition") { area*din_dep/365.25[day, year-1] ->> }
-	
-	#nosc : property("Carbon Oxidation State") {
-	#	(conc(oc.o2) - 1)*4    # TODO: Where does the number come from?
-	#}
-	
-	#var(epi.water.oc.nosc, [], "Epilimnion NOSC")
-	#var(hyp.water.oc.nosc, [], "Hypolimnion NOSC")
 	
 	resp : property("Bacterial respiration") {
 		# Bacterial respiration is adjusted for temperature, O2 availability and COS of the DOC
@@ -236,6 +228,16 @@ Authors: François Clayer, Magnus D. Norling
 	
 	flux(hyp.water.on, hyp.water.din, [k g, day-1], "DON mineralization (hyp)") { resp * on * relrate_n }
 	flux(epi.water.on, epi.water.din, [k g, day-1], "DON mineralization (epi)") { resp * on * relrate_n }
+	
+	flux(epi.water.din, out, [k g, day-1], "DIN sediment denitrification (epi)") {
+		denit_a * din * q10_adjust(denit, 20[deg_c], temp, denitQ10) * (area-hyp.area) / 365[day, year-1]
+	}
+	
+	flux(hyp.water.din, out, [k g, day-1], "DIN sediment denitrification (hyp)") {
+		denit_a * din * q10_adjust(denit, 20[deg_c], temp, denitQ10) * area / 365[day, year-1]
+	}
+	
+	
 	
 	var(epi.water.phyt.light_lim, []) {
 		# TODO: There should be some kind of self-shading where TOC and phyto remove shortwave.
@@ -282,11 +284,6 @@ Authors: François Clayer, Magnus D. Norling
 	var(epi.water.phyt.death, [k g, day-1], "Phytoplankton death rate (epi)")
 	var(hyp.water.phyt.death, [k g, day-1], "Phytoplankton death rate (hyp)")
 	
-	#flux(epi.water.phyt, epi.water.oc, [k g, day-1], "Phytoplankton death DOC release (epi)")  { phyt.death }
-	#flux(out, epi.water.oc.o2,         [k g, day-1], "Phytoplankton death O₂ release (epi)")   { phyt.death*(4 + COS_autoch)/4	}
-	#flux(hyp.water.phyt, hyp.water.oc, [k g, day-1], "Phytoplankton death DOC release (hypo)") { phyt.death	}
-	#flux(out, hyp.water.oc.o2,         [k g, day-1], "Phytoplankton death O₂ release (hypo)")  { phyt.death*(4 + COS_autoch)/4	}
-	
 	# This assumes it sinks out and is buried or gasified:
 	# TODO: It didn't work that well to make it into particulate matter because of how slowly we had to make it sink, but let's fix that eventually.
 	flux(epi.water.phyt, out, [k g, day-1], "Phytoplankton death DOC release (epi)")  { phyt.death }
@@ -313,7 +310,7 @@ Authors: François Clayer, Magnus D. Norling
 
 	var(epi.water.tp, [m g, l-1], "Epilimnion TP") {
 		tdp + conc(sed)*(conc(sed.phos) + conc(sed.op))
-		+ conc(phyt)/cp_molar_to_mass_ratio(phyt_cp)
+		#+ conc(phyt)/cp_molar_to_mass_ratio(phyt_cp)
 	}
 	
 	# Releasing N just doesn't give the right N balance in the data in Vansjø. Instead it probably goes to the sediments where it is buried or denitrified (rarely released back to the lake)
@@ -380,7 +377,8 @@ Authors: Magnus D. Norling
 		in_conc := safe_divide(in_s, in_q) -> [m g, l-1],
 		# TODO: Maybe make this smoother..
 		excess := in_conc - maxconc,
-		s_response(excess, 0, 5[m g, l-1], 0, excess*in_q)->>
+		#s_response(excess, 0, 5[m g, l-1], 0, excess*in_q)->>
+		s_response(excess, 0, maxconc, 0, excess*in_q)->>
 		#max(0, in_conc-maxconc)*in_q->>
 	}
 }

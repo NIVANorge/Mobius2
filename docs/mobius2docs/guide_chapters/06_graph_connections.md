@@ -83,7 +83,7 @@ connection("Downstream") {
 }
 ```
 
-We declare that we refer to the "River" compartment using the identifier `r`, and index it over the subcatchment `sc`. Any arrow `->` between two nodes creates a connection between these.
+We declare that we refer to the "River" compartment using the identifier `r`, and index it by the subcatchment `sc`. Any arrow `->` between two nodes creates a connection between these.
 
 As this connection is set up, each river section is only allowed to have one outlet. We may cover how to handle multiple outgoing arrows in another chapter (but that is not as relevant for rivers). We will also see later how you can have different compartments (such as lakes) in the same connection.
 

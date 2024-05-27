@@ -11,7 +11,7 @@ TODO: Replace with Langtjern series
 	par_group("System") {
 		
 		par_datetime("Start date") 
-		[ 2013-01-02 ]
+		[ 2015-01-02 ]
 		
 		par_datetime("End date") 
 		[ 2019-01-01 ]
@@ -29,7 +29,7 @@ TODO: Replace with Langtjern series
 			[ 107183 52794.94616 45285.52576 40051.50129 29128.27872 18887.81659 12743.44488 8419.767648 5689.198093 4096.090419 2730.569555 910.3472423 ]
 			
 			par_real("Initial temperature") 
-			[ 10 10 10 10 10 10 10 10 10 10 10 10 ]
+			[ 4 4 4 4 4 4 4 4 4 4 4 4 ]
 		
 		}
 		
@@ -46,7 +46,7 @@ TODO: Replace with Langtjern series
 		par_group("Light") {
 			
 			par_real("Light extinction coefficient") 
-			[ 1.5 ]
+			[ 4 ]
 		
 		}
 	
