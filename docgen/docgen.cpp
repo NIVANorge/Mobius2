@@ -602,18 +602,18 @@ document_module(std::stringstream &ss, Mobius_Model *model, std::string &module_
 			
 			if(var->code || var->override_code) {
 				auto code = var->code ? var->code : var->override_code;
-				ss << "Value:";
+				ss << "Value";
 				if(var->override_code && var->override_is_conc)
 					ss << " (concentration)";
-				ss << "\n\n";
+				ss << ":\n\n";
 				ss << "$$\n" << equation_str(context, code) << "\n$$\n\n";
 			}
 		
 			if(var->initial_code) {
-				ss << "Initial value:";
+				ss << "Initial value";
 				if(var->initial_is_conc)
 					ss << " (concentration)";
-				ss << "\n\n";
+				ss << ":\n\n";
 				ss << "$$\n" << equation_str(context, var->initial_code) << "\n$$\n\n";
 			}
 			if(!var->code && !var->override_code && !var->initial_code && !var->adds_code_to_existing) {

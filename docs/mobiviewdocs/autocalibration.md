@@ -36,7 +36,7 @@ Epsilon: According to the [dlib documentation](http://dlib.net/dlib/global_optim
 > solving until it reaches full floating point precision.  Larger values will
 > cause it to switch to pure global exploration sooner and therefore might be
 > more effective if your objective function has many local maxima and you don't
-> care about a super high precision solution."
+> care about a super high precision solution.
 
 The main parameter set (that is loaded in memory) is replaced with the new best parameter set when the optimization run is finished (this does not overwrite your file unless you save ![Save](../img/toolbar/Save.png)).
 

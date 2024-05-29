@@ -55,7 +55,7 @@ $$
 Again, assuming constant water, the integral will be
 
 $$
-I = (kf\cdot m\_soil)\cdot ( (1/water)\cdot \int_0^1 TDPs(t)\mathrm{d}t - EPC0) \\
+I = (kf\cdot m\_soil)\cdot ( (1/water)\cdot \int_0^1 TDPs(t)\mathrm{d}t - EPC0) \mathrm{d}t \\
 = (kf\cdot m\_soil)\cdot ( (1/water)(a/b + (TDPs(0)-a/b)\cdot (1/b)\cdot (1 - exp(-b)) ) - EPC0) \\
 = (kf\cdot m\_soil)\cdot ( (1/(water\cdot b))(a + (TDPs(0) - a/b)(1 - exp(-b)) ) - EPC0)
 $$

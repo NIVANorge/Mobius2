@@ -13,7 +13,7 @@ Since the modules can be dynamically loaded with different arguments, this docum
 
 See the note on [notation](autogen.html#notation).
 
-The file was generated at 2024-05-29 12:37:31.
+The file was generated at 2024-05-29 12:40:58.
 
 ---
 
@@ -805,7 +805,7 @@ Unit: kg
 
 Conc. unit: mg l⁻¹
 
-Initial value: (concentration)
+Initial value (concentration):
 
 $$
 \left(\href{stdlib.html#sea-oxygen}{\mathrm{o2\_saturation}}\left(\mathrm{temp},\, 0\right)\cdot \mathrm{init\_O2}\cdot \mathrm{o2\_mol\_mass}\rightarrow \mathrm{kg}\,\right)
@@ -819,7 +819,7 @@ Unit: kg
 
 Conc. unit: mg l⁻¹
 
-Initial value: (concentration)
+Initial value (concentration):
 
 $$
 \left(\href{stdlib.html#sea-oxygen}{\mathrm{o2\_saturation}}\left(\mathrm{temp},\, 0\right)\cdot \mathrm{init\_O2}\cdot \mathrm{o2\_mol\_mass}\rightarrow \mathrm{kg}\,\right)
@@ -833,7 +833,7 @@ Unit: kg
 
 Conc. unit: mg l⁻¹
 
-Initial value: (concentration)
+Initial value (concentration):
 
 $$
 \mathrm{init\_c}
@@ -847,7 +847,7 @@ Unit: kg
 
 Conc. unit: mg l⁻¹
 
-Initial value: (concentration)
+Initial value (concentration):
 
 $$
 \mathrm{init\_c}
@@ -873,7 +873,7 @@ Unit: kg
 
 Conc. unit: mg l⁻¹
 
-Initial value: (concentration)
+Initial value (concentration):
 
 $$
 \mathrm{init\_in}
@@ -887,7 +887,7 @@ Unit: kg
 
 Conc. unit: mg l⁻¹
 
-Initial value: (concentration)
+Initial value (concentration):
 
 $$
 \mathrm{init\_in}
@@ -901,7 +901,7 @@ Unit: kg
 
 Conc. unit: mg l⁻¹
 
-Initial value: (concentration)
+Initial value (concentration):
 
 $$
 \frac{\mathrm{init\_c}}{\href{stdlib.html#chemistry}{\mathrm{cn\_molar\_to\_mass\_ratio}}\left(\mathrm{om\_cn}\right)}
@@ -915,7 +915,7 @@ Unit: kg
 
 Conc. unit: mg l⁻¹
 
-Initial value: (concentration)
+Initial value (concentration):
 
 $$
 \frac{\mathrm{init\_c}}{\href{stdlib.html#chemistry}{\mathrm{cn\_molar\_to\_mass\_ratio}}\left(\mathrm{om\_cn}\right)}
@@ -941,7 +941,7 @@ Unit: kg
 
 Conc. unit: mg l⁻¹
 
-Initial value: (concentration)
+Initial value (concentration):
 
 $$
 \mathrm{init\_ip}
@@ -955,7 +955,7 @@ Unit: kg
 
 Conc. unit: mg l⁻¹
 
-Initial value: (concentration)
+Initial value (concentration):
 
 $$
 \mathrm{init\_ip}
@@ -969,7 +969,7 @@ Unit: kg
 
 Conc. unit: mg l⁻¹
 
-Initial value: (concentration)
+Initial value (concentration):
 
 $$
 \frac{\mathrm{init\_c}}{\href{stdlib.html#chemistry}{\mathrm{cp\_molar\_to\_mass\_ratio}}\left(\mathrm{om\_cp}\right)}
@@ -983,7 +983,7 @@ Unit: kg
 
 Conc. unit: mg l⁻¹
 
-Initial value: (concentration)
+Initial value (concentration):
 
 $$
 \frac{\mathrm{init\_c}}{\href{stdlib.html#chemistry}{\mathrm{cp\_molar\_to\_mass\_ratio}}\left(\mathrm{om\_cp}\right)}
@@ -1021,7 +1021,7 @@ Unit: kg
 
 Conc. unit: mg l⁻¹
 
-Initial value: (concentration)
+Initial value (concentration):
 
 $$
 \mathrm{init\_phyt}
@@ -1035,7 +1035,7 @@ Unit: kg
 
 Conc. unit: mg l⁻¹
 
-Initial value: (concentration)
+Initial value (concentration):
 
 $$
 \mathrm{init\_phyt}

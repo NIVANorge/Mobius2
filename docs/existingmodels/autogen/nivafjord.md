@@ -13,7 +13,7 @@ Since the modules can be dynamically loaded with different arguments, this docum
 
 See the note on [notation](autogen.html#notation).
 
-The file was generated at 2024-05-29 12:37:31.
+The file was generated at 2024-05-29 12:40:58.
 
 ---
 
@@ -228,7 +228,7 @@ Unit: kg
 
 Conc. unit: kg m⁻³
 
-Initial value: (concentration)
+Initial value (concentration):
 
 $$
 \mathrm{salinity}\cdot 0.001\cdot \mathrm{rho\_water}
@@ -240,7 +240,7 @@ Location: **layer.water.heat**
 
 Unit: J
 
-Initial value: (concentration)
+Initial value (concentration):
 
 $$
 \mathrm{C\_water}\cdot \left(\mathrm{temp}\rightarrow \mathrm{K}\,\right)\cdot \mathrm{rho\_water}

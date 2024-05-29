@@ -39,7 +39,7 @@ If an index set was set as locked ![Locked](../img/toolbar/Lock.png) in the main
 ### Symbols and expressions
 You can set a "Symbol" per parameter. These must all be different. This is used both for reference in expressions and as a shorthand name in some statistic reports (the latter is only relevant for MCMC and variance-based sensitivity).
 
-If a parameter is given an "Expression", it is no longer treated as a part of the parameter space that should be directly sampled by the algorithm you are running (so the min-max range is no longer relevant). Instead it will at each sample time be given the value of the expression. The Expression can refer to the Symbol of other parameters. The expression syntax uses the same math notation as the [Mobius2 model language](../mobius2docs/language.html). Example: `1.0 - 0.5*bfi`, where `bfi` is the Symbol of another parameter.
+If a parameter is given an "Expression", it is no longer treated as a part of the parameter space that should be directly sampled by the algorithm you are running (so the min-max range is no longer relevant). Instead it will at each sample time be given the value of the expression. The Expression can refer to the Symbol of other parameters. The expression syntax uses the same math notation as the [Mobius2 model language](../mobius2docs/math_format.html). Example: `1.0 - 0.5*bfi`, where `bfi` is the Symbol of another parameter.
 
 This can also be used to force two parameters to have the same value by making one have an Expression that just contains the Symbol of the other.
 

@@ -88,13 +88,15 @@ Click the ![Play](../img/toolbar/Play.png) button to make it play an animation o
 
 Note that the bars in the above plot are unevenly spaced because this particular model setup has non-uniform layer thickness.
 
-### Profile2D
+### Heatmap
 
-![Profile2D plot](../img/mobiview/profile2d.png)
+![Heatmap plot](../img/mobiview/profile2d.png)
 
 You select a series and a contiguous set of indexes for a given index set similarly to how you do it for the Profile mode above. This produces a heatmap where the x-axis is time and the y-axis is the indexes of the selected index set, while the color of the heatmap gives the value of the selected variable.
 
 The example plot above shows temperature in a fjord basin as function of depth and time.
+
+If you instead select multiple indexes of two different index sets, these index sets will be the x and y axes, and the time will be given by a slider just like in Profile mode.
 
 ### Compare baseline
 
