@@ -4,6 +4,7 @@
 
 #include "common_types.h"
 #include "units.h"
+#include "function_tree.h"
 
 struct
 State_Var {

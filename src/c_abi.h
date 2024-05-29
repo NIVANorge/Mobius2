@@ -10,9 +10,12 @@
 #endif
 
 #include "common_types.h"
-#include "model_application.h"  // TODO: Only needed here because of State_Var::Type . Maybe move that to common_types.
+//#include "model_application.h"  
+#include "state_variable.h" // TODO: Only needed here because of State_Var::Type . Maybe move that to common_types.
 
-struct Model_Application;
+//struct Model_Application;
+
+struct Model_Data;
 
 // Hmm, do we really need both Mobius_Index_Value and Mobius_Index_Slice?
 struct
@@ -58,63 +61,69 @@ mobius_encountered_error(char *msg_out, s64 buf_len);
 DLLEXPORT s64
 mobius_encountered_log(char *msg_out, s64 buf_len);
 
-DLLEXPORT Model_Application *
+DLLEXPORT Model_Data *
 mobius_build_from_model_and_data_file(char * model_file, char * data_file, char *base_path, bool store_series, bool dev_mode);
 
 DLLEXPORT void
-mobius_delete_application(Model_Application *app);
+mobius_delete_application(Model_Data *data);
+
+DLLEXPORT void
+mobius_delete_data(Model_Data *data);
+
+DLLEXPORT Model_Data *
+mobius_copy_data(Model_Data *data, bool copy_results);
 
 DLLEXPORT bool
-mobius_run_model(Model_Application *app, s64 ms_timeout);
+mobius_run_model(Model_Data *data, s64 ms_timeout);
 
 DLLEXPORT s64
-mobius_get_steps(Model_Application *app, Var_Id::Type type);
+mobius_get_steps(Model_Data *data, Var_Id::Type type);
 
 DLLEXPORT Time_Step_Size
-mobius_get_time_step_size(Model_Application *app);
+mobius_get_time_step_size(Model_Data *data);
 
 DLLEXPORT char *
-mobius_get_start_date(Model_Application *app, Var_Id::Type type);
+mobius_get_start_date(Model_Data *data, Var_Id::Type type);
 
 
 DLLEXPORT Entity_Id
-mobius_deserialize_entity(Model_Application *app, Entity_Id scope_id, char *serial_name);
+mobius_deserialize_entity(Model_Data *data, Entity_Id scope_id, char *serial_name);
 
 DLLEXPORT Entity_Id
-mobius_get_entity(Model_Application *app, Entity_Id scope_id, char *handle_name);
+mobius_get_entity(Model_Data *data, Entity_Id scope_id, char *handle_name);
 
 DLLEXPORT Var_Id
-mobius_deserialize_var(Model_Application *app, char *serial_name);
+mobius_deserialize_var(Model_Data *data, char *serial_name);
 
 DLLEXPORT Var_Id
-mobius_get_flux(Model_Application *app, Entity_Id decl_id);
+mobius_get_flux(Model_Data *data, Entity_Id decl_id);
 
 DLLEXPORT Var_Id
-mobius_get_var_id_from_list(Model_Application *app, Entity_Id *ids, s64 id_count);
+mobius_get_var_id_from_list(Model_Data *data, Entity_Id *ids, s64 id_count);
 
 DLLEXPORT Var_Id
-mobius_get_special_var(Model_Application *app, Var_Id parent1, Entity_Id parent2, State_Var::Type type);
+mobius_get_special_var(Model_Data *data, Var_Id parent1, Entity_Id parent2, State_Var::Type type);
 
 DLLEXPORT s64
-mobius_get_index_set_count(Model_Application *app, Entity_Id id);
+mobius_get_index_set_count(Model_Data *data, Entity_Id id);
 
 DLLEXPORT void
-mobius_get_series_data(Model_Application *app, Var_Id var_id, Mobius_Index_Value *indexes, s64 indexes_count, double *series_out, s64 time_steps);
+mobius_get_series_data(Model_Data *data, Var_Id var_id, Mobius_Index_Value *indexes, s64 indexes_count, double *series_out, s64 time_steps);
 
 DLLEXPORT void
-mobius_set_series_data(Model_Application *app, Var_Id var_id, Mobius_Index_Value *indexes, s64 indexes_count, double *values, s64 *dates, s64 time_steps);
+mobius_set_series_data(Model_Data *data, Var_Id var_id, Mobius_Index_Value *indexes, s64 indexes_count, double *values, s64 *dates, s64 time_steps);
 
 DLLEXPORT void
-mobius_resolve_slice(Model_Application *app, Var_Id var_id, Mobius_Index_Slice *indexes, s64 indexes_count, Mobius_Index_Range *ranges_out);
+mobius_resolve_slice(Model_Data *data, Var_Id var_id, Mobius_Index_Slice *indexes, s64 indexes_count, Mobius_Index_Range *ranges_out);
 
 DLLEXPORT void
-mobius_get_series_data_slice(Model_Application *app, Var_Id var_id, Mobius_Index_Range *indexes, s64 indexes_count, double *data_out, s64 time_steps);
+mobius_get_series_data_slice(Model_Data *data, Var_Id var_id, Mobius_Index_Range *indexes, s64 indexes_count, double *data_out, s64 time_steps);
 
 DLLEXPORT Mobius_Series_Metadata
-mobius_get_series_metadata(Model_Application *app, Var_Id var_id);
+mobius_get_series_metadata(Model_Data *data, Var_Id var_id);
 
 DLLEXPORT s64
-mobius_get_value_type(Model_Application *app, Entity_Id id);
+mobius_get_value_type(Model_Data *data, Entity_Id id);
 
 union
 Parameter_Value_Simple {
@@ -123,18 +132,18 @@ Parameter_Value_Simple {
 };
 
 DLLEXPORT void
-mobius_set_parameter_numeric(Model_Application *app, Entity_Id par_id, Mobius_Index_Value *indexes, s64 indexes_count, Parameter_Value_Simple value);
+mobius_set_parameter_numeric(Model_Data *data, Entity_Id par_id, Mobius_Index_Value *indexes, s64 indexes_count, Parameter_Value_Simple value);
 
 DLLEXPORT Parameter_Value_Simple
-mobius_get_parameter_numeric(Model_Application *app, Entity_Id par_id, Mobius_Index_Value *indexes, s64 indexes_count);
+mobius_get_parameter_numeric(Model_Data *data, Entity_Id par_id, Mobius_Index_Value *indexes, s64 indexes_count);
 
 DLLEXPORT void
-mobius_set_parameter_string(Model_Application *app, Entity_Id par_id, Mobius_Index_Value *indexes, s64 indexes_count, char *value);
+mobius_set_parameter_string(Model_Data *data, Entity_Id par_id, Mobius_Index_Value *indexes, s64 indexes_count, char *value);
 
 DLLEXPORT char *
-mobius_get_parameter_string(Model_Application *app, Entity_Id par_id, Mobius_Index_Value *indexes, s64 indexes_count);
+mobius_get_parameter_string(Model_Data *data, Entity_Id par_id, Mobius_Index_Value *indexes, s64 indexes_count);
 
 DLLEXPORT Mobius_Entity_Metadata
-mobius_get_entity_metadata(Model_Application *app, Entity_Id id);
+mobius_get_entity_metadata(Model_Data *data, Entity_Id id);
 
 #endif

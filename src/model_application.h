@@ -264,14 +264,15 @@ struct Storage_Structure {
 
 template<typename Val_T, typename Handle_T>
 struct Data_Storage {
-	Data_Storage(Storage_Structure<Handle_T> *structure, s64 initial_step = 0) : structure(structure), initial_step(initial_step), data(nullptr), is_owning(false) {}
+	Data_Storage(Storage_Structure<Handle_T> *structure, s64 initial_step = 0)
+		: structure(structure), initial_step(initial_step) {}
 	
 	Storage_Structure<Handle_T> *structure;
-	Val_T *data;
+	Val_T         *data = nullptr;
 	s64           time_steps = 0;
 	s64           initial_step;
 	Date_Time     start_date = {};
-	bool is_owning;
+	bool          is_owning = false;
 	
 	void free_data();
 	
