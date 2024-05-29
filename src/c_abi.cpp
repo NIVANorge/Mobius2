@@ -297,6 +297,7 @@ is_none_dim(s64 slice_dim) {
 DLLEXPORT void
 mobius_resolve_slice(Model_Data *data, Var_Id var_id, Mobius_Index_Slice *indexes_in, s64 indexes_count, Mobius_Index_Range *ranges_out) {
 	
+	try {
 	// TODO: Maybe generalize so that it can also be used for parameters for instance.
 	auto app = data->app;
 	Indexes indexes;
@@ -343,7 +344,7 @@ mobius_resolve_slice(Model_Data *data, Var_Id var_id, Mobius_Index_Slice *indexe
 			first = slice.first;
 			last  = first + 1;
 		}
-		if(!was_string) {   // Hmm, this is maybe only necessary if !is_slice, because otherwise we should not allow sub-slicing it (?)
+		if(!was_string && !slice.is_slice) {
 			Token idx_name;
 			idx_name.type = Token_Type::integer;
 			idx_name.val_int = first;
@@ -357,11 +358,14 @@ mobius_resolve_slice(Model_Data *data, Var_Id var_id, Mobius_Index_Slice *indexe
 		
 		ranges_out[idxidx] = Mobius_Index_Range { first, last };
 	}
+	
+	} catch(int) {}
 }
 
 DLLEXPORT void
-mobius_get_series_data_slice(Model_Data *data, Var_Id var_id, Mobius_Index_Range *indexes_in, s64 indexes_count, double *series_out, s64 time_steps) {
+mobius_get_series_data_slice(Model_Data *data, Var_Id var_id, Mobius_Index_Range *indexes_in, s64 indexes_count, double *pos_out, double *series_out, s64 time_steps) {
 	
+	try {
 	auto app = data->app;
 	
 	if(var_id.type == Var_Id::Type::temp_var)
@@ -398,6 +402,17 @@ mobius_get_series_data_slice(Model_Data *data, Var_Id var_id, Mobius_Index_Range
 		for(s64 step = 0; step < time_steps; ++step)
 			series_out[step*dim + idx] = *storage.get_value(offset, step);
 	}
+	
+	auto set = index_sets[dim_pos];
+	Index_T index = Index_T { set, (s32)first-1 };
+	pos_out[0] = app->index_data.get_position(index);
+	
+	int i = 1;
+	for(int idx = first; idx < last; ++idx) {
+		index.index = idx;
+		pos_out[i++] = app->index_data.get_position(index);
+	}
+	} catch(int) {}
 }
 
 // TODO: We could just have a get_decl_type eventually

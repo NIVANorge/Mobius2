@@ -111,17 +111,19 @@ When you read the values of a series, you must access it using its indexes. If t
 
 You can also construct a `pandas.DataFrame` from several such series, which is one of the most common ways to organize scientific data in python.
 
-If a series indexes over several indexes you can also read out a slice. We only support slicing one index set at a time for now, and no custom strides. When slicing, instead of a ´pd.Series´ you get a pair `(values, dates)`, where `values` is a `numpy.ndarray` with dimensions `(time_steps, n_indexes)`. Here `n_indexes` is the amount of indexes in the slice range. Example
+If a series indexes over several indexes you can also read out a slice. We only support slicing one index set at a time for now, and no custom strides. When slicing, instead of a ´pd.Series´ you get a tuple `(values, position, dates)`, where `values` is a `numpy.ndarray` with dimensions `(time_steps, n_indexes)`. Here `n_indexes` is the amount of indexes in the slice range. Example
 
 ```python
-temps, dates = app.layer.water.temp["Drammensfjorden", 4:10]
+temps, pos, dates = app.layer.water.temp["Drammensfjorden", 4:10]
 ```
 
 In this example, the temperatures in the "Drammensfjorden" basin in [NIVAFjord](../existingmodels/nivafjord.html) is extracted between layers 4 and 10.
 
-For input series you always get the expanded data that is sampled to the applications sampling frequency, even if it was provided sparsely in the data file.
+The `pos` vector is of size `n_indexes+1` and contains the boundaries of the indexes in the slice. The `dates` vector is of size `time_steps+1` (the last value being the first time step after the model run). These contain the boundaries because this is more convenient for plotting heatmaps. If you only want positions of each data point, discard the last element in `pos` and `dates`.
 
-You can also set the values of an input series. The value you provide must be a `pandas.Series` that is indexed by a DateTimeIndex. This could be sparse. In that case, only the given dates are overwritten.
+For input series you always get the expanded data that is sampled to the application's sampling frequency, even if it was provided sparsely in the data file.
+
+You can also set the values of an input series. The value you provide must be a `pandas.Series` that is indexed by a `DateTimeIndex`. This could be sparse. In that case, only the given dates are overwritten.
 
 For now we don't support setting slices.
 

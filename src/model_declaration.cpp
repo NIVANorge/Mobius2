@@ -1913,15 +1913,15 @@ Decl_Scope::check_for_unreferenced_things(Catalog *catalog) {
 		auto &reg = pair.second;
 		
 		if(reg.is_load_arg && !reg.was_referenced) {
-			log_print("Warning: In ");
-			reg.source_loc.print_log_header();
-			log_print("The module argument '", reg.identifier, "' was never referenced.\n");
+			log_print(Log_Mode::dev, "Warning: In ");
+			reg.source_loc.print_log_header(Log_Mode::dev);
+			log_print(Log_Mode::dev, "The module argument '", reg.identifier, "' was never referenced.\n");
 		}
 		
 		if (!reg.is_load_arg && !reg.external && !reg.was_referenced && reg.id.reg_type == Reg_Type::parameter) {
-			log_print("Warning: In ");
-			reg.source_loc.print_log_header();
-			log_print("The parameter '", reg.identifier, "' was never referenced.\n");
+			log_print(Log_Mode::dev, "Warning: In ");
+			reg.source_loc.print_log_header(Log_Mode::dev);
+			log_print(Log_Mode::dev, "The parameter '", reg.identifier, "' was never referenced.\n");
 		}
 		
 		if(reg.external) {

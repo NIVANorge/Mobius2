@@ -130,7 +130,7 @@ dll.mobius_set_series_data.argtypes = [ctypes.c_void_p, Var_Id, ctypes.POINTER(M
 
 dll.mobius_resolve_slice.argtypes = [ctypes.c_void_p, Var_Id, ctypes.POINTER(Mobius_Index_Slice), ctypes.c_int64, ctypes.POINTER(Mobius_Index_Range)]
 
-dll.mobius_get_series_data_slice.argtypes = [ctypes.c_void_p, Var_Id, ctypes.POINTER(Mobius_Index_Range), ctypes.c_int64, ctypes.POINTER(ctypes.c_double), ctypes.c_int64]
+dll.mobius_get_series_data_slice.argtypes = [ctypes.c_void_p, Var_Id, ctypes.POINTER(Mobius_Index_Range), ctypes.c_int64, ctypes.POINTER(ctypes.c_double), ctypes.POINTER(ctypes.c_double), ctypes.c_int64]
 
 dll.mobius_get_series_metadata.argtypes = [ctypes.c_void_p, Var_Id]
 dll.mobius_get_series_metadata.restype = Mobius_Series_Metadata
@@ -473,7 +473,7 @@ class State_Var :
 		step_type = 'S' if step_size.unit == 0 else 'MS'
 		freq='%d%s' % (step_size.magnitude, step_type)
 		
-		dates = pd.date_range(start=start_date, periods=time_steps, freq=freq)
+		dates = pd.date_range(start=start_date, periods=time_steps+1, freq=freq)
 		
 		if _has_slice(indexes) :
 			ilen = _len(indexes)
@@ -482,11 +482,16 @@ class State_Var :
 			_check_for_errors()
 			
 			dim = time_steps
+			idx_dim = 1
 			for rn in ranges :
-				dim *= (rn.last - rn.first)
+				length = (rn.last - rn.first)
+				dim *= length
+				idx_dim *= length
+			idx_dim+=1 # This is because we want the boundary positions of the indexes.
 		
 			series = (ctypes.c_double * dim)()
-			dll.mobius_get_series_data_slice(self.data_ptr, self.var_id, ranges, ilen, series, time_steps)
+			idx_pos = (ctypes.c_double * idx_dim)()
+			dll.mobius_get_series_data_slice(self.data_ptr, self.var_id, ranges, ilen, idx_pos, series, time_steps)
 			_check_for_errors()
 			
 			data = np.array(series, copy=False)
@@ -495,7 +500,7 @@ class State_Var :
 				dm = int(rn.last - rn.first)
 				if dm > 1 :
 					dims += (dm,)
-			return np.reshape(data, dims), dates
+			return np.reshape(data, dims), np.array(idx_pos, copy=False), dates
 			
 		else :
 		

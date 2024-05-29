@@ -117,7 +117,7 @@ DLLEXPORT void
 mobius_resolve_slice(Model_Data *data, Var_Id var_id, Mobius_Index_Slice *indexes, s64 indexes_count, Mobius_Index_Range *ranges_out);
 
 DLLEXPORT void
-mobius_get_series_data_slice(Model_Data *data, Var_Id var_id, Mobius_Index_Range *indexes, s64 indexes_count, double *data_out, s64 time_steps);
+mobius_get_series_data_slice(Model_Data *data, Var_Id var_id, Mobius_Index_Range *indexes, s64 indexes_count, double *position_out, double *data_out, s64 time_steps);
 
 DLLEXPORT Mobius_Series_Metadata
 mobius_get_series_metadata(Model_Data *data, Var_Id var_id);
