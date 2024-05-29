@@ -14,19 +14,22 @@ model("NIVAFjord-SimplyCNP") {
 		sol : solver
 	)
 	
+	phyt_type : index_set("Phytoplankton type")
+	
 	edge       : compartment("Basin edge",       basin_idx, e_idx)
 	edge_layer : compartment("Basin edge layer", basin_idx, e_idx, layer_idx)
 	
 	load("modules/nivafjord/horizontal_fluxes.txt",
 		module("NIVAFjord horizontal fluxes", basin, bnd_basin, layer, bnd_layer, river, edge, edge_layer, water, salt, temp, salinity, flow, rho, pressure, dz, h, horz, vert, dims))
 	
-	fjord_phyt : quantity("Fjord phytoplankton") # To distinguish from freshwater once we add EasyLake.
+	# Called 'fjord_phyt' to distinguish from freshwater in the version of the model that also has EasyLake
+	fjord_phyt : quantity("Fjord phytoplankton")#, phyt_type)
 	zoo        : quantity("Zooplankton")
 	o2         : quantity("O₂")
 	chl_a      : property("Chlorophyll-a")
 	
 	load("modules/nivafjord/fjordchem.txt",
-		chem_par : preamble("NIVAFjord chemistry rates"),
+		chem_par : preamble("NIVAFjord chemistry rates", fjord_phyt),
 		module("NIVAFjord chemistry", air, basin, layer, sediment, water, o2, ice, oc, din, on, phos, op, sed, fjord_phyt, zoo, chl_a, temp, salinity, wind, z, dz, indicator, attn, precip, area, cos_z, sw, vert, chem_par, dims))
 	
 	load("modules/nivafjord/sediment.txt",

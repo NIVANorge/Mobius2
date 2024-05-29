@@ -1,6 +1,8 @@
 
 
-preamble("NIVAFjord chemistry rates", version(0, 0, 0)) {
+preamble("NIVAFjord chemistry rates", version(0, 0, 0),
+	phyt : quantity
+) {
 	
 	par_group("Oxygen") {
 		bubble         : par_real("Bubble formation coefficient", [day-1], 0, 0, 1)
@@ -28,7 +30,7 @@ preamble("NIVAFjord chemistry rates", version(0, 0, 0)) {
 		r_sorp         : par_real("PO4 sorption rate", [day-1], 0.01, 0, 1)
 	}
 	
-	par_group("Phytoplankton") {
+	par_group("Phytoplankton", phyt) {
 		phyt_eq_20    : par_real("Chl-a of phyto at equilibrium", [m g, l-1], 0.01, 0, 5, "Assuming 20°C and no nutrient or light limitations.")
 		phyt_q10      : par_real("Q10 of Phyto equilibrium", [], 2, 1, 4, "Adjustment of rate with 10°C change in temperature")
 		phyt_turnover : par_real("Phytoplankton turnover rate", [day-1], 0.2, 0.05, 0.4)
@@ -186,7 +188,8 @@ module("NIVAFjord chemistry", version(0, 0, 5),
 	
 	var(layer.water.attn, [], "Layer attenuation") {
 		# TODO: Maybe DOC has a smaller shading effect than particles?
-		att_c := attn0 + (conc(sed) + conc(phyt) + conc(oc))*shade_f,
+		# Also phyto type should have separate shading values.
+		att_c := attn0 + (conc(sed) + aggregate(conc(phyt)) + conc(oc))*shade_f,
 		cz := max(0.01, refract(air.cos_z, refraction_index_water)),
 		#cz := max(0.01, air.cos_z),
 		th := dz / cz, # Length traveled through the layer by a sun beam taking zenith angle into account.
@@ -239,8 +242,9 @@ module("NIVAFjord chemistry", version(0, 0, 5),
 	}
 	
 	flux(out, layer.water.phyt, [k g, day-1], "Phytoplankton growth") {   fix   }
-	flux(layer.water.din, layer.water.phyt.on, [k g, day-1], "Phytoplankton growth N uptake") {   phyt.fix/cn_molar_to_mass_ratio(phyt_cn)   } @no_store
-	flux(layer.water.phos, layer.water.phyt.op, [k g, day-1], "Phytoplankton growth P uptake") {   phyt.fix/cp_molar_to_mass_ratio(phyt_cp)   } @no_store
+	# A bit awkward, had to make these negative in opposite direction in order to get aggregation..
+	flux(layer.water.phyt.on, layer.water.din, [k g, day-1], "Phytoplankton growth N uptake") {   -phyt.fix/cn_molar_to_mass_ratio(phyt_cn)   } @no_store
+	flux(layer.water.phyt.op, layer.water.phos, [k g, day-1], "Phytoplankton growth P uptake") {   -phyt.fix/cp_molar_to_mass_ratio(phyt_cp)   } @no_store
 	
 	flux(layer.water.phyt,    layer.water.oc, [k g, day-1], "Phytoplankton C excretion") { excr*phyt } @no_store
 	flux(layer.water.phyt.on, layer.water.on, [k g, day-1], "Phytoplankton N excretion") { excr*phyt.on } @no_store
@@ -254,9 +258,11 @@ module("NIVAFjord chemistry", version(0, 0, 5),
 		phyt_turnover*phyt*o2_factor
 	}
 	
-	flux(out, layer.water.o2, [k g, day-1], "Layer O₂ photosynthesis") {   phyt.fix*O2toC*o2_mol_mass/c_mol_mass   }
+	flux(out, layer.water.o2, [k g, day-1], "Layer O₂ photosynthesis") {   aggregate(phyt.fix)*O2toC*o2_mol_mass/c_mol_mass   }
 	
-	var(layer.water.chl_a, [m g, l-1], "Layer chl-a") {   conc(phyt)*chl_a_f->>   }
+	var(layer.water.phyt.chl_a, [m g, l-1], "Phyto chl-a") {   conc(phyt)*chl_a_f->>   }
+	
+	var(layer.water.chl_a, [m g, l-1], "Layer chl-a") {   aggregate(phyt.chl_a)   }
 	
 	/*
 	sed_vel : property("Sedimentation velocity")

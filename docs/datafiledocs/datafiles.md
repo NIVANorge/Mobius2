@@ -48,7 +48,7 @@ YYYY-mm-dd
 YYYY-mm-dd HH:MM:SS
 ```
 
-If the application has sampling step higher than one day, `YYYY-mm-dd` is assumed to be `YYYY-mm-dd 00:00:00`.
+Alone, `YYYY-mm-dd` is equivalent to `YYYY-mm-dd 00:00:00`.
 
 ## The series interval
 

@@ -58,6 +58,10 @@ module("NIVAFjord sediments", version(0, 0, 3),
 	}
 	
 	
+	sed_cn : constant("Sediment C/N", [], 6.25)
+	sed_cp : constant("Sediment C/P", [], 106)
+	
+	
 	# The sediment area of a water layer is the area of the layer minus the area of the water layer below.
 	var(sediment.area, [m 2], "Sediment area") {   A - A[vert.below]   }
 	
@@ -65,11 +69,11 @@ module("NIVAFjord sediments", version(0, 0, 3),
 	
 	var(sediment.sed.oc, [k g], [g, k g-1], "Sediment organic carbon") @initial_conc { init_c }
 	
-	var(sediment.sed.on, [k g], [g, k g-1], "Sediment organic N") @initial_conc { init_c / cn_molar_to_mass_ratio(phyt_cn) }
+	var(sediment.sed.on, [k g], [g, k g-1], "Sediment organic N") @initial_conc { init_c / cn_molar_to_mass_ratio(sed_cn) }
 	
 	var(sediment.sed.phos, [k g], [g, k g-1], "Sediment IP") @initial_conc { init_p }
 	
-	var(sediment.sed.op, [k g], [g, k g-1], "Sediment OP") @initial_conc { init_c / cp_molar_to_mass_ratio(phyt_cp) }
+	var(sediment.sed.op, [k g], [g, k g-1], "Sediment OP") @initial_conc { init_c / cp_molar_to_mass_ratio(sed_cp) }
 	
 	# NOTE: In NIVAFjord it is just a reduction in settling, here instead it causes mixing of concentrations. Not sure what is best.
 	#   We could also make it independent of the settling (which is more realistic maybe).
