@@ -89,7 +89,7 @@ precedence(Math_Expr_AST *expr) {
 
 // Oops, it is problematic that we don't store in the declaration if a Var_Location is from a 'loc'!
 // In the docs we want to print that, not the resolved location...
-// Although we could just go back to the AST??
+// Although we could just go back to the AST?? - this is what we ended up doing it looks like.
 std::string
 loc_str(Decl_Scope *scope, Var_Location &loc) {
 	std::stringstream ss;
@@ -602,12 +602,18 @@ document_module(std::stringstream &ss, Mobius_Model *model, std::string &module_
 			
 			if(var->code || var->override_code) {
 				auto code = var->code ? var->code : var->override_code;
-				ss << "Value:\n\n";
+				ss << "Value:";
+				if(var->override_code && var->override_is_conc)
+					ss << " (concentration)";
+				ss << "\n\n";
 				ss << "$$\n" << equation_str(context, code) << "\n$$\n\n";
 			}
 		
 			if(var->initial_code) {
-				ss << "Initial value:\n\n";
+				ss << "Initial value:";
+				if(var->initial_is_conc)
+					ss << " (concentration)";
+				ss << "\n\n";
 				ss << "$$\n" << equation_str(context, var->initial_code) << "\n$$\n\n";
 			}
 			if(!var->code && !var->override_code && !var->initial_code && !var->adds_code_to_existing) {

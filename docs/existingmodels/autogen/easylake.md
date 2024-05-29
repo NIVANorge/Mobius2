@@ -13,7 +13,7 @@ Since the modules can be dynamically loaded with different arguments, this docum
 
 See the note on [notation](autogen.html#notation).
 
-The file was generated at 2024-05-07 10:40:53.
+The file was generated at 2024-05-29 12:37:31.
 
 ---
 
@@ -779,6 +779,8 @@ Authors: François Clayer, Magnus D. Norling
 | Half-saturation concentration O₂ | **Km_o2** | mmol m⁻³ |  |
 | P mineralization rel rate | **relrate_p** |  |  |
 | N mineralization rel rate | **relrate_n** |  |  |
+| Denitrification rate | **denit** | m⁻² year⁻¹ |  |
+| Denitrification Q10 | **denitQ10** |  | Adjustment of rate with 10°C change in temperature |
 | **Phytoplankton** | | |  |
 | Chl-a of phyto at equilibrium | **phyt_eq_20** | mg l⁻¹ | Assuming 20°C and no nutrient or light limitations. |
 | Q10 of Phyto equilibrium | **phyt_q10** |  |  |
@@ -791,6 +793,7 @@ Authors: François Clayer, Magnus D. Norling
 | Chl-a fraction | **chl_a_f** | % | How large a fraction of the phytoplankton mass is chlorophyll a |
 | **Lake specific phytoplankton** | | | Distributes like: `epi` |
 | Phytoplankton amenability | **phyt_a** |  | Adjustment factor to account for shallow lakes being better for plankton, after taking nutrients and light into consideration |
+| Lake specific denitrification | **denit_a** |  |  |
 
 ### State variables
 
@@ -802,7 +805,7 @@ Unit: kg
 
 Conc. unit: mg l⁻¹
 
-Initial value:
+Initial value: (concentration)
 
 $$
 \left(\href{stdlib.html#sea-oxygen}{\mathrm{o2\_saturation}}\left(\mathrm{temp},\, 0\right)\cdot \mathrm{init\_O2}\cdot \mathrm{o2\_mol\_mass}\rightarrow \mathrm{kg}\,\right)
@@ -816,7 +819,7 @@ Unit: kg
 
 Conc. unit: mg l⁻¹
 
-Initial value:
+Initial value: (concentration)
 
 $$
 \left(\href{stdlib.html#sea-oxygen}{\mathrm{o2\_saturation}}\left(\mathrm{temp},\, 0\right)\cdot \mathrm{init\_O2}\cdot \mathrm{o2\_mol\_mass}\rightarrow \mathrm{kg}\,\right)
@@ -830,7 +833,7 @@ Unit: kg
 
 Conc. unit: mg l⁻¹
 
-Initial value:
+Initial value: (concentration)
 
 $$
 \mathrm{init\_c}
@@ -844,7 +847,7 @@ Unit: kg
 
 Conc. unit: mg l⁻¹
 
-Initial value:
+Initial value: (concentration)
 
 $$
 \mathrm{init\_c}
@@ -870,7 +873,7 @@ Unit: kg
 
 Conc. unit: mg l⁻¹
 
-Initial value:
+Initial value: (concentration)
 
 $$
 \mathrm{init\_in}
@@ -884,7 +887,7 @@ Unit: kg
 
 Conc. unit: mg l⁻¹
 
-Initial value:
+Initial value: (concentration)
 
 $$
 \mathrm{init\_in}
@@ -898,7 +901,7 @@ Unit: kg
 
 Conc. unit: mg l⁻¹
 
-Initial value:
+Initial value: (concentration)
 
 $$
 \frac{\mathrm{init\_c}}{\href{stdlib.html#chemistry}{\mathrm{cn\_molar\_to\_mass\_ratio}}\left(\mathrm{om\_cn}\right)}
@@ -912,7 +915,7 @@ Unit: kg
 
 Conc. unit: mg l⁻¹
 
-Initial value:
+Initial value: (concentration)
 
 $$
 \frac{\mathrm{init\_c}}{\href{stdlib.html#chemistry}{\mathrm{cn\_molar\_to\_mass\_ratio}}\left(\mathrm{om\_cn}\right)}
@@ -938,7 +941,7 @@ Unit: kg
 
 Conc. unit: mg l⁻¹
 
-Initial value:
+Initial value: (concentration)
 
 $$
 \mathrm{init\_ip}
@@ -952,7 +955,7 @@ Unit: kg
 
 Conc. unit: mg l⁻¹
 
-Initial value:
+Initial value: (concentration)
 
 $$
 \mathrm{init\_ip}
@@ -966,7 +969,7 @@ Unit: kg
 
 Conc. unit: mg l⁻¹
 
-Initial value:
+Initial value: (concentration)
 
 $$
 \frac{\mathrm{init\_c}}{\href{stdlib.html#chemistry}{\mathrm{cp\_molar\_to\_mass\_ratio}}\left(\mathrm{om\_cp}\right)}
@@ -980,7 +983,7 @@ Unit: kg
 
 Conc. unit: mg l⁻¹
 
-Initial value:
+Initial value: (concentration)
 
 $$
 \frac{\mathrm{init\_c}}{\href{stdlib.html#chemistry}{\mathrm{cp\_molar\_to\_mass\_ratio}}\left(\mathrm{om\_cp}\right)}
@@ -1018,7 +1021,7 @@ Unit: kg
 
 Conc. unit: mg l⁻¹
 
-Initial value:
+Initial value: (concentration)
 
 $$
 \mathrm{init\_phyt}
@@ -1032,7 +1035,7 @@ Unit: kg
 
 Conc. unit: mg l⁻¹
 
-Initial value:
+Initial value: (concentration)
 
 $$
 \mathrm{init\_phyt}
@@ -1199,7 +1202,7 @@ Unit: mg l⁻¹
 Value:
 
 $$
-\mathrm{tdp}+\mathrm{conc}\left(\mathrm{sed}\right)\cdot \left(\mathrm{conc}\left(\mathrm{sed}.\mathrm{phos}\right)+\mathrm{conc}\left(\mathrm{sed}.\mathrm{op}\right)\right)+\frac{\mathrm{conc}\left(\mathrm{phyt}\right)}{\href{stdlib.html#chemistry}{\mathrm{cp\_molar\_to\_mass\_ratio}}\left(\mathrm{phyt\_cp}\right)}
+\mathrm{tdp}+\mathrm{conc}\left(\mathrm{sed}\right)\cdot \left(\mathrm{conc}\left(\mathrm{sed}.\mathrm{phos}\right)+\mathrm{conc}\left(\mathrm{sed}.\mathrm{op}\right)\right)
 $$
 
 #### **Epilimnion TN**
@@ -1251,7 +1254,7 @@ Unit: kg day⁻¹
 Value:
 
 $$
-\mathrm{conc} = \left(0.9\cdot \href{stdlib.html#sea-oxygen}{\mathrm{o2\_saturation}}\left(\mathrm{air}.\mathrm{temp},\, 0\right)\cdot \mathrm{o2\_mol\_mass}\rightarrow \mathrm{mg}\,\mathrm{l}^{-1}\,\right) \\ \left(\mathrm{air}.\mathrm{precip}\cdot \mathrm{area}\cdot \mathrm{conc}\rightarrow \mathrm{kg}\,\mathrm{day}^{-1}\,\right)
+\mathrm{cnc} = \left(0.9\cdot \href{stdlib.html#sea-oxygen}{\mathrm{o2\_saturation}}\left(\mathrm{air}.\mathrm{temp},\, 0\right)\cdot \mathrm{o2\_mol\_mass}\rightarrow \mathrm{mg}\,\mathrm{l}^{-1}\,\right) \\ \left(\mathrm{air}.\mathrm{precip}\cdot \mathrm{area}\cdot \mathrm{cnc}\rightarrow \mathrm{kg}\,\mathrm{day}^{-1}\,\right)
 $$
 
 #### **O₂ gas exchange at surface**
@@ -1434,6 +1437,34 @@ Value:
 
 $$
 \mathrm{resp}\cdot \mathrm{on}\cdot \mathrm{relrate\_n}
+$$
+
+#### **DIN sediment denitrification (epi)**
+
+Source: epi.water.din
+
+Target: out
+
+Unit: kg day⁻¹
+
+Value:
+
+$$
+\mathrm{denit\_a}\cdot \mathrm{din}\cdot \href{stdlib.html#response}{\mathrm{q10\_adjust}}\left(\mathrm{denit},\, 20 \mathrm{°C}\,,\, \mathrm{temp},\, \mathrm{denitQ10}\right)\cdot \frac{\mathrm{area}-\mathrm{hyp}.\mathrm{area}}{365 \mathrm{day}\,\mathrm{year}^{-1}\,}
+$$
+
+#### **DIN sediment denitrification (hyp)**
+
+Source: hyp.water.din
+
+Target: out
+
+Unit: kg day⁻¹
+
+Value:
+
+$$
+\mathrm{denit\_a}\cdot \mathrm{din}\cdot \href{stdlib.html#response}{\mathrm{q10\_adjust}}\left(\mathrm{denit},\, 20 \mathrm{°C}\,,\, \mathrm{temp},\, \mathrm{denitQ10}\right)\cdot \frac{\mathrm{area}}{365 \mathrm{day}\,\mathrm{year}^{-1}\,}
 $$
 
 #### **Epilimnion photosynthetic C fixation**
@@ -1700,7 +1731,7 @@ Unit: kg day⁻¹
 Value:
 
 $$
-\mathrm{in\_s} = \mathrm{in\_flux}\left(\mathrm{downstream},\, \mathrm{epi}.\mathrm{water}.\mathrm{sed}\right) \\ \mathrm{in\_q} = \mathrm{in\_flux}\left(\mathrm{downstream},\, \mathrm{epi}.\mathrm{water}\right) \\ \mathrm{in\_conc} = \left(\href{stdlib.html#basic}{\mathrm{safe\_divide}}\left(\mathrm{in\_s},\, \mathrm{in\_q}\right)\rightarrow \mathrm{mg}\,\mathrm{l}^{-1}\,\right) \\ \mathrm{excess} = \mathrm{in\_conc}-\mathrm{maxconc} \\ \left(\href{stdlib.html#response}{\mathrm{s\_response}}\left(\mathrm{excess},\, 0,\, 5 \mathrm{mg}\,\mathrm{l}^{-1}\,,\, 0,\, \mathrm{excess}\cdot \mathrm{in\_q}\right)\rightarrow \mathrm{kg}\,\mathrm{day}^{-1}\,\right)
+\mathrm{in\_s} = \mathrm{in\_flux}\left(\mathrm{downstream},\, \mathrm{epi}.\mathrm{water}.\mathrm{sed}\right) \\ \mathrm{in\_q} = \mathrm{in\_flux}\left(\mathrm{downstream},\, \mathrm{epi}.\mathrm{water}\right) \\ \mathrm{in\_conc} = \left(\href{stdlib.html#basic}{\mathrm{safe\_divide}}\left(\mathrm{in\_s},\, \mathrm{in\_q}\right)\rightarrow \mathrm{mg}\,\mathrm{l}^{-1}\,\right) \\ \mathrm{excess} = \mathrm{in\_conc}-\mathrm{maxconc} \\ \left(\href{stdlib.html#response}{\mathrm{s\_response}}\left(\mathrm{excess},\, 0,\, \mathrm{maxconc},\, 0,\, \mathrm{excess}\cdot \mathrm{in\_q}\right)\rightarrow \mathrm{kg}\,\mathrm{day}^{-1}\,\right)
 $$
 
 

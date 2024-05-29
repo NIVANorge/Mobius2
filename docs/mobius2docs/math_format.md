@@ -232,7 +232,7 @@ The following intrinsic functions are visible in every function scope. They are 
 | `abs(a)` | absolute value | Preserves unit |
 | `floor(a)` | round down to closest integer | Preserves unit |
 | `ceil(a)` | round up to closest integer | Preserves unit |
-| `is_finite(a)` | `true` if a is finite, `false` otherwise | a is any unit. Result is dimensionless |
+| `is_finite(a)` | `true` if a is finite and not `nan`, `false` otherwise | a is any unit. Result is dimensionless |
 | `exp(a)` | Euler number to the power of a | a must be dimensionless, result is dimensionless |
 | `pow2(a)` | 2 to the power of a | a must be dimensionless, result is dimensionless  |
 | `ln(a)` | natural logarithm | a must be dimensionless, result is dimensionless  |
@@ -287,7 +287,7 @@ where a \<unit-declaration\> follows the [unit declaration format](units.html#th
 | `=>`     | Discards the unit of the lhs and replaces it with the rhs unit, keeping the same underlying numerical value. |
 | `=>>`    | Same as `=>`, but replaces the unit with the unit of the state variable of the outer function body similarly to `->>`. |
 
-For instance,
+To do the unit conversion, Mobius2 will durinc compilation generate a multiplication with a conversion factor (if it exists, otherwise it reports an error). For instance,
 
 ```python
 10[day] -> [s]
@@ -342,7 +342,7 @@ You can also update the value of a local variable using the syntax
 <identifier> <- <primary-expression>
 ```
 
-where the identifier is that of the local variable. We recommend that you use this only when you need to.
+where the identifier is that of the local variable. We recommend that you use this only when you need to because code is easier to read and the compiler can make better optimizations when variables are immutable.
 
 For instance, the below expression uses [Newton's method](https://en.wikipedia.org/wiki/Newton's_method) for approximating the solution to `sin(x)+e^x = 0`
 

@@ -13,7 +13,7 @@ Since the modules can be dynamically loaded with different arguments, this docum
 
 See the note on [notation](autogen.html#notation).
 
-The file was generated at 2024-05-07 10:40:53.
+The file was generated at 2024-05-29 12:37:31.
 
 ---
 
@@ -319,13 +319,13 @@ Unit: kg km⁻²
 
 Conc. unit: mg l⁻¹
 
-Value:
+Value: (concentration)
 
 $$
 \begin{cases}\mathrm{basedoc} & \text{if}\;\mathrm{soildoc\_type}.\mathrm{const} \\ \mathrm{basedoc}\cdot \left(1+\left(\mathrm{kt1}+\mathrm{kt2}\cdot \mathrm{temp}\right)\cdot \mathrm{temp}-\mathrm{kso4}\cdot \mathrm{air}.\mathrm{so4}\right) & \text{if}\;\mathrm{soildoc\_type}.\mathrm{equilibrium} \\ \text{(mass balance)} & \text{otherwise}\end{cases}
 $$
 
-Initial value:
+Initial value: (concentration)
 
 $$
 \mathrm{basedoc}
@@ -339,13 +339,13 @@ Unit: kg km⁻²
 
 Conc. unit: mg l⁻¹
 
-Value:
+Value: (concentration)
 
 $$
 \begin{cases}\mathrm{gwdocconc} & \text{if}\;\mathrm{gwdoc\_type}.\mathrm{const} \\ \mathrm{aggregate}\left(\mathrm{conc}\left(\mathrm{soil}.\mathrm{water}.\mathrm{oc}\right)\right) & \text{if}\;\mathrm{gwdoc\_type}.\mathrm{soil\_avg} \\ \text{(mass balance)} & \text{otherwise}\end{cases}
 $$
 
-Initial value:
+Initial value: (concentration)
 
 $$
 \begin{cases}\mathrm{gwdocconc} & \text{if}\;\mathrm{gwdoc\_type}.\mathrm{const}\;\text{or}\;\mathrm{gwdoc\_type}.\mathrm{mass\_bal} \\ \mathrm{aggregate}\left(\mathrm{conc}\left(\mathrm{soil}.\mathrm{water}.\mathrm{oc}\right)\right) & \text{otherwise}\end{cases}
@@ -437,7 +437,7 @@ Unit: kg
 
 Conc. unit: mg l⁻¹
 
-Initial value:
+Initial value: (concentration)
 
 $$
 \mathrm{conc}\left(\mathrm{gw}.\mathrm{water}.\mathrm{oc}\right)
@@ -524,7 +524,7 @@ Unit: kg km⁻²
 
 Conc. unit: mg l⁻¹
 
-Initial value:
+Initial value: (concentration)
 
 $$
 \mathrm{sw\_din\_init}
@@ -538,13 +538,13 @@ Unit: kg km⁻²
 
 Conc. unit: mg l⁻¹
 
-Value:
+Value: (concentration)
 
 $$
 \begin{cases}\mathrm{gw\_din\_conc} & \text{if}\;\mathrm{gw\_conc\_type}.\mathrm{const} \\ \mathrm{aggregate}\left(\mathrm{conc}\left(\mathrm{soil}.\mathrm{water}.\mathrm{din}\right)\right) & \text{if}\;\mathrm{gw\_conc\_type}.\mathrm{soil\_avg} \\ \text{(mass balance)} & \text{otherwise}\end{cases}
 $$
 
-Initial value:
+Initial value: (concentration)
 
 $$
 \mathrm{gw\_din\_conc}
@@ -558,7 +558,7 @@ Unit: kg
 
 Conc. unit: mg l⁻¹
 
-Initial value:
+Initial value: (concentration)
 
 $$
 \mathrm{conc}\left(\mathrm{gw}.\mathrm{water}.\mathrm{din}\right)
@@ -806,7 +806,7 @@ $$
 \begin{cases}\begin{pmatrix}\mathrm{q} = \left(\mathrm{last}\left(\mathrm{out\_flux}\left(\mathrm{soil}.\mathrm{water}\right)\right)\rightarrow \mathrm{mm}\,\mathrm{day}^{-1}\,\right) \\ \mathrm{days} = \left(\mathrm{time}.\mathrm{step\_length\_in\_seconds}\rightarrow \mathrm{day}\,\right) \\ \mathrm{pin} = \left(\mathrm{p\_input}\cdot \frac{\mathrm{days}}{\mathrm{time}.\mathrm{days\_this\_year}}\rightarrow \mathrm{kg}\,\mathrm{km}^{-2}\,\right) \\ \mathrm{m\_soil} = \left(\mathrm{m\_soil\_m2}\rightarrow \mathrm{kg}\,\mathrm{km}^{-2}\,\right) \\ \mathrm{a} = \mathrm{pin}+\mathrm{kf}\cdot \mathrm{m\_soil}\cdot \mathrm{epc0} \\ \mathrm{bV} = \mathrm{kf}\cdot \mathrm{m\_soil}+\mathrm{q}\cdot \mathrm{days} \\ \mathrm{b} = \frac{\mathrm{bV}}{\mathrm{last}\left(\mathrm{water}\right)} \\ \frac{\mathrm{a}}{\mathrm{b}}+\left(\mathrm{last}\left(\mathrm{water}.\mathrm{phos}\right)-\frac{\mathrm{a}}{\mathrm{b}}\right)\cdot e^{-\mathrm{b}}\end{pmatrix} & \text{if}\;\mathrm{dyn\_epc0} \\ \left(\mathrm{init\_epc0}\cdot \mathrm{water}\rightarrow \mathrm{kg}\,\mathrm{km}^{-2}\,\right) & \text{otherwise}\end{cases}
 $$
 
-Initial value:
+Initial value: (concentration)
 
 $$
 \mathrm{init\_epc0}
@@ -850,13 +850,13 @@ Unit: kg km⁻²
 
 Conc. unit: mg l⁻¹
 
-Value:
+Value: (concentration)
 
 $$
 \mathrm{gw\_tdp}
 $$
 
-Initial value:
+Initial value: (concentration)
 
 $$
 \mathrm{gw\_tdp}
@@ -870,7 +870,7 @@ Unit: kg
 
 Conc. unit: mg l⁻¹
 
-Initial value:
+Initial value: (concentration)
 
 $$
 \mathrm{gw\_tdp}

@@ -199,7 +199,7 @@ Since the path starts with "stdlib", Mobius2 will look for it in the "Mobius2/st
 
 ## version
 
-Context: File top scope (argument to module/preamble only).
+Context: Argument to module/preamble declaration only.
 
 Bind to identifier: no
 
@@ -239,6 +239,8 @@ A library will be processed once if it is loaded at least one place (it can be l
 
 Loads do not cascade, so if a library loads another library, the identifiers declared in the second library are not visible to someone else who loads the first library (unless they also directly load the second library). Library loads are allowed to be circular (two libraries are allowed to load one another for instance).
 
+The library path is usually relative to the path of the file the declaration is in, but if the first directory in the library path is "stdlib", the path is relative to "Mobius2/stdlib".
+
 ### Module and preamble loads
 
 Modules and preambles can only be loaded in the model scope (not inside another module for instance). 
@@ -268,6 +270,8 @@ load("the_module_file.txt",
 	r:preamble("A preamble", s),
 	module("A module, r))
 ```
+
+The module path is usually relative to the file the load declaration is in, but if the first directory in the module path is "modules", the path is relative to "Mobius2/models/modules".
 
 ## extend
 
