@@ -42,7 +42,7 @@ class Parameter_Value(ctypes.Union) :
 
 class Mobius_Index_Value(ctypes.Structure) :
 	_fields_ = [
-		("name", ctypes.c_char_p), 
+		("name", ctypes.c_char_p),
 		("value", ctypes.c_int64)
 	]
 	
