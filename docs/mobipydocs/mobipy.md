@@ -6,7 +6,9 @@ nav_order: 4
 
 # mobipy
 
-The mobipy python package can be used to run Mobius2 models from python. It also allows you to set parameter values and input series dynamically and read out result data.
+The mobipy python package can be used to run Mobius2 models from python (64 bit python3 only).
+
+It lets you set parameter values and input series dynamically and read out result data.
 
 Among other things, this allows you to:
 
