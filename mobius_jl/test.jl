@@ -3,17 +3,13 @@ using .mobius
 using Plots
 
 
-app = setup_model("../models/simplyq_model.txt", "../models/data/simplyq_simple.dat")
+app = setup_model("../models/simplyq_model.txt", "../models/data/simplyq_simple.dat", true)
 
 run_model(app)
 
-#TODO: Pack into convenience function
-river = get_entity(app, invalid_entity_id, "river")
-water = get_entity(app, invalid_entity_id, "water")
-flow  = get_entity(app, invalid_entity_id, "flow")
-
-flow_var = get_var_id_from_list(app, [river, water, flow])
-steps = get_steps(app, flow_var)
+flow_var = get_var_id(app, ["river", "water", "flow"])
+#Alternatively
+# flow_var = get_var_by_name(app, "Reach flow")
 
 flow_results = get_series_data(app, flow_var, ["Coull"])
 
