@@ -65,7 +65,8 @@ function check_error()
 end
 
 function setup_model(model_file::String, data_file::String, store_series::Bool = false, dev_mode::Bool = false)::Ptr{Cvoid}
-    mobius_path = string(dirname(dirname(Base.source_path())), "\\")
+    #mobius_path = string(dirname(dirname(Base.source_path())), "\\")
+	mobius_path = string(dirname(dirname(@__FILE__)), "\\")
 	result =  ccall(setup_model_h, Ptr{Cvoid}, (Cstring, Cstring, Cstring, Cint, Cint), 
 		model_file, data_file, mobius_path, store_series, dev_mode)
 	check_error()
