@@ -9,6 +9,9 @@ mobius_dll = dlopen("../mobipy/c_abi.dll")
 export setup_model, run_model, get_entity, get_var_from_list, get_var, get_var_by_name, get_steps, get_dates, get_series_data, invalid_entity_id, invalid_var, no_index
 
 setup_model_h       = dlsym(mobius_dll, "mobius_build_from_model_and_data_file")
+copy_data_h         = dlsym(mobius_dll, "mobius_copy_data")
+free_model_h        = dlsym(mobius_dll, "mobius_delete_application")
+free_data_h         = dlsym(mobius_dll, "mobius_delete_data")
 encountered_error_h = dlsym(mobius_dll, "mobius_encountered_error")
 encounterer_log_h   = dlsym(mobius_dll, "mobius_encountered_log")
 run_model_h         = dlsym(mobius_dll, "mobius_run_model")
@@ -25,6 +28,11 @@ set_parameter_numeric_h = dlsym(mobius_dll, "mobius_set_parameter_numeric")
 get_parameter_numeric_h = dlsym(mobius_dll, "mobius_get_parameter_numeric")
 set_parameter_string_h = dlsym(mobius_dll, "mobius_set_parameter_string")
 get_parameter_string_h = dlsym(mobius_dll, "mobius_get_parameter_string")
+
+struct Model_Data
+	ptr::Ptr{Cvoid}
+	original::Bool
+end
 
 struct Entity_Id
 	reg_type::Cshort
@@ -87,37 +95,54 @@ function check_error()
 	end
 end
 
-function setup_model(model_file::String, data_file::String, store_series::Bool = false, dev_mode::Bool = false)::Ptr{Cvoid}
+function setup_model(model_file::String, data_file::String, store_series::Bool = false, dev_mode::Bool = false)::Model_Data
 	#mobius_path = string(dirname(dirname(Base.source_path())), "\\") # Doesn't work in IJulia
 	mobius_path = string(dirname(dirname(@__FILE__)), "\\")
 	result =  ccall(setup_model_h, Ptr{Cvoid}, (Cstring, Cstring, Cstring, Cint, Cint), 
 		model_file, data_file, mobius_path, store_series, dev_mode)
 	check_error()
-	return result
+	return Model_Data(result, true)
 end
 
-function run_model(data::Ptr{Cvoid}, ms_timeout::Int64=-1)::Bool
+function copy_data(data::Model_Data, copy_results::Bool=false)::Model_Data
+	result = ccall(copy_data_h, Ptr{Cvoid}, (Ptr{Cvoid}, Cint),
+		data.ptr, copy_results)
+	return Model_Data(result, false)
+end
+
+# TODO: As in the python wrapper, it would be nice if we could invalidate all other references to the ptr after the free..
+function free(data::Model_Data)
+	if data.original
+		ccall(free_model_h, Cvoid, (Ptr{Cvoid},), data.ptr)
+	else
+		ccall(free_data_h, Cvoid, (Ptr{Cvoid},), data.ptr)
+	end
+end
+
+finalize!(data::Model_Data) = free(data)
+
+function run_model(data::Model_Data, ms_timeout::Int64=-1)::Bool
 	result = ccall(run_model_h, Cint, (Ptr{Cvoid}, Clonglong),
-		data, ms_timeout)
+		data.ptr, ms_timeout)
 	check_error()
 	return result
 end
 
-function get_entity(data::Ptr{Cvoid}, identifier::String, scope_id::Entity_Ref = invalid_entity_ref)::Entity_Ref
+function get_entity(data::Model_Data, identifier::String, scope_id::Entity_Ref = invalid_entity_ref)::Entity_Ref
 	result = ccall(get_entity_h, Entity_Id, (Ptr{Cvoid}, Entity_Id, Cstring),
-		data, scope_id.entity_id, identifier)
+		data.ptr, scope_id.entity_id, identifier)
 	check_error()
-	return Entity_Ref(data, result)
+	return Entity_Ref(data.ptr, result)
 end
 
-function get_var_from_list(data::Ptr{Cvoid}, ids::Vector{Entity_Id})::Var_Ref
+function get_var_from_list(data::Model_Data, ids::Vector{Entity_Id})::Var_Ref
 	result = ccall(get_var_id_from_list_h, Var_Id, (Ptr{Cvoid}, Ptr{Entity_Id}, Clonglong),
-		data, ids, length(ids))
+		data.ptr, ids, length(ids))
 	check_error()
-	return Var_Ref(data, result)
+	return Var_Ref(data.ptr, result)
 end
 
-function get_var(data::Ptr{Cvoid}, identifiers::Vector{String}, scope_id::Entity_Ref = invalid_entity_ref)::Var_Ref
+function get_var(data::Model_Data, identifiers::Vector{String}, scope_id::Entity_Ref = invalid_entity_ref)::Var_Ref
 	ids = [get_entity(data, ident, scope_id).entity_id for ident in identifiers]
 	result = get_var_from_list(data, ids)
 	check_error()
@@ -185,6 +210,8 @@ end
 Base.getindex(var_ref::Var_Ref, indexes::Vector{String})::Vector{Float64} = get_series_data(var_ref, indexes)
 Base.getindex(var_ref::Var_Ref, index::String)::Vector{Float64} = get_series_data(var_ref, [index])
 
+#TODO: set_series_data, get_series_data_slice, etc.
+
 function get_entity_by_name(data::Ptr{Cvoid}, name::String, scope_id::Entity_Ref=invalid_entity_ref)::Entity_Ref
 	result = ccall(deserialize_entity_h, Entity_Id, (Ptr{Cvoid}, Entity_Id, Cstring),
 		data, scope_id.entity_id, name)
@@ -248,6 +275,8 @@ end
 
 Base.setindex!(ref::Entity_Ref, indexes::Vector{String}, value::Float64) = set_parameter(ref, indexes, value)
 Base.setindex!(ref::Entity_Ref, indexes::Vector{String}, value::String) = set_parameter(ref, indexes, value)
+Base.setindex!(ref::Entity_Ref, index::String, value::Float64) = set_parameter(ref, [index], value)
+Base.setindex!(ref::Entity_Ref, index::String, value::String) = set_parameter(ref, [index], value)
 Base.setindex!(ref::Entity_Ref, value::Float64) = set_parameter(ref, String[], value)
 Base.setindex!(ref::Entity_Ref, value::String) = set_parameter(ref, String[], value)
 
