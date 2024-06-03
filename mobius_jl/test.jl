@@ -7,12 +7,12 @@ app = setup_model("../models/simplyq_model.txt", "../models/data/simplyq_simple.
 
 run_model(app)
 
-flow_var = get_var_id(app, ["river", "water", "flow"])
-#Alternatively
+flow_var = get_var(app, ["river", "water", "flow"])
+# Alternatively
 # flow_var = get_var_by_name(app, "Reach flow")
 
-flow_results = get_series_data(app, flow_var, ["Coull"])
+flow_results = flow_var["Coull"]
+dates = get_dates(flow_var)
 
-x = 1:length(flow_results)
-plot(x, flow_results)
+plot(dates, flow_results)
 savefig("flow_plot.png")

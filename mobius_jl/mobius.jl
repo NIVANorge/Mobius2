@@ -2,11 +2,11 @@
 
 module mobius
 
-using Libdl
+using Libdl, Dates
 
 mobius_dll = dlopen("../mobipy/c_abi.dll")
 
-export setup_model, run_model, get_entity, get_var_id_from_list, get_var_id, get_steps, get_series_data, invalid_entity_id, invalid_var, no_index
+export setup_model, run_model, get_entity, get_var_from_list, get_var, get_var_by_name, get_steps, get_dates, get_series_data, invalid_entity_id, invalid_var, no_index
 
 setup_model_h       = dlsym(mobius_dll, "mobius_build_from_model_and_data_file")
 encountered_error_h = dlsym(mobius_dll, "mobius_encountered_error")
@@ -15,6 +15,8 @@ run_model_h         = dlsym(mobius_dll, "mobius_run_model")
 get_entity_h        = dlsym(mobius_dll, "mobius_get_entity")
 get_var_id_from_list_h = dlsym(mobius_dll, "mobius_get_var_id_from_list")
 get_steps_h         = dlsym(mobius_dll, "mobius_get_steps")
+get_time_step_size_h = dlsym(mobius_dll, "mobius_get_time_step_size")
+get_start_date_h    = dlsym(mobius_dll, "mobius_get_start_date")
 get_series_data_h   = dlsym(mobius_dll, "mobius_get_series_data")
 deserialize_entity_h = dlsym(mobius_dll, "mobius_deserialize_entity")
 deserialize_var_h   = dlsym(mobius_dll, "mobius_deserialize_var")
@@ -29,9 +31,19 @@ struct Var_Id
 	id::Cint
 end
 
+struct Time_Step_Size
+	unit::Cint
+	magnitude::Cint
+end
+
 struct Mobius_Index_Value
 	name::Cstring
 	value::Clonglong
+end
+
+struct Var_Ref
+	data::Ptr{Cvoid}
+	var_id::Var_Id
 end
 
 invalid_entity_id = Entity_Id(-1, -1)
@@ -87,58 +99,92 @@ function get_entity(data::Ptr{Cvoid}, identifier::String, scope_id::Entity_Id = 
 	return result
 end
 
-function get_var_id_from_list(data::Ptr{Cvoid}, ids::Vector{Entity_Id})::Var_Id
+function get_var_from_list(data::Ptr{Cvoid}, ids::Vector{Entity_Id})::Var_Ref
 	result = ccall(get_var_id_from_list_h, Var_Id, (Ptr{Cvoid}, Ptr{Entity_Id}, Clonglong),
 		data, ids, length(ids))
 	check_error()
+	return Var_Ref(data, result)
+end
+
+function get_var(data::Ptr{Cvoid}, identifiers::Vector{String}, scope_id::Entity_Id = invalid_entity_id)::Var_Ref
+	ids = [get_entity(data, ident, scope_id) for ident in identifiers]
+	result = get_var_from_list(data, ids)
+	check_error()
+	
 	return result
 end
 
-function get_var_id(data::Ptr{Cvoid}, identifiers::Vector{String}, scope_id::Entity_Id = invalid_entity_id)::Var_Id
-	ids = [get_entity(data, ident, scope_id) for ident in identifiers]
-	return get_var_id_from_list(data, ids)
-end
-
-function get_steps(data::Ptr{Cvoid}, var_id::Var_Id)::Int64
+function get_steps(var_ref::Var_Ref)::Int64
 	result = ccall(get_steps_h, Clonglong, (Ptr{Cvoid}, Cint),
-		data, var_id.type)
+		var_ref.data, var_ref.var_id.type)
+		
 	check_error()
 	return result
+end
+
+function copy_str(str::Cstring)::String
+	# This is super weird, there should be an inbuilt function for this, but I can't find it.
+	len = @ccall strlen(str::Cstring)::Csize_t
+	result = " "^len
+	@ccall memcpy(Base.unsafe_convert(Cstring, result)::Cstring, str::Cstring, len::Csize_t)::Ptr{Cvoid}
+	return result
+end
+
+function get_dates(var_ref::Var_Ref)::Vector{DateTime}
+	steps = get_steps(var_ref)
+	start_d = ccall(get_start_date_h, Cstring, (Ptr{Cvoid}, Cint),
+		var_ref.data, var_ref.var_id.type)
+	start_d_str = copy_str(start_d)
+	#TODO: We have to detect if the string contains timestamp or not
+	start_date = DateTime(Date(start_d_str))
+	
+	step_size = ccall(get_time_step_size_h, Time_Step_Size, (Ptr{Cvoid},),
+		var_ref.data)
+	check_error()
+	
+	mag = step_size.magnitude
+	if step_size.unit == 0 # seconds
+		return start_date .+ Second.(0:mag:((steps-1)*mag))
+	end
+	throw(ErrorException("Not yet implemented for monthly time steps."))
+	
+	return []
 end
 
 # TODO: make it work with numerical indexes too
-function get_series_data(data::Ptr{Cvoid}, var_id::Var_Id, indexes::Vector{String})::Vector{Float64}
-	steps = get_steps(data, var_id)
+function get_series_data(var_ref::Var_Ref, indexes::Vector{String})::Vector{Float64}
+	steps = get_steps(var_ref)
 	result = Vector{Cdouble}(undef, steps)
 	
-	idxs = Vector{Mobius_Index_Value}(undef, length(indexes))
-	i = 1
-	for idx in indexes
-		idx_c = Base.unsafe_convert(Cstring, idx)
-		idxs[i] = Mobius_Index_Value(idx_c, -1)
-		i += 1
-	end
+	# NOTE: The unsafe_convert is safe since the value only needs to stay in memory until the end of this
+	# function call.
+	idxs = [Mobius_Index_Value(Base.unsafe_convert(Cstring, idx), -1) for idx in indexes]
 	
 	ccall(get_series_data_h, Cvoid, (Ptr{Cvoid}, Var_Id, Ptr{Mobius_Index_Value}, Clonglong, Ptr{Cdouble}, Clonglong),
-		data, var_id, idxs, length(idxs), result, length(result))
+		var_ref.data, var_ref.var_id, idxs, length(idxs), result, length(result))
 	check_error()
 	
 	return result
 end
 
-function get_entity_by_name(data::Ptr{Cvoid}, name::String, scope_id::Entity_Id)
+Base.getindex(var_ref::Var_Ref, indexes::Vector{String})::Vector{Float64} = get_series_data(var_ref, indexes)
+Base.getindex(var_ref::Var_Ref, index::String)::Vector{Float64} = get_series_data(var_ref, [index])
+
+function get_entity_by_name(data::Ptr{Cvoid}, name::String, scope_id::Entity_Id=invalid_entity_id)::Entity_Id
 	result = ccall(deserialize_entity_h, Entity_Id, (Ptr{Cvoid}, Entity_Id, Cstring),
 		data, scope_id, name)
 	check_error()
 	return result
 end
 
-function get_var_id_by_name(data::Ptr{Cvoid}, name::String)
-	result = ccall(mobius_deserialize_var_h, Var_Id, (Ptr{Cvoid}, Cstring),
+function get_var_by_name(data::Ptr{Cvoid}, name::String)::Var_Ref
+	result = ccall(deserialize_var_h, Var_Id, (Ptr{Cvoid}, Cstring),
 		data, name)
 	check_error()
-	return result
+	return Var_Ref(data, result)
 end
+
+
 
 
 end # module
