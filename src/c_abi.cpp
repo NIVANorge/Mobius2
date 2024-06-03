@@ -248,6 +248,8 @@ mobius_get_series_data(Model_Data *data, Var_Id var_id, Mobius_Index_Value *inde
 	
 	auto app = data->app;
 	try {
+		if(!is_valid(var_id))
+			fatal_error(Mobius_Error::api_usage, "Tried to get data for an invalid id.");
 	
 		if(var_id.type == Var_Id::Type::temp_var)
 			fatal_error(Mobius_Error::api_usage, "The time series for the variable \"", app->vars[var_id]->name, "\" is not stored.");

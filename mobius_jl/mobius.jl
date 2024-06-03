@@ -6,7 +6,7 @@ using Libdl, Dates
 
 mobius_dll = dlopen("../mobipy/c_abi.dll")
 
-export setup_model, run_model, get_entity, get_var_from_list, get_var, get_var_by_name, get_steps, get_dates, get_series_data, invalid_entity_id, invalid_var, no_index
+export setup_model, run_model, get_entity, get_var_from_list, get_var, conc, transport, get_var_by_name, get_steps, get_dates, get_series_data, invalid_entity_id, invalid_var, no_index
 
 setup_model_h       = dlsym(mobius_dll, "mobius_build_from_model_and_data_file")
 copy_data_h         = dlsym(mobius_dll, "mobius_copy_data")
@@ -17,6 +17,7 @@ encounterer_log_h   = dlsym(mobius_dll, "mobius_encountered_log")
 run_model_h         = dlsym(mobius_dll, "mobius_run_model")
 get_entity_h        = dlsym(mobius_dll, "mobius_get_entity")
 get_var_id_from_list_h = dlsym(mobius_dll, "mobius_get_var_id_from_list")
+get_special_var_h   = dlsym(mobius_dll, "mobius_get_special_var")
 get_steps_h         = dlsym(mobius_dll, "mobius_get_steps")
 get_time_step_size_h = dlsym(mobius_dll, "mobius_get_time_step_size")
 get_start_date_h    = dlsym(mobius_dll, "mobius_get_start_date")
@@ -150,6 +151,23 @@ function get_var(data::Model_Data, identifiers::Vector{String}, scope_id::Entity
 	return result
 end
 
+function conc(var_ref::Var_Ref)::Var_Ref
+	result = ccall(get_special_var_h, Var_Id, (Ptr{Cvoid}, Var_Id, Entity_Id, Cshort),
+		var_ref.data, var_ref.var_id, invalid_entity_id, 5)
+	check_error()
+	return Var_Ref(var_ref.data, result)
+end
+
+function transport(var_ref::Var_Ref, q::String)::Var_Ref
+	q_id = ccall(get_entity_h, Entity_Id, (Ptr{Cvoid}, Entity_Id, Cstring),
+		var_ref.data, invalid_entity_id, q)
+	
+	result = ccall(get_special_var_h, Var_Id, (Ptr{Cvoid}, Var_Id, Entity_Id, Cshort),
+		var_ref.data, var_ref.var_id, q_id, 4)
+	check_error()
+	return Var_Ref(var_ref.data, result)
+end
+
 function get_steps(var_ref::Var_Ref)::Int64
 	result = ccall(get_steps_h, Clonglong, (Ptr{Cvoid}, Cint),
 		var_ref.data, var_ref.var_id.type)
@@ -212,18 +230,18 @@ Base.getindex(var_ref::Var_Ref, index::String)::Vector{Float64} = get_series_dat
 
 #TODO: set_series_data, get_series_data_slice, etc.
 
-function get_entity_by_name(data::Ptr{Cvoid}, name::String, scope_id::Entity_Ref=invalid_entity_ref)::Entity_Ref
+function get_entity_by_name(data::Model_Data, name::String, scope_id::Entity_Ref=invalid_entity_ref)::Entity_Ref
 	result = ccall(deserialize_entity_h, Entity_Id, (Ptr{Cvoid}, Entity_Id, Cstring),
-		data, scope_id.entity_id, name)
+		data.ptr, scope_id.entity_id, name)
 	check_error()
-	return Entity_Ref(data, result)
+	return Entity_Ref(data.ptr, result)
 end
 
-function get_var_by_name(data::Ptr{Cvoid}, name::String)::Var_Ref
+function get_var_by_name(data::Model_Data, name::String)::Var_Ref
 	result = ccall(deserialize_var_h, Var_Id, (Ptr{Cvoid}, Cstring),
-		data, name)
+		data.ptr, name)
 	check_error()
-	return Var_Ref(data, result)
+	return Var_Ref(data.ptr, result)
 end
 
 
