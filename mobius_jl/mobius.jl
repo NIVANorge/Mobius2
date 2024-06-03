@@ -123,7 +123,7 @@ function get_steps(var_ref::Var_Ref)::Int64
 end
 
 function copy_str(str::Cstring)::String
-	# This is super weird, there should be an inbuilt function for this, but I can't find it.
+	# This is super weird, there should be an inbuilt function for converting Cstring->String, but I can't find it.
 	len = @ccall strlen(str::Cstring)::Csize_t
 	result = " "^len
 	@ccall memcpy(Base.unsafe_convert(Cstring, result)::Cstring, str::Cstring, len::Csize_t)::Ptr{Cvoid}
