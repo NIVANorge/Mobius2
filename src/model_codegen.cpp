@@ -610,7 +610,8 @@ put_var_lookup_indexes(Math_Expr_FT *expr, Model_Application *app, Index_Exprs &
 		if(!is_valid(res.r1.connection_id))
 			fatal_error(Mobius_Error::internal, "Got an identifier with a restriction but without a connection");
 		
-		auto connection = app->model->connections[res.r1.connection_id];
+		auto conn_id = res.r1.connection_id;
+		auto connection = app->model->connections[conn_id];
 		
 		if(connection->type == Connection_Type::grid1d) {
 			Index_Exprs new_indexes(app->model);

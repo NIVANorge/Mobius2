@@ -4,18 +4,7 @@ data_set {
 The doc string
 """
 	
-	
-	j : index_set("J") [ "A" "B" ]
-	
-	k : index_set("K") @sub(j) [!
-		"A"  : [ 10 ]
-		"B"  : [ 5 ]
-	]
-	
-	position_map(k) [!
-		0 : 1
-		5 : 0.5
-	]
+	i : index_set("I") [ 5 ]
 	
 	par_group("System") {
 		
@@ -29,22 +18,13 @@ The doc string
 	
 	module("So simple", version(2, 0, 0)) {
 		
-		par_group("The Q", j, k) {
+		par_group("Pars", i) {
 			
-			par_real("Q") [!
-				"A" : [!
-					0 : 0
-					5 : 20
-					9 : 100
-				]
-				"B" : [!
-					0 : 10
-					2 : 5
-					4 : 8
-				]
-			]
+			par_real("T") 
+			[ 0 0 0 0 0 ]
 			
-			par_real("R") @from_position(k)
+			par_real("F") 
+			[ 1 2 3 4 5 ]
 		
 		}
 	

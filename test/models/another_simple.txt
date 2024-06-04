@@ -2,21 +2,28 @@
 
 model("Another simple") {
 
-	j : index_set("J")
-	k : index_set("K") @sub(j)
+	a : compartment("A", i)
+	q : quantity("Q")
 
-	a : compartment("A", j, k)
+	
 	p : property("P")
 	
+	i : index_set("I")
+	c : connection("C") @grid1d(a, i)
+	
 	module("So simple", version(2, 0, 0)) {
-
-		par_group("The Q", a) {
-			q : par_real("Q", [], 0)
-			r : par_real("R", [], 0)
+	
+		par_group("Pars", a) {
+			t : par_real("T", [m m], 0)
+			f : par_real("F", [m m, day-1], 0)
 		}
 		
+		var(a.q, [m m], "A Q") @initial { t }
+		
+		flux(out, a.q, [m m, day-1], "flux") { f }
+		
 		var(a.p, [], "A P") {
-			q
+			in_flux(a.q[c.below]) =>>
 		}
 	}
 }

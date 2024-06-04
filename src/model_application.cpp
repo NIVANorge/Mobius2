@@ -266,7 +266,11 @@ Model_Application::get_primary_location(Var_Id source, bool &is_conc) {
 		is_conc = true;
 		auto var2 = vars[as<State_Var::Type::dissolved_conc>(var)->conc_of];
 		loc0 = var2->loc1;
-	} else
+	} else if (var->type == State_Var::Type::in_flux_aggregate) {
+		auto var2 = vars[as<State_Var::Type::in_flux_aggregate>(var)->in_flux_to];
+		loc0 = var2->loc1;
+	}
+	else
 		fatal_error(Mobius_Error::internal, "Access of unhandled variable type in get_primary_location.");
 	return loc0;
 }
@@ -274,6 +278,7 @@ Model_Application::get_primary_location(Var_Id source, bool &is_conc) {
 Var_Id
 Model_Application::get_connection_target_variable(Var_Location &loc0, Entity_Id target_component, bool is_conc) {
 	// TODO: May have to make this work with quantity connection components eventually, that is a bit more tricky.
+	
 	if(model->components[target_component]->decl_type != Decl_Type::compartment)
 		fatal_error(Mobius_Error::internal, "For now, graph lookups are only supported over compartments.");
 	
@@ -290,11 +295,21 @@ Var_Id
 Model_Application::get_connection_target_variable(Var_Id source, Entity_Id connection_id, Entity_Id target_component) {
 	if(model->connections[connection_id]->type != Connection_Type::directed_graph)
 		fatal_error(Mobius_Error::internal, "get_connection_target_variable should only be used for graph connections.");
-	// TODO: Could also check that the target is valid for the given source and given the connection components?
-	//  Could also check that the var is something that is valid to look up this way
+	
 	bool is_conc;
 	auto loc0 = get_primary_location(source, is_conc);
+	
+	if(!is_on_connection(loc0, connection_id))
+		fatal_error(Mobius_Error::internal, "Can't get_connection_target_variable for this source since it is not on the connection");
+	
 	return get_connection_target_variable(loc0, target_component, is_conc);
+}
+
+bool
+Model_Application::is_on_connection(Var_Location &loc0, Entity_Id connection_id) {
+	// TODO: Will have to be modified to work with quantity connection components eventually.
+	auto conn = model->connections[connection_id];
+	return std::find(conn->components.begin(), conn->components.end(), loc0.components[0]) != conn->components.end();
 }
 
 Entity_Id

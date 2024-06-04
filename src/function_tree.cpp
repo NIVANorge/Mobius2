@@ -613,6 +613,8 @@ resolve_special_directive(Function_Call_AST *ast, Directive directive, Function_
 		fatal_error_trace(scope);
 	}
 	auto new_fun = new Function_Call_FT(); // Hmm it is a bit annoying to have to do this only to delete it again.
+	new_fun->source_loc = ast->source_loc;
+	
 	std::vector<Standardized_Unit> arg_units;
 	resolve_arguments(new_fun, ast, data, scope, arg_units);
 	int allowed_arg_count = 1;

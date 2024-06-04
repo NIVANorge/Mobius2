@@ -205,14 +205,22 @@ function get_dates(var_ref::Var_Ref)::Vector{DateTime}
 	return []
 end
 
-# TODO: make it work with numerical indexes too
-function make_indexes(indexes::Vector{String})::Vector{Mobius_Index_Value}
-	# NOTE: The unsafe_convert is safe since the value only needs to stay in memory until the end of this
-	# function call
-	return [Mobius_Index_Value(Base.unsafe_convert(Cstring, idx), -1) for idx in indexes]
+function make_index(index::Any)::Mobius_Index_Value
+	if typeof(index) == String
+		# NOTE: The unsafe_convert is safe since the value only needs to stay in memory until the end of this
+		# function call
+		return Mobius_Index_Value(Base.unsafe_convert(Cstring, index), -1)
+	elseif isinteger(index) 
+		return Mobius_Index_Value(C_NULL, index)
+	end
+	throw(ErrorException("Invalid index type, expected string or int"))
 end
 
-function get_series_data(var_ref::Var_Ref, indexes::Vector{String})::Vector{Float64}
+function make_indexes(indexes::Vector{Any})::Vector{Mobius_Index_Value}
+	return [make_index(idx) for idx in indexes]
+end
+
+function get_series_data(var_ref::Var_Ref, indexes::Vector{Any})::Vector{Float64}
 	steps = get_steps(var_ref)
 	result = Vector{Cdouble}(undef, steps)
 	
@@ -225,8 +233,9 @@ function get_series_data(var_ref::Var_Ref, indexes::Vector{String})::Vector{Floa
 	return result
 end
 
-Base.getindex(var_ref::Var_Ref, indexes::Vector{String})::Vector{Float64} = get_series_data(var_ref, indexes)
-Base.getindex(var_ref::Var_Ref, index::String)::Vector{Float64} = get_series_data(var_ref, [index])
+Base.getindex(var_ref::Var_Ref, indexes::Vector{Any})::Vector{Float64} = get_series_data(var_ref, indexes)
+Base.getindex(var_ref::Var_Ref, index::Any)::Vector{Float64} = get_series_data(var_ref, Any[index])
+Base.getindex(var_ref::Var_Ref)::Vector{Float64} = get_series_data(var_ref, Any[])
 
 #TODO: set_series_data, get_series_data_slice, etc.
 
@@ -244,21 +253,6 @@ function get_var_by_name(data::Model_Data, name::String)::Var_Ref
 	return Var_Ref(data.ptr, result)
 end
 
-
-#DLLEXPORT s64
-#mobius_get_value_type(Model_Data *data, Entity_Id id);
-#DLLEXPORT void
-#mobius_set_parameter_numeric(Model_Data *data, Entity_Id par_id, Mobius_Index_Value *indexes, s64 indexes_count, Parameter_Value_Simple value);
-
-#DLLEXPORT Parameter_Value_Simple
-#mobius_get_parameter_numeric(Model_Data *data, Entity_Id par_id, Mobius_Index_Value *indexes, s64 indexes_count);
-
-#DLLEXPORT void
-#mobius_set_parameter_string(Model_Data *data, Entity_Id par_id, Mobius_Index_Value *indexes, s64 indexes_count, char *value);
-
-#DLLEXPORT char *
-#mobius_get_parameter_string(Model_Data *data, Entity_Id par_id, Mobius_Index_Value *indexes, s64 indexes_count);
-
 #TODO: Maybe store the type in the Entity_Ref from begin with (when it is a parameter, not some other object)
 function get_type(ref::Entity_Ref)
 	type = ccall(get_value_type_h, Clonglong, (Ptr{Cvoid}, Entity_Id),
@@ -267,18 +261,45 @@ function get_type(ref::Entity_Ref)
 	return type
 end
 
-function set_parameter(ref::Entity_Ref, indexes::Vector{String}, value::Float64)
+function set_parameter(ref::Entity_Ref, indexes::Vector{Any}, value::Float64)
 	type = get_type(ref)
 	if type != 0
 		throw(ErrorException("Tried to set a non-float parameter with float value."))
 	end
 	idxs = make_indexes(indexes)
-	ccall(set_parameter_numeric_h, Cvoid, (Ptr{Cvoid}, Entity_Id, Ptr{Mobius_Index_Value}, Clonglong, Float64),
+	ccall(set_parameter_numeric_h, Cvoid, (Ptr{Cvoid}, Entity_Id, Ptr{Mobius_Index_Value}, Clonglong, Cdouble),
 		ref.data, ref.entity_id, idxs, length(idxs), value)
 	check_error()
 end
 
-function set_parameter(ref::Entity_Ref, indexes::Vector{String}, value::String)
+function set_parameter(ref::Entity_Ref, indexes::Vector{Any}, value::Int64)
+	type = get_type(ref)
+	if type != 0 && type != 1
+		throw(ErrorException("Tried to set a non-numerical parameter with int value."))
+	end
+	idxs = make_indexes(indexes)
+	if type == 0
+		ccall(set_parameter_numeric_h, Cvoid, (Ptr{Cvoid}, Entity_Id, Ptr{Mobius_Index_Value}, Clonglong, Cdouble),
+			ref.data, ref.entity_id, idxs, length(idxs), convert(Float64, value))
+	else
+		ccall(set_parameter_numeric_h, Cvoid, (Ptr{Cvoid}, Entity_Id, Ptr{Mobius_Index_Value}, Clonglong, Clonglong),
+			ref.data, ref.entity_id, idxs, length(idxs), value)
+	end
+	check_error()
+end
+
+function set_parameter(ref::Entity_Ref, indexes::Vector{Any}, value::Bool)
+	type = get_type(ref)
+	if type != 2
+		throw(ErrorException("Tried to set a non-bool parameter with bool value."))
+	end
+	idxs = make_indexes(indexes)
+	ccall(set_parameter_numeric_h, Cvoid, (Ptr{Cvoid}, Entity_Id, Ptr{Mobius_Index_Value}, Clonglong, Clonglong),
+		ref.data, ref.entity_id, idxs, length(idxs), value)
+	check_error()
+end
+
+function set_parameter(ref::Entity_Ref, indexes::Vector{Any}, value::String)
 	type = get_type(ref)
 	if type != 3 && type != 4
 		throw(ErrorException("Tried to set a parameter that is not datetime or enum with a string value."))
@@ -289,14 +310,64 @@ function set_parameter(ref::Entity_Ref, indexes::Vector{String}, value::String)
 	check_error()
 end
 
-#TODO: Other types also, as well as get value
+function set_parameter(ref::Entity_Ref, indexes::Vector{Any}, value::DateTime)
+	type = get_type(ref)
+	if type != 4
+		throw(ErrorException("Tried to set a non-datetime parameter with a datetime value."))
+	end
+	datestr = Dates.format(value, "yyyy-mm-dd HH:MM:SS")
+	idxs = make_indexes(indexes)
+	ccall(set_parameter_string_h, Cvoid, (Ptr{Cvoid}, Entity_Id, Ptr{Mobius_Index_Value}, Clonglong, Cstring),
+		ref.data, ref.entity_id, idxs, length(idxs), Base.unsafe_convert(Cstring, datestr))
+	check_error()
+end
 
-Base.setindex!(ref::Entity_Ref, indexes::Vector{String}, value::Float64) = set_parameter(ref, indexes, value)
-Base.setindex!(ref::Entity_Ref, indexes::Vector{String}, value::String) = set_parameter(ref, indexes, value)
-Base.setindex!(ref::Entity_Ref, index::String, value::Float64) = set_parameter(ref, [index], value)
-Base.setindex!(ref::Entity_Ref, index::String, value::String) = set_parameter(ref, [index], value)
-Base.setindex!(ref::Entity_Ref, value::Float64) = set_parameter(ref, String[], value)
-Base.setindex!(ref::Entity_Ref, value::String) = set_parameter(ref, String[], value)
+Base.setindex!(ref::Entity_Ref, indexes::Vector{Any}, value::Float64) = set_parameter(ref, indexes, value)
+Base.setindex!(ref::Entity_Ref, indexes::Vector{Any}, value::String) = set_parameter(ref, indexes, value)
+Base.setindex!(ref::Entity_Ref, indexes::Vector{Any}, value::Int64) = set_parameter(ref, indexes, value)
+Base.setindex!(ref::Entity_Ref, indexes::Vector{Any}, value::Bool) = set_parameter(ref, indexes, value)
+Base.setindex!(ref::Entity_Ref, indexes::Vector{Any}, value::DateTime) = set_parameter(ref, indexes, value)
+Base.setindex!(ref::Entity_Ref, index::Any, value::Float64) = set_parameter(ref, Any[index], value)
+Base.setindex!(ref::Entity_Ref, index::Any, value::String) = set_parameter(ref, Any[index], value)
+Base.setindex!(ref::Entity_Ref, index::Any, value::Int64) = set_parameter(ref, Any[index], value)
+Base.setindex!(ref::Entity_Ref, index::Any, value::Bool) = set_parameter(ref, Any[index], value)
+Base.setindex!(ref::Entity_Ref, index::Any, value::DateTime) = set_parameter(ref, Any[index], value)
+Base.setindex!(ref::Entity_Ref, value::Float64) = set_parameter(ref, Any[], value)
+Base.setindex!(ref::Entity_Ref, value::String) = set_parameter(ref, Any[], value)
+Base.setindex!(ref::Entity_Ref, value::Int64) = set_parameter(ref, Any[], value)
+Base.setindex!(ref::Entity_Ref, value::Bool) = set_parameter(ref, Any[], value)
+Base.setindex!(ref::Entity_Ref, value::DateTime) = set_parameter(ref, Any[], value)
 
+function get_parameter(ref::Entity_Ref, indexes::Vector{Any})::Any
+	type = get_type(ref)
+	idxs = make_indexes(indexes)
+	result::Any = undef
+	if type == 0
+		result = ccall(get_parameter_numeric_h, Cdouble, (Ptr{Cvoid}, Entity_Id, Ptr{Mobius_Index_Value}, Clonglong),
+			ref.data, ref.entity_id, idxs, length(idxs))::Float64
+	elseif type == 1
+		result = ccall(get_parameter_numeric_h, Clonglong, (Ptr{Cvoid}, Entity_Id, Ptr{Mobius_Index_Value}, Clonglong),
+			ref.data, ref.entity_id, idxs, length(idxs))::Int64
+	elseif type == 2
+		result = ccall(get_parameter_numeric_h, Clonglong, (Ptr{Cvoid}, Entity_Id, Ptr{Mobius_Index_Value}, Clonglong),
+			ref.data, ref.entity_id, idxs, length(idxs))::Bool
+	elseif type == 3
+		str = ccall(get_parameter_string_h, Cstring, (Ptr{Cvoid}, Entity_Id, Ptr{Mobius_Index_Value}, Clonglong),
+			ref.data, ref.entity_id, idxs, length(idxs))
+		result = copy_str(str)
+	elseif type == 4
+		str = ccall(get_parameter_string_h, Cstring, (Ptr{Cvoid}, Entity_Id, Ptr{Mobius_Index_Value}, Clonglong),
+			ref.data, ref.entity_id, idxs, length(idxs))
+		datestr = copy_str(str)
+		# TODO! Should detect if it has a timestamp or not!
+		result = DateTime(Date(datestr))
+	end
+	check_error()
+	return result
+end
+
+Base.getindex(ref::Entity_Ref, indexes::Vector{Any}) = get_parameter(ref, indexes)
+Base.getindex(ref::Entity_Ref, index::Any) = get_parameter(ref, Any[index])
+Base.getindex(ref::Entity_Ref) = get_parameter(ref, Any[])
 
 end # module

@@ -458,6 +458,7 @@ Model_Application {
 	
 	Sub_Indexed_Component *find_connection_component(Entity_Id conn_id, Entity_Id comp_id, bool make_error = true);
 	Var_Location           get_primary_location(Var_Id source, bool &is_conc);
+	bool                   is_on_connection(Var_Location &loc0, Entity_Id connection_id);
 	Var_Id                 get_connection_target_variable(Var_Location &loc0, Entity_Id target_component, bool is_conc);
 	Var_Id                 get_connection_target_variable(Var_Id source, Entity_Id connection_id, Entity_Id target_component);
 	

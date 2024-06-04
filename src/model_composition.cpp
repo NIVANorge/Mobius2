@@ -390,6 +390,7 @@ check_valid_distribution_of_dependencies(Model_Application *app, Math_Expr_FT *f
 	register_dependencies(function, &code_depends);
 	
 	// NOTE: We should not have undergone codegen yet, so the source location of the top node of the function should be valid.
+	// Although it would be better to use the source_loc of the identifier instead, but that is not stored in Identifier_Data right now..
 	Source_Location source_loc = function->source_loc;
 	
 	// TODO: in these error messages we should really print out the two tuples of index sets.
@@ -413,7 +414,9 @@ check_valid_distribution_of_dependencies(Model_Application *app, Math_Expr_FT *f
 		
 		} else if (dep.is_computed_series()) {
 			auto dep_var = app->vars[dep.var_id];
-		
+			
+			// TODO: Hmm, this does much the same work as get_primary_location()
+			
 			// For generated in_flux aggregation variables we are instead interested in the variable that is the target of the fluxes.
 			if(dep_var->type == State_Var::Type::in_flux_aggregate)
 				dep_var = app->vars[as<State_Var::Type::in_flux_aggregate>(dep_var)->in_flux_to];
@@ -441,6 +444,7 @@ check_valid_distribution_of_dependencies(Model_Application *app, Math_Expr_FT *f
 				source_loc.print_error_header(Mobius_Error::model_building);
 				fatal_error("This code looks up the state variable \"", dep_var->name, "\". The latter state variable is distributed over a higher number of index sets than the context location of the prior code.");
 			}
+			
 		} else if (dep.variable_type == Variable_Type::is_at) {
 			auto conn_id = dep.restriction.r1.connection_id;
 			if(!is_valid(conn_id)) {
@@ -454,10 +458,34 @@ check_valid_distribution_of_dependencies(Model_Application *app, Math_Expr_FT *f
 			}
 			auto index_set = conn->node_index_set;
 			if(!index_set_is_contained_in(model, index_set, allowed_index_sets)) {
-				source_loc.print_error_header(Mobius_Error::model_building);
-				fatal_error("This 'is_at' expression references a connection over an index set \"", model->index_sets[index_set]->name, "\" that the context location of the code does not index over.");
+				source_loc.print_error_header();
+				fatal_error("The 'is_at' expression references a 'grid1d' connection \"", conn->name, "\" over an index set \"", model->index_sets[index_set]->name, "\" that the context location of this code does not index over.");
 			}
 		}
+		
+		if(dep.variable_type == Variable_Type::series) {
+			// TODO: Do a similar test for parameters (but it is tricky)
+			auto conn_id = dep.restriction.r1.connection_id;
+			if(is_valid(conn_id)) {
+				auto conn = model->connections[conn_id];
+				bool is_conc;
+				auto loc0 = app->get_primary_location(dep.var_id, is_conc);
+				if(conn->type == Connection_Type::directed_graph) {
+					if(!app->is_on_connection(loc0, conn_id)) {
+						source_loc.print_error_header();
+						fatal_error("The lookup of the variable \"", app->vars[dep.var_id]->name, "\" along the connection \"", conn->name, "\" is not valid since the primary location of this variable is not on this connection.");
+					}
+				} else if (conn->type == Connection_Type::grid1d) {
+					auto maximal_var_sets = get_allowed_index_sets(app, Specific_Var_Location(loc0));
+					if(!index_set_is_contained_in(model, conn->node_index_set, maximal_var_sets)) {
+						source_loc.print_error_header();
+						fatal_error("The lookup of the variable \"", app->vars[dep.var_id]->name, "\" along the connection \"", conn->name, "\" is not valid since the primary location of this variable does not index over the index set \"", model->index_sets[conn->node_index_set]->name, "\".");
+					}
+				} else
+					fatal_error(Mobius_Error::internal, "Unhandled connection type.");
+			}
+		}
+
 	}
 }
 
