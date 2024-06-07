@@ -186,10 +186,11 @@ end
 
 function get_dates(var_ref::Var_Ref)::Vector{DateTime}
 	steps = get_steps(var_ref)
-	start_d = ccall(get_start_date_h, Cstring, (Ptr{Cvoid}, Cint),
-		var_ref.data, var_ref.var_id.type)
-	start_d_str = copy_str(start_d)
+	start_d = " "^32
+	ccall(get_start_date_h, Cstring, (Ptr{Cvoid}, Cint, Cstring),
+		var_ref.data, var_ref.var_id.type, start_d)
 	#TODO: We have to detect if the string contains timestamp or not
+	start_d_str = first(start_d, 10)
 	start_date = DateTime(Date(start_d_str))
 	
 	step_size = ccall(get_time_step_size_h, Time_Step_Size, (Ptr{Cvoid},),

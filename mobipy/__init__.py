@@ -75,6 +75,7 @@ MODULE_TYPE = 1
 COMPONENT_TYPE = 2
 PARAMETER_TYPE = 3
 FLUX_TYPE = 4
+PAR_GROUP_TYPE = 6
 
 dll = ctypes.CDLL(str(pathlib.Path(__file__).parent / 'c_abi.dll'))
 
@@ -103,8 +104,7 @@ dll.mobius_run_model.restype = ctypes.c_bool
 dll.mobius_get_time_step_size.argtypes = [ctypes.c_void_p]
 dll.mobius_get_time_step_size.restype  = Time_Step_Size
 
-dll.mobius_get_start_date.argtypes = [ctypes.c_void_p, ctypes.c_int32]
-dll.mobius_get_start_date.restype = ctypes.c_char_p
+dll.mobius_get_start_date.argtypes = [ctypes.c_void_p, ctypes.c_int32, ctypes.c_char_p]
 
 dll.mobius_deserialize_entity.argtypes = [ctypes.c_void_p, Entity_Id, ctypes.c_char_p]
 dll.mobius_deserialize_entity.restype  = Entity_Id
@@ -373,7 +373,7 @@ class Entity(Scope) :
 			Scope.__init__(self, data_ptr, scope_id)
 			
 	def __getitem__(self, name_or_indexes) :
-		if self.entity_id.reg_type == MODULE_TYPE :
+		if self.entity_id.reg_type == MODULE_TYPE or self.id.reg_type == PAR_GROUP_TYPE :
 			return Scope.__getitem__(self, name_or_indexes)
 		elif self.entity_id.reg_type == PARAMETER_TYPE :
 			return _get_par_value(self.data_ptr, self.entity_id, name_or_indexes)
@@ -465,8 +465,9 @@ class State_Var :
 	def __getitem__(self, indexes) :
 		time_steps = dll.mobius_get_steps(self.data_ptr, self.var_id.type)
 		
-		start_date = dll.mobius_get_start_date(self.data_ptr, self.var_id.type).decode('utf-8')
-		start_date = pd.to_datetime(start_date)
+		start_date = ctypes.create_string_buffer(32)
+		dll.mobius_get_start_date(self.data_ptr, self.var_id.type, start_date)
+		start_date = pd.to_datetime(start_date.value.decode('utf-8'))
 		_check_for_errors()
 
 		step_size = dll.mobius_get_time_step_size(self.data_ptr)

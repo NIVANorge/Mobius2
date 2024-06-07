@@ -145,9 +145,9 @@ mobius_get_time_step_size(Model_Data *data) {
 }
 
 DLLEXPORT char *
-mobius_get_start_date(Model_Data *data, Var_Id::Type type) {
-	// NOTE: the buffer in to_string() gets overwritten when you call it again. Not thread safe
-	return data->get_storage(type).start_date.to_string().data;
+mobius_get_start_date(Model_Data *data, Var_Id::Type type, char *buf) {
+	// NOTE: The buf should have at least 20 capacity.
+	data->get_storage(type).start_date.to_string(buf);
 }
 
 DLLEXPORT Entity_Id
