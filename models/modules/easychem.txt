@@ -53,6 +53,7 @@ module("EasyChem", version(0, 0, 5),
 	tdp    : property,
 	tn     : property,
 	toc    : property,
+	chl_a  : property,
 	
 	area   : property,
 	
@@ -121,7 +122,6 @@ Authors: François Clayer, Magnus D. Norling
 	light_lim : property("Light limitation")
 	N_lim     : property("Nitrogen limitation")
 	P_lim     : property("Phosphorus limitation")
-	chl_a     : property("Chlorophyll-a")
 	
 	f_par     : constant("Fraction of PAR in SW radiation", [], 0.45)  # Photosynthetically available radiation
 	
