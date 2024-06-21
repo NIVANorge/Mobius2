@@ -521,7 +521,6 @@ process_parameters(Model_Application *app, Data_Set *data_set, Entity_Id par_gro
 		if(!is_valid(module_id)) {
 			if(!warned_module_already[module_data_id.id]) {
 				auto module_data = data_set->modules[module_data_id];
-				log_print("In ");
 				module_data->source_loc.print_log_header();
 				log_print("The model \"", model->model_name, "\" does not contain a module named \"", module_data->name, "\". This data block will be ignored.\n\n");
 				warned_module_already[module_data_id.id] = true;

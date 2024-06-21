@@ -49,7 +49,7 @@ enum class Log_Mode {
 
 template<typename... V> inline void
 log_print(Log_Mode mode, V... tail) {
-	if(mobius_developer_mode)
+	if(mode == Log_Mode::regular || mobius_developer_mode)
 		log_print(tail...);
 }
 

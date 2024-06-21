@@ -6,7 +6,7 @@ inline double
 log_pdf_normal(double x, double mu, double sigma_squared) {
 	constexpr double log_2_pi = 1.83787706641;
 	double factor = (x - mu);
-	return -0.5*std::log(sigma_squared) - log_2_pi - 0.5*factor*factor/sigma_squared;
+	return 0.5*(-std::log(sigma_squared) - log_2_pi - factor*factor/sigma_squared);
 }
 
 double

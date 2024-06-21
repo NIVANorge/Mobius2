@@ -167,7 +167,7 @@ The precedence of an operator can determine association of the participating exp
 | `>=`    | greater than or equal  | 3000       | \*\* (comparison) |
 | `=`    | equal   | 3000       | \*\* (comparison) |
 | `!=`    | not equal   | 3000       | \*\* (comparison) |
-| `+`    | plus | 4000 | \*\*\* (aritmetic) |
+| `+`    | plus | 4000 | \*\*\* (arithmetic) |
 | `-`    | minus | 4000 | \*\*\* (arithmetic) |
 | `*`    | product | 5000 | \*\*\* (arithmetic) |
 | `/`    | real division | 6000 | \*\*\* (arithmetic) |

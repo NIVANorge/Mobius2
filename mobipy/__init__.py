@@ -77,84 +77,92 @@ PARAMETER_TYPE = 3
 FLUX_TYPE = 4
 PAR_GROUP_TYPE = 6
 
-dll = ctypes.CDLL(str(pathlib.Path(__file__).parent / 'c_abi.dll'))
-
-dll.mobius_encountered_error.argtypes = [ctypes.c_char_p, ctypes.c_int64]
-dll.mobius_encountered_error.restype = ctypes.c_int64
+def load_dll() :
+	shared_ext = 'dll'
+	if os.name == 'posix' : shared_ext = 'sh'
 	
-dll.mobius_encountered_log.argtypes = [ctypes.c_char_p, ctypes.c_int64]
-dll.mobius_encountered_log.restype = ctypes.c_int64
+	dll = ctypes.CDLL(str(pathlib.Path(__file__).parent / ('c_abi.%s'%shared_ext)))
+	
+	dll.mobius_encountered_error.argtypes = [ctypes.c_char_p, ctypes.c_int64]
+	dll.mobius_encountered_error.restype = ctypes.c_int64
+		
+	dll.mobius_encountered_log.argtypes = [ctypes.c_char_p, ctypes.c_int64]
+	dll.mobius_encountered_log.restype = ctypes.c_int64
 
-dll.mobius_build_from_model_and_data_file.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_bool, ctypes.c_bool]
-dll.mobius_build_from_model_and_data_file.restype  = ctypes.c_void_p
+	dll.mobius_build_from_model_and_data_file.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_bool, ctypes.c_bool]
+	dll.mobius_build_from_model_and_data_file.restype  = ctypes.c_void_p
 
-dll.mobius_delete_application.argtypes = [ctypes.c_void_p]
+	dll.mobius_delete_application.argtypes = [ctypes.c_void_p]
 
-dll.mobius_delete_data.argtypes = [ctypes.c_void_p]
+	dll.mobius_delete_data.argtypes = [ctypes.c_void_p]
 
-dll.mobius_copy_data.argtypes = [ctypes.c_void_p, ctypes.c_bool]
-dll.mobius_copy_data.restype  = ctypes.c_void_p
+	dll.mobius_copy_data.argtypes = [ctypes.c_void_p, ctypes.c_bool]
+	dll.mobius_copy_data.restype  = ctypes.c_void_p
 
-dll.mobius_get_steps.argtypes = [ctypes.c_void_p, ctypes.c_int32]
-dll.mobius_get_steps.restype = ctypes.c_int64
+	dll.mobius_get_steps.argtypes = [ctypes.c_void_p, ctypes.c_int32]
+	dll.mobius_get_steps.restype = ctypes.c_int64
 
-dll.mobius_run_model.argtypes = [ctypes.c_void_p, ctypes.c_int64]
-dll.mobius_run_model.restype = ctypes.c_bool
+	dll.mobius_run_model.argtypes = [ctypes.c_void_p, ctypes.c_int64]
+	dll.mobius_run_model.restype = ctypes.c_bool
 
-dll.mobius_get_time_step_size.argtypes = [ctypes.c_void_p]
-dll.mobius_get_time_step_size.restype  = Time_Step_Size
+	dll.mobius_get_time_step_size.argtypes = [ctypes.c_void_p]
+	dll.mobius_get_time_step_size.restype  = Time_Step_Size
 
-dll.mobius_get_start_date.argtypes = [ctypes.c_void_p, ctypes.c_int32, ctypes.c_char_p]
+	dll.mobius_get_start_date.argtypes = [ctypes.c_void_p, ctypes.c_int32, ctypes.c_char_p]
 
-dll.mobius_deserialize_entity.argtypes = [ctypes.c_void_p, Entity_Id, ctypes.c_char_p]
-dll.mobius_deserialize_entity.restype  = Entity_Id
+	dll.mobius_deserialize_entity.argtypes = [ctypes.c_void_p, Entity_Id, ctypes.c_char_p]
+	dll.mobius_deserialize_entity.restype  = Entity_Id
 
-dll.mobius_get_entity.argtypes = [ctypes.c_void_p, Entity_Id, ctypes.c_char_p]
-dll.mobius_get_entity.restype = Entity_Id
+	dll.mobius_get_entity.argtypes = [ctypes.c_void_p, Entity_Id, ctypes.c_char_p]
+	dll.mobius_get_entity.restype = Entity_Id
 
-dll.mobius_deserialize_var.argtypes = [ctypes.c_void_p, ctypes.c_char_p]
-dll.mobius_deserialize_var.restype = Var_Id
+	dll.mobius_deserialize_var.argtypes = [ctypes.c_void_p, ctypes.c_char_p]
+	dll.mobius_deserialize_var.restype = Var_Id
 
-dll.mobius_get_flux.argtypes = [ctypes.c_void_p, Entity_Id]
-dll.mobius_get_flux.restype = Var_Id
+	dll.mobius_get_flux.argtypes = [ctypes.c_void_p, Entity_Id]
+	dll.mobius_get_flux.restype = Var_Id
 
-dll.mobius_get_var_id_from_list.argtypes = [ctypes.c_void_p, ctypes.POINTER(Entity_Id), ctypes.c_int64]
-dll.mobius_get_var_id_from_list.restype = Var_Id
+	dll.mobius_get_var_id_from_list.argtypes = [ctypes.c_void_p, ctypes.POINTER(Entity_Id), ctypes.c_int64]
+	dll.mobius_get_var_id_from_list.restype = Var_Id
 
-dll.mobius_get_special_var.argtypes = [ctypes.c_void_p, Var_Id, Entity_Id, ctypes.c_int16]
-dll.mobius_get_special_var.restype = Var_Id
+	dll.mobius_get_special_var.argtypes = [ctypes.c_void_p, Var_Id, Entity_Id, ctypes.c_int16]
+	dll.mobius_get_special_var.restype = Var_Id
 
-dll.mobius_get_series_data.argtypes = [ctypes.c_void_p, Var_Id, ctypes.POINTER(Mobius_Index_Value), ctypes.c_int64, ctypes.POINTER(ctypes.c_double), ctypes.c_int64]
+	dll.mobius_get_series_data.argtypes = [ctypes.c_void_p, Var_Id, ctypes.POINTER(Mobius_Index_Value), ctypes.c_int64, ctypes.POINTER(ctypes.c_double), ctypes.c_int64]
 
-dll.mobius_set_series_data.argtypes = [ctypes.c_void_p, Var_Id, ctypes.POINTER(Mobius_Index_Value), ctypes.c_int64, ctypes.POINTER(ctypes.c_double), ctypes.POINTER(ctypes.c_int64), ctypes.c_int64]
+	dll.mobius_set_series_data.argtypes = [ctypes.c_void_p, Var_Id, ctypes.POINTER(Mobius_Index_Value), ctypes.c_int64, ctypes.POINTER(ctypes.c_double), ctypes.POINTER(ctypes.c_int64), ctypes.c_int64]
 
-dll.mobius_resolve_slice.argtypes = [ctypes.c_void_p, Var_Id, ctypes.POINTER(Mobius_Index_Slice), ctypes.c_int64, ctypes.POINTER(Mobius_Index_Range)]
+	dll.mobius_resolve_slice.argtypes = [ctypes.c_void_p, Var_Id, ctypes.POINTER(Mobius_Index_Slice), ctypes.c_int64, ctypes.POINTER(Mobius_Index_Range)]
 
-dll.mobius_get_series_data_slice.argtypes = [ctypes.c_void_p, Var_Id, ctypes.POINTER(Mobius_Index_Range), ctypes.c_int64, ctypes.POINTER(ctypes.c_double), ctypes.POINTER(ctypes.c_double), ctypes.c_int64]
+	dll.mobius_get_series_data_slice.argtypes = [ctypes.c_void_p, Var_Id, ctypes.POINTER(Mobius_Index_Range), ctypes.c_int64, ctypes.POINTER(ctypes.c_double), ctypes.POINTER(ctypes.c_double), ctypes.c_int64]
 
-dll.mobius_get_series_metadata.argtypes = [ctypes.c_void_p, Var_Id]
-dll.mobius_get_series_metadata.restype = Mobius_Series_Metadata
-
-
-dll.mobius_get_index_set_count.argtypes = [ctypes.c_void_p, Entity_Id]
-dll.mobius_get_index_set_count.restype = ctypes.c_int64
+	dll.mobius_get_series_metadata.argtypes = [ctypes.c_void_p, Var_Id]
+	dll.mobius_get_series_metadata.restype = Mobius_Series_Metadata
 
 
-dll.mobius_get_value_type.argtypes = [ctypes.c_void_p, Entity_Id]
-dll.mobius_get_value_type.restype = ctypes.c_int64
+	dll.mobius_get_index_set_count.argtypes = [ctypes.c_void_p, Entity_Id]
+	dll.mobius_get_index_set_count.restype = ctypes.c_int64
 
-dll.mobius_set_parameter_numeric.argtypes = [ctypes.c_void_p, Entity_Id, ctypes.POINTER(Mobius_Index_Value), ctypes.c_int64, Parameter_Value]
 
-dll.mobius_get_parameter_numeric.argtypes = [ctypes.c_void_p, Entity_Id, ctypes.POINTER(Mobius_Index_Value), ctypes.c_int64]
-dll.mobius_get_parameter_numeric.restype  = Parameter_Value
+	dll.mobius_get_value_type.argtypes = [ctypes.c_void_p, Entity_Id]
+	dll.mobius_get_value_type.restype = ctypes.c_int64
 
-dll.mobius_set_parameter_string.argtypes = [ctypes.c_void_p, Entity_Id, ctypes.POINTER(Mobius_Index_Value), ctypes.c_int64, ctypes.c_char_p]
+	dll.mobius_set_parameter_numeric.argtypes = [ctypes.c_void_p, Entity_Id, ctypes.POINTER(Mobius_Index_Value), ctypes.c_int64, Parameter_Value]
 
-dll.mobius_get_parameter_string.argtypes = [ctypes.c_void_p, Entity_Id, ctypes.POINTER(Mobius_Index_Value), ctypes.c_int64]
-dll.mobius_get_parameter_string.restype  = ctypes.c_char_p
+	dll.mobius_get_parameter_numeric.argtypes = [ctypes.c_void_p, Entity_Id, ctypes.POINTER(Mobius_Index_Value), ctypes.c_int64]
+	dll.mobius_get_parameter_numeric.restype  = Parameter_Value
 
-dll.mobius_get_entity_metadata.argtypes = [ctypes.c_void_p, Entity_Id]
-dll.mobius_get_entity_metadata.restype = Mobius_Entity_Metadata
+	dll.mobius_set_parameter_string.argtypes = [ctypes.c_void_p, Entity_Id, ctypes.POINTER(Mobius_Index_Value), ctypes.c_int64, ctypes.c_char_p]
+
+	dll.mobius_get_parameter_string.argtypes = [ctypes.c_void_p, Entity_Id, ctypes.POINTER(Mobius_Index_Value), ctypes.c_int64]
+	dll.mobius_get_parameter_string.restype  = ctypes.c_char_p
+
+	dll.mobius_get_entity_metadata.argtypes = [ctypes.c_void_p, Entity_Id]
+	dll.mobius_get_entity_metadata.restype = Mobius_Entity_Metadata
+
+	return dll
+
+dll = load_dll()
 
 
 def _check_for_errors() :
@@ -294,6 +302,10 @@ def is_valid(id) :
 		return id.reg_type > 0 and id.id >= 0
 	if isinstance(id, Var_Id) :
 		return id.id >= 0
+		
+def mobius2_path() :
+	#NOTE: We have to add a trailing slash to the path for Mobius2 to understand it.
+	return f'{pathlib.Path(__file__).parent.resolve().parent}{os.sep}'
 
 class Scope :
 	def __init__(self, data_ptr, scope_id) :
@@ -308,18 +320,21 @@ class Scope :
 			raise ValueError('The serial name "%s" does not refer to a valid entity' % serial_name)
 		return Entity(self.data_ptr, self.scope_id, entity_id)
 
-	def __getattr__(self, handle_name) :
-		entity_id = dll.mobius_get_entity(self.data_ptr, self.scope_id, _c_str(handle_name))
+	def __getattr__(self, identifier) :
+		entity_id = dll.mobius_get_entity(self.data_ptr, self.scope_id, _c_str(identifier))
 		if not is_valid(entity_id) :
-			raise ValueError("The handle name '%s' does not refer to a valid entity" % handle_name)
+			raise ValueError("The identifier '%s' does not refer to a valid entity" % identifier)
 		_check_for_errors()
 		return Entity(self.data_ptr, self.scope_id, entity_id)
 		
-	def __setattr__(self, handle_name, value) :
-		if handle_name in ['data_ptr', 'scope_id', 'entity_id', 'superscope_id', 'is_main'] :
-			super().__setattr__(handle_name, value)
+	#def get(self, identifier) :
+	#	return self.__getattr_(identifier)
+		
+	def __setattr__(self, identifier, value) :
+		if identifier in ['data_ptr', 'scope_id', 'entity_id', 'superscope_id', 'is_main'] :
+			super().__setattr__(identifier, value)
 		else :
-			self.__getattr__(handle_name).__setitem__((), value)
+			self.__getattr__(identifier).__setitem__((), value)
 	
 	def list_all(self, type) :
 		# TODO
@@ -338,9 +353,15 @@ class Model_Application(Scope) :
 		else :
 			dll.mobius_delete_data(self.data_ptr)
 	
+	def __enter__(self) :
+		return self
+	
+	def __exit__(self, type, value, tb) :
+		self.__del__()
+	
 	@classmethod
 	def build_from_model_and_data_file(cls, model_file, data_file, store_all_series=False, dev_mode=False) :
-		base_path = f'{pathlib.Path(__file__).parent.resolve().parent}{os.sep}'  #NOTE: We have to add a trailing slash to the path for Mobius2 to understand it.
+		base_path = mobius2_path()
 		data_ptr = dll.mobius_build_from_model_and_data_file(_c_str(model_file), _c_str(data_file), _c_str(base_path), store_all_series, dev_mode)
 		_check_for_errors()
 		return cls(data_ptr, True)
@@ -373,7 +394,7 @@ class Entity(Scope) :
 			Scope.__init__(self, data_ptr, scope_id)
 			
 	def __getitem__(self, name_or_indexes) :
-		if self.entity_id.reg_type == MODULE_TYPE or self.id.reg_type == PAR_GROUP_TYPE :
+		if self.entity_id.reg_type == MODULE_TYPE or self.entity_id.reg_type == PAR_GROUP_TYPE :
 			return Scope.__getitem__(self, name_or_indexes)
 		elif self.entity_id.reg_type == PARAMETER_TYPE :
 			return _get_par_value(self.data_ptr, self.entity_id, name_or_indexes)
@@ -386,12 +407,12 @@ class Entity(Scope) :
 		else :
 			raise ValueError("This entity can't be accessed using []")
 	
-	def __getattr__(self, handle_name) :
+	def __getattr__(self, identifier) :
 		if self.entity_id.reg_type == MODULE_TYPE :
-			return Scope.__getattr__(self, handle_name)
+			return Scope.__getattr__(self, identifier)
 		elif self.entity_id.reg_type == COMPONENT_TYPE :
 			scope = Scope(self.data_ptr, self.superscope_id)
-			other = scope.__getattr__(handle_name)
+			other = scope.__getattr__(identifier)
 			return State_Var.from_id_list(self.data_ptr, self.superscope_id, [self.entity_id, other.entity_id])
 		else :
 			raise ValueError("This entity doesn't have accessible fields.")
@@ -534,15 +555,15 @@ class State_Var :
 		dll.mobius_set_series_data(self.data_ptr, self.var_id, _pack_indexes(indexes), _len(indexes), series, dates, time_steps)
 		_check_for_errors()
 		
-	def __getattr__(self, handle_name) :
+	def __getattr__(self, identifier) :
 		# TODO: Should better check what type of variable this is (quantity, flux, special ..)
 		scope = Scope(self.data_ptr, self.scope_id)
 		if len(self.id_list) > 0 :
-			other = scope.__getattr__(handle_name)
+			other = scope.__getattr__(identifier)
 			new_list = self.id_list + [other.entity_id]
 			return State_Var.from_id_list(self.data_ptr, self.scope_id, new_list)
 		else :
-			quant = scope.__getattr__(handle_name)
+			quant = scope.__getattr__(identifier)
 			carry_id = dll.mobius_get_special_var(self.data_ptr, self.var_id, quant.entity_id, 4)
 			_check_for_errors()
 			if not is_valid(carry_id) :
