@@ -87,7 +87,7 @@ make_path_relative_to(String_View file_name, String_View relative_to) {
 	while(pos < relative_to.count) {
 		if(pos == maxpath) fatal_error(Mobius_Error::internal, "Oops too long path, make better implementation!");
 		char c = relative_to[pos];
-		if(is_slash(c)) { last_slash = pos; c = '\\'; }
+		if(is_slash(c)) { last_slash = pos; c = '/'; }
 		new_path[pos] = c;
 		++pos;
 	}
