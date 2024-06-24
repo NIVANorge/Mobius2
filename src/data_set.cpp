@@ -661,7 +661,7 @@ Connection_Data::process_declaration(Catalog *catalog) {
 		
 		data_set->index_data.initialize_edge_index_set(edge_index_set, edge_set->source_loc);
 				
-		for(auto &component_id : scope.by_type<Reg_Type::component>()) {
+		for(auto component_id : scope.by_type<Reg_Type::component>()) {
 			auto component = data_set->components[component_id];
 			if(component->index_sets.size() == 1) {
 				if(data_set->index_data.can_be_sub_indexed_to(component->index_sets[0], edge_index_set))

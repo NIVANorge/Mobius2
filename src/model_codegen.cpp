@@ -9,8 +9,8 @@ make_possibly_time_scaled_ident(Model_Application *app, Var_Id var_id) {
 	auto var = app->vars[var_id];
 	if(var->is_flux() && var->type == State_Var::Type::declared) {
 		auto var2 = as<State_Var::Type::declared>(var);
-		if(var2->flux_time_unit_conv != 1.0);
-		ident = make_binop('*', ident, make_literal(var2->flux_time_unit_conv));
+		if(var2->flux_time_unit_conv != 1.0)
+			ident = make_binop('*', ident, make_literal(var2->flux_time_unit_conv));
 	}
 	return ident;
 }

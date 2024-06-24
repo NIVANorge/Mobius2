@@ -24,7 +24,7 @@ apply_cast(Typed_Value val, Value_Type to_type) {
 	} else if(to_type == Value_Type::integer) {
 		if(val.type == Value_Type::real)
 			result.val_integer = (s64)val.val_real;
-		else if(val.type == Value_Type::boolean);
+		else if(val.type == Value_Type::boolean)
 			result.val_integer = (s64)val.val_boolean;
 	}
 	return result;

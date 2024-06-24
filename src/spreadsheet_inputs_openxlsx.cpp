@@ -62,7 +62,7 @@ read_series_data_from_spreadsheet(Data_Set *data_set, Series_Data *series, Strin
 		fatal_error(Mobius_Error::parsing, "The file \"", file_name, "\" can't be opened.");
 	}
 	
-	auto &wb = doc.workbook();
+	auto wb = doc.workbook();
 	auto n_tabs = wb.sheetCount();
 	
 	for(u16 tab = 1; tab <= n_tabs; ++tab) {
