@@ -226,7 +226,11 @@ get_jitted_batch_function(const std::string &fun_name) {
 	auto result = global_jit->lookup(fun_name);
 	if(result) {
 		// Get the symbol's address and cast it to the right type so we can call it as a native function.
+#ifdef LLVM18
+		batch_function *fun_ptr = (batch_function *)result->getAddress().getValue();
+#else
 		batch_function *fun_ptr = (batch_function *)(intptr_t)result->getAddress();
+#endif
 		return fun_ptr;
 	} else
 		fatal_error(Mobius_Error::internal, "Failed to find function ", fun_name, " in LLVM module.");
