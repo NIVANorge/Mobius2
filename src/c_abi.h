@@ -73,6 +73,9 @@ mobius_delete_data(Model_Data *data);
 DLLEXPORT Model_Data *
 mobius_copy_data(Model_Data *data, bool copy_results);
 
+DLLEXPORT void
+mobius_save_data_set(Model_Data *data, char *data_file);
+
 DLLEXPORT bool
 mobius_run_model(Model_Data *data, s64 ms_timeout);
 

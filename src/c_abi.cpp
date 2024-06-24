@@ -117,10 +117,19 @@ mobius_delete_data(Model_Data *data) {
 
 DLLEXPORT Model_Data *
 mobius_copy_data(Model_Data *data, bool copy_results) {
-	return data->copy(copy_results);
+	try {
+		return data->copy(copy_results);
+	} catch(int) {}
+	return nullptr;
 }
 
-// TODO: We should probably have most of these work with Model_Data instances instead of Model_Application instances.
+DLLEXPORT void
+mobius_save_data_set(Model_Data *data, char *data_file) {
+	try {
+		data->app->save_to_data_set(data);
+		data->app->data_set->write_to_file(data_file);
+	} catch(int) {}
+}
 
 DLLEXPORT bool
 mobius_run_model(Model_Data *data, s64 ms_timeout) {
@@ -128,6 +137,7 @@ mobius_run_model(Model_Data *data, s64 ms_timeout) {
 	try {
 		return run_model(data, ms_timeout);
 	} catch(int) {}
+	return false;
 }
 
 DLLEXPORT s64

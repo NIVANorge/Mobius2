@@ -465,7 +465,7 @@ Model_Application {
 	Var_Id                 find_base_flux(Var_Id dissolved_flux_id);
 	
 	void build_from_data_set(Data_Set *data_set);
-	void save_to_data_set();
+	void save_to_data_set(Model_Data *save_from = data);
 	
 	void set_up_parameter_structure(std::unordered_map<Entity_Id, std::vector<Entity_Id>, Hash_Fun<Entity_Id>> *par_group_index_sets = nullptr);
 	void set_up_connection_structure();

@@ -1089,7 +1089,7 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 }
 
 void
-Model_Application::save_to_data_set() {
+Model_Application::save_to_data_set(Model_Data *save_from) {
 	
 	//TODO: We should probably just generate a data set in the case of a missing one.
 	if(!data_set)
@@ -1161,10 +1161,10 @@ Model_Application::save_to_data_set() {
 			
 			parameter_structure.for_each(par_id, [&,this](Indexes &idxs, s64 offset) {
 				if(par_data->decl_type == Decl_Type::par_enum) {
-					s64 ival = data.parameters.get_value(offset)->val_integer;
+					s64 ival = save_from.parameters.get_value(offset)->val_integer;
 					par_data->values_enum.push_back(par->enum_values[ival]);
 				} else
-					par_data->values.push_back(*data.parameters.get_value(offset));
+					par_data->values.push_back(*save_from.parameters.get_value(offset));
 			});
 		}
 	}

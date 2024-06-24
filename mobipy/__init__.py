@@ -98,6 +98,8 @@ def load_dll() :
 
 	dll.mobius_copy_data.argtypes = [ctypes.c_void_p, ctypes.c_bool]
 	dll.mobius_copy_data.restype  = ctypes.c_void_p
+	
+	dll.mobius_save_data_set.argtypes = [ctypes.c_void_p, ctypes.c_char_p]
 
 	dll.mobius_get_steps.argtypes = [ctypes.c_void_p, ctypes.c_int32]
 	dll.mobius_get_steps.restype = ctypes.c_int64
@@ -374,6 +376,10 @@ class Model_Application(Scope) :
 		finished = dll.mobius_run_model(self.data_ptr, ms_timeout)
 		_check_for_errors()
 		return finished
+		
+	def save_data_set(self, file_name) :
+		dll.mobius_save_data_set(self.data_ptr, _c_str(file_name))
+		_check_for_errors()
 		
 	def var(self, serial_name) :
 		var_id = dll.mobius_deserialize_var(self.data_ptr, _c_str(serial_name))
