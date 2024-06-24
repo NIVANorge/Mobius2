@@ -138,7 +138,8 @@ create_llvm_module() {
 	
 	auto int_64_ty     = llvm::Type::getInt64Ty(*data->context);
 	auto int_32_ty     = llvm::Type::getInt32Ty(*data->context);
-	auto double_ptr_ty = llvm::Type::getDoublePtrTy(*data->context);
+	//auto double_ptr_ty = llvm::Type::getDoublePtrTy(*data->context);
+	auto double_ptr_ty = llvm::PointerType::getUnqual(llvm::Type::getDoubleTy(*data->context));
 	
 	#define TIME_VALUE(name, nbits) int_##nbits##_ty,
 	std::vector<llvm::Type *> dt_member_types = {
@@ -620,7 +621,8 @@ build_external_computation_ir(Math_Expr_FT *expr, Scope_Data *locals, std::vecto
 	
 	auto double_ty = llvm::Type::getDoubleTy(*data->context);
 	auto int_64_ty = llvm::Type::getInt64Ty(*data->context);
-	auto double_ptr_ty = llvm::Type::getDoublePtrTy(*data->context);
+	//auto double_ptr_ty = llvm::Type::getDoublePtrTy(*data->context);
+	auto double_ptr_ty = llvm::PointerType::getUnqual(llvm::Type::getDoubleTy(*data->context));
 	auto void_ty = llvm::Type::getVoidTy(*data->context);
 	
 	auto external = static_cast<External_Computation_FT *>(expr);
