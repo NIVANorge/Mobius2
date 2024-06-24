@@ -297,7 +297,7 @@ replace_flagged_par(Math_Expr_FT *expr, Entity_Id replace_this, Var_Id with, Ide
 }
 
 Index_Set_Tuple
-get_allowed_index_sets(Model_Application *app, Specific_Var_Location &loc1, Specific_Var_Location &loc2 = Specific_Var_Location() ) {
+get_allowed_index_sets(Model_Application *app, Specific_Var_Location &loc1, const Specific_Var_Location &loc2 = Specific_Var_Location() ) {
 	
 	auto model = app->model;
 	

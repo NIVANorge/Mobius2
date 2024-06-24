@@ -813,7 +813,7 @@ pre_process_connection_data(Model_Application *app, Data_Set *data_set, Entity_I
 		fatal_error("This connection was given an edge index set in the model, but not in the data set."); 
 	}
 	
-	for(auto &comp_data_id : connection_data->scope.by_type<Reg_Type::component>()) {
+	for(auto comp_data_id : connection_data->scope.by_type<Reg_Type::component>()) {
 		
 		auto comp_data = data_set->components[comp_data_id];
 		// Can't do this since they are scoped differently in the model and the data_set
