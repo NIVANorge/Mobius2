@@ -3,10 +3,11 @@
 #ifndef MOBIUS_FUNCTION_TREE_H
 #define MOBIUS_FUNCTION_TREE_H
 
-#include <map>
-
 #include "common_types.h"
 #include "model_declaration.h"
+
+#include <map>
+#include <memory>
 
 struct
 Math_Expr_FT {
