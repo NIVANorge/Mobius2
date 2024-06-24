@@ -79,7 +79,7 @@ PAR_GROUP_TYPE = 6
 
 def load_dll() :
 	shared_ext = 'dll'
-	if os.name == 'posix' : shared_ext = 'sh'
+	if os.name == 'posix' : shared_ext = 'so'
 	
 	dll = ctypes.CDLL(str(pathlib.Path(__file__).parent / ('c_abi.%s'%shared_ext)))
 	
