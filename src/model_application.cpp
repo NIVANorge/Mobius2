@@ -1350,7 +1350,7 @@ Model_Application::serialize(Var_Id id) {
 		} else if(var->type == State_Var::Type::in_flux_aggregate) {
 			auto var2 = as<State_Var::Type::in_flux_aggregate>(var);
 			auto var_to = vars[var2->in_flux_to];
-			ss << var2->is_out ? "out_flux@" : "in_flux@";
+			ss << (var2->is_out ? "out_flux@" : "in_flux@");
 			serialize_loc(model, ss, var_to->loc1);
 		} else if(var->type == State_Var::Type::connection_aggregate) {
 			auto var2 = as<State_Var::Type::connection_aggregate>(var);

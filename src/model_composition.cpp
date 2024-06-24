@@ -476,7 +476,8 @@ check_valid_distribution_of_dependencies(Model_Application *app, Math_Expr_FT *f
 						fatal_error("The lookup of the variable \"", app->vars[dep.var_id]->name, "\" along the connection \"", conn->name, "\" is not valid since the primary location of this variable is not on this connection.");
 					}
 				} else if (conn->type == Connection_Type::grid1d) {
-					auto maximal_var_sets = get_allowed_index_sets(app, Specific_Var_Location(loc0));
+					Specific_Var_Location l(loc0); 
+					auto maximal_var_sets = get_allowed_index_sets(app, l);
 					if(!index_set_is_contained_in(model, conn->node_index_set, maximal_var_sets)) {
 						source_loc.print_error_header();
 						fatal_error("The lookup of the variable \"", app->vars[dep.var_id]->name, "\" along the connection \"", conn->name, "\" is not valid since the primary location of this variable does not index over the index set \"", model->index_sets[conn->node_index_set]->name, "\".");

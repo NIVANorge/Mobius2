@@ -1601,7 +1601,7 @@ print_tree_helper(Math_Expr_FT *expr, Print_Tree_Context *context, Print_Scope *
 	}
 	
 	if(expr->visited)
-		os << "\n___DUPLICATE___(", name(expr->expr_type), ")\n";
+		os << "\n___DUPLICATE___(" << name(expr->expr_type) << ")\n";
 	expr->visited = true;
 	
 	switch(expr->expr_type) {
@@ -1678,7 +1678,7 @@ print_tree_helper(Math_Expr_FT *expr, Print_Tree_Context *context, Print_Scope *
 			auto literal = static_cast<Literal_FT *>(expr);
 			if(literal->value_type == Value_Type::real)    os << literal->value.val_real;
 			if(literal->value_type == Value_Type::integer) os << literal->value.val_integer;
-			if(literal->value_type == Value_Type::boolean) os << literal->value.val_boolean ? "true": "false";
+			if(literal->value_type == Value_Type::boolean) os << (literal->value.val_boolean ? "true": "false");
 		} break;
 		
 		case Math_Expr_Type::function_call : {

@@ -4,6 +4,7 @@
 
 #include <cmath>
 #include <sstream>
+#include <stdlib.h>
 
 s16
 parse_si_prefix(Token *token) {

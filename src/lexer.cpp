@@ -22,7 +22,7 @@ col_row_to_cell(int col, int row, char *buf) {
 			buf++;
 		}
 	}
-	std::itoa(row, buf, 10);
+	itoa(row, buf, 10);
 	while(*buf != 0) ++buf;
 	return buf;
 }
