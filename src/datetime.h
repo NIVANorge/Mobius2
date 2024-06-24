@@ -6,6 +6,8 @@
 
 #include "linear_memory.h"
 
+#include <cmath>
+
 inline bool
 is_leap_year(s32 year) {
 	if(year % 4 != 0)   return false;

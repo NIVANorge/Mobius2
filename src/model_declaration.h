@@ -4,14 +4,15 @@
 
 // NOTE: this is a work-in-progress replacement for the module declaration and scope system.
 
-#include <string>
-#include <set>
-#include <unordered_set>
-
 #include "ast.h"
 #include "ode_solvers.h"
 #include "units.h"
 #include "catalog.h"
+
+#include <string>
+#include <set>
+#include <unordered_set>
+#include <algorithm>
 
 struct
 Module_Template_Registration : Registration_Base {
