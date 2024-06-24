@@ -129,7 +129,7 @@ make_path_relative_to(String_View file_name, String_View relative_to) {
 	
 	// To make it work on Linux:
 	char *c = &new_path[0];
-	while(c) {
+	while(*c) {
 		if(is_slash(*c)) *c = '/';
 		c++;
 	}
