@@ -100,7 +100,11 @@ public:
     return CompileLayer.add(RT, std::move(TSM));
   }
 
+#ifdef LLVM18
+	Expected<ExecutorSymbolDef> lookup(StringRef Name) {
+#else
   Expected<JITEvaluatedSymbol> lookup(StringRef Name) {
+#endif
     return ES->lookup({&MainJD}, Mangle(Name.str()));
   }
   
