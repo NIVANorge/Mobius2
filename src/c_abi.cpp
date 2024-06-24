@@ -154,7 +154,7 @@ mobius_get_time_step_size(Model_Data *data) {
 	return data->app->time_step_size;
 }
 
-DLLEXPORT char *
+DLLEXPORT void
 mobius_get_start_date(Model_Data *data, Var_Id::Type type, char *buf) {
 	// NOTE: The buf should have at least 20 capacity.
 	data->get_storage(type).start_date.to_string(buf);

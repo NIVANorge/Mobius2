@@ -85,7 +85,7 @@ mobius_get_steps(Model_Data *data, Var_Id::Type type);
 DLLEXPORT Time_Step_Size
 mobius_get_time_step_size(Model_Data *data);
 
-DLLEXPORT char *
+DLLEXPORT void
 mobius_get_start_date(Model_Data *data, Var_Id::Type type, char *buf);
 
 
