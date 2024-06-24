@@ -496,6 +496,7 @@ class State_Var :
 		
 		start_date = ctypes.create_string_buffer(32)
 		dll.mobius_get_start_date(self.data_ptr, self.var_id.type, start_date)
+		print("**Called get_start_date")
 		start_date = pd.to_datetime(start_date.value.decode('utf-8'))
 		_check_for_errors()
 		
