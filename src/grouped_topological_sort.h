@@ -129,7 +129,7 @@ find_all_circuits(Predicate &predicate, int n_elements, const std::function<void
 					output_circuit(visit_stack);
 					circuit = true;
 				} else if (!blocked[other]) {
-					if(visit(other, start_node, output_circuit));
+					if(visit(other, start_node, output_circuit))
 						circuit = true;
 				}
 			}

@@ -363,7 +363,7 @@ propagate_index_set_dependencies(Model_Application *app, std::vector<Model_Instr
 		
 			for(int dep : instr.inherits_index_sets_from_instruction) {
 				auto &dep_idx = instructions[dep].index_sets;
-				for(auto &dep_idx_set : dep_idx) {
+				for(auto dep_idx_set : dep_idx) {
 					if(insert_dependency(app, &instr, dep_idx_set))
 						changed = true;
 				}
