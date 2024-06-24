@@ -8,6 +8,7 @@
 #include "state_variable.h"
 
 #include <functional>
+#include <memory>
 
 
 constexpr Index_T invalid_index = Index_T::no_index(); // TODO: Maybe we don't need the invalid_index alias..

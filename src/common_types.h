@@ -279,7 +279,7 @@ is_located(const Var_Location &loc) {
 	return loc.type == Var_Location::Type::located;
 }
 
-constexpr Var_Location invalid_var_location = {Var_Location::Type::out, 0, invalid_entity_id, invalid_entity_id, invalid_entity_id, invalid_entity_id};
+constexpr Var_Location invalid_var_location = {Var_Location::Type::out, 0};
 
 inline bool
 operator==(const Var_Location &a, const Var_Location &b) {
