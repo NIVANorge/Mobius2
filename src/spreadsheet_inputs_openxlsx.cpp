@@ -68,7 +68,7 @@ read_series_data_from_spreadsheet(Data_Set *data_set, Series_Data *series, Strin
 	for(u16 tab = 1; tab <= n_tabs; ++tab) {
 		
 		// TODO: Will this cause an error if it is a different type of sheet?
-		auto &basesheet = wb.sheet(tab);
+		auto basesheet = wb.sheet(tab);
 		if(!basesheet.isType<XLWorksheet>())
 			continue;
 		
