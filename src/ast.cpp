@@ -1,7 +1,8 @@
 
-#include <unordered_set>
-
 #include "ast.h"
+
+#include <unordered_set>
+#include <algorithm>
 
 /*
 	The basis for any Mobius2 model specification is a "declaration". Any source file contains a sequence of declarations, and each of these can have sub-declarations.
