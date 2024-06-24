@@ -64,7 +64,7 @@ Decl_AST : Decl_Base_AST {
 	std::vector<Decl_Base_AST *> notes;
 	Data_AST                    *data = nullptr;
 	
-	virtual ~Decl_AST() { for(auto note : notes) delete note; if(data) delete data; }
+	virtual ~Decl_AST();
 };
 
 struct

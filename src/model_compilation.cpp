@@ -493,7 +493,7 @@ make_safe_for_initial(Model_Application *app, Math_Expr_FT *expr) {
 	
 	if(expr->expr_type == Math_Expr_Type::identifier) {
 		auto ident = static_cast<Identifier_FT *>(expr);
-		if(ident->has_flag(Identifier_FT::last_result));
+		if(ident->has_flag(Identifier_FT::last_result))
 			ident->remove_flag(Identifier_FT::last_result);
 		
 		if(ident->is_computed_series()) {

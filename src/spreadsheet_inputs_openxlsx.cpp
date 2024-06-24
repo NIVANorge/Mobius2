@@ -10,7 +10,7 @@ close_due_to_error(OpenXLSX::XLDocument &doc, int tab, u32 row, u16 col) {
 	char buf[32];
 	col_row_to_cell(col, row, &buf[0]); // TODO: Could probably use XLCellReference instead.
 	
-	auto &sheet = doc.workbook().sheet(tab);
+	auto sheet = doc.workbook().sheet(tab);
 	begin_error(Mobius_Error::spreadsheet);
 	error_print("In file \"", doc.name(), "\", tab \"", sheet.name(), "\", cell ", buf, "\n");
 	doc.close();
