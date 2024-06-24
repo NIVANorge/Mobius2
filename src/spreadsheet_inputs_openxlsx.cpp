@@ -74,7 +74,7 @@ read_series_data_from_spreadsheet(Data_Set *data_set, Series_Data *series, Strin
 		
 		auto sheet = basesheet.get<XLWorksheet>();
 		
-		if(sheet.cell("A1").value() == "NOREAD")
+		if(sheet.cell("A1").value().get<std::string>() == "NOREAD")
 			continue;
 		
 		series->series.push_back({});
@@ -90,7 +90,7 @@ read_series_data_from_spreadsheet(Data_Set *data_set, Series_Data *series, Strin
 		
 		u32 search_len = 128; // We should never encounter a header larger than this. TODO: Could use rowCount() instead?
 		for(u32 row = 2; row <= search_len; ++row) {
-			auto &cell = sheet.cell(row, 1);
+			auto cell = sheet.cell(row, 1);
 			auto &val = cell.value();
 			
 			if(can_be_date(val)) {
@@ -137,7 +137,7 @@ read_series_data_from_spreadsheet(Data_Set *data_set, Series_Data *series, Strin
 			bool got_name_this_column = false;
 			bool got_new_indexes_this_column = false;
 			
-			auto &cell = sheet.cell(1, col);
+			auto cell = sheet.cell(1, col);
 			auto &inname = cell.value();
 			
 			if(inname.type() == XLValueType::String) {
@@ -162,7 +162,7 @@ read_series_data_from_spreadsheet(Data_Set *data_set, Series_Data *series, Strin
 			
 			if(!index_sets.empty()) {
 				
-				auto &rowrange = sheet.range(XLCellReference(2, col), XLCellReference(index_sets.size()+1, col));
+				auto rowrange = sheet.range(XLCellReference(2, col), XLCellReference(index_sets.size()+1, col));
 				u32 row = 0;
 				int idx = 0;
 				for(auto &cell : rowrange) {
@@ -264,7 +264,7 @@ read_series_data_from_spreadsheet(Data_Set *data_set, Series_Data *series, Strin
 			
 			// ********* Read flag data for the series
 			if(potential_flag_row > 0) {
-				auto &cell = sheet.cell(potential_flag_row, col);
+				auto cell = sheet.cell(potential_flag_row, col);
 				auto &val = cell.value();
 				
 				if(val.type() != XLValueType::Empty) {
@@ -308,7 +308,7 @@ read_series_data_from_spreadsheet(Data_Set *data_set, Series_Data *series, Strin
 		data.end_date.seconds_since_epoch   = std::numeric_limits<s64>::min();
 		
 		// ********* Read all the dates in the date column
-		auto &range = sheet.range(XLCellReference(first_date_row, 1), XLCellReference(sheet.rowCount(), 1));
+		auto range = sheet.range(XLCellReference(first_date_row, 1), XLCellReference(sheet.rowCount(), 1));
 		
 		int row = first_date_row;
 		for(auto &cell : range) {
@@ -337,7 +337,7 @@ read_series_data_from_spreadsheet(Data_Set *data_set, Series_Data *series, Strin
 		
 		int hidx = 0;
 		for(u16 col = 2; col < 2 + data.header_data.size(); ++col) {
-			auto &range = sheet.range(XLCellReference(first_date_row, col), XLCellReference(first_date_row - 1 + data.dates.size(), col));
+			auto range = sheet.range(XLCellReference(first_date_row, col), XLCellReference(first_date_row - 1 + data.dates.size(), col));
 			
 			int row = first_date_row;
 			int idx = 0;

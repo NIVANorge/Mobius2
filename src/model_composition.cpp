@@ -304,7 +304,7 @@ get_allowed_index_sets(Model_Application *app, Specific_Var_Location &loc1, cons
 	Index_Set_Tuple index_sets;
 	
 	// Find the primary location
-	Specific_Var_Location *loc = &loc1;
+	const Specific_Var_Location *loc = &loc1;
 	if(!is_located(loc1))
 		loc = &loc2;
 	if(!is_located(*loc))
