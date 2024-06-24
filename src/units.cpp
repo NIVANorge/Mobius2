@@ -4,7 +4,6 @@
 
 #include <cmath>
 #include <sstream>
-#include <stdlib.h>
 
 s16
 parse_si_prefix(Token *token) {
@@ -377,7 +376,8 @@ write_utf8_superscript_char(std::ostream &ss, char c, int number = 0) {
 void
 write_utf8_superscript_number(std::ostream &ss, int number) {
 	static char buf[32];
-	itoa(number, buf, 10);
+	//itoa(number, buf, 10);
+	sprintf(buf, "%d", number);
 	char *c = &buf[0];
 	while(*c) {
 		write_utf8_superscript_char(ss, *c, number);

@@ -2,7 +2,6 @@
 #include "lexer.h"
 
 #include <limits>
-#include <stdlib.h>
 
 //NOTE: This is to produce excel-style cell names, like "K32". Doesn't really belong to this file except that this is where we decided to do the print Source_Location implementation.
 char *
@@ -22,7 +21,8 @@ col_row_to_cell(int col, int row, char *buf) {
 			buf++;
 		}
 	}
-	itoa(row, buf, 10);
+	sprintf(buf, "%d", row);
+	//itoa(row, buf, 10);
 	while(*buf != 0) ++buf;
 	return buf;
 }
