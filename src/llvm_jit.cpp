@@ -524,7 +524,13 @@ build_if_chain_ir(Math_Expr_FT * expr, Scope_Data *locals, std::vector<llvm::Val
 	for(int if_case = 0; if_case < exprs.size() / 2 + 1; ++if_case) {
 		
 		if(if_case < exprs.size() / 2) {
+			
+#ifdef LLVM18
+			fun->insert(fun->end(), cond_blocks[if_case]);
+#else
 			fun->getBasicBlockList().push_back(cond_blocks[if_case]);
+#endif
+			
 			if(if_case == 0)
 				data->builder->CreateBr(cond_blocks[0]);
 			data->builder->SetInsertPoint(cond_blocks[if_case]);
@@ -536,7 +542,12 @@ build_if_chain_ir(Math_Expr_FT * expr, Scope_Data *locals, std::vector<llvm::Val
 			data->builder->CreateCondBr(cond, blocks[if_case], else_block);
 		}
 		
+#ifdef LLVM18
+		fun->insert(fun->end(), blocks[if_case]);
+#else
 		fun->getBasicBlockList().push_back(blocks[if_case]);
+#endif
+		
 		data->builder->SetInsertPoint(blocks[if_case]);
 		
 		auto value     = exprs[2*if_case];
@@ -552,7 +563,11 @@ build_if_chain_ir(Math_Expr_FT * expr, Scope_Data *locals, std::vector<llvm::Val
 			data->builder->CreateBr(merge_block);
 	}
 	
+#ifdef LLVM18
+	fun->insert(fun->end(), merge_block);
+#else
 	fun->getBasicBlockList().push_back(merge_block);
+#endif
 	data->builder->SetInsertPoint(merge_block);
 	
 	if(val_is_none) return nullptr;

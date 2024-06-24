@@ -1578,7 +1578,7 @@ add_array(
 	std::vector<Model_Instruction> &instructions
 ) {
 	std::vector<Entity_Id> index_sets;
-	for(auto &index_set : array.index_sets)
+	for(auto index_set : array.index_sets)
 		index_sets.push_back(index_set);
 	std::vector<Entity_Id> index_sets2 = index_sets;
 	
