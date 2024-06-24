@@ -72,7 +72,7 @@ read_series_data_from_spreadsheet(Data_Set *data_set, Series_Data *series, Strin
 		if(!basesheet.isType<XLWorksheet>())
 			continue;
 		
-		auto &sheet = basesheet.get<XLWorksheet>();
+		auto sheet = basesheet.get<XLWorksheet>();
 		
 		if(sheet.cell("A1").value() == "NOREAD")
 			continue;
