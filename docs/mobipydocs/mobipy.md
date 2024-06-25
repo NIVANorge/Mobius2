@@ -22,7 +22,7 @@ To be able to run mobipy you need to download mobipy/c_abi.dll from ftp://mobise
 
 Figure: An example of running the [NIVAFjord](../existingmodels/nivafjord.html) model with mobipy in a [jupyter notebook](https://jupyter.org/).
 
-Full documentation of mobipy is not yet available, but we will soon make an example notebook.
+You can also look at some more [example notebooks](https://github.com/NIVANorge/Mobius2/blob/main/example_notebooks/).
 
 ## Basic usage
 

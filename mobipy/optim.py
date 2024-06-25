@@ -54,10 +54,13 @@ def residual_from_target(target, start_date, end_date) :
 	simname, simidx, obsname, obsidx = target
 	sl = slice(start_date, end_date)
 	
-	sim = data.var(simname)[simidx].loc[sl].values
-	obs = data.var(obsname)[obsidx].loc[sl].values
+	def get_residual(data, params) :
+		sim = data.var(simname)[simidx].loc[sl].values
+		obs = data.var(obsname)[obsidx].loc[sl].values
 	
-	return sim - obs
+		return sim - obs
+	
+	return get_residual
 
 # TODO: Take target list
 def ll_from_target(target, start_date, end_date, ll_fun=ll_wls) :
@@ -133,7 +136,7 @@ def run_latin_hypercube_sample(app, params, set_params, target_stat, n_samples, 
 	
 	return par_data, stats
 	
-def run_minimizer(app, params, set_params, residual_fun, run_timeout=-1) :
+def run_minimizer(app, params, set_params, residual_fun, method='nelder', run_timeout=-1) :
 	
 	def get_residuals(pars) :
 		

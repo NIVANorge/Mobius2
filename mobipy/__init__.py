@@ -492,21 +492,14 @@ class State_Var :
 	def __getitem__(self, indexes) :
 		time_steps = dll.mobius_get_steps(self.data_ptr, self.var_id.type)
 		
-		#print("***Found time steps")
-		
 		start_date = ctypes.create_string_buffer(32)
 		dll.mobius_get_start_date(self.data_ptr, self.var_id.type, start_date)
-		#print("**Called get_start_date")
 		start_date = pd.to_datetime(start_date.value.decode('utf-8'))
 		_check_for_errors()
-		
-		#print("**Found start date")
 
 		step_size = dll.mobius_get_time_step_size(self.data_ptr)
 		step_type = 's' if step_size.unit == 0 else 'MS'
 		freq='%d%s' % (step_size.magnitude, step_type)
-		
-		#print("**Found time step size")
 		
 		if _has_slice(indexes) :
 			dates = pd.date_range(start=start_date, periods=time_steps+1, freq=freq)
@@ -542,9 +535,7 @@ class State_Var :
 			series = (ctypes.c_double * time_steps)()
 			dll.mobius_get_series_data(self.data_ptr, self.var_id, _pack_indexes(indexes), _len(indexes), series, time_steps)
 			_check_for_errors()
-			
-			#print("**Got series data")
-			
+
 			# We have to do this, otherwise some operations on it crashes:
 			date_idx = pd.Series(data = dates, name = 'Date')
 			

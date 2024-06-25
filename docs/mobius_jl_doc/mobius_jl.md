@@ -10,4 +10,4 @@ mobius.jl is a package for the [Julia programming language](https://julialang.or
 
 This package is currently not fully featured, but allows you to run a model and extract result series.
 
-See [an example here](https://github.com/NIVANorge/Mobius2/blob/main/mobius_jl/test.ipynb).
+See [an example here](https://github.com/NIVANorge/Mobius2/blob/main/example_notebooks/basic_julia.ipynb).
