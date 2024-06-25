@@ -3,8 +3,10 @@ data_set {
 """
 You can have a docstring to describe the dataset. This gets saved when you save the file from e.g. MobiView (which does not happen to comments).
 """
-	#time_step([hr])
+	
 	time_step([day])
+	
+	series("tarland_series.xlsx")
 	
 	lu : index_set("Landscape units") [ "One" ]
 	
@@ -18,8 +20,6 @@ You can have a docstring to describe the dataset. This gets saved when you save 
 			r[ "Coull" ] -> out
 		]
 	}
-	
-	series("tarland_series.xlsx")
 	
 	par_group("System") {
 		
@@ -51,7 +51,7 @@ You can have a docstring to describe the dataset. This gets saved when you save 
 		par_group("Snow") {
 			
 			par_real("Degree-day factor for snowmelt") 
-			[ 4.99633964178389 ]
+			[ 4 ]
 			
 			par_real("Temperature at which precip falls as snow") 
 			[ 0 ]
@@ -77,10 +77,10 @@ You can have a docstring to describe the dataset. This gets saved when you save 
 		par_group("Potential evapotranspiration") {
 			
 			par_real("Degree-day factor for evapotranspiration") 
-			[ 0.17377349447682 ]
+			[ 0.16 ]
 			
 			par_real("Minimal temperature for evapotranspiration") 
-			[ -0.42473658880892 ]
+			[ 0 ]
 		
 		}
 	
@@ -91,10 +91,10 @@ You can have a docstring to describe the dataset. This gets saved when you save 
 		par_group("Hydrology general") {
 			
 			par_real("Baseflow index") 
-			[ 0.553624736510714 ]
+			[ 0.6 ]
 			
 			par_real("Quick flow inflection point") 
-			[ 473.944320636482 ]
+			[ 400 ]
 		
 		}
 		
@@ -104,14 +104,17 @@ You can have a docstring to describe the dataset. This gets saved when you save 
 			[ 290 ]
 			
 			par_real("Soil water time constant") 
-			[ 9.91156654445349 ]
+			[ 8 ]
 		
 		}
 		
 		par_group("Groundwater") {
 			
 			par_real("Groundwater time constant") 
-			[ 220.551776820459 ]
+			[ 200 ]
+			
+			par_real("Groundwater retention volume") 
+			[ 0 ]
 		
 		}
 	

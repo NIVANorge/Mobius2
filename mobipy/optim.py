@@ -54,27 +54,23 @@ def residual_from_target(target, start_date, end_date) :
 	simname, simidx, obsname, obsidx = target
 	sl = slice(start_date, end_date)
 	
-	def get_residual(data, params) :
+	def get_sim_obs(data) :
 		sim = data.var(simname)[simidx].loc[sl].values
 		obs = data.var(obsname)[obsidx].loc[sl].values
+		return sim, obs
 	
-		return sim - obs
-	
-	return get_residual
+	return get_sim_obs
 
 # TODO: Take target list
 def ll_from_target(target, start_date, end_date, ll_fun=ll_wls) :
 
-	simname, simidx, obsname, obsidx = target
-	sl = slice(start_date, end_date)
+	get_sim_obs = residual_from_target(target, start_date, end_date)
 	
 	def log_likelihood(data, params, n_run=None) :
 		
-		sim = data.var(simname)[simidx].loc[sl].values
-		obs = data.var(obsname)[obsidx].loc[sl].values
+		sim, obs = get_sim_obs(data)
 		
 		return ll_fun(sim, obs, params)
-		
 	
 	return log_likelihood
 	
@@ -144,7 +140,8 @@ def run_minimizer(app, params, set_params, residual_fun, method='nelder', run_ti
 		set_params(data, pars)
 		success = data.run(run_timeout)
 		if success :
-			resid = residual_fun(data, pars)
+			sim, obs = residual_fun(data)
+			resid = sim - obs
 		else :
 			resid = np.inf
 		del data
