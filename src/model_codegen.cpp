@@ -59,7 +59,7 @@ make_connection_target_check(Model_Application *app, Index_Exprs &indexes, Entit
 
 
 Math_Expr_FT *
-make_flux_conc(Model_Application *app, Specific_Var_Location &loc, int n_levels) {
+make_flux_conc(Model_Application *app, Specific_Var_Location &loc, int n_levels, bool use_last_medium) {
 	// This function is only for use inside make_dissolved_flux_code
 	
 	auto id = app->vars.id_of(loc);
@@ -72,12 +72,14 @@ make_flux_conc(Model_Application *app, Specific_Var_Location &loc, int n_levels)
 	auto above_id = app->vars.id_of(loc_above);
 	Identifier_FT *medium_ident = static_cast<Identifier_FT *>(make_state_var_identifier(above_id));
 	medium_ident->restriction = loc_above;
+	if(use_last_medium)
+		medium_ident->set_flag(Identifier_Data::Flags::last_result);
 	
 	return make_safe_divide(mass_ident, medium_ident);
 }
 
 Math_Expr_FT *
-make_dissolved_flux_code(Model_Application *app, Var_Id flux_id) {
+make_dissolved_flux_code(Model_Application *app, Var_Id flux_id, Entity_Id solver_id) {
 	
 	auto var2 = as<State_Var::Type::dissolved_flux>(app->vars[flux_id]);
 	
@@ -92,7 +94,11 @@ make_dissolved_flux_code(Model_Application *app, Var_Id flux_id) {
 	//   - If there is a chain of dissolvedes it is cleaner if each of them just reference the base flux instead of one another.
 	//   - For 'mixing' fluxes to work correctly they have to reference the base flux.
 	
-	auto conc_code = make_flux_conc(app, var2->loc1, n_levels);
+	// If the flux is discrete, the flux may already have been subtracted from the medium. Instead use the last() value of the medium for concentration computation.
+	// TODO: Should maybe check that the base flux is discrete, not just that the carried flux is
+	bool use_last_medium = !is_valid(solver_id);
+	
+	auto conc_code = make_flux_conc(app, var2->loc1, n_levels, use_last_medium);
 	
 	if(var2->bidirectional || var2->mixing) {
 		// In this case we have to also look up the concentration in the target of the flux.
@@ -103,11 +109,11 @@ make_dissolved_flux_code(Model_Application *app, Var_Id flux_id) {
 		if(var2->loc2.type == Var_Location::Type::connection) {
 			Specific_Var_Location loc = var2->loc1;
 			static_cast<Var_Loc_Restriction &>(loc) = static_cast<Var_Loc_Restriction &>(var2->loc2);
-			conc2 = make_flux_conc(app, loc, n_levels);
+			conc2 = make_flux_conc(app, loc, n_levels, use_last_medium);
 		} else if(!is_located(var2->loc2)) {
 			fatal_error(Mobius_Error::internal, "Unsupported bidirectional or mixing flux.");
 		} else {
-			conc2 = make_flux_conc(app, var2->loc2, n_levels);
+			conc2 = make_flux_conc(app, var2->loc2, n_levels, use_last_medium);
 		}
 		
 		if(var2->bidirectional) {
@@ -199,7 +205,7 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 			
 			// Codegen for fluxes of dissolved variables
 			if(var->type == State_Var::Type::dissolved_flux) {
-				instr.code = make_dissolved_flux_code(app, instr.var_id);
+				instr.code = make_dissolved_flux_code(app, instr.var_id, instr.solver);
 			}
 			
 			// Restrict discrete fluxes to not overtax their source.

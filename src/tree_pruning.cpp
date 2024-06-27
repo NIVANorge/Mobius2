@@ -259,8 +259,11 @@ check_binop_reduction(Source_Location loc, Token_Type oper, Parameter_Value val,
 				result.type = Value_Type::none;
 		}
 	} else if (op == '&') {
-		result.type = Value_Type::boolean;
-		result.val_boolean = val.val_boolean;
+		if(!val.val_boolean) {
+			result.type = Value_Type::boolean;
+			result.val_boolean = false;
+		} else
+			result.type = Value_Type::none;
 	} else if (op == '|') {
 		if(val.val_boolean) {
 			result.type = Value_Type::boolean;
