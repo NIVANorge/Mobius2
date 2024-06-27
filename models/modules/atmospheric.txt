@@ -8,7 +8,9 @@ module("Atmospheric", version(0, 1, 0),
 	a_hum    : property,
 	dens     : property,
 	lwd      : property,
-	cos_z    : property  # This is not really needed by most modules. Maybe move?
+	cos_z    : property,  # This is not really needed by most modules. Maybe move?
+	a_vap    : property,
+	s_vap    : property
 ) {
 """
 Simple module for some common atmospheric attributes for use e.g. with evapotranspiration or air-sea heat exchange modules.
@@ -37,9 +39,6 @@ Authors: Magnus D. Norling
 	g_rad_cloud_free : property("Daily average global radiation on a clear sky day")
 	g_rad_day        : property("Daily average global radiation")
 	cloud            : property("Cloud cover")
-	#TODO: These two should instead be declared in model scope, for potential use with PET model.
-	s_vap            : property("Saturation vapour pressure")
-	a_vap            : property("Actual vapour pressure")
 	
 	var(air.temp,  [deg_c], "Air temperature")
 	var(air.r_hum, [perc])
