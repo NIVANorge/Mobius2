@@ -67,14 +67,13 @@ read_series_data_from_spreadsheet(Data_Set *data_set, Series_Data *series, Strin
 	
 	for(u16 tab = 1; tab <= n_tabs; ++tab) {
 		
-		// TODO: Will this cause an error if it is a different type of sheet?
 		auto basesheet = wb.sheet(tab);
 		if(!basesheet.isType<XLWorksheet>())
 			continue;
 		
 		auto sheet = basesheet.get<XLWorksheet>();
 		
-		if(sheet.cell("A1").value().get<std::string>() == "NOREAD")
+		if(sheet.cell("A1").value().getString() == "NOREAD")
 			continue;
 		
 		series->series.push_back({});
