@@ -1,6 +1,6 @@
 
 #include "optimization.h"
-#include "emulate.h"
+#include "../emulate.h"
 #include "../grouped_topological_sort.h"
 
 double

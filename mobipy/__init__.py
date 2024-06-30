@@ -80,8 +80,9 @@ PAR_GROUP_TYPE = 6
 def load_dll() :
 	shared_ext = 'dll'
 	if os.name == 'posix' : shared_ext = 'so'
+	dll_file = str(pathlib.Path(__file__).parent / ('c_abi.%s'%shared_ext))
 	
-	dll = ctypes.CDLL(str(pathlib.Path(__file__).parent / ('c_abi.%s'%shared_ext)))
+	dll = ctypes.CDLL(dll_file)
 	
 	dll.mobius_encountered_error.argtypes = [ctypes.c_char_p, ctypes.c_int64]
 	dll.mobius_encountered_error.restype = ctypes.c_int64
