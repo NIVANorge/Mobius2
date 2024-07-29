@@ -128,7 +128,7 @@ def run_latin_hypercube_sample(app, params, set_params, target_stat, n_samples, 
 		
 		return stat
 	
-	stats = Parallel(n_jobs=-1, verbose=verbose, backend="threading")(map(delayed(sample_fun), range(n_runs)))
+	stats = Parallel(n_jobs=-1, verbose=verbose, backend='threading')(map(delayed(sample_fun), range(n_samples)))
 	
 	return par_data, stats
 	

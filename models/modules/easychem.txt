@@ -88,12 +88,12 @@ Authors: François Clayer, Magnus D. Norling
 	}
 	
 	par_group("Microbes") {
-		K_OM         : par_real("Respiration rate", [year-1], 1, 0, 10) #TODO: Call it respiration rate at 20 deg_c
+		K_OM         : par_real("Respiration rate", [year-1], 1, 0, 10, "Rate at 20°C") #TODO: Call it respiration rate at 20 deg_c
 		respQ10      : par_real("Respiration Q10", [], 1.58, 0.25, 4, "Adjustment of rate with 10°C change in temperature")
 		Km_o2        : par_real("Half-saturation concentration O₂", [m mol, m-3], 1.23e-2, 0, 1e-1)
 		relrate_p    : par_real("P mineralization rel rate", [], 8)
 		relrate_n    : par_real("N mineralization rel rate", [], 1)
-		denit        : par_real("Denitrification rate", [m-2, year-1], 0, 0, 10)
+		denit        : par_real("Denitrification rate", [m-2, year-1], 0, 0, 10, "Rate at 20°C")
 		denitQ10     : par_real("Denitrification Q10", [], 1.63, 0.25, 4, "Adjustment of rate with 10°C change in temperature")
 	}
 	
