@@ -20,6 +20,7 @@ model("SimplyTox") {
 	
 	tox   : quantity("Contaminant", tox_index)
 	toc   : property("Total organic carbon")
+	wind  : property("Wind speed")
 		
 	dsoil     : compartment("Slow-accessible soil",  sc, lu)
 	soilair   : compartment("Soil air",              sc, lu)

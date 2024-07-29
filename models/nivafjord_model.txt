@@ -33,6 +33,8 @@ model("NIVAFjord") {
 	attn     : property("Attenuation")
 	freeze_temp : property("Ice formation temperature")
 	indicator : property("Ice indicator")
+	a_vap    : property("Actual vapor pressure")
+	s_vap    : property("Saturation vapor pressure")
 	
 	z    : property("Depth")
 	dz   : property("Thickness")
@@ -49,7 +51,7 @@ model("NIVAFjord") {
 	}
 	
 	load("modules/atmospheric.txt",
-		module("Atmospheric", air, temp, wind, g_rad, pressure, a_hum, rho, lwd, cos_z))
+		module("Atmospheric", air, temp, wind, g_rad, pressure, a_hum, rho, lwd, cos_z, a_vap, s_vap))
 	
 	load("modules/airsea.txt",
 		module("AirSea", "AirSea Fjord", air, basin, ice, heat, temp, precip, wind, g_rad, pressure, rho, a_hum, lwd, sw, attn, freeze_temp, indicator,

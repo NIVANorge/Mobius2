@@ -2,7 +2,7 @@
 model("EasyTox") {
 
 	extend("simplytox_model.txt") @exclude(downstream : connection, air : compartment)
-	extend("easylake_simplyq_model.txt") @exclude(heat : quantity, sol : solver)
+	extend("easylake_simplyq_model.txt") @exclude(heat : quantity, wind : property, sol : solver)
 	
 	lake_sed : compartment("Lake sediments", lake_index)
 	

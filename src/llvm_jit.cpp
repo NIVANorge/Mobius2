@@ -105,7 +105,8 @@ create_llvm_module() {
 	// TODO: maybe set the fast math flags a bit more granularly.
 	// we should monitor better how they affect model correctness and/or interfers with is_finite
 	
-	data->builder->setFastMathFlags(llvm::FastMathFlags::getFast());
+	// We can't set this now, because then even our custom isfinite will be optimized out...
+	//data->builder->setFastMathFlags(llvm::FastMathFlags::getFast());
 	
 	//auto triple = llvm::sys::getDefaultTargetTriple();
 	auto triple = global_jit->getTargetTriple();
@@ -226,11 +227,8 @@ get_jitted_batch_function(const std::string &fun_name) {
 	auto result = global_jit->lookup(fun_name);
 	if(result) {
 		// Get the symbol's address and cast it to the right type so we can call it as a native function.
-#ifdef LLVM18
 		batch_function *fun_ptr = (batch_function *)result->getAddress().getValue();
-#else
-		batch_function *fun_ptr = (batch_function *)(intptr_t)result->getAddress();
-#endif
+
 		return fun_ptr;
 	} else
 		fatal_error(Mobius_Error::internal, "Failed to find function ", fun_name, " in LLVM module.");
@@ -525,11 +523,7 @@ build_if_chain_ir(Math_Expr_FT * expr, Scope_Data *locals, std::vector<llvm::Val
 		
 		if(if_case < exprs.size() / 2) {
 			
-#ifdef LLVM18
 			fun->insert(fun->end(), cond_blocks[if_case]);
-#else
-			fun->getBasicBlockList().push_back(cond_blocks[if_case]);
-#endif
 			
 			if(if_case == 0)
 				data->builder->CreateBr(cond_blocks[0]);
@@ -542,11 +536,7 @@ build_if_chain_ir(Math_Expr_FT * expr, Scope_Data *locals, std::vector<llvm::Val
 			data->builder->CreateCondBr(cond, blocks[if_case], else_block);
 		}
 		
-#ifdef LLVM18
 		fun->insert(fun->end(), blocks[if_case]);
-#else
-		fun->getBasicBlockList().push_back(blocks[if_case]);
-#endif
 		
 		data->builder->SetInsertPoint(blocks[if_case]);
 		
@@ -563,11 +553,8 @@ build_if_chain_ir(Math_Expr_FT * expr, Scope_Data *locals, std::vector<llvm::Val
 			data->builder->CreateBr(merge_block);
 	}
 	
-#ifdef LLVM18
 	fun->insert(fun->end(), merge_block);
-#else
-	fun->getBasicBlockList().push_back(merge_block);
-#endif
+
 	data->builder->SetInsertPoint(merge_block);
 	
 	if(val_is_none) return nullptr;

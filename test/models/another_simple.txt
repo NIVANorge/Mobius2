@@ -17,13 +17,20 @@ model("Another simple") {
 			t : par_real("T", [m m], 0)
 			f : par_real("F", [m m, day-1], 0)
 		}
-		
+		/*
 		var(a.q, [m m], "A Q") @initial { t }
 		
 		flux(out, a.q, [m m, day-1], "flux") { f }
 		
 		var(a.p, [], "A P") {
 			in_flux(a.q[c.below]) =>>
+		}
+		*/
+		
+		test : property("Test")
+		
+		var(a.test, []) {
+			is_finite(t / f)
 		}
 	}
 }
