@@ -114,7 +114,7 @@ Authors: François Clayer, Magnus D. Norling
 	par_group("Lake specific phytoplankton", epi) {
 		phyt_a : par_real("Phytoplankton amenability", [], 1, 0.5, 1.5, "Adjustment factor to account for shallow lakes being better for plankton, after taking nutrients and light into consideration")
 		
-		denit_a : par_real("Lake specific denitrification", [], 1, 0.5, 1.5) #TODO: This is just teting..
+		denit_a : par_real("Lake specific denitrification", [], 1, 0.5, 1.5) #TODO: This is just testing..
 	}
 	
 	# These should be passed in so that they are the same entity as in NIVAFjord.
