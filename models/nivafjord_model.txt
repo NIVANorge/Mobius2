@@ -54,8 +54,8 @@ model("NIVAFjord") {
 		module("Atmospheric", air, temp, wind, g_rad, pressure, a_hum, rho, lwd, cos_z, a_vap, s_vap))
 	
 	load("modules/airsea.txt",
-		module("AirSea", "AirSea Fjord", air, basin, ice, heat, temp, precip, wind, g_rad, pressure, rho, a_hum, lwd, sw, attn, freeze_temp, indicator,
-							evap, cos_z, loc(basin.area), loc(layer.water[vert.top]), loc(layer.water.heat[sw_vert.top])))
+		module("AirSea", "AirSea Fjord", air, basin, ice, heat, temp, precip, wind, g_rad, pressure, rho, a_hum, lwd, sw, attn, indicator,
+							evap, cos_z, loc(basin.freeze_temp), loc(basin.area), loc(layer.water[vert.top]), loc(layer.water.heat[sw_vert.top])))
 	
 	load("modules/nivafjord/basin.txt",
 		dims : preamble("NIVAFjord dimensions", all_basins, layer_idx, layer),

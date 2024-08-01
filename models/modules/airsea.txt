@@ -16,11 +16,11 @@ module("AirSea", version(0, 1, 1),
 	lwd       : property,
 	sw        : property,
 	attn      : property,
-	freeze_temp : property,
 	indicator : property,
 	evap      : property,
 	cos_z     : property,
 	
+	freeze_temp       : loc,
 	A_surf            : loc,
 	top_water         : loc,
 	top_water_heat_sw : loc # Needed since it could be on a separate connection e.g. in NIVAFjord. This is a bit awkward though..
@@ -129,18 +129,17 @@ Authors: Magnus D. Norling
 		z_surf := 1[m],   #  Thickness of water layer that ice formation can draw energy from. #TODO: Should probably be module parameter?
 		K_ice := 200[W, m-3, deg_c-1],   # freezing/melting heat transfer coefficient ... should not affect magnitude of temperature or ice cover, only how fast they "converge"
 		e := (freeze_temp - top_water.temp)*z_surf*K_ice,
-		
-		0        if (ice < 1e-6[m]) & (e < 0),    # No melting when there is no ice
-		e        otherwise
+	
+		0[W, m-2]   if (ice < 1e-6[m]) & (e < 0),    # No melting when there is no ice
+		e           otherwise
 	}
 	
 	var(surf.ice.indicator, [], "Ice indicator") {  ice > th_frazil  }
 	
 	var(surf.ice.attn, []) {
 		cz := max(0.01, refract(air.cos_z, refraction_index_ice)),
-		#cz := max(0.01, air.cos_z),
 		th := ice / cz, # Length a sun ray travels through the ice sheet, taking solar zenith angle into account.
-		#th := ice,
+		
 		0                         if !indicator,
 		1 - exp(-ice_att_c * th) otherwise
 	}
@@ -148,7 +147,7 @@ Authors: Magnus D. Norling
 	var(surf.ice.temp, [deg_c], "Ice surface temperature") {
 		alpha := 1 / (10[m-1] * ice),
 		(alpha * freeze_temp + air.temp) / (1 + alpha)   if indicator,
-		0                                                otherwise
+		0[deg_c]                                         otherwise
 	}
 	
 	flux(out, surf.ice, [m, day-1], "Ice change") {

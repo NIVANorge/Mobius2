@@ -1,5 +1,6 @@
 
 module("Simple layered lake", version(0, 0, 1),
+	air : compartment,
 	lake : compartment,
 	layer : compartment,
 	water : quantity,
@@ -11,6 +12,7 @@ module("Simple layered lake", version(0, 0, 1),
 	sw   : property,
 	attn : property,
 	ind  : property,
+	cos_z : property,
 	vert : connection,
 	sw_vert : connection
 ) {
@@ -19,6 +21,8 @@ module("Simple layered lake", version(0, 0, 1),
 		library("Water utils"))
 	load("stdlib/basic_math.txt",
 		library("Basic"))
+	load("stdlib/atmospheric.txt",
+		library("Radiation"))  #TODO: Only for 'refract', but that function should probably be moved.
 
 	par_group("Layer parameters", layer) {
 		dz : par_real("Thickness", [m], 1, 0.1, 5)
@@ -96,25 +100,21 @@ module("Simple layered lake", version(0, 0, 1),
 		K*A[vert.below]/mdz->>
 	} @mixing
 	
-	#TODO: There is something wrong with the instruction sorting when this one is not on a solver
-	# It would be on a solver if something on a solver depended on it.
-	# Should be fixed soon also.
-	#var(layer.sw, [W, m-2], "Layer shortwave radiation") {
-	#	in_flux(sw_vert, water.heat)/A ->>
-	#}
+	var(layer.sw, [W, m-2], "Layer shortwave radiation") {
+		in_flux(sw_vert, water.heat)/A ->>
+	}
 	
 	flux(layer.water.heat, sw_vert, [J, day-1], "Shortwave shine-through") {
 		(in_flux(sw_vert, heat)->>)*(1 - attn) * A[vert.below]/A
 	}
 	
-	#flux(layer.water.heat, out, [J, day-1], "Shortwave to sediments") {
-	#	(in_flux(sw_vert, heat)->>)*(1 - attn) * (A - A[vert.below])/A
-	#}
+	flux(layer.water.heat, out, [J, day-1], "Shortwave to sediments") {
+		(in_flux(sw_vert, heat)->>)*(1 - attn) * (A - A[vert.below])/A
+	}
 	
 	var(layer.water.attn, []) {
-		#cz := max(0.01, refract(air.cos_z, refraction_index_water)),
-		#th := dz / cz, # Length traveled through the layer by a sun beam taking zenith angle into account.
-		th := dz,
+		cz := max(0.01, refract(air.cos_z, refraction_index_water)),
+		th := dz / cz, # Length traveled through the layer by a sun beam taking zenith angle into account.
 		1 - exp(-att_c*th)
 	}
 }

@@ -105,14 +105,22 @@ create_llvm_module() {
 	// TODO: maybe set the fast math flags a bit more granularly.
 	// we should monitor better how they affect model correctness and/or interfers with is_finite
 	
-	// We can't set this now, because then even our custom isfinite will be optimized out...
+	// We can't set NoNan or NoInf optimizations, because then even our custom "is_finite" function will be optimized out... (as of llvm18)
 	//data->builder->setFastMathFlags(llvm::FastMathFlags::getFast());
+	// It seems like fast math optimizations are not that impactful for our models. Could maybe leave some of them out?
+	llvm::FastMathFlags fmf;
+	fmf.setNoSignedZeros();
+	fmf.setAllowReciprocal();
+	fmf.setAllowContract();
+	fmf.setAllowReassoc();
+	fmf.setApproxFunc();
+	data->builder->setFastMathFlags(fmf);
 	
 	//auto triple = llvm::sys::getDefaultTargetTriple();
 	auto triple = global_jit->getTargetTriple();
 	auto trip_str = triple.getTriple();
 	
-	//warning_print("Target triple is ", trip_str, ".\n");
+	//log_print("Target triple is ", trip_str, ".\n");
 	
 	data->module->setTargetTriple(trip_str);
 	
@@ -139,7 +147,6 @@ create_llvm_module() {
 	
 	auto int_64_ty     = llvm::Type::getInt64Ty(*data->context);
 	auto int_32_ty     = llvm::Type::getInt32Ty(*data->context);
-	//auto double_ptr_ty = llvm::Type::getDoublePtrTy(*data->context);
 	auto double_ptr_ty = llvm::PointerType::getUnqual(llvm::Type::getDoubleTy(*data->context));
 	
 	#define TIME_VALUE(name, nbits) int_##nbits##_ty,
@@ -153,7 +160,6 @@ create_llvm_module() {
 	
 	#define BATCH_FUN_ARG(name, llvm_ty, cpp_ty) llvm_ty,
 	std::vector<llvm::Type *> arg_types = {
-		//double_ptr_ty, double_ptr_ty, double_ptr_ty, double_ptr_ty, double_ptr_ty, dt_ptr_ty, double_ty
 		#include "batch_fun_args.incl"
 		};
 	#undef BATCH_FUN_ARG
@@ -627,7 +633,6 @@ build_external_computation_ir(Math_Expr_FT *expr, Scope_Data *locals, std::vecto
 	
 	auto double_ty = llvm::Type::getDoubleTy(*data->context);
 	auto int_64_ty = llvm::Type::getInt64Ty(*data->context);
-	//auto double_ptr_ty = llvm::Type::getDoublePtrTy(*data->context);
 	auto double_ptr_ty = llvm::PointerType::getUnqual(llvm::Type::getDoubleTy(*data->context));
 	auto void_ty = llvm::Type::getVoidTy(*data->context);
 	

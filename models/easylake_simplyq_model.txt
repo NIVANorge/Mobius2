@@ -30,7 +30,6 @@ model("EasyLake-SimplyQ") {
 	attn     : property("Attenuation coefficient")
 	z        : property("Thickness")
 	area     : property("Surface area")
-	freeze_temp : property("Ice formation temperature")
 	indicator : property("Ice indicator")
 	
 	evap  : property("Evaporation")
@@ -41,14 +40,16 @@ model("EasyLake-SimplyQ") {
 		(river|epi)+ out
 	} @no_cycles
 	
+	freeze_temp : constant("Ice formation temperature", [deg_c], 0)
+	
 	load("modules/simplysoiltemp.txt", module("Simply soil temperature", air, soil, snow_box, snow, temp))
 	load("modules/rivertemp.txt",      module("RiverTemperature", air, soil, river, water, heat, temp))
 	load("modules/atmospheric.txt",    module("Atmospheric", air, temp, wind, g_rad, pressure, a_hum, rho, lwd, cos_z, a_vap, s_vap))
 	load("modules/airsea.txt",         module("AirSea", "AirSea Lake", air, epi, ice, heat, temp, precip, 
-						wind, g_rad, pressure, rho, a_hum, lwd, sw, attn, freeze_temp, indicator, 
-						evap, cos_z, loc(epi.area), loc(epi.water), loc(epi.water.heat) ))
+						wind, g_rad, pressure, rho, a_hum, lwd, sw, attn, indicator, 
+						evap, cos_z, loc(freeze_temp), loc(epi.area), loc(epi.water), loc(epi.water.heat) ))
 						
-	load("modules/easylake.txt",       module("EasyLake", epi, hyp, water, heat, temp, z, freeze_temp, area, loc(downstream)))
+	load("modules/easylake.txt",       module("EasyLake", epi, hyp, water, heat, temp, z, area, loc(downstream)))
 	
 	solve(sol, epi.water, hyp.water, epi.ice)	
 }

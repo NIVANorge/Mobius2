@@ -7,7 +7,6 @@ module("EasyLake", version(0, 1, 0),
 	heat   : quantity,
 	temp   : property,
 	th     : property,
-	freeze_temp : property,
 	area   : property,
 	epi_target : loc
 ) {
@@ -103,8 +102,6 @@ Authors: François Clayer, Magnus D. Norling
 	hypo_temperature_integral : function(A_0 : [m 2], T_e : [deg_c], T_b : [deg_c], z_e : [m], z_0 : [m], theta : []) {
 		(2*T_b + (theta+2)*T_e)*A_0*((z_e^3)*(z_e/z_0)^(theta+1))/((theta^2 + 6*theta + 8)*z_e^2)
 	}
-	
-	var(epi.freeze_temp, [deg_c], "Ice formation temperature") { 0[deg_c] }
 	
 	var(epi.water, [m 3], "Epilimnion volume")  @initial {   shape_section_V(A_surf, z_outflow, z_outflow, z_outflow-th, theta)  }
 	

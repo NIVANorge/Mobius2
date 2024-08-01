@@ -24,34 +24,35 @@ model("Lake model") {
 	sw       : property("Shortwave radiation")
 	cos_z    : property("Cosine of the solar zenith angle") 
 	attn     : property("Attenuation")
-	freeze_temp : property("Ice formation temperature")
+	s_vap    : property("Saturation vapour pressure")
+	a_vap    : property("Actual vapour pressure")
 	indicator : property("Ice indicator")
 	
 	vert    : connection("Lake vertical") @grid1d(layer, layer_idx)
 	sw_vert : connection("Shortwave vertical") @grid1d(layer, layer_idx)
 	
+	freeze : constant("Ice formation temperature", [deg_c], 0.0)
 	
 	load("lake_module.txt",
-		module("Simple layered lake", lake, layer, water, heat, ice, temp, rho, area, sw, attn, indicator, vert, sw_vert))
+		module("Simple layered lake", air, lake, layer, water, heat, ice, temp, rho, area, sw, attn, indicator, cos_z, vert, sw_vert))
 	
 	load("modules/atmospheric.txt",
-		module("Atmospheric", air, temp, wind, g_rad, pressure, a_hum, rho, lwd, cos_z))
+		module("Atmospheric", air, temp, wind, g_rad, pressure, a_hum, rho, lwd, cos_z, a_vap, s_vap))
 	
 	load("modules/airsea.txt",
-		module("AirSea", "AirSea Fjord", air, lake, ice, heat, temp, precip, wind, g_rad, pressure, rho, a_hum, lwd, sw, attn, freeze_temp, indicator,
-							evap, cos_z, loc(lake.area), loc(layer.water[vert.top]), loc(layer.water.heat[sw_vert.top])))
+		module("AirSea", air, lake, ice, heat, temp, precip, wind, g_rad, pressure, rho, a_hum, lwd, sw, attn, indicator,
+							evap, cos_z, loc(freeze), loc(lake.area), loc(layer.water[vert.top]), loc(layer.water.heat[sw_vert.top])))
 	
 	
 	sol : solver("Lake solver", inca_dascru, [2, hr], 1e-2)
 	
 	solve(sol, layer.water, lake.ice)
 	
-	module("Additional vars", version(0, 0, 0)) {
+	module("Additional variables", version(0, 0, 0)) {
 		
+		# Declare input series in case they are not declared anywhere else.
 		var(air.precip, [m m, day-1])
 		var(air.temp, [deg_c], "Air temperature")
-	
-		var(lake.freeze_temp, [deg_c]) { 0[deg_c] } @no_store
 	}
 
 }

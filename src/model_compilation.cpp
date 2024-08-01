@@ -1449,6 +1449,21 @@ create_batches(Model_Application *app, std::vector<Batch> &batches_out, std::vec
 		}
 	}
 	
+	// If an instruction has a weak dependency on something that is on a different solver (or one of them is not on a solver), it must be treated as a strong dependency, because they could not be put in the same for loop unless they could be grouped in the same batch.
+	for(int instr_id = 0; instr_id < instructions.size(); ++instr_id) {
+		auto &instr = instructions[instr_id];
+		
+		if(!instr.is_valid()) continue;
+		
+		for(int dep : instr.loose_depends_on_instruction) {
+			auto &dep_instr = instructions[dep];
+			if(dep_instr.solver != instr.solver) {
+				instr.loose_depends_on_instruction.erase(dep);
+				instr.depends_on_instruction.insert(dep);
+			}
+		}
+	}
+	
 	// Make a 'naive' sorting of instructions by dependencies. This makes it easier to work with them later.
 	std::vector<int> sorted_instructions;
 	

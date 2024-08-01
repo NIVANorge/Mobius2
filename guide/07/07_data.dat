@@ -46,7 +46,7 @@ TODO: Replace with Langtjern series
 		par_group("Light") {
 			
 			par_real("Light extinction coefficient") 
-			[ 4 ]
+			[ 0.2 ]
 		
 		}
 	

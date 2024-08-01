@@ -707,6 +707,9 @@ remove_single_statement_blocks(Math_Expr_FT *expr) {
 		
 		// If the final value of a block is just a local var reference and that local var is declared on the line above, just replace the two last lines with the value of that local var.
 		//			We could maybe do something more sophisticated where we keep track of the number of references to a local var and substitute it if there is just one.
+		
+		// NOTE: This was causing a bug. Disabling it for now. Could probably delete it as it doesn't do anything important.
+		/*
 		bool loop = true;
 		while(loop) {
 			loop = false;
@@ -731,6 +734,7 @@ remove_single_statement_blocks(Math_Expr_FT *expr) {
 				}
 			}
 		}
+		*/
 		
 		if(!block->is_for_loop && block->exprs.size() == 1) {   // A block with a single statement can be replaced with that statement.
 			auto result = block->exprs[0];
@@ -858,7 +862,7 @@ is_constant_rational(Math_Expr_FT *expr, Function_Scope *scope, bool *found) {
 				else if((char)binop->oper == '^' && res2.is_int())
 					return pow_i(res1, res2.nom);
 			}
-			if((found1 && res1 == Rational<s64>(0)) || (found2 && res2 == Rational<s64>(0))) {
+			if((char)binop->oper=='*' && ((found1 && res1 == Rational<s64>(0)) || (found2 && res2 == Rational<s64>(0)))) {
 				*found = true;
 				return Rational<s64>(0);
 			}
