@@ -73,8 +73,7 @@ module("Simple layered lake", version(0, 0, 1),
 	
 	N2freq : property("Square Brunt-Väisälä frequency")
 	K      : property("Turbulent mixing coefficient")
-	
-	#N2min  : constant("Minimum square B-V frequency", [s-2], 7e-5)
+
 	N2min  : constant("Minimum square B-V frequency", [s-2], 7e-8)
 	alpha  : constant("Mixing non-linear coefficient", [], -0.43)
 	

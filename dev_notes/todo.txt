@@ -2,24 +2,14 @@
 
 	*** High pri ***
 		
-		
 		Transport fluxes of discrete variables need better order of evaluation.
 			Or rather should use last() value of the medium when computing concentration.
 				Still doesn't work because the same amount is added and subtracted within the time step.
 				To get it to work, would need to add something like in_flux(water) to the volume estimation (?).
 					That won't always be correct..
 			Is it easier to just disallow this? And then instead make ODE snow model formulations?
-			
-		
-		
+
 		Add forums on github page? (github Discussions)
-		
-		
-		Sorting instructions between solver batches does not adhere to loose dependencies correctly (something discrete with a loose dependency on something on a solver may be sorted before it. See guide chapter 07, Layer shortwave radiation.
-			Solution is to treat a loose dependency between discrete/solver as a full dependency during sorting.
-			Or always propagate solvers for loose dependencies??
-			Actually, better group by weak cycles first when doing the solver grouping thing.
-			
 		
 		Would like to be able to use in_flux in initial code (for e.g. setting initial steady states easily), but then we also need to be able to compute initial values for fluxes. With in_flux_connection it could be tricky to determine what initial fluxes must be computed (?).
 		
@@ -28,9 +18,7 @@
 			
 		Document
 			Series selection in MobiView2
-		
-		
-			
+
 		Specific models
 		
 			Keep better track of what elevation different models want wind speed. Maybe convert between different elevations if necessary.

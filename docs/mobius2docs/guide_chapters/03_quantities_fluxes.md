@@ -91,9 +91,9 @@ sol : solver("Hydrology solver", inca_dascru, [2, hr], 1e-2)
 solve(sol, soil.water, gw.water)
 ```
 
-In Mobius2, each `flux` is internally subtracted as a term from the ODE of the source quantity of the flux and added as a term to the ODE of the target quantity.
+In Mobius2, a so-called `flux` refers to a transfer rate of a quantity from one location to another. (Note that we don't use the term `flux` in the formal sense of a transfer rate per unit area as it is often in physics, it is just some transfer rate in general). Each `flux` is a value that is internally subtracted as a term from the ODE of the source quantity of the flux and added as a term to the ODE of the target quantity.
 
-Let's add some fluxes to let water drain through the system
+Let's add some fluxes to our model to let water drain through the system
 
 ```python
 par_group("Soil hydrology") {
@@ -183,7 +183,7 @@ It is also possible to model quantities so that fluxes just cause a single updat
 
 ## Unstable differential equations
 
-If a flux is very high compared to the value of its source or target quantity, this could cause the solution to be unstable. This is usually not a problem, but this could cause the model to run to a halt or produce nonsensical results.
+If a flux is very high compared to the value of its source or target quantity, this could cause the solution to be unstable. This is most often not a problem, but in some cases it could cause the model to run to a halt or produce nonsensical results.
 
 If this is a problem you could try to reduce the lower bound of the step size of the solver (though this will make the model run slowly).
 
