@@ -48,7 +48,7 @@ The most important concepts in lake hydrodynamics are temperature-based stratifi
 The lake is mixed by turbulent mixing energy, which often is caused by wind acting by friction on the lake surface. However full models for transfer of turbulent energy are very complex, and we will not model that here. We will also not use any explicitly wind-driven mixing yet and instead use an empirical formulation where the mixing rate only depends on the so-called [Brunt-Väisälä frequency](https://en.wikipedia.org/wiki/Brunt%E2%80%93V%C3%A4is%C3%A4l%C3%A4_frequency) $$N(z)$$, given by
 
 $$
-N(z)^2 = \frac{g}{\rho(z)}\frac{\del\rho(z)}{\del z}.
+N(z)^2 = \frac{g}{\rho(z)}\frac{\partial\rho(z)}{\partial z}.
 $$
 
 Here $$g$$ is the gravitational accelleration at Earth surface, and $$\rho(z)$$ is the density of water at depth $$z$$ (depending on temperature, using a standard formula). The last differential term is approximated as a finite difference of the density at the center of the current layer and the one below divided by the distance between the centers. Since we are going to divide by this value later, we also need to set a lower bound for it.
