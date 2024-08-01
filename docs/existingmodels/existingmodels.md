@@ -15,6 +15,9 @@ The Mobius2 framework comes with several existing modules and models that can be
 
 If desired, the above models can be coupled together into a full catchment-to-coast system, or you can use them separately to study smaller sub-systems.
 
+The following model is stand-alone:
+- [MAGIC](magic.html). This is a longer-timescale model for development of soil water chemistry (with a focus on acidity) in smaller catchment.
+
 In addition to these, Mobius2 comes with modules for other processes that are convenient to include into larger models, for instance
 - Snow pack and melt
 - Evapotranspiration

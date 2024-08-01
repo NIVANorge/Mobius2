@@ -55,12 +55,14 @@ Here $$g$$ is the gravitational accelleration at Earth surface, and $$\rho(z)$$ 
 
 ```python
 var(layer.water.N2freq, [s-2]) {
-	# The distance between the center of two neighboring layers is the same as the mean of their thicknesses
+	# The distance between the center of two neighboring layers is the same 
+	# as the mean of their thicknesses
 	mdz := 0.5*(dz + dz[vert.below]),
 	# A finite difference approximation of d(rho)/dz
 	ddens_dz := (rho[vert.below]-rho)/mdz,
 	N2  := (grav/rho) * ddens_dz,
-	# For numerical reasons that will be apparent below, we can't allow N^2 to be too close to 0.
+	# For numerical reasons that will be apparent below, we can't allow N^2
+	# to be too close to 0.
 	max(N2min, N2)
 } @no_store
 ```
@@ -71,12 +73,12 @@ The `@no_store` directive just tells Mobius2 to not store the time series of thi
 	- It saves memory. This is especially important for variables in compartments that are distributed over large index sets.
 	- Too many variables can clutter up the user interface, and not all of them are interesting in themselves.
 
-The empirical mixing rate will (as in MyLake) be given by
+The empirical mixing rate $$K$$ will (as in MyLake) be given by
 
 $$
 K_r = \begin{cases}
-K_0 A^{0.56} \,\,\text{If there lake is ice free}\\
-K_{0,ice} \,\,\text{otherwise}
+K_0 A^{0.56} & \text{If there lake is ice free}\\
+K_{0,ice}    & \text{otherwise}
 \end{cases},\\
 K = K_r N^{2\alpha}
 $$
