@@ -78,14 +78,15 @@ K_r = \begin{cases}
 K_0 A^{0.56} \,\,\text{If there lake is ice free}\\
 K_{0,ice} \,\,\text{otherwise}
 \end{cases},\\
-K = K_r N^\alpha
+K = K_r N^{2\alpha}
 $$
-Here $$A$$ is the lake surface area, $$K_0$$, and $$K_{0,ice}$$ are configurable parameters (but with good default values), and $$\alpha$$ is a constant.
+
+Here $$A$$ is the lake surface area, $$K_0$$, and $$K_{0,ice}$$ are configurable parameters (but with good default values), and $$\alpha=-0.43$$ is a constant.
 
 The mixing rate of a layer $$i$$ with the one below it is then
 
 $$
-\frac{K A_{i+1}}{\frac{1}{2}(dz_i + dz_{i+1})
+\frac{K A_{i+1}}{\frac{1}{2}(dz_i + dz_{i+1})}
 $$
 
 This is formulated in Mobius2 as
