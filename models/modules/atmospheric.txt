@@ -8,14 +8,14 @@ module("Atmospheric", version(0, 1, 0),
 	a_hum    : property,
 	dens     : property,
 	lwd      : property,
-	cos_z    : property,  # This is not really needed by most modules. Maybe move?
+	cos_z    : property,
 	a_vap    : property,
 	s_vap    : property
 ) {
 """
 Simple module for some common atmospheric attributes for use e.g. with evapotranspiration or air-sea heat exchange modules.
 
-The user must provide either "Daily average solar radiation" or "Cloud cover" as an input series, but one of these can be computed from the other if not both are available.
+The user must provide either "Daily average global radiation" or "Cloud cover" as an input series, but one of these can be computed from the other if not both are available.
 
 Authors: Magnus D. Norling
 """
@@ -59,7 +59,7 @@ Authors: Magnus D. Norling
 	
 	var(air.g_rad,  [W, m-2]) {
 		{
-			# TODO: The problem is that this will not be put on the solver, so fractional_step will not be valid..
+			# TODO: The problem is that this will not always be put on the solver, so fractional_step will not be valid..
 			#   should have an error when that happens, and it should be possible to put it on the solver in the model construction.
 			# Also, the interpolated amount of seconds should be directly accessible from the framework.
 			hour := floor((time.second_of_day + time.fractional_step*time.step_length_in_seconds) -> [hr]),
@@ -71,7 +71,7 @@ Authors: Magnus D. Norling
 	
 	var(air.cos_z, []) {
 		hour_a := {
-			# TODO: See above
+			# TODO: Same concern as for air.g_rad
 			hour := (time.second_of_day + time.fractional_step*time.step_length_in_seconds) -> [hr],
 			hour_angle(time.day_of_year, time_zone, hour, longitude) if subdaily,
 			0   otherwise # This gives zenith angle of sun in solar noon. Should maybe have something that is more representative of the average?

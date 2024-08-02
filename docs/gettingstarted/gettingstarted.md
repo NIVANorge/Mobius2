@@ -61,7 +61,6 @@ The mobipy python package allows you to dynamically set parameter values and inp
 - Run many different scenarios where you load data from some secondary source, without having to make many separate model data files.
 - Script your own sensitivity analysis or autocalibration.
 - Run the models in the backend of a web page with a custom web interface.
-- Whatever you can think of.
 
 To be able to run mobipy you need to download mobipy/c_abi.dll from ftp://mobiserver.niva.no/Mobius2 and put it in your local Mobius2/mobipy folder.
 

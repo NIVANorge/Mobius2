@@ -179,9 +179,9 @@ The precedence of an operator can determine association of the participating exp
 
 \*\* The units of the arguments to a (comparison) operator must be of the same unit. It produces a dimensionless boolean result.
 
-\*\*\* For the `+` and `-` operators the types of the two arguments must be the same, and the result has that unit. For `*`, `/` and `//`, unit arithmetic is applied. That is, the units of the arguments are themselves multiplied or divided with one another to produce the result unit.
+\*\*\* For the `+` and `-` operators the units of the two arguments must be the same, and the result has that unit. For `*`, `/` and `//`, unit arithmetic is applied. That is, the units of the arguments are themselves multiplied or divided with one another to produce the result unit.
 
-\*\*\*\* With exponentiation, the unit of the left hand side is raised to the power of the right hand side if it is possible. It is possible if the left hand side is dimensionless or if it can be determined that the right hand side is a constant integer or rational value.
+\*\*\*\* With exponentiation, the unit of the left hand side is raised to the power of the right hand side if it is possible. It is possible if the left hand side is dimensionless or if it can be determined at compile time that the right hand side is a constant integer or rational number.
 
 ### Unary operator
 
@@ -232,7 +232,7 @@ The following intrinsic functions are visible in every function scope. They are 
 | `abs(a)` | absolute value | Preserves unit |
 | `floor(a)` | round down to closest integer | Preserves unit |
 | `ceil(a)` | round up to closest integer | Preserves unit |
-| `is_finite(a)` | `true` if a is finite and not `nan`, `false` otherwise | a is any unit. Result is dimensionless |
+| `is_finite(a)` | `true` if a is finite and not `nan`, `false` otherwise | a has any unit, result is dimensionless |
 | `exp(a)` | Euler number to the power of a | a must be dimensionless, result is dimensionless |
 | `pow2(a)` | 2 to the power of a | a must be dimensionless, result is dimensionless  |
 | `ln(a)` | natural logarithm | a must be dimensionless, result is dimensionless  |
@@ -264,7 +264,7 @@ Special directives allow you to reference a separate value related to a state va
 | `conc(var)` | The concentration of `var`. Only available if `var` is *dissolved*. | Either the declared concentration unit of `var`, or (if none was declared) the unit of `var` divided by the unit of the quantity it is dissolved in. |
 | `aggregate(var)` | This refers to a (possibly weighted) sum of this variable over index sets that the context location does not index over. |
 
-If `var` is on a solver, `last(var)` will reference the end-of-timestep value from the last step.
+If `var` is on a solver, `last(var)` will still reference the end-of-timestep value from the last model sampling step (not solver step).
 
 You can use `aggregate(var)` if `var` indexes over a higher number of index sets than the context location of the code you are in. In that case, it will sum the `var` over the excess index sets, applying an `aggregation_weight` if one exists between the compartment of `var` and the compartment of the current context location.
 

@@ -9,11 +9,11 @@ comment: "While we use python markup for code snippets, they are not actually py
 
 # Simple layered lake
 
-In this chapter we will set up the model complexity a notch and work with a 1-dimensional model of a lake. That it is 1-dimensional means that we will consider the state of the lake (temperature, various concentrations, etc.) to be the same across each horizontal layer for any given depth, but will vary as you change the depth (along the z axis). 1-dimensional models are often good approximations for smaller lakes.
+In this chapter we will set up the model complexity a notch and work with a 1-dimensional model of a lake. That it is 1-dimensional means that we will consider the state of the lake (temperature, various concentrations, etc.) to be homogenous across each horizontal layer for any given depth $$z$$, but will vary as you vary $$z$$. 1-dimensional models are often good approximations for smaller lakes.
 
-We will base ourselves on a simplified version of the formulation of the MyLake model \[SalorantaAndersen07\]. In this first chapter we will just make a basin that with precipitation inputs and discharge outputs, but it will not be connected to a catchment that it receives river discharge from yet. The power of Mobius2's ability to couple different modules will be shown in the next chapter, where we will connect the lake to our existing catchment model. The biochemistry of the lake will also be added in a later chapter.
+We will base ourselves on a simplified version of the formulation of the MyLake model \[SalorantaAndersen07\]. In this first chapter we will just make a basin with precipitation inputs and discharge outputs. It will not be connected to a catchment that it receives river discharge from yet. The power of Mobius2's ability to couple different modules will be shown in the next chapter, where we will connect the lake to our existing catchment model. The biochemistry of the lake will also be added in a later chapter, for now we will just consider water balance and heat transfer.
 
-We will not give as detailed a description of all the code in this chapter as we did in previous chapters, instead we will just highlight what is new.
+We will not give as detailed a description of all the model code in this chapter as we have done in previous chapters, instead we will just highlight what is new.
 
 ## 1-dimensional grids
 
@@ -59,8 +59,8 @@ var(layer.water.N2freq, [s-2]) {
 	# as the mean of their thicknesses
 	mdz := 0.5*(dz + dz[vert.below]),
 	# A finite difference approximation of d(rho)/dz
-	ddens_dz := (rho[vert.below]-rho)/mdz,
-	N2  := (grav/rho) * ddens_dz,
+	drho_dz := (rho[vert.below]-rho)/mdz,
+	N2  := (grav/rho) * drho_dz,
 	# For numerical reasons that will be apparent below, we can't allow N^2
 	# to be too close to 0.
 	max(N2min, N2)
@@ -73,7 +73,7 @@ The `@no_store` directive just tells Mobius2 to not store the time series of thi
 	- It saves memory. This is especially important for variables in compartments that are distributed over large index sets.
 	- Too many variables can clutter up the user interface, and not all of them are interesting in themselves.
 
-The empirical mixing rate $$K$$ will (as in MyLake) be given by
+The mixing coefficient $$K$$ is (as in MyLake) be given by
 
 $$
 K_r = \begin{cases}
@@ -100,7 +100,7 @@ flux(layer.water, vert, [m 3, day-1], "Layer mixing down") {
 } @mixing
 ```
 
-The `@mixing` note tells Mobius2 that this flux happens in both directions so that the net exchange of water between the layers is zero, but that it should still cause mixing of dissolved substances (this includes heat energy).
+The `@mixing` note tells Mobius2 that this flux happens in both directions so that the net exchange of water between the two layers is zero, but that it should still cause mixing of dissolved substances (this includes heat energy). In practice, the ODE system that is generated from this is mathematically equivalent to the finite element discretization of the diffusion equation described in \[SalorantaAndersen07\].
 
 **This chapter is not yet finished, but the model is, so you can try it out**.
 

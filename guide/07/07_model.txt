@@ -17,15 +17,18 @@ model("Lake model") {
 	evap : property("Evaporation")
 	precip   : property("Precipitation")
 	wind     : property("Wind speed")
+	
+	# Many of the following variables are required by the AirSea heat exchange module that we reuse from other Mobius2 models. You don't need to understand what most of them are for.
 	g_rad    : property("Global radiation")
 	pressure : property("Pressure")
 	a_hum    : property("Actual specific humidity")
 	lwd      : property("Downwelling longwave radiation")
 	sw       : property("Shortwave radiation")
 	cos_z    : property("Cosine of the solar zenith angle") 
-	attn     : property("Attenuation")
 	s_vap    : property("Saturation vapour pressure")
 	a_vap    : property("Actual vapour pressure")
+	
+	attn     : property("Attenuation")
 	indicator : property("Ice indicator")
 	
 	vert    : connection("Lake vertical") @grid1d(layer, layer_idx)

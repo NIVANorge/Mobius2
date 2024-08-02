@@ -103,7 +103,7 @@ The formulas are based on [FAO paper 56](https://www.fao.org/3/x0490e/x0490e07.h
 		max(0, cz)
 	}
 	
-	# Maybe put this one in another library.
+	# TODO: Maybe put this one in another library.
 	refract : function(cos_z, index) {
 		# Utility to do refraction if you have the cosine of the angle rather than the sine.
 		sqrt(1 - (1 - cos_z^2)/index^2)

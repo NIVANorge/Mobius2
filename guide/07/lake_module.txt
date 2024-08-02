@@ -79,8 +79,8 @@ module("Simple layered lake", version(0, 0, 1),
 	
 	var(layer.water.N2freq, [s-2]) {
 		mdz := 0.5*(dz + dz[vert.below]),
-		ddens_dz := (rho[vert.below]-rho)/mdz,
-		N2  := (grav/rho) * ddens_dz,
+		drho_dz := (rho[vert.below]-rho)/mdz,
+		N2  := (grav/rho) * drho_dz,
 		max(N2min, N2)
 	} @no_store
 	
