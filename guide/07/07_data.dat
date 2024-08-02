@@ -46,7 +46,7 @@ TODO: Replace with Langtjern series
 		par_group("Light") {
 			
 			par_real("Light extinction coefficient") 
-			[ 0.2 ]
+			[ 2 ]
 		
 		}
 	
@@ -79,7 +79,7 @@ TODO: Replace with Langtjern series
 	
 	}
 	
-	module("AirSea Fjord", version(0, 1, 1)) {
+	module("AirSea", version(0, 1, 1)) {
 		
 		par_group("Ice") {
 			

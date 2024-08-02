@@ -104,6 +104,8 @@ The `@mixing` note tells Mobius2 that this flux happens in both directions so th
 
 **This chapter is not yet finished, but the model is, so you can try it out**.
 
+It is not meaningful to compare model results with observations yet because the temperature of the water coming from the catchment has a large impact on the lake temperature, and that inflow is not added yet.
+
 ## Shortwave radiation
 
 ## Surface fluxes and heat

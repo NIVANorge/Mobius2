@@ -9,9 +9,19 @@ has_children: true
 # Plots and statistics
 
 You can use the plot to visualize inputs and results of the model. Time series can be selected in the result and model input trees to the left of the plot.
+
+![Series selecter](../img/mobiview/series_selecter.png)
+
+Series are organized in a tree structure according to their [location](../mobius2docs/central_concepts.html#components-and-locations). For instance, the soil water organic carbon is found under `Soil->Water->Organic carbon`. Non-primary state variables are instead organized under the location that makes the most sense, for instance a flux is organized under its source location if it is valid, otherwise its target location.
+
+For model result series, you can also go to the "By quantity" tab to view series as organized by their final location component instead, so for instance soil water organic carbon is found there as `Organic carbon->Soil->Water`.
+
+The "Quick select" tab only has content if the loaded data set has `quick_select` declarations (will be documented separately).
+
 - You can select multiple time series at one time by ctrl-clicking (or shift-clicking) them.
 - You can remove a selected time series by ctrl-clicking it. 
 - If a time series varies over one or more index sets, you can select indexes from the lists below the plot. You can do multiselection (ctrl-click) here too.
+- If you write text in the search bar under the series selecter, it will collapse all top nodes of the tree that don't match the search term. You can only search for the top node.
 
 If you want multiple plot axes displayed at the same time, you need to open the [additional plot window](additionalplots.html) by clicking ![Additional plots](../img/toolbar/ViewMorePlots.png) in the toolbar.
 
