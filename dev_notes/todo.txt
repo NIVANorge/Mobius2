@@ -1,13 +1,6 @@
 
 
 	*** High pri ***
-		
-		Transport fluxes of discrete variables need better order of evaluation.
-			Or rather should use last() value of the medium when computing concentration.
-				Still doesn't work because the same amount is added and subtracted within the time step.
-				To get it to work, would need to add something like in_flux(water) to the volume estimation (?).
-					That won't always be correct..
-			Is it easier to just disallow this? And then instead make ODE snow model formulations?
 
 		Add forums on github page? (github Discussions)
 		
@@ -15,9 +8,6 @@
 		
 		Need to (in model_composition) check if it is valid to look up a value along a connection.
 			Done except for parameters.
-			
-		Document
-			Series selection in MobiView2
 
 		Specific models
 		

@@ -9,7 +9,7 @@
 
 void
 Math_Block_FT::set_id() {
-	//TODO: if we ever want to paralellize code generation, we have to make a better system here:
+	//TODO: if we ever want to parallellize code generation, we have to make a better system here:
 	static s32 id_counter = 0;
 	unique_block_id = id_counter++;
 }

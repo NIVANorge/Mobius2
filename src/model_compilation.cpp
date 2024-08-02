@@ -1048,6 +1048,129 @@ set_up_external_computation_instruction(Model_Application *app, Var_Id var_id, s
 	}
 }
 
+void
+maybe_process_discrete_flux(Model_Application *app, std::vector<Model_Instruction> &instructions, Var_Id var_id, bool is_aggregate, bool has_aggregate) {
+	
+	// Generate instructions for updating quantities based on discrete fluxes.
+	
+	auto model = app->model;
+	auto var = app->vars[var_id];
+	
+	auto loc1 = var->loc1;
+	auto loc2 = var->loc2;
+	
+	std::vector<int> sub_add_instrs;
+	
+	bool is_discrete = false;
+	
+	Entity_Id source_solver = invalid_entity_id;
+	Var_Id source_id;
+	if(is_located(loc1) && !is_aggregate) {
+		source_id = app->vars.id_of(loc1);
+		source_solver = instructions[source_id.id].solver;
+		auto source_var = as<State_Var::Type::declared>(app->vars[source_id]);
+		
+		// If the source is not an ODE variable, and is not overridden, generate an instruction to subtract the flux from the source.
+		
+		if(!is_valid(source_solver) && !source_var->function_tree) {
+			
+			is_discrete = true;
+			
+			int sub_idx = (int)instructions.size();
+			instructions.emplace_back();
+			
+			auto &sub_source_instr = instructions.back();
+			sub_source_instr.type = Model_Instruction::Type::subtract_discrete_flux_from_source;
+			sub_source_instr.var_id = var_id;
+			
+			sub_source_instr.depends_on_instruction.insert(var_id.id);     // the subtraction of the flux has to be done after the flux is computed.
+			sub_source_instr.inherits_index_sets_from_instruction.insert(source_id.id); // and it has to be done per instance of the source.
+			
+			sub_source_instr.source_id = source_id;
+			
+			//NOTE: the "compute state var" of the source "happens" after the flux has been subtracted. In the discrete case it will not generate any code, but it is useful to keep it as a stub so that other vars that depend on it happen after it (and we don't have to make them depend on all the fluxes from the var instead).
+			instructions[source_id.id].depends_on_instruction.insert(sub_idx);
+			
+			sub_add_instrs.push_back(sub_idx);
+			//instructions[var_id.id].loose_depends_on_instruction.insert(sub_idx);
+		}
+	}
+	bool is_connection = (var->loc1.r1.type != Restriction::none || var->loc2.r2.type != Restriction::none);
+	if(is_connection && has_aggregate)
+		fatal_error(Mobius_Error::internal, "Somehow a connection flux got a regular aggregate: ", var->name);
+	
+	// Similarly generate the instruction to add the flux to the target.
+	
+	if((is_located(loc2) /*|| is_connection*/) && !has_aggregate) {
+		Var_Id target_id = app->vars.id_of(loc2);
+		
+		Entity_Id target_solver = instructions[target_id.id].solver;
+		auto target_var = as<State_Var::Type::declared>(app->vars[target_id]);
+		
+		if(!is_valid(target_solver) && !target_var->function_tree) {
+			
+			is_discrete = true;
+			
+			int add_idx = (int)instructions.size();
+			instructions.emplace_back();
+			
+			Model_Instruction &add_target_instr = instructions.back();
+			add_target_instr.type   = Model_Instruction::Type::add_discrete_flux_to_target;
+			add_target_instr.var_id = var_id;
+			
+			add_target_instr.depends_on_instruction.insert(var_id.id);   // the addition of the flux has to be done after the flux is computed.
+			add_target_instr.inherits_index_sets_from_instruction.insert(target_id.id); // it has to be done once per instance of the target.
+			add_target_instr.target_id = target_id;
+			
+			sub_add_instrs.push_back(add_idx);
+			
+			instructions[target_id.id].depends_on_instruction.insert(add_idx);
+		
+			//instructions[var_id.id].loose_depends_on_instruction.insert(add_idx);
+			
+			// NOTE: this one is needed because of unit conversions, which could give an extra index set dependency to the add instruction.
+			instructions[target_id.id].inherits_index_sets_from_instruction.insert(add_idx);
+		}
+	}
+	
+	// TODO: Does it matter if target is discrete or only source?
+	// TODO: We could try to make a more nuanced system where we order dissolved components the same as what they are dissolved in so that people can use discrete transport fluxes.
+	if(is_discrete && var->type == State_Var::Type::dissolved_flux) {
+		auto parent_id = app->find_base_flux(var_id);
+		auto parent = as<State_Var::Type::declared>(app->vars[parent_id]);
+		auto parent_decl = model->fluxes[parent->decl_id];
+		auto transp_id = is_located(loc1) ? loc1.last() : loc2.last();
+		auto transp = model->components[transp_id];
+		parent_decl->source_loc.print_error_header(Mobius_Error::model_building);
+		fatal_error("The flux \"", parent->name, "\" transports a quantity that is not on a solver (it is a discrete flux). At the same time this quantity has a dissolved quantity \"", transp->name, "\", which would create a transport flux for the dissolved quantity. However, due to complexities with instruction ordering, this is currently not supported.");
+	}
+	
+	// If the flux is tied to a discrete order, make all fluxes after it depend on the subtraction add addition instructions of this one.
+	// TODO: make an error or warning if an ODE flux is given a discrete order. Maybe also if a discrete flux is not given one (but maybe not).
+	if(!is_discrete || var->type != State_Var::Type::declared) return;
+	auto flux_decl_id = as<State_Var::Type::declared>(var)->decl_id;
+	auto flux_decl = model->fluxes[flux_decl_id];
+	if(!is_valid(flux_decl->discrete_order)) return;
+	auto discrete_order = model->discrete_orders[flux_decl->discrete_order];
+	//if(!discrete_order) return; // Hmm, this should not be possible?
+	
+	bool after = false;
+	for(auto flux_id : discrete_order->fluxes) {
+		if(after) {
+			// TODO: Ugh, we have to do this just to find the single state variable corresponding to a given flux declaration.
+			// should have a lookup structure for it!
+			for(auto var_id_2 : app->vars.all_fluxes()) {
+				auto var2 = app->vars[var_id_2];
+				if(var2->type != State_Var::Type::declared) continue;
+				if(as<State_Var::Type::declared>(var2)->decl_id == flux_id)
+					instructions[var_id_2.id].depends_on_instruction.insert(sub_add_instrs.begin(), sub_add_instrs.end());
+			}
+		}
+		if(flux_id == flux_decl_id)
+			after = true;
+	}
+
+}
 
 void
 build_instructions(Model_Application *app, std::vector<Model_Instruction> &instructions, bool initial) {
@@ -1172,108 +1295,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 		
 		if(initial || !var->is_flux()) continue;
 		
-		
-		// The rest is dealing with instructions for updating quantities based on discrete fluxes.
-		
-		auto loc1 = var->loc1;
-		auto loc2 = var->loc2;
-		
-		std::vector<int> sub_add_instrs;
-		
-		Entity_Id source_solver = invalid_entity_id;
-		Var_Id source_id;
-		if(is_located(loc1) && !is_aggregate) {
-			source_id = app->vars.id_of(loc1);
-			source_solver = instructions[source_id.id].solver;
-			auto source_var = as<State_Var::Type::declared>(app->vars[source_id]);
-			
-			// If the source is not an ODE variable, and is not overridden, generate an instruction to subtract the flux from the source.
-			
-			if(!is_valid(source_solver) && !source_var->function_tree) {
-				int sub_idx = (int)instructions.size();
-				instructions.emplace_back();
-				
-				auto &sub_source_instr = instructions.back();
-				sub_source_instr.type = Model_Instruction::Type::subtract_discrete_flux_from_source;
-				sub_source_instr.var_id = var_id;
-				
-				sub_source_instr.depends_on_instruction.insert(var_id.id);     // the subtraction of the flux has to be done after the flux is computed.
-				sub_source_instr.inherits_index_sets_from_instruction.insert(source_id.id); // and it has to be done per instance of the source.
-				
-				sub_source_instr.source_id = source_id;
-				
-				//NOTE: the "compute state var" of the source "happens" after the flux has been subtracted. In the discrete case it will not generate any code, but it is useful to keep it as a stub so that other vars that depend on it happen after it (and we don't have to make them depend on all the fluxes from the var instead).
-				instructions[source_id.id].depends_on_instruction.insert(sub_idx);
-				
-				sub_add_instrs.push_back(sub_idx);
-				//instructions[var_id.id].loose_depends_on_instruction.insert(sub_idx);
-			}
-		}
-		bool is_connection = (var->loc1.r1.type != Restriction::none || var->loc2.r2.type != Restriction::none);
-		if(is_connection && has_aggregate)
-			fatal_error(Mobius_Error::internal, "Somehow a connection flux got a regular aggregate: ", var->name);
-		
-		// Similarly generate the instruction to add the flux to the target.
-		
-		if((is_located(loc2) /*|| is_connection*/) && !has_aggregate) {
-			Var_Id target_id = app->vars.id_of(loc2);
-			
-			Entity_Id target_solver = instructions[target_id.id].solver;
-			auto target_var = as<State_Var::Type::declared>(app->vars[target_id]);
-			
-			if(!is_valid(target_solver) && !target_var->function_tree) {
-				int add_idx = (int)instructions.size();
-				instructions.emplace_back();
-				
-				Model_Instruction &add_target_instr = instructions.back();
-				add_target_instr.type   = Model_Instruction::Type::add_discrete_flux_to_target;
-				add_target_instr.var_id = var_id;
-				
-				add_target_instr.depends_on_instruction.insert(var_id.id);   // the addition of the flux has to be done after the flux is computed.
-				add_target_instr.inherits_index_sets_from_instruction.insert(target_id.id); // it has to be done once per instance of the target.
-				add_target_instr.target_id = target_id;
-				
-				sub_add_instrs.push_back(add_idx);
-				
-				instructions[target_id.id].depends_on_instruction.insert(add_idx);
-			
-				//instructions[var_id.id].loose_depends_on_instruction.insert(add_idx);
-				
-				// NOTE: this one is needed because of unit conversions, which could give an extra index set dependency to the add instruction.
-				instructions[target_id.id].inherits_index_sets_from_instruction.insert(add_idx);
-			}
-		}
-		
-		// TODO: make an error or warning if an ODE flux is given a discrete order. Maybe also if a discrete flux is not given one (but maybe not).
-		
-		// TODO: may want to do somehting similar if it is dissolved (look up the decl of the parent flux).
-		if(var->type == State_Var::Type::declared) {
-			auto flux_decl_id = as<State_Var::Type::declared>(var)->decl_id;
-			auto flux_decl = model->fluxes[flux_decl_id];
-			if(is_valid(flux_decl->discrete_order)) {
-				auto discrete_order = model->discrete_orders[flux_decl->discrete_order];
-				
-				bool after = false;
-				if(discrete_order) {
-					// If the flux is tied to a discrete order, make all fluxes after it depend on the subtraction add addition instructions of this one.
-					
-					for(auto flux_id : discrete_order->fluxes) {
-						if(after) {
-							// TODO: Ugh, we have to do this just to find the single state variable corresponding to a given flux declaration.
-							// should have a lookup structure for it!
-							for(auto var_id_2 : app->vars.all_fluxes()) {
-								auto var2 = app->vars[var_id_2];
-								if(var2->type != State_Var::Type::declared) continue;
-								if(as<State_Var::Type::declared>(var2)->decl_id == flux_id)
-									instructions[var_id_2.id].depends_on_instruction.insert(sub_add_instrs.begin(), sub_add_instrs.end());
-							}
-						}
-						if(flux_id == flux_decl_id)
-							after = true;
-					}
-				}
-			}
-		}
+		maybe_process_discrete_flux(app, instructions, var_id, is_aggregate, has_aggregate);
 		
 	}
 }
