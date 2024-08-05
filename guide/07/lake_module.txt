@@ -61,13 +61,11 @@ module("Simple layered lake", version(0, 0, 1),
 	}
 	
 	flux(layer.water, out, [m 3, s-1], "Layer discharge") {
-		#TODO: Take into account that the top area would expand if the water expanded, along the same shore shape.
 		a := 0.5*(A + A[vert.below]),
 		dz_est := water / a,
-		excess := max(0, dz_est - dz),
 		
+		excess := max(0, dz_est - dz),
 		rate_c := 1[m 2, s-1],
-		# TODO: Should maybe be nonlinear
 		rate_c*excess
 	}
 	
@@ -104,11 +102,11 @@ module("Simple layered lake", version(0, 0, 1),
 	}
 	
 	flux(layer.water.heat, sw_vert, [J, day-1], "Shortwave shine-through") {
-		(in_flux(sw_vert, heat)->>)*(1 - attn) * A[vert.below]/A
+		sw*(1 - attn) * A[vert.below] ->>
 	}
 	
 	flux(layer.water.heat, out, [J, day-1], "Shortwave to sediments") {
-		(in_flux(sw_vert, heat)->>)*(1 - attn) * (A - A[vert.below])/A
+		sw*(1 - attn) * (A - A[vert.below]) ->>
 	}
 	
 	var(layer.water.attn, []) {

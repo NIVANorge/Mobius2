@@ -39,7 +39,9 @@ Note that we have also defined a compartment called `lake` which is a convenient
 
 For the parametrization of the lake, we allow every lake layer to have a separate surface area and thickness with the top layer having varying thickness depending on water level. This formulation only works if the basin can't dry out enough to empty the top layer, but that won't be a problem for this application.
 
-**TODO: Insert conceptual figure of the lake. Explain location of layer area, layer center etc.**
+![Lake conceptual](images/lake.png)
+
+Figure: The lake is conceptually divided into layers, with thickness `dz` (potentially different per layer). The area of the top of a layer is `A`, while the area of the bottom is the top area of the layer below it. Thus the volume of a layer is `0.5*(A + A[vert.below])*dz`, where `A[vert.below]` signifies the area in the layer below the one we are currently looking at.
 
 ## Turbulent mixing
 
@@ -102,21 +104,81 @@ flux(layer.water, vert, [m 3, day-1], "Layer mixing down") {
 
 The `@mixing` note tells Mobius2 that this flux happens in both directions so that the net exchange of water between the two layers is zero, but that it should still cause mixing of dissolved substances (this includes heat energy). In practice, the ODE system that is generated from this is mathematically equivalent to the finite element discretization of the diffusion equation described in \[SalorantaAndersen07\].
 
-**This chapter is not yet finished, but the model is, so you can try it out**.
+## Surface fluxes, ice and heat
 
-It is not meaningful to compare model results with observations yet because the temperature of the water coming from the catchment has a large impact on the lake temperature, and that inflow is not added yet.
+The exchange of heat energy between the lake surface and the atmosphere is entirely taken care of by the AirSea module. It also takes care of ice growth and melt, and it computes evaporation. We won't go into detail about that here. Just note that we model `layer.water.heat` as a dissolved variable, then compute temperature from the heat density (concentration).
+
+This module also takes care of the water and heat balance connected to direct precipitation inputs to the lake surface and evaporation.
 
 ## Shortwave radiation
 
-## Surface fluxes and heat
+Unlike other heat fluxes, shortwave radiation can be passed down through multiple layers. The AirSea module is loaded in a way that specifies the surface incoming shortwave radiation to be passed to the top layer of the lake along the `sw_vert` connection. This is because the location target for the shortwave is specified as `loc(layer.water.heat[sw_vert.top])` (see the load arguments for AirSea in the model).
 
-## Precipitation and discharge
+Doing it this way, we can access the amount of incoming heat along this connection and pass some of it along to connections below. The amount of `heat` coming to the `water` along the `sw_vert` connection can be accessed using `in_flux(sw_vert, water.heat)`.
 
+```python
 
+# We store layer.sw as a separate variable because it can be used in biochemical modules for light availability for plankton etc.
+var(layer.sw, [W, m-2], "Layer shortwave radiation") {
+	in_flux(sw_vert, water.heat)/A ->>
+}
 
+# This flux sends non-attenuated shortwave energy to the layer below it.
+flux(layer.water.heat, sw_vert, [J, day-1], "Shortwave shine-through") {
+	sw*(1 - attn) * A[vert.below] ->>
+}
 
+# The fraction of shortwave going to the sediments is currently a sink. It would be better to add a separate sediment compartment per layer and have some heat exchange model for it so that if it is warm, it releases some heat back to the water.
+flux(layer.water.heat, out, [J, day-1], "Shortwave to sediments") {
+	sw*(1 - attn) * (A - A[vert.below]) ->>
+}
+
+var(layer.water.attn, []) {
+	cz := max(0.01, refract(air.cos_z, refraction_index_water)),
+	th := dz / cz, # Length traveled through the layer by a sun beam taking zenith angle into account.
+	1 - exp(-att_c*th)
+}
+```
+
+The ligh attenuation uses a constant light extinction coefficient `att_c` (parameter). When we add biochemistry, we can make it depend on particle and DOC density in the lake.
+
+## Water balance and discharge
+
+We add discharge from the lake top layer. This is important even though we haven't connected the catchment yet, because otherwise precipitation alone would make the lake volume go up over time.
+
+There are many ways one could do the lake water balance, for instance one could distribute water so that all layers have the same thickness as one another. But in this example we have opted for a much simpler solution where only the top layer changes in thickness while the others stay constant. Of course, this may not be as good for reservoirs where the level could vary by many meters, but it works for a non-regulated lake where the surface level stays fairly constant.
+
+```python
+flux(layer.water, out, [m 3, s-1], "Layer discharge") {
+	#Exercise: Take into account that the top area would expand if the water expanded, along the same shore shape.
+	a := 0.5*(A + A[vert.below]),
+	dz_est := water / a,
+	
+	# Exercise: The rating curve should maybe be nonlinear
+	excess := max(0, dz_est - dz),
+	rate_c := 1[m 2, s-1],
+	rate_c*excess
+}
+```
+(Right now this flux code is run for all layers, but will be 0 for all but the top layer since the other layers don't have any water sources to them, and so they don't change thickness. There is a limitation in the framework that don't allow us to only run this flux for the top layer only, but we plan to fix it).
+
+![Lake temperature](images/07.png)
+
+Figure: A heatmap plot of the lake temperature in the various layers over time. Note that the y axis of the plot denotes layer index rather than depth. We will show how to make it denote depth in a later chapter.
+
+## Full code and example
+
+The data file example has been set up with real observations for lake Langtjern (lat: 62.7 lon: 8.9), a small lake in a forested catchment in southern Norway.
+
+It is not meaningful to compare model results with observations yet because the temperature of the water coming from the catchment has a large impact on the lake temperature, and that inflow is not added yet.
 
 [Full code for chapter 07](https://github.com/NIVANorge/Mobius2/tree/main/guide/07).
+
+## Exercises
+
+- Add a sediment compartment per layer and a heat exchange model between the sediments and water.
+- Make the code that computes the thickness of the top layer take into account that the surface area of the top layer would expand when the thickness increases.
+- Make a better rating function for the lake discharge.
 
 ## Citations
 
