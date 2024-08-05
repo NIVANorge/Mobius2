@@ -6,7 +6,7 @@ from joblib import Parallel, delayed
 from pyDOE import lhs
 
 
-# Note: we can't use multiprocessing for this, only multithreading, since a Model_Application object that is allocated from C++ one one process
+# Note: we can't use multiprocessing for this, only multithreading, since a Model_Application object that is allocated from C++ on one process
 # can't be accessed from a different python process.
 class Thread_Pool :
     
@@ -49,30 +49,60 @@ def ll_wls(sim, obs, params) :
 	vals = 0.5*(-np.log(st**2) - l2pi - ((sim-obs)**2)/(st**2) )
 	return np.nansum(vals)
 
-# TODO: Take target list
+
 def residual_from_target(target, start_date, end_date) :
-	simname, simidx, obsname, obsidx = target
+	# This is only for use with the least squares minimizer, which takes the entire residual vector
+	
 	sl = slice(start_date, end_date)
 	
-	def get_sim_obs(data) :
-		sim = data.var(simname)[simidx].loc[sl].values
-		obs = data.var(obsname)[obsidx].loc[sl].values
-		return sim, obs
+	if isinstance(target, list) :
+		
+		def get_sim_obs(data) :
+			sim = np.concatenate([data.var(tar[0])[tar[1]].loc[sl].values*np.sqrt(tar[4]) for tar in target])
+			obs = np.concatenate([data.var(tar[2])[tar[3]].loc[sl].values*np.sqrt(tar[4]) for tar in target])
+			return sim, obs
+		
+		return get_sim_obs
+		
+	else :
+		simname, simidx, obsname, obsidx = target
+		def get_sim_obs(data) :
+			sim = data.var(simname)[simidx].loc[sl].values
+			obs = data.var(obsname)[obsidx].loc[sl].values
+			return sim, obs
+			
+		return get_sim_obs
 	
-	return get_sim_obs
 
-# TODO: Take target list
 def ll_from_target(target, start_date, end_date, ll_fun=ll_wls) :
-
-	get_sim_obs = residual_from_target(target, start_date, end_date)
 	
-	def log_likelihood(data, params, n_run=None) :
+	if isinstance(target, list) :
 		
-		sim, obs = get_sim_obs(data)
+		sl = slice(start_date, end_date)
+		def log_likelihood(data, params, n_run=None) :
+			
+			sum = 0.0
+			for tar in target :
+				simname, simidx, obsname, obsidx, wgt = tar
+				sim = data.var(simname)[simidx].loc[sl].values
+				obs = data.var(obsname)[obsidx].loc[sl].values
+				
+				sum += ll_fun(sim, obs, params)*wgt
+			return sum
 		
-		return ll_fun(sim, obs, params)
+		return log_likelihood
 	
-	return log_likelihood
+	else :
+		
+		def log_likelihood(data, params, n_run=None) :
+			
+			simname, simidx, obsname, obsidx = target
+			sim = data.var(simname)[simidx].loc[sl].values
+			obs = data.var(obsname)[obsidx].loc[sl].values
+			
+			return ll_fun(sim, obs, params)
+		
+		return log_likelihood
 	
 def params_from_dict(app, dict) :
 	params = lmfit.Parameters()
@@ -132,7 +162,7 @@ def run_latin_hypercube_sample(app, params, set_params, target_stat, n_samples, 
 	
 	return par_data, stats
 	
-def run_minimizer(app, params, set_params, residual_fun, method='nelder', run_timeout=-1) :
+def run_minimizer(app, params, set_params, residual_fun, method='nelder', run_timeout=-1, disp=False) :
 	
 	def get_residuals(pars) :
 		
@@ -148,7 +178,7 @@ def run_minimizer(app, params, set_params, residual_fun, method='nelder', run_ti
 		
 		return resid
 	
-	mi = lmfit.Minimizer(get_residuals, params, nan_policy='omit')
+	mi = lmfit.Minimizer(get_residuals, params, nan_policy='omit', disp)
     
 	res = mi.minimize(method=method)
 	

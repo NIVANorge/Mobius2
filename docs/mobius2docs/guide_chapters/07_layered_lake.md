@@ -166,7 +166,7 @@ flux(layer.water, out, [m 3, s-1], "Layer discharge") {
 	rate_c*excess
 }
 ```
-(Right now this flux code is run for all layers, but will be 0 for all but the top layer since the other layers don't have any water sources to them, and so they don't change thickness. There is a limitation in the framework that don't allow us to only run this flux for the top layer only, but we plan to fix it).
+(Right now this flux code is run for all layers, but will be 0 for all but the top layer since the other layers don't have any water sources to them, and so they don't change thickness. There is a limitation in the framework that don't allow us to specify this flux for the top layer only, but we plan to fix it).
 
 ![Lake temperature](images/07.png)
 
