@@ -1938,22 +1938,26 @@ Decl_Scope::check_for_unreferenced_things(Catalog *catalog) {
 		}
 	}
 	
+	// NOTE: Skipping check of library loading library. Otherwise, if a library A loads library B but the parts of A that reference B are not used in the current model, the warning below will fire for A loading B. This is because unused library code is not fully processed. This skip can be removed if we find a better solution.
+	if(parent_id.reg_type == Reg_Type::library) return;
+	
+	std::string scope_type;
+	std::string scope_name;
+	if(parent_id.reg_type == Reg_Type::module) {
+		scope_type = "module";
+		scope_name = catalog->find_entity(parent_id)->name;
+	} else if(parent_id.reg_type == Reg_Type::library) {
+		scope_type = "library";
+		scope_name = catalog->find_entity(parent_id)->name;
+	} else {
+		scope_type = "model";
+		scope_name = catalog->model_name;
+	}
+	
 	for(auto &pair : lib_was_used) {
 		if(!pair.second) {
 			// TODO: How would we find the load source location of the library in this module? That is probably not stored anywhere right now.
 			// TODO:  we could put that in the Scope_Entity source_loc (?)
-			std::string scope_type;
-			std::string scope_name;
-			if(parent_id.reg_type == Reg_Type::module) {
-				scope_type = "module";
-				scope_name = catalog->find_entity(parent_id)->name;
-			} else if(parent_id.reg_type == Reg_Type::library) {
-				scope_type = "library";
-				scope_name = catalog->find_entity(parent_id)->name;
-			} else {
-				scope_type = "model";
-				scope_name = catalog->model_name;
-			}
 			log_print(Log_Mode::dev, "Warning: The ", scope_type, " \"", scope_name, "\" loads the library \"", catalog->find_entity(pair.first)->name, "\", but doesn't use any of it.\n");
 		}
 	}

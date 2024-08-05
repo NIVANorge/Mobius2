@@ -147,3 +147,22 @@ Remember that the format is whitespace-agnostic, so the example above is just a 
 If there are 3 or more dimensions, you just repeat the inner set of value blocks for each index of any "outer" index sets.
 
 There is also the concept of a map form for parameter data, but this is more rare and will be documented later.
+
+## Quick select
+
+A `quick_select` is used to make it more convenient to [select result series in MobiView2](../mobiviewdocs/plots.html) that you tend to look at more often than others. A `quick_select` declaration is given a user-defined name argument and a data block on the [map format](../mobius2docs/declaration_format.html#maps) (see example below).
+
+```python
+quick_select("River vars") [!
+	"Q" : [ "Reach flow flux" "Obs Q" ]
+	"DIN" : [ "concentration(River water DIN, Reach water volume)" "Obs DIN" ]
+	"DON" : [ "concentration(River DON, Reach water volume)" "Obs DON" ]
+	"TN" : [ "River TN" "Obs TN" ]
+	"TOC" : [ "River TOC concentration" "Obs TOC" ]
+	"SS" : [ "concentration(Suspended sediments, Reach water volume)" "Obs SS" ]
+]
+```
+
+The key to each map entry is a user-defined name, which is the name that appears for you to select in MobiView2. The value is a list of strings, each string is the name or serial name of a time series (state variable or additional time series).
+
+You can have multiple `quick_select` declarations in each data set.

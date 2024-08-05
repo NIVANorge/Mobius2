@@ -111,8 +111,6 @@
 			Make it so that editing map based parameters works when the last index is not position based (?)
 			
 			plot is strange for all-negative series.
-			
-		Version numbers on libraries?
 	
 		Would be very useful to be able to turn on an option to store out what variables are causing error control to reduce step size.
 		Also, get the average step size through the time step, not just the last one.	
@@ -224,7 +222,7 @@
 				Could also be done for variables that are not @no_store in the outset. They could be promoted as no_store.
 		
 	
-		Can get warning if you load a library that loads another library, but you don't use all the functions of that library.
+		Right now you get warning if you load a library that loads another library, but you don't use all the functions of the first library so that the second library is not referenced in active code.
 			Maybe just don't give intra-library warnings, or instead process all the functions somehow, but that is tricky.
 
 		
@@ -281,6 +279,9 @@
 			Not possible for .specific in code (if we allow that), only if it is the target of a flux.
 		
 	*** Low-pri ****
+	
+		Version numbers on libraries?
+			Doesn't really have any function unless the model specifies what version it is loading, but that seems a bit too complex.
 	
 		When something is @override_conc we could just drop computing the mass variable whatsoever. It doesn't seem to be interesting to have.
 			It could technically be referenced in code, that is the problem. We would have to detect for that.

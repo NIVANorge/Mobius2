@@ -61,11 +61,11 @@ module("MAGIC-Forest drivers", version(0, 0, 2),
 	}
 	
 	var(comp.conc_oa, [m mol, m-3], "Organic acid concentration") {
-		oa - adjoa*(last(so4.conc_all)*redoa)
+		max(0, oa - adjoa*(last(so4.conc_all)*redoa))
 	} @initial {
 		#TODO: Fix bug. This should be required to exist since it is used in the initial of the external_computation
 		#TODO: Fix bug. Having a last() on so4 conc here crashes instead of getting detected or removed!
-		oa - adjoa*(so4.conc_all*redoa) 
+		max(0, oa - adjoa*(so4.conc_all*redoa) )
 	}
 	
 	air_t : property("Air temperature")

@@ -16,7 +16,7 @@ Series are organized in a tree structure according to their [location](../mobius
 
 For model result series, you can also go to the "By quantity" tab to view series as organized by their final location component instead, so for instance soil water organic carbon is found there as `Organic carbon->Soil->Water`.
 
-The "Quick select" tab only has content if the loaded data set has `quick_select` declarations (will be documented separately).
+The "Quick select" tab only has content if the loaded data set has [`quick_select` declarations](../datafiledocs/new_project.html#quick-select). These can be set up to make it faster to select series you want to view often.
 
 - You can select multiple time series at one time by ctrl-clicking (or shift-clicking) them.
 - You can remove a selected time series by ctrl-clicking it. 
