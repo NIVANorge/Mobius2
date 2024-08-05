@@ -37,11 +37,11 @@ sw_vert : connection("Shortwave vertical") @grid1d(layer, layer_idx)
 
 Note that we have also defined a compartment called `lake` which is a convenient place to put state variables that are the same for the entire lake (such as things that only pertain to the lake surface, like ice). We have also added a separate vertical connection for shortwave radiation. This is just a technical solution that allows us to separately track transfer of shortwave heat energy from other transfer of heat energy along the vertical connection.
 
-For the parametrization of the lake, we allow every lake layer to have a separate surface area and thickness with the top layer having varying thickness depending on water level. This formulation only works if the basin can't dry out enough to empty the top layer, but that won't be a problem for this application.
+For the parametrization of the lake, we allow every lake layer to have a separate surface area and thickness with the top layer having varying thickness depending on water level.
 
 ![Lake conceptual](images/lake.png)
 
-Figure: The lake is conceptually divided into layers, with thickness `dz` (potentially different per layer). The area of the top of a layer is `A`, while the area of the bottom is the top area of the layer below it. Thus the volume of a layer is `0.5*(A + A[vert.below])*dz`, where `A[vert.below]` signifies the area in the layer below the one we are currently looking at.
+Figure: Conceptual diagram of the lake model. The lake is divided into layers, with thickness `dz` (potentially different per layer). The area of the top of a layer is `A`, while the area of the bottom of the layer is the top area of the layer below it. Thus the volume of a layer is `0.5*(A + A[vert.below])*dz`, where `A[vert.below]` signifies the area in the layer below the one we are currently looking at.
 
 ## Turbulent mixing
 
@@ -118,7 +118,8 @@ Doing it this way, we can access the amount of incoming heat along this connecti
 
 ```python
 
-# We store layer.sw as a separate variable because it can be used in biochemical modules for light availability for plankton etc.
+# We store layer.sw as a separate variable because it can be used 
+# in biochemical modules for light availability for plankton etc.
 var(layer.sw, [W, m-2], "Layer shortwave radiation") {
 	in_flux(sw_vert, water.heat)/A ->>
 }
@@ -128,14 +129,18 @@ flux(layer.water.heat, sw_vert, [J, day-1], "Shortwave shine-through") {
 	sw*(1 - attn) * A[vert.below] ->>
 }
 
-# The fraction of shortwave going to the sediments is currently a sink. It would be better to add a separate sediment compartment per layer and have some heat exchange model for it so that if it is warm, it releases some heat back to the water.
+# The fraction of shortwave going to the sediments is currently a sink.
+# It would be better to add a separate sediment compartment per layer 
+# and have some heat exchange model for it so that if it is warm, it 
+# releases some heat back to the water.
 flux(layer.water.heat, out, [J, day-1], "Shortwave to sediments") {
 	sw*(1 - attn) * (A - A[vert.below]) ->>
 }
 
 var(layer.water.attn, []) {
 	cz := max(0.01, refract(air.cos_z, refraction_index_water)),
-	th := dz / cz, # Length traveled through the layer by a sun beam taking zenith angle into account.
+	# Length traveled through the layer by a sun beam taking zenith angle into account.
+	th := dz / cz,
 	1 - exp(-att_c*th)
 }
 ```
@@ -150,7 +155,8 @@ There are many ways one could do the lake water balance, for instance one could 
 
 ```python
 flux(layer.water, out, [m 3, s-1], "Layer discharge") {
-	#Exercise: Take into account that the top area would expand if the water expanded, along the same shore shape.
+	# Exercise: Take into account that the top area would expand if 
+	# the water expanded, along the same shore shape.
 	a := 0.5*(A + A[vert.below]),
 	dz_est := water / a,
 	
@@ -164,11 +170,11 @@ flux(layer.water, out, [m 3, s-1], "Layer discharge") {
 
 ![Lake temperature](images/07.png)
 
-Figure: A heatmap plot of the lake temperature in the various layers over time. Note that the y axis of the plot denotes layer index rather than depth. We will show how to make it denote depth in a later chapter.
+Figure: A [MobiView2 heatmap plot](../../mobiviewdocs/plots.html#heatmap) of the lake temperature in the various layers over time. Note that the y axis of the plot denotes layer index rather than depth. We will show how to make it denote depth in a later chapter.
 
-## Full code and example
+## Full code and example data
 
-The data file example has been set up with real observations for lake Langtjern (lat: 62.7 lon: 8.9), a small lake in a forested catchment in southern Norway.
+The data set example has been set up with real observations for lake Langtjern (lat: 62.7 lon: 8.9), a small lake in a boreal catchment in southern Norway.
 
 It is not meaningful to compare model results with observations yet because the temperature of the water coming from the catchment has a large impact on the lake temperature, and that inflow is not added yet.
 
