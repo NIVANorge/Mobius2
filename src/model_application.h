@@ -454,8 +454,7 @@ Model_Application {
 	
 	bool        all_indexes_are_set();
 	
-	Math_Expr_FT *
-	get_index_count_code(Entity_Id index_set, Index_Exprs &indexes);
+	Math_Expr_FT *         get_index_count_code(Entity_Id index_set, Index_Exprs &indexes);
 	
 	Sub_Indexed_Component *find_connection_component(Entity_Id conn_id, Entity_Id comp_id, bool make_error = true);
 	Var_Location           get_primary_location(Var_Id source, bool &is_conc);
@@ -464,6 +463,7 @@ Model_Application {
 	Var_Id                 get_connection_target_variable(Var_Id source, Entity_Id connection_id, Entity_Id target_component);
 	
 	Var_Id                 find_base_flux(Var_Id dissolved_flux_id);
+	Var_Id                 find_flux_var_of_decl(Entity_Id flux_id);
 	
 	void build_from_data_set(Data_Set *data_set);
 	void save_to_data_set(Model_Data *save_from=nullptr);
@@ -496,7 +496,7 @@ read_single_parameter_data(Model_Application *app, Entity_Id par_id, Parameter_D
 Entity_Id
 avoid_index_set_dependency(Model_Application *app, Var_Loc_Restriction restriction);
 
-// The point of this one is to make a structure that can be used for local computations, this is not the same as the connection_structure, which is used in the model code generation itself.
+// The use case of this one is to make a structure that can be used for local computations, this is not the same as the connection_structure, which is used in the model code generation itself.
 void
 make_connection_component_indexing_structure(Model_Application *app, Storage_Structure<Entity_Id> *components, Entity_Id connection_id);
 

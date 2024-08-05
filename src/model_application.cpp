@@ -1309,6 +1309,20 @@ Model_Application::find_base_flux(Var_Id dissolved_flux_id) {
 	return result_id;
 }
 
+Var_Id
+Model_Application::find_flux_var_of_decl(Entity_Id flux_id) {
+	// Find the flux state variable corresponding to a model flux declaration.
+	
+	// TODO: This is a bit inefficient, should we have a lookup structure for it?
+	for(auto var_id : vars.all_fluxes()) {
+		auto var = vars[var_id];
+		if(var->type != State_Var::Type::declared) continue;
+		if(as<State_Var::Type::declared>(var)->decl_id == flux_id)
+			return var_id;
+	}
+	return invalid_var;
+}
+
 std::string
 Model_Application::serialize(Var_Id id) {
 	

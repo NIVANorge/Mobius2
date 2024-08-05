@@ -1049,15 +1049,20 @@ set_up_external_computation_instruction(Model_Application *app, Var_Id var_id, s
 }
 
 void
-maybe_process_discrete_flux(Model_Application *app, std::vector<Model_Instruction> &instructions, Var_Id var_id, bool is_aggregate, bool has_aggregate) {
+maybe_process_discrete_flux(Model_Application *app, std::vector<Model_Instruction> &instructions, Var_Id var_id) {
 	
 	// Generate instructions for updating quantities based on discrete fluxes.
 	
 	auto model = app->model;
 	auto var = app->vars[var_id];
 	
+	if(!var->is_flux()) return;
+	
 	auto loc1 = var->loc1;
 	auto loc2 = var->loc2;
+	
+	bool is_aggregate  = var->type == State_Var::Type::regular_aggregate;
+	bool has_aggregate = var->has_flag(State_Var::has_aggregate);
 	
 	std::vector<int> sub_add_instrs;
 	
@@ -1157,14 +1162,10 @@ maybe_process_discrete_flux(Model_Application *app, std::vector<Model_Instructio
 	bool after = false;
 	for(auto flux_id : discrete_order->fluxes) {
 		if(after) {
-			// TODO: Ugh, we have to do this just to find the single state variable corresponding to a given flux declaration.
-			// should have a lookup structure for it!
-			for(auto var_id_2 : app->vars.all_fluxes()) {
-				auto var2 = app->vars[var_id_2];
-				if(var2->type != State_Var::Type::declared) continue;
-				if(as<State_Var::Type::declared>(var2)->decl_id == flux_id)
-					instructions[var_id_2.id].depends_on_instruction.insert(sub_add_instrs.begin(), sub_add_instrs.end());
-			}
+			auto var_id_2 = app->find_flux_var_of_decl(flux_id);
+			
+			if(is_valid(var_id_2))
+				instructions[var_id_2.id].depends_on_instruction.insert(sub_add_instrs.begin(), sub_add_instrs.end());
 		}
 		if(flux_id == flux_decl_id)
 			after = true;
@@ -1239,15 +1240,12 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 	
 		auto var = app->vars[var_id];
 		
-		bool is_aggregate  = var->type == State_Var::Type::regular_aggregate;
-		bool has_aggregate = var->has_flag(State_Var::has_aggregate);
-		
 		if(var->type == State_Var::Type::external_computation) {
 			set_up_external_computation_instruction(app, var_id, instructions, initial);
 			continue;
 		}
 		
-		if(is_aggregate) {
+		if(var->type == State_Var::Type::regular_aggregate) {
 			
 			// NOTE: We have to look up the solver here. This is because we can't necessarily set it up before this point.
 			//    although TODO: Couldn't we though?
@@ -1293,9 +1291,9 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 				insert_dependency(app, agg_instr, index_set);
 		}
 		
-		if(initial || !var->is_flux()) continue;
+		if(initial) continue;
 		
-		maybe_process_discrete_flux(app, instructions, var_id, is_aggregate, has_aggregate);
+		maybe_process_discrete_flux(app, instructions, var_id);
 		
 	}
 }

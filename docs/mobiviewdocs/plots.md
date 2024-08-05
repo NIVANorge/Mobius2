@@ -10,7 +10,7 @@ has_children: true
 
 You can use the plot to visualize inputs and results of the model. Time series can be selected in the result and model input trees to the left of the plot.
 
-![Series selecter](../img/mobiview/series_selecter.png)
+![Series selecter](../img/mobiview/series_selection.png)
 
 Series are organized in a tree structure according to their [location](../mobius2docs/central_concepts.html#components-and-locations). For instance, the soil water organic carbon is found under `Soil->Water->Organic carbon`. Non-primary state variables are instead organized under the location that makes the most sense, for instance a flux is organized under its source location if it is valid, otherwise its target location.
 
