@@ -178,8 +178,10 @@ def run_minimizer(app, params, set_params, residual_fun, method='nelder', run_ti
 		
 		return resid
 	
-	mi = lmfit.Minimizer(get_residuals, params, nan_policy='omit', disp)
+	mi = lmfit.Minimizer(get_residuals, params, nan_policy='omit')
+
+	options = {'disp' : disp}
     
-	res = mi.minimize(method=method)
+	res = mi.minimize(method=method, params=params, options=options)
 	
 	return res

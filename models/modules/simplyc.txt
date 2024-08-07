@@ -121,7 +121,7 @@ Authors: Magnus D. Norling
 	
 	flux(out, river.water.sed.oc, [k g, day-1], "River POC mobilization") {   sed_oc*in_flux(river.water.sed)->>   }
 	
-	var(river.water.toc, [m g, l-1], "River TOC concentration") {   conc(oc) + conc(sed.oc)*conc(sed)   }
+	var(river.water.toc, [m g, l-1], "River TOC") {   conc(oc) + conc(sed.oc)*conc(sed)   }
 }
 
 

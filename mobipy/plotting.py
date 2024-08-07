@@ -20,7 +20,7 @@ def quick_surf(ax, data, dates, ys, cmap='coolwarm') :
 
 
 
-def plot_targets(app, targets, width=10, height_per=5) :
+def plot_targets(app, targets, sl, width=10, height_per=5) :
 	# For use with optimization targets.
 	
 	def plot_target(app, target, ax) :

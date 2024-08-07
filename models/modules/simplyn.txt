@@ -20,7 +20,7 @@ Authors: Leah A. Jackson-Blake, Magnus D. Norling
 	load("stdlib/basic_math.txt", library("Response"))
 	
 	par_group("DIN universal params") {
-		din_immob_rate   : par_real("Soilwater DIN uptake rate at 20°C", [m, day-1], 0, 0, 0.05, "(name is outdated, should be changed). This represents uptake and denitrification.")
+		din_immob_rate   : par_real("Soilwater DIN uptake rate at 20°C", [m, day-1], 0, 0, 0.05, "(name is outdated, should be changed). This represents uptake, immobilisation and denitrification.")
 		din_immob_q10    : par_real("Soilwater DIN uptake rate response to 10°C change (Q10)", [], 1.0, 1.0, 5.0)
 		gw_conc_type     : par_enum("Groundwater DIN computation type", const) { const soil_avg mass_bal }
 		gw_din_conc      : par_real("Groundwater DIN concentration", [m g, l-1], 0.0, 0.0, 30.0, "Only used if type is const")

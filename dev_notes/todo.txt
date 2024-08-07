@@ -113,11 +113,6 @@
 	*** Intermediate-pri ***
 	
 		Merge unit_conversion and aggregation_weight to just "weight" (?)
-		
-		MobiView:
-			Make it so that editing map based parameters works when the last index is not position based (?)
-			
-			plot is strange for all-negative series.
 	
 		Would be very useful to be able to turn on an option to store out what variables are causing error control to reduce step size.
 		Also, get the average step size through the time step, not just the last one.	
@@ -147,7 +142,7 @@
 				2d plot doesn't work when only certain layers are selected. For instance the 2-3 first layers.
 			
 			2d plot: The plot won't make sense at all unless the selected indexes is one single contiguous interval (that ideally starts at 0).
-				Warning if it isn't?
+				Make MobiView print an error if it isn't?
 				
 			Make model reloads work better wrt 'quick select'.
 				If the quick_select tab is open, it should choose the right thing back.
@@ -155,6 +150,10 @@
 			Seasonal aggregation.
 				I.e. the mean for jan, feb, ... across multiple years.
 				Maybe with box plot.
+				
+			Make it so that editing map based parameters works when the last index is not position based (?)
+			
+			plot is strange for all-negative series.
 	
 		
 		For sub-indexed index sets, don't allocate the entire max size for each instance (for data blocks).
