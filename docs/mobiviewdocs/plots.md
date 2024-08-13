@@ -10,7 +10,17 @@ has_children: true
 
 You can use the plot to visualize inputs and results of the model. Time series can be selected in the result and model input trees to the left of the plot.
 
+If you want multiple plot axes displayed at the same time, you need to open the [additional plot window](additionalplots.html) by clicking ![Additional plots](../img/toolbar/ViewMorePlots.png) in the toolbar.
+
+The time series info box will display statistics about the selected time series. It can also display [goodness-of-fit statistics](statistics.html). Remember that you can load whatever time series data you want in the [data file](../datafiledocs/datafiles.md). This is useful for loading observation series that you want to compare to the model results.
+
+The plot will automatically update itself every time you run the model ![Run](../img/toolbar/Run.png) to reflect any changes in the result time series.
+
+## Series selection
+
 ![Series selecter](../img/mobiview/series_selection.png)
+
+### Tree structure
 
 Series are organized in a tree structure according to their [location](../mobius2docs/central_concepts.html#components-and-locations). For instance, the soil water organic carbon is found under `Soil->Water->Organic carbon`. Non-primary state variables are instead organized under the location that makes the most sense, for instance a flux is organized under its source location if it is valid, otherwise its target location.
 
@@ -18,18 +28,15 @@ For model result series, you can also go to the "By quantity" tab to view series
 
 The "Quick select" tab only has content if the loaded data set has [`quick_select` declarations](../datafiledocs/new_project.html#quick-select). These can be set up to make it faster to select series you want to view often.
 
+If you write text in the search bar under the series selecter, it will collapse all top nodes of the tree that don't match the search term. You can only search for the top node.
+
+### Selecting and removing multiple series
+
 - You can select multiple time series at one time by ctrl-clicking (or shift-clicking) them.
 - You can remove a selected time series by ctrl-clicking it. 
 - If a time series varies over one or more index sets, you can select indexes from the lists below the plot. You can do multiselection (ctrl-click) here too.
-- If you write text in the search bar under the series selecter, it will collapse all top nodes of the tree that don't match the search term. You can only search for the top node.
 
-If you want multiple plot axes displayed at the same time, you need to open the [additional plot window](additionalplots.html) by clicking ![Additional plots](../img/toolbar/ViewMorePlots.png) in the toolbar.
-
-The time series info box will display statistics about the selected time series. It can also display [goodness-of-fit statistics](statistics.html). Remember that you can load whatever time series data you want in the [data file](../datafiledocs/datafiles.md). This is useful for loading observation series that you want to compare to the model results.
-
-The plot will automatically update itself every time you run the model ![Run](../img/toolbar/Run.png) to reflect any changes in the result time series.
-
-## Navigation
+## Plot navigation (scroll and zoom)
 
 In many of the plot modes you can scroll and zoom the plot.
 

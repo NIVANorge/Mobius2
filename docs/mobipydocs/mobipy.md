@@ -26,18 +26,30 @@ You can also look at some more [example notebooks](https://github.com/NIVANorge/
 
 ## Basic usage
 
-It is useful to look at the [central model concepts](../mobius2docs/central_concepts.html) to understand what we mean by certain concepts below like ("parameter", "state variable", "identifier", etc.).
+It is useful to look at the [central model concepts](../mobius2docs/central_concepts.html) to understand what we mean by certain terms below like ("parameter", "state variable", "identifier", etc.).
 
 First you need to load a model application using
 ```python
-app = mobipy.Model_Application.build_from_model_and_data_file("model_file_path.txt", "data_file_path.txt")
+app = mobipy.Model_Application.build_from_model_and_data_file(
+	"path/to/model.txt", 
+	"path/to/data.dat")
 ```
 To be able to extract any results you need to run the model, using
 ```python
 app.run()
 ```
 
-It is important to note that the `Model_Application` object is not serializable in a python sense, so its state is not stored in Jupyter notebooks. This means that if you use a notebook, the entire state is lost if the kernel is restarted. Moreover, operations done on the `app` in later cells can effect the outcome if you run earlier cells.
+It is important to note that the `Model_Application` object is not python-serializable, so you can not access the same app object across multiple processes. Using multiple threads works fine, just note that operations modifying the state of the app (running the model, modifying parameters, etc.) are not thread safe. If you want to run the model in several parallel instances, you can make copies of the working dataset as seen below.
+
+```python
+# This is a thread safe way to run a model instance in parallel.
+def run_model_instance(app) :
+	data = app.copy()
+	#modify_some_parameters(data)
+	data.run()
+	#do_something_with_the_data(data)
+	del data
+```
 
 ### Acessing model entities
 

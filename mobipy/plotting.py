@@ -27,7 +27,13 @@ def plot_targets(app, targets, sl, width=10, height_per=5) :
 		simname, simidx, obsname, obsidx, *wgt = target
 		app.var(simname)[simidx].loc[sl].plot(ax=ax)
 		app.var(obsname)[obsidx].loc[sl].plot(ax=ax, marker='o')
+		
+		ymin, ymax = ax.get_ylim()
+		if ymin > 0 :
+			ax.set_ylim(0, ymax)
+		
 		ax.legend()
+		
 	
 	fig, axs = plt.subplots(len(targets), figsize=(width, height_per*len(targets)))
 	

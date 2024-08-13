@@ -162,7 +162,7 @@ def run_latin_hypercube_sample(app, params, set_params, target_stat, n_samples, 
 	
 	return par_data, stats
 	
-def run_minimizer(app, params, set_params, residual_fun, method='nelder', run_timeout=-1, disp=False) :
+def run_minimizer(app, params, set_params, residual_fun, method='nelder', use_init=True, run_timeout=-1, disp=False) :
 	
 	def get_residuals(pars) :
 		
@@ -182,6 +182,9 @@ def run_minimizer(app, params, set_params, residual_fun, method='nelder', run_ti
 
 	options = {'disp' : disp}
     
-	res = mi.minimize(method=method, params=params, options=options)
+	init = None
+	if use_init : init = params
+	
+	res = mi.minimize(method=method, params=init, options=options)
 	
 	return res
