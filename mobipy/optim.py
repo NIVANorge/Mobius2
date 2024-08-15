@@ -54,15 +54,10 @@ def update_mcmc_results(result, nburn, thin=1):
         Updated LMFit result object.    
     """
     # Discard the burn samples and thin
-    chain = result.chain[..., nburn::thin, :]
+    chain = result.chain[nburn::thin, :, :]
     ndim = result.chain.shape[-1]
 	
-    # Take the zero'th PTsampler temperature for the parameter estimators
-    if len(result.chain.shape) == 4:
-        # Parallel tempering
-        flatchain = chain[0, ...].reshape((-1, ndim))
-    else:
-        flatchain = chain.reshape((-1, ndim))
+    flatchain = chain.reshape((-1, ndim))
 
     # 1-sigma quantile, estimated as half the difference between the 15 and 84 percentiles
     quantiles = np.percentile(flatchain, [15.87, 50, 84.13], axis=0)
@@ -84,7 +79,7 @@ def update_mcmc_results(result, nburn, thin=1):
                 result.params[var_name].correl[var_name2] = corrcoefs[i, j]
 
     # Add both the median and the MAP as additonal 'user_data' pars in the 'result' object
-    lnprob = result.lnprob[..., nburn::thin]
+    lnprob = result.lnprob[nburn::thin, :]
     highest_prob = np.argmax(lnprob)
     hp_loc = np.unravel_index(highest_prob, lnprob.shape)
     map_soln = chain[hp_loc]
@@ -135,9 +130,10 @@ def residual_from_target(target, start_date, end_date) :
 
 def ll_from_target(target, start_date, end_date, ll_fun=ll_wls) :
 	
+	sl = slice(start_date, end_date)
+	
 	if isinstance(target, list) :
 		
-		sl = slice(start_date, end_date)
 		def log_likelihood(data, params, n_run=None) :
 			
 			sum = 0.0
@@ -172,14 +168,15 @@ def params_from_dict(app, dict) :
 		val = app[module].__getattr__(ident)[indexes]
 		
 		params.add(name=par_name, value=val, min=mn, max=mx)
-		params[par_name].user_data = (module, ident, indexes)
+		params[par_name].user_data = {}
+		params[par_name].user_data['Mobius_id'] = (module, ident, indexes)
 		
 	def set_params(data, params) :
 		for par_name in params :
 			if par_name.startswith('__') : continue
 			
 			par = params[par_name]
-			module, ident, indexes = par.user_data
+			module, ident, indexes = par.user_data['Mobius_id']
 			data[module].__getattr__(ident)[indexes] = par.value
 		
 	return params, set_params
@@ -188,7 +185,8 @@ def params_from_dict(app, dict) :
 def add_wls_params(params, muinit, mumin, mumax, siminit, simin, simax) :
 	params.add(name='__mu', min=mumin, max=mumax, value=muinit)
 	params.add(name='__sigma', min=simin, max=simax, value=siminit)
-
+	params['__mu'].user_data = {}
+	params['__sigma'].user_data = {}
 
 def run_latin_hypercube_sample(app, params, set_params, target_stat, n_samples, run_timeout=-1, verbose=1) :
 	

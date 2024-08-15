@@ -21,19 +21,22 @@ def plot_targets(app, targets, sl, width=10, height_per=5) :
 	
 	def plot_target(app, target, ax) :
 		simname, simidx, obsname, obsidx, *wgt = target
-		app.var(simname)[simidx].loc[sl].plot(ax=ax)
-		app.var(obsname)[obsidx].loc[sl].plot(ax=ax, marker='o')
+		app.var(obsname)[obsidx].loc[sl].plot(ax=ax, marker='o', linewidth=0, markerfacecolor=(0, 0, 0, 0), markeredgecolor='#c79124')
+		app.var(simname)[simidx].loc[sl].plot(ax=ax, color='#3293e3')
 		
 		ymin, ymax = ax.get_ylim()
 		if ymin > 0 :
 			ax.set_ylim(0, ymax)
 		
 		ax.legend()
-		
 	
-	fig, axs = plt.subplots(len(targets), figsize=(width, height_per*len(targets)))
-	
+	nplots = 1
 	if isinstance(targets, list) :
+		nplots = len(targets)
+	
+	fig, axs = plt.subplots(nplots, figsize=(width, height_per*nplots))
+	
+	if nplots > 1:
 		for i, target in enumerate(targets) :
 			plot_target(app, target, axs[i])
 	else :

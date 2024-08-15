@@ -60,7 +60,7 @@ var(gw.water, [m m], "Groundwater volume") @initial { 0[m m] }
 
 In most Mobius2 models, we model quantities using ordinary differential equations (ODE).
 
-An ODE, unlike a regular equation that directly computes the value of somehting, specifies a rate of change of that something. For instance the equation
+An ODE, unlike a regular equation that directly computes the value of something, specifies a rate of change of that something. For instance the equation
 
 $$
 \frac{\mathrm{d}a(t)}{\mathrm{d}t} = -c\cdot a(t)
@@ -68,11 +68,17 @@ $$
 
 says that the variable $$a(t)$$ decreases over time proportionally (with specific rate $$-c$$) to its own value. This formulation is very common for e.g. degradation or removal of various substances in natural systems, and also in many cases for water transport.
 
-While the above equation has an exact solution $$a(t) = a(0)e^{-ct}$$ if $$c$$ is constant, the picture is much more complex in most practical applications (either there are more terms to the equation, or the terms are not linear in the state variables).
+When $$c$$ is constant the above equation has an exact solution
 
-Since exact solutions are usually difficult or impossible to find, mathematicians and physicists have developed numerical solver algorithms (sometimes called integration algorithms) that can compute approximate solutions with high accuracy.
+$$
+a(t) = a(0)e^{-ct}
+$$
 
-The solver algorithm will advance the solution in small step lengths (typically smaller than the step length of the model). The framework only records the values at each model step, but between that the solver could do many more evaluations to preserve accuracy of the solution. Many solvers are adaptive so that they will try to use as few computational resources as possible while preserving accuracy.
+But the picture is much more complex in most practical applications. Either there are more terms to the equation, or the terms are not constantly linear in the state variables.
+
+Since exact solutions are usually difficult or impossible to find, mathematicians and physicists have developed numerical solver algorithms (sometimes called integration algorithms) that can compute approximate evolutions of the system with high accuracy.
+
+The solver algorithm will advance the solution in small step lengths (typically smaller than the [sampling step length](../../datafiledocs/datafiles.html#the-sampling-step) of the model). The framework only records the values at each model step, but between that the solver could do many more evaluations to preserve accuracy of the solution. Many solvers are adaptive so that they will try to use as few computational resources as possible while preserving accuracy.
 
 To use ODEs in Mobius2, you don't need to understand much more about the theory of ODEs or solvers than what is mentioned here, but see the note about unstable equations at the bottom of this page.
 
@@ -82,7 +88,7 @@ In the model scope (not module) we declare a solver and say that our two quantit
 # The name "Hydrology solver" is arbitrary, you can call it what you want.
 # inca_dascru identifies a specific algorithm. This one is good for most purposes.
 # [2, hr] is the initial solver step length.
-# 1e-2 is how much the solver algorithm is allowed to decrease the step size to
+# 1e-2 is to how low a relative length the solver algorithm is allowed to decrease the step size to
 #    preserve accuracy of the solution.
 sol : solver("Hydrology solver", inca_dascru, [2, hr], 1e-2)
 
