@@ -8,7 +8,6 @@ def quick_heatmap(ax, data, dates, ys, cmap='coolwarm') :
 	ax.pcolormesh(x, y, data.transpose(), cmap=cmap, shading='auto')
 	ax.invert_yaxis()
 
-
 def quick_surf(ax, data, dates, ys, cmap='coolwarm') :
 	x, y = np.meshgrid(range(len(dates)), ys)  #TODO: Figure out how to put date axis on plot_surface
 
@@ -17,9 +16,6 @@ def quick_surf(ax, data, dates, ys, cmap='coolwarm') :
 	ax.view_init(50, 80)
 	ax.set_box_aspect(aspect = (2,1,1))
 	
-
-
-
 def plot_targets(app, targets, sl, width=10, height_per=5) :
 	# For use with optimization targets.
 	

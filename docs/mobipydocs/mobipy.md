@@ -13,7 +13,7 @@ It lets you set parameter values and input series dynamically and read out resul
 Among other things, this allows you to:
 
 - Automate running of many different scenarios. For instance, your script could access various climate scenarios from a database (or files), set them as forcings in the model, then storing and comparing the results. This can be done without generating different input files for the model.
-- Make a website for stakeholder interaction that uses a python backend such as [streamlit](https://streamlit.io/), and have it dynamically run a model based on a custom user web interface or forecasts from a database. See one example of this being done with [INCA-Microplastics](https://ikhapp.org/inca-microplastics/) using Mobius1.
+- Make a website for stakeholder interaction that uses a python backend such as [streamlit](https://streamlit.io/), and have it dynamically run a model based on a custom user web interface or forecasts from a database. See one [example of this being done with INCA-Microplastics](https://ikhapp.org/inca-microplastics/) using Mobius1.
 - Write your own autocalibration and uncertainty analysis scripts if you need something more specific than what you find in [MobiView2](../mobiviewdocs/sensitivity.html).
 
 To be able to run mobipy you need to download mobipy/c_abi.dll from ftp://mobiserver.niva.no/Mobius2 and put it in your local Mobius2/mobipy folder.

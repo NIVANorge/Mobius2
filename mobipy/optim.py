@@ -38,7 +38,66 @@ def run_mcmc(app, params, set_params, log_likelihood, burn, steps, walkers, run_
 
 	return mcmc.emcee(params=params, pos=starting_guesses, burn=burn, steps=steps, nwalkers=walkers, workers=Thread_Pool(), float_behavior='posterior')
 	
+def update_mcmc_results(result, nburn, thin=1):
+    """ The summary statistics contained in the LMFit result object do not account for
+        the burn-in period. This function discards the burn-in, thins and then re-calculates
+        parameter medians and standard errors. The 'user_data' attribute for each parameter
+        is then updated to include two new values: 'median' and 'map'. These can be passed to
+        set_parameter_values() via the 'use_stat' kwarg.        
+        
+    Args:
+        result: Obj. LMFit result object with method='emcee'
+        nburn:  Int. Number of steps to discrad from the start of each chain as 'burn-in'
+        thin:   Int. Keep only every 'thin' steps
+        
+    Returns:
+        Updated LMFit result object.    
+    """
+    # Discard the burn samples and thin
+    chain = result.chain[..., nburn::thin, :]
+    ndim = result.chain.shape[-1]
 	
+    # Take the zero'th PTsampler temperature for the parameter estimators
+    if len(result.chain.shape) == 4:
+        # Parallel tempering
+        flatchain = chain[0, ...].reshape((-1, ndim))
+    else:
+        flatchain = chain.reshape((-1, ndim))
+
+    # 1-sigma quantile, estimated as half the difference between the 15 and 84 percentiles
+    quantiles = np.percentile(flatchain, [15.87, 50, 84.13], axis=0)
+
+    for i, var_name in enumerate(result.var_names):
+        std_l, median, std_u = quantiles[:, i]
+        result.params[var_name].value = median
+        result.params[var_name].stderr = 0.5 * (std_u - std_l)
+        result.params[var_name].correl = {}
+
+    result.params.update_constraints()
+
+    # Work out correlation coefficients
+    corrcoefs = np.corrcoef(flatchain.T)
+
+    for i, var_name in enumerate(result.var_names):
+        for j, var_name2 in enumerate(result.var_names):
+            if i != j:
+                result.params[var_name].correl[var_name2] = corrcoefs[i, j]
+
+    # Add both the median and the MAP as additonal 'user_data' pars in the 'result' object
+    lnprob = result.lnprob[..., nburn::thin]
+    highest_prob = np.argmax(lnprob)
+    hp_loc = np.unravel_index(highest_prob, lnprob.shape)
+    map_soln = chain[hp_loc]
+    
+    for i, var_name in enumerate(result.var_names):
+        std_l, median, std_u = quantiles[:, i]
+        result.params[var_name].user_data['median'] = median
+        result.params[var_name].user_data['map'] = map_soln[i]
+        
+    return result 
+
+
+
 def ll_wls(sim, obs, params) :
 	l2pi = 1.83787706641 #np.log(np.pi)
 	

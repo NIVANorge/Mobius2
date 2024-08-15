@@ -75,7 +75,7 @@ The `@no_store` directive just tells Mobius2 to not store the time series of thi
 	- It saves memory. This is especially important for variables in compartments that are distributed over large index sets.
 	- Too many variables can clutter up the user interface, and not all of them are interesting in themselves.
 
-The mixing coefficient $$K$$ is (as in MyLake) be given by
+The mixing coefficient $$K$$ is (as in MyLake) given by
 
 $$
 K_r = \begin{cases}
@@ -117,7 +117,6 @@ Unlike other heat fluxes, shortwave radiation can be passed down through multipl
 Doing it this way, we can access the amount of incoming heat along this connection and pass some of it along to connections below. The amount of `heat` coming to the `water` along the `sw_vert` connection can be accessed using `in_flux(sw_vert, water.heat)`.
 
 ```python
-
 # We store layer.sw as a separate variable because it can be used 
 # in biochemical modules for light availability for plankton etc.
 var(layer.sw, [W, m-2], "Layer shortwave radiation") {

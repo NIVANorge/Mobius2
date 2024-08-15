@@ -24,4 +24,4 @@ In addition to these, Mobius2 comes with modules for other processes that are co
 - Atmospheric variables (radiation, humidity...)
 - Air-sea heat exchange
 
-We expect to eventually port over other models from Mobius1 such as MAGIC and SedFlex.
+We expect to eventually port over other models from Mobius1 such as SedFlex and the plastic models.
