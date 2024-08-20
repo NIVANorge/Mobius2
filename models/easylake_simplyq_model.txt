@@ -40,7 +40,7 @@ model("EasyLake-SimplyQ") {
 		(river|epi)+ out
 	} @no_cycles
 	
-	freeze_temp : constant("Ice formation temperature", [deg_c], 0)
+	freeze_temp : constant("Lake ice formation temperature", [deg_c], 0)
 	
 	load("modules/simplysoiltemp.txt", module("Simply soil temperature", air, soil, snow_box, snow, temp))
 	load("modules/rivertemp.txt",      module("RiverTemperature", air, soil, river, water, heat, temp))
