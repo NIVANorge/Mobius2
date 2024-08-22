@@ -13,7 +13,7 @@ Since the modules can be dynamically loaded with different arguments, this docum
 
 See the note on [notation](autogen.html#notation).
 
-The file was generated at 2024-08-22 10:59:05.
+The file was generated at 2024-08-22 11:08:06.
 
 ---
 
@@ -1024,11 +1024,6 @@ Version: 0.0.0
 
 File: [modules/organic_np.txt](https://github.com/NIVANorge/Mobius2/tree/main/models/modules/organic_np.txt)
 
-### External symbols
-
-| Name | Symbol | Type |
-| ---- | ------ | ---- |
-
 ### Parameters
 
 | Name | Symbol | Unit |  Description |
@@ -1036,6 +1031,134 @@ File: [modules/organic_np.txt](https://github.com/NIVANorge/Mobius2/tree/main/mo
 | **Organic nutrient ratios land** | | |  |
 | OM molar C/N ratio | **om_cn** |  | The default value is the Redfield ratio |
 | OM molar C/P ratio | **om_cp** |  | The default value is the Redfield ratio |
+
+---
+
+## Simple organic NP
+
+Version: 0.0.0
+
+File: [modules/organic_np.txt](https://github.com/NIVANorge/Mobius2/tree/main/models/modules/organic_np.txt)
+
+### External symbols
+
+| Name | Symbol | Type |
+| ---- | ------ | ---- |
+| River | **river** | compartment |
+| Organic nitrogen | **on** | quantity |
+| Water | **water** | quantity |
+| Organic carbon | **oc** | quantity |
+| Particles | **sed** | quantity |
+| Organic phosphorous | **op** | quantity |
+| Total nitrogen | **tn** | property |
+| Total phosphorous | **tp** | property |
+| Total dissolved phosphorous | **tdp** | property |
+
+### State variables
+
+#### **River DOP**
+
+Location: **river.water.op**
+
+Unit: kg
+
+Conc. unit: mg l⁻¹
+
+#### **River POP**
+
+Location: **river.water.sed.op**
+
+Unit: kg
+
+#### **River DON**
+
+Location: **river.water.on**
+
+Unit: kg
+
+Conc. unit: mg l⁻¹
+
+#### **River PON**
+
+Location: **river.water.sed.on**
+
+Unit: kg
+
+#### **Total phosphorous**
+
+Location: **river.water.tp**
+
+Unit: mg l⁻¹
+
+#### **Total dissolved phosphorous**
+
+Location: **river.water.tdp**
+
+Unit: mg l⁻¹
+
+#### **Total nitrogen**
+
+Location: **river.water.tn**
+
+Unit: mg l⁻¹
+
+### Fluxes
+
+#### **DON mobilization**
+
+Source: out
+
+Target: river.water.on
+
+Unit: kg day⁻¹
+
+Value:
+
+$$
+\left(\frac{\mathrm{in\_flux}\left(\mathrm{oc}\right)}{\href{stdlib.html#chemistry}{\mathrm{cn\_molar\_to\_mass\_ratio}}\left(\mathrm{om\_cn}\right)}\rightarrow \mathrm{kg}\,\mathrm{day}^{-1}\,\right)
+$$
+
+#### **PON mobilization**
+
+Source: out
+
+Target: river.water.sed.on
+
+Unit: kg day⁻¹
+
+Value:
+
+$$
+\left(\frac{\mathrm{in\_flux}\left(\mathrm{sed}.\mathrm{oc}\right)}{\href{stdlib.html#chemistry}{\mathrm{cn\_molar\_to\_mass\_ratio}}\left(\mathrm{om\_cn}\right)}\rightarrow \mathrm{kg}\,\mathrm{day}^{-1}\,\right)
+$$
+
+#### **DOP mobilization**
+
+Source: out
+
+Target: river.water.op
+
+Unit: kg day⁻¹
+
+Value:
+
+$$
+\left(\frac{\mathrm{in\_flux}\left(\mathrm{oc}\right)}{\href{stdlib.html#chemistry}{\mathrm{cn\_molar\_to\_mass\_ratio}}\left(\mathrm{om\_cp}\right)}\rightarrow \mathrm{kg}\,\mathrm{day}^{-1}\,\right)
+$$
+
+#### **POP mobilization**
+
+Source: out
+
+Target: river.water.sed.op
+
+Unit: kg day⁻¹
+
+Value:
+
+$$
+\left(\frac{\mathrm{in\_flux}\left(\mathrm{sed}.\mathrm{oc}\right)}{\href{stdlib.html#chemistry}{\mathrm{cp\_molar\_to\_mass\_ratio}}\left(\mathrm{om\_cp}\right)}\rightarrow \mathrm{kg}\,\mathrm{day}^{-1}\,\right)
+$$
 
 
 

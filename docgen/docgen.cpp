@@ -504,19 +504,28 @@ document_module(std::stringstream &ss, Mobius_Model *model, std::string &module_
 		ss << "### Description" << "\n\n" << modtemplate->doc_string << "\n\n";
 	}
 	
-	ss << "### External symbols\n\n";
-	ss << "| Name | Symbol | Type |\n";
-	ss << "| ---- | ------ | ---- |\n";
+	int count_vis = 0;
 	for(auto &pair : module->scope.visible_entities) {
-		auto &symbol = pair.first;
 		auto &record = pair.second;
-		auto entity = model->find_entity(record.id);
-		
 		if(!record.is_load_arg) continue;
-		
-		ss << "| " << entity->name << " | **" << symbol << "** | " << name(entity->decl_type) << " |\n";
+		++count_vis;
 	}
-	ss << "\n";
+	
+	if(count_vis > 0) {
+		ss << "### External symbols\n\n";
+		ss << "| Name | Symbol | Type |\n";
+		ss << "| ---- | ------ | ---- |\n";
+		for(auto &pair : module->scope.visible_entities) {
+			auto &symbol = pair.first;
+			auto &record = pair.second;
+			auto entity = model->find_entity(record.id);
+			
+			if(!record.is_load_arg) continue;
+			
+			ss << "| " << entity->name << " | **" << symbol << "** | " << name(entity->decl_type) << " |\n";
+		}
+		ss << "\n";
+	}
 	
 	print_constants(ss, model, &module->scope);
 	
@@ -714,6 +723,8 @@ document_library(std::stringstream &ss, Mobius_Model *model, Entity_Id lib_id) {
 	
 	auto lib = model->libraries[lib_id];
 	
+	std::cout << "\tlibrary \"" << lib->name << "\"\n";
+	
 	ss << "## " << lib->name << "\n\n";
 	
 	// TODO: This is a bit error prone, should just use some util to extract filename from path.
@@ -786,7 +797,7 @@ main() {
 		{"SimplyCNP", "simplycnp_model.txt", "SimplyQ land", "SimplyQ river", "SimplyC land", "SimplyC river", "SimplyN", "SimplyP", "SimplySed"},
 		{"EasyLake", "easylake_simplycnp_model.txt", "EasyLake", "EasyChem", "EasyChem-Particulate"},
 		{"NIVAFjord", "nivafjord_simplycnp_model.txt", "NIVAFjord dimensions", "NIVAFjord basin", "NIVAFjord chemistry rates", "NIVAFjord chemistry", "NIVAFjord sediments"},
-		{"Auxiliary", "easylake_simplycnp_model.txt", "Degree-day PET", "HBVSnow", "Simply soil temperature", "RiverTemperature", "Atmospheric", "AirSea Lake", "Simple river TOC", "Organic CNP land"},
+		{"Auxiliary", "easylake_simplycnp_model.txt", "Degree-day PET", "HBVSnow", "Simply soil temperature", "RiverTemperature", "Atmospheric", "AirSea Lake", "Simple river TOC", "Organic CNP land", "Simple organic NP"},
 	};
 	
 	for(int i = 0; i < models.size(); ++i)
