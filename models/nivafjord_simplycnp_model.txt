@@ -41,8 +41,8 @@ model("NIVAFjord-SimplyCNP") {
 	load("modules/easychem.txt",
 		module("Simple River O₂", river, water, o2, temp))
 		
-	#solve(fjord_sol, sediment.sed)
 	solve(sol, sediment.sed, sediment.heat)
+	solve(sol, air.cos_z)
 	
 	wb_index : index_set("Water body") @union(sc, basin_idx)
 	

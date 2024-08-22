@@ -855,21 +855,25 @@ basic_instruction_solver_configuration(Model_Application *app, std::vector<Model
 			
 			Var_Id var_id = app->vars.id_of(loc);
 			auto comp = model->components[loc.last()];
+			/*
 			if(comp->decl_type != Decl_Type::quantity) {
 				source_loc.print_error_header(Mobius_Error::model_building);
 				fatal_error("The variable \"", app->vars[var_id], "\" is not a quantity, and so it can not be put on a solver directly.");
-			}
-			if(loc.is_dissolved()) {
+			}*/
+			if(comp->decl_type == Decl_Type::quantity && loc.is_dissolved()) {
 				source_loc.print_error_header(Mobius_Error::model_building);
 				fatal_error("A solver was specified for \"", app->vars[var_id], "\". For now we don't allow specifying solvers for dissolved substances. Instead they are given the solver of the variable they are dissolved in.");
 			}
 			if(is_valid(instructions[var_id.id].solver)) {
-				source_loc.print_error_header(Mobius_Error::model_building);
-				fatal_error("The quantity \"", app->vars[var_id]->name, "\" was put on a solver more than one time.");
+				if(instructions[var_id.id].solver != solver_id) {
+					source_loc.print_error_header(Mobius_Error::model_building);
+					fatal_error("The quantity \"", app->vars[var_id]->name, "\" was put on two different solvers.");
+				}
+				continue;
 			}
 			if(!app->vars[var_id]->store_series) {
 				source_loc.print_error_header(Mobius_Error::model_building);
-				fatal_error("The quantity \"", app->vars[var_id]->name, "\" was specified as @no_store, and so can not be put on a solver.");
+				fatal_error("The variable \"", app->vars[var_id]->name, "\" was specified as @no_store, and so can not be put on a solver.");
 			}
 			instructions[var_id.id].solver = solver_id;
 		}
@@ -1397,6 +1401,21 @@ remove_ode_dependencies(std::set<int> &remove_from, Entity_Id solver, Model_Appl
 		remove_from.erase(rem);
 }
 
+bool
+has_fractional_step_access(Math_Expr_FT *code) {
+	for(auto expr : code->exprs) {
+		if(has_fractional_step_access(expr)) return true;
+	}
+	
+	if(code->expr_type == Math_Expr_Type::identifier) {
+		auto ident = static_cast<Identifier_FT *>(code);
+		if(ident->variable_type == Variable_Type::time_fractional_step)
+			return true;
+	}
+	
+	return false;
+}
+
 
 void
 create_batches(Model_Application *app, std::vector<Batch> &batches_out, std::vector<Model_Instruction> &instructions) {
@@ -1424,7 +1443,7 @@ create_batches(Model_Application *app, std::vector<Batch> &batches_out, std::vec
 		inline bool allow_move(Entity_Id label) { return !is_valid(label); } // NOTE: In this specific application, we can't move an instruction out of its solver batch if it has a solver.
 	};
 	
-	// Propagate solvers in a way so that instructions that are (dependency-) sandwiched between other instructions that are on the same ODE solver are also put in that ODE function.
+	// Propagate solvers in a way so that instructions that are (dependency-) sandwiched between other instructions that are on the same ODE solver are also put in that ODE batch.
 	{
 		bool changed = false;
 		std::vector<u8> visited(instructions.size());
@@ -1450,6 +1469,22 @@ create_batches(Model_Application *app, std::vector<Batch> &batches_out, std::vec
 		}
 		if(idx == 9 && changed)
 			fatal_error(Mobius_Error::internal, "Failed to propagate solvers in the alotted amount of iterations.");
+	}
+	
+	// Check that instructions that are not on a solver don't access time.fractional_step	
+	{
+		for(int instr_id = 0; instr_id < instructions.size(); ++instr_id) {
+			auto instr = &instructions[instr_id];
+			if(!instr->is_valid()) continue;
+			if(instr->type != Model_Instruction::Type::compute_state_var) continue;
+			if(is_valid(instr->solver)) continue;
+			if(!instr->code) continue;
+			bool frac = has_fractional_step_access(instr->code);
+			if(frac) {
+				// TODO: Fetch the source location...
+				fatal_error(Mobius_Error::model_building, "The variable \"", instr->debug_string(app), "\" accesses 'time.fractional_step', but it is not on a 'solver'.");
+			}
+		}
 	}
 	
 	// Some auto-gathered dependencies are not relevant for (and detrimental to) the instruction sorting. We remove them.

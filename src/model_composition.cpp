@@ -859,7 +859,8 @@ prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
 		auto solver = model->solvers[solve_id];
 		
 		for(auto &loc : solver->locs)
-			check_location(app, loc.second, loc.first, true);
+			//check_location(app, loc.second, loc.first, true);
+			check_location(app, loc.second, loc.first, false);
 	}
 	
 	//TODO: make better name generation system!

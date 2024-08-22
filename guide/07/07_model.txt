@@ -51,6 +51,8 @@ model("Lake model") {
 	
 	solve(sol, layer.water, lake.ice)
 	
+	solve(sol, air.cos_z)
+	
 	module("Additional variables", version(0, 0, 0)) {
 		
 		# Declare input series in case they are not declared anywhere else.

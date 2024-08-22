@@ -6,6 +6,8 @@
 		
 		Would like to be able to use in_flux in initial code (for e.g. setting initial steady states easily), but then we also need to be able to compute initial values for fluxes. With in_flux_connection it could be tricky to determine what initial fluxes must be computed (?).
 		
+		Made it possible to add properties to solvers manually, but it could be error prone.
+			Fix errors if they appear.
 
 		Specific models
 		
@@ -451,8 +453,6 @@
 		Declaring units with a handle and reusing that handle does not quite work, at least not for parameters.
 		
 		last(something) doesn't automatically cause it to have an initial value computation (if one was not set).
-		
-		Error if you access time.fractional_step outside a solver? Or it just defaults to 0?
 
 		Re-consolidate input loading with the serialization system (In terms of how it looks up ids of names).
 			Tricky...
