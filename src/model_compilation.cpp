@@ -1195,9 +1195,11 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			if(!initial && var2->override_is_conc) // In this case the function tree is for the concentration variable, not for the main variable.
 				fun = nullptr;
 			
+			// NOTE: I commented out the below, becuse then people can add properties that only have an @initial value, but where it doesn't change over time. Useful for computed values that only need to be computed at startup but don't change over time. We should maybe have some kind of check, but that should allow for this case.
+			
 			// NOTE: quantities typically don't have code associated with them directly (except for the initial value)
-			if(!initial && !fun && !is_valid(var2->external_computation) && (var2->decl_type != Decl_Type::quantity))
-				fatal_error(Mobius_Error::internal, "Somehow we got a state variable \"", var->name, "\" where the function code was unexpectedly not provided. This should have been detected at an earlier stage in model registration.");
+			//if(!initial && !fun && !is_valid(var2->external_computation) && (var2->decl_type != Decl_Type::quantity))
+			//	fatal_error(Mobius_Error::internal, "Somehow we got a state variable \"", var->name, "\" where the function code was unexpectedly not provided. This should have been detected at an earlier stage in model registration.");
 		}
 		
 		instr.var_id = var_id;

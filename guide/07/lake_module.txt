@@ -44,7 +44,7 @@ module("Simple layered lake", version(0, 0, 1),
 	}
 	
 	var(layer.water, [m 3], "Lake layer water") @initial {
-		0.5*(A + A[vert.below])*dz
+		aavg*dz
 	}
 	
 	var(layer.water.heat, [J], "Lake layer heat") @initial {
@@ -55,16 +55,21 @@ module("Simple layered lake", version(0, 0, 1),
 		water_heat_to_temp(water, heat)
 	} @initial { init_t }
 	
-	
 	var(layer.water.rho, [k g, m-3], "Layer potential density") {
 		water_density(temp)
 	}
 	
-	flux(layer.water, out, [m 3, s-1], "Layer discharge") {
-		a := 0.5*(A + A[vert.below]),
-		dz_est := water / a,
+	# We need this separate property because we can't use the 'below' access inside "Layer discharge" for implementation reasons. Can maybe be fixed later
+	# Note that since it is @initial and @no_store without a main code block, it will only be computed once at the start of the model run.
+	aavg : property("Area average")
+	var(layer.aavg, [m 2], "Layer average area") @initial {
+		0.5*(A + A[vert.below])
+	} @no_store
+	
+	flux(layer.water[vert.top], out, [m 3, s-1], "Lake discharge") {
+		dz_est := water[vert.top] / aavg[vert.top],
 		
-		excess := max(0, dz_est - dz),
+		excess := max(0, dz_est - dz[vert.top]),
 		rate_c := 1[m 2, s-1],
 		rate_c*excess
 	}

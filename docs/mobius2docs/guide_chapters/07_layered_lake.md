@@ -153,19 +153,24 @@ We add discharge from the lake top layer. This is important even though we haven
 There are many ways one could do the lake water balance, for instance one could distribute water so that all layers have the same thickness as one another. But in this example we have opted for a much simpler solution where only the top layer changes in thickness while the others stay constant. Of course, this may not be as good for reservoirs where the level could vary by many meters, but it works for a non-regulated lake where the surface level stays fairly constant.
 
 ```python
-flux(layer.water, out, [m 3, s-1], "Layer discharge") {
-	# Exercise: Take into account that the top area would expand if 
-	# the water expanded, along the same shore shape.
-	a := 0.5*(A + A[vert.below]),
-	dz_est := water / a,
+# We need this separate property because we can't use the 'below' access inside "Layer discharge" for implementation reasons. Can maybe be fixed later
+# Note that since it is @initial and @no_store without a main code block, it will only be computed once at the start of the model run.
+# Exercise: Take into account that the top area would expand if 
+# the water expanded, along the same shore shape.
+aavg : property("Area average")
+var(layer.aavg, [m 2], "Layer average area") @initial {
+	0.5*(A + A[vert.below])
+} @no_store
+
+flux(layer.water[vert.top], out, [m 3, s-1], "Lake discharge") {
+	dz_est := water[vert.top] / aavg[vert.top],
 	
-	# Exercise: The rating curve should maybe be nonlinear
-	excess := max(0, dz_est - dz),
+	# Exercise: Make a nonlinear rating curve that is user-parametrized
+	excess := max(0, dz_est - dz[vert.top]),
 	rate_c := 1[m 2, s-1],
 	rate_c*excess
 }
 ```
-(Right now this flux code is run for all layers, but will be 0 for all but the top layer since the other layers don't have any water sources to them, and so they don't change thickness. There is a limitation in the framework that don't allow us to specify this flux for the top layer only, but we plan to fix it).
 
 ![Lake temperature](images/07.png)
 

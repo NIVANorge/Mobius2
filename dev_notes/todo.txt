@@ -6,8 +6,6 @@
 		
 		Would like to be able to use in_flux in initial code (for e.g. setting initial steady states easily), but then we also need to be able to compute initial values for fluxes. With in_flux_connection it could be tricky to determine what initial fluxes must be computed (?).
 		
-		Need to (in model_composition) check if it is valid to look up a value along a connection.
-			Done except for parameters.
 
 		Specific models
 		
@@ -52,7 +50,10 @@
 			means. Right now the location 'something' is not used, and we only need to declare it to allow [.top] or [.specific] etc on the secondary restriction.
 				Need this for NIVAFjord
 			Could later extend it to have different code depending on the target (for graph).
-		
+			
+			Check if it is valid to look up a value along a connection.
+				Done except for parameters.
+			
 			graph connections
 				
 				Regex

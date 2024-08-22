@@ -367,9 +367,10 @@ set_grid1d_target_indexes(Model_Application *app, Index_Exprs &indexes, Restrict
 		if(!specific_target)
 			fatal_error(Mobius_Error::internal, "Wanted to set indexes for a specific connection target, but the code was not provided.");
 		indexes.set_index(index_set, specific_target);
-		
 	} else if(res.type == Restriction::above || res.type == Restriction::below) {
 		auto index = indexes.get_index(app, index_set);
+		if(!index)
+			fatal_error(Mobius_Error::internal, "Did not have an index for grid index set when we expected to.");
 		char oper = (res.type == Restriction::above) ? '-' : '+';
 		index = make_binop(oper, index, make_literal((s64)1));
 		indexes.set_index(index_set, index);

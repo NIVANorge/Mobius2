@@ -35,10 +35,10 @@ You can also create boundary basins where all physiochemical characteristics are
 
 This is the biochemical component of NIVAFjord, simulating nutrients (CNP), phytoplankton, microbial processes and suspended particles.
 
-Mathematical description to appear.
+See the [mathematical description](autogen/nivafjord.html#nivafjord-chemistry).
 
 ## Sediments
 
 This is the sediment component of NIVAFjord, simulating nutrients (CNP) and microbial processes.
 
-Mathematical description to appear.
+See the [mathematical description](autogen/nivafjord.html#nivafjord-sediments).
