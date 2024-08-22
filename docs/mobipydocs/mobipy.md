@@ -113,7 +113,7 @@ However if the parameter indexes over one or more index sets, you have to provid
 app["SimplyQ land"].tc_s["Agricultural"] = 3
 ```
 
-Remember that you must rerun the model for the parameter edit to take effect.
+Remember that you must rerun the model for the parameter edit to take effect in the results.
 
 To read the value you must always provide an index even if it doesn't index over anything. If there are no index sets, use `[()]`.
 
@@ -149,7 +149,7 @@ For now we don't support setting slices.
 
 Model series have a `unit()` member function giving you a string representation of its unit.
 
-You can also get the concentratoion series of a dissolved variable using `conc()`. For a flux, you can further use the `.` operator to get the transport flux of dissolved variables.
+You can also get the concentration series of a dissolved variable using `conc()`. For a flux, you can further use the `.` operator to get the transport flux of dissolved variables.
 
 The conc and transport operations must be called on the `mobipy.Series` object, not on the `pandas.Series` value (i.e. don't index it before the operation). Example:
 

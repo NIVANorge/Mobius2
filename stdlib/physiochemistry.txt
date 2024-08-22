@@ -27,7 +27,7 @@ Some common thermodynamic constants and functions.
 
 library("Water utils") {
 """
-These are simplified functions for computing properties of freshwater at surface pressure. See the SeaWater module for functions that work better in more general cases.
+These are simplified functions for computing properties of freshwater at surface pressure. See the Seawater library for functions that work better in more general cases.
 
 References to be inserted.
 """

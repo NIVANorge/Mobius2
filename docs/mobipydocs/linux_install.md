@@ -1,11 +1,11 @@
 ---
 layout: default
-title: mobipy Linux installation
+title: Linux installation
 parent: mobipy
 nav_order: 1
 ---
 
-# mobipy Linux installation
+# Linux installation
 
 On Linux you need to build mobipy from source code. First you need to install the dependencies. 
 
@@ -13,9 +13,9 @@ Note: If you are a NIVA employee on NIVA's jupyterhub, you can skip to step 3. T
 
 ## 0. Make sure you have what is needed to build programs
 
-This step may not be necessary unless you are working on a completely fresh system.
+This step may be unnecessary unless you are working on a completely fresh system.
 
-```console
+```shell
 sudo apt update
 sudo apt upgrade
 sudo apt install build-essential
@@ -26,13 +26,13 @@ sudo apt install cmake
 
 Clone the git repository https://github.com/troldal/OpenXLSX using e.g.
 
-```console
+```shell
 git clone https://github.com/troldal/OpenXLSX.git
 ```
 
 Follow the installation process on their front page, that is run the following shell commands:
 
-```console
+```shell
 cd OpenXLSX
 mkdir build
 cd build
@@ -43,7 +43,7 @@ cmake --install .
 
 In some cases there is an error where `cmake --install .` doesn't copy all the files, in that case you may also need to run
 
-```console
+```shell
 cp ../OpenXLSX/external /usr/local/include/OpenXLSX
 ```
 
@@ -51,7 +51,7 @@ cp ../OpenXLSX/external /usr/local/include/OpenXLSX
 
 Run the following commands that installs LLVM 18 (see the [reference page](https://apt.llvm.org/) if needed).
 
-```console
+```shell
 wget https://apt.llvm.org/llvm.sh
 chmod +x llvm.sh
 ./llvm.sh 18
@@ -62,13 +62,13 @@ rm llvm.sh
 
 Assuming you have already cloned Mobius2 using
 
-```console
+```shell
 git clone https://github.com/NIVANorge/Mobius2.git
 ```
 
 go to `Mobius2/mobipy` and run
 
-```console
+```shell
 chmod +x compile.sh
 ./compile.sh
 ```
