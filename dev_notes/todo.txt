@@ -81,14 +81,12 @@
 			grid1d
 			
 				When the context location of code is e.g. [vert.top], it should be implicit that all variables are accessed with that index.
-				Currently, there is also a bug when if context is [vert.top], [vert.below] crashes since there is simply no index code generated for that index set.
-					Should have been detected in model_composition, but it is better to just make it implicit.
-			
-			
-			
+					In that case it should also be possible to look up [vert.below] inside this code (which then resolves to index 1).
+
 				The way we go around not having a source_aggregate for these when we have something going from [below] (and maybe from [top] if that works now) is not clean and could cause problems if people want to use the in_flux aggregate in the code.
 				However it also seems like a waste to make a out_flux aggregate when it is only needed for one of the indexes.
 					Unless we make a special system for it not to have an index set dependency on the grid index in this case. That seems like a lot of work for this special case though.
+					- It is actually not that much of a waste since they are now usually @no_store.
 				Alternatively, in the ODE codegen, directly make a subtraction of the flux (on condition of correct index).
 					This is maybe the easiest, but is still a bit of work for this special case.
 					
@@ -96,8 +94,13 @@
 			
 			
 			.specific target:
-				Maybe the @specific code AST should be tied to the var loc instead of the variable, like bling[vert.specific{ ..code }]
-					Could then also allow .specific inside main code.
+				Maybe the @specific code AST should be tied to the var loc instead of the variable, like var_ident[conn_ident.{ ..code }]
+					Could then also allow .specific access inside main code, not just in flux source/targets
+						Also makes it easier to do random access indexing in general in case people really want it.
+						Creates a bit of a dependency nightmare?? Must maybe assume that it creates same dependency as 'above', otherwise would need to analyze the code..
+				Only issue is then that copying around Specific_Var_Location can then incur a tree copy of that code.
+					Although maybe not necessary if we make an external owner of it? Then we could just copy the pointer.
+					
 				Tridiagonal distribution of flux target as in original NIVAFjord (?).
 			
 		Bidirectional

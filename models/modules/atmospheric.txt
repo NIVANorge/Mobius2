@@ -32,7 +32,7 @@ Authors: Magnus D. Norling
 	}
 	
 	par_group("Radiation") {
-		subdaily  : par_bool("Use sub-daily precision", false, "Compute hourly averages of solar radiation")
+		subdaily  : par_bool("Use sub-daily precision", false, "Compute hourly averages of solar radiation. Only works correctly if the model sampling step is [hr] or lower.")
 	}
 	
 	r_hum            : property("Relative humidity")
