@@ -52,7 +52,7 @@ cp ../OpenXLSX/external /usr/local/include/OpenXLSX
 Run the following commands that installs LLVM 18 (see the [reference page](https://apt.llvm.org/) if needed).
 
 ```console
-wget https://apt.llvm.org/llvm.shell
+wget https://apt.llvm.org/llvm.sh
 chmod +x llvm.sh
 ./llvm.sh 18
 rm llvm.sh
@@ -66,7 +66,7 @@ Assuming you have already cloned Mobius2 using
 git clone https://github.com/NIVANorge/Mobius2.git
 ```
 
-Go to `Mobius2/mobipy` and run
+go to `Mobius2/mobipy` and run
 
 ```console
 chmod +x compile.sh
