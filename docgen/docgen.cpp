@@ -484,6 +484,9 @@ print_constants(std::stringstream &ss, Mobius_Model *model, Decl_Scope *scope) {
 
 void
 document_module(std::stringstream &ss, Mobius_Model *model, std::string &module_name) {
+	
+	std::cout << "\tmodule \"" << module_name << "\"\n";
+	
 	auto module_id = model->deserialize(module_name, Reg_Type::module);
 	auto module = model->modules[module_id];
 	auto modtemplate = model->module_templates[module->template_id];
@@ -660,6 +663,8 @@ document_module(std::stringstream &ss, Mobius_Model *model, std::string &module_
 void
 generate_docs(int navorder, std::vector<const char *> &tuple) {
 	
+	std::cout << "Documenting " << tuple[0] << std::endl;
+	
 	std::stringstream infile;
 	infile << "../models/" << tuple[1];
 	std::string infilestr = infile.str();
@@ -737,7 +742,9 @@ document_library(std::stringstream &ss, Mobius_Model *model, Entity_Id lib_id) {
 
 void
 generate_lib_docs(int navorder, const char *filename) {
-
+	
+	std::cout << "Documenting libraries" << std::endl;
+	
 	Mobius_Model *model = load_model(filename);
 	
 	std::stringstream ss;
@@ -777,11 +784,10 @@ main() {
 	// TODO: Read these from a file:
 	std::vector<std::vector<const char *>> models = {
 		{"SimplyCNP", "simplycnp_model.txt", "SimplyQ land", "SimplyQ river", "SimplyC land", "SimplyC river", "SimplyN", "SimplyP", "SimplySed"},
-		{"EasyLake", "easylake_simplycnp_model.txt", "EasyLake", "AirSea Lake", "EasyChem", "EasyChem-Particulate"},
-		{"NIVAFjord", "nivafjord_simplycnp_model.txt", "NIVAFjord dimensions", "NIVAFjord basin"},
+		{"EasyLake", "easylake_simplycnp_model.txt", "EasyLake", "EasyChem", "EasyChem-Particulate"},
+		{"NIVAFjord", "nivafjord_simplycnp_model.txt", "NIVAFjord dimensions", "NIVAFjord basin", "NIVAFjord chemistry rates", "NIVAFjord chemistry", "NIVAFjord sediments"},
+		{"Auxiliary", "easylake_simplycnp_model.txt", "Degree-day PET", "HBVSnow", "Simply soil temperature", "RiverTemperature", "Atmospheric", "AirSea Lake", "Simple river TOC", "Organic CNP land"},
 	};
-	// TODO: Maybe have AirSea lake in a separate file.
-	// Also: snow, evapotranspiration.
 	
 	for(int i = 0; i < models.size(); ++i)
 		generate_docs(i, models[i]);

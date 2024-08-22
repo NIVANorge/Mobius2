@@ -13,7 +13,7 @@ Since the modules can be dynamically loaded with different arguments, this docum
 
 See the note on [notation](autogen.html#notation).
 
-The file was generated at 2024-05-29 12:40:58.
+The file was generated at 2024-08-22 10:59:05.
 
 ---
 
@@ -463,7 +463,7 @@ $$
 
 ## SimplyN
 
-Version: 0.0.4
+Version: 0.0.5
 
 File: [modules/simplyn.txt](https://github.com/NIVANorge/Mobius2/tree/main/models/modules/simplyn.txt)
 
@@ -493,7 +493,7 @@ Authors: Leah A. Jackson-Blake, Magnus D. Norling
 | Name | Symbol | Unit |  Description |
 | ---- | ------ | ---- |  ----------- |
 | **DIN universal params** | | |  |
-| Soilwater DIN uptake rate at 20°C | **din_immob_rate** | m day⁻¹ | (name is outdated, should be changed). This represents uptake and denitrification. |
+| Soilwater DIN uptake rate at 20°C | **din_immob_rate** | m day⁻¹ | (name is outdated, should be changed). This represents uptake, immobilisation and denitrification. |
 | Soilwater DIN uptake rate response to 10°C change (Q10) | **din_immob_q10** |  |  |
 | Groundwater DIN computation type | **gw_conc_type** | Possible values: `const`, `soil_avg`, `mass_bal` |  |
 | Groundwater DIN concentration | **gw_din_conc** | mg l⁻¹ | Only used if type is const |
@@ -714,7 +714,7 @@ $$
 Again, assuming constant water, the integral will be
 
 $$
-I = (kf\cdot m\_soil)\cdot ( (1/water)\cdot \int_0^1 TDPs(t)\mathrm{d}t - EPC0) \\
+I = (kf\cdot m\_soil)\cdot ( (1/water)\cdot \int_0^1 TDPs(t)\mathrm{d}t - EPC0) \mathrm{d}t \\
 = (kf\cdot m\_soil)\cdot ( (1/water)(a/b + (TDPs(0)-a/b)\cdot (1/b)\cdot (1 - exp(-b)) ) - EPC0) \\
 = (kf\cdot m\_soil)\cdot ( (1/(water\cdot b))(a + (TDPs(0) - a/b)(1 - exp(-b)) ) - EPC0)
 $$

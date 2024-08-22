@@ -13,7 +13,7 @@ Since the modules can be dynamically loaded with different arguments, this docum
 
 See the note on [notation](autogen.html#notation).
 
-The file was generated at 2024-05-29 12:40:58.
+The file was generated at 2024-08-22 10:59:05.
 
 ---
 
@@ -75,7 +75,6 @@ Authors: François Clayer, Magnus D. Norling
 | Heat energy | **heat** | quantity |
 | Temperature | **temp** | property |
 | Thickness | **th** | property |
-| Ice formation temperature | **freeze_temp** | property |
 | Surface area | **area** | property |
 |  | **epi_target** | loc |
 
@@ -127,18 +126,6 @@ $$
 | Bottom temperature | **t_bot** | °C |  |
 
 ### State variables
-
-#### **Ice formation temperature**
-
-Location: **epi.freeze_temp**
-
-Unit: °C
-
-Value:
-
-$$
-0 \mathrm{°C}\,
-$$
 
 #### **Epilimnion volume**
 
@@ -346,367 +333,6 @@ $$
 
 ---
 
-## AirSea Lake
-
-Version: 0.1.1
-
-File: [modules/airsea.txt](https://github.com/NIVANorge/Mobius2/tree/main/models/modules/airsea.txt)
-
-### Description
-
-Air-sea/lake heat fluxes are based off of Kondo 1975
-
-The implementation used here is influenced by the implementation in [GOTM](https://github.com/gotm-model).
-
-The ice module is influenced by the ice module in MyLake, and uses Stefan's law for ice accumulation.
-
-Air-Sea bulk transfer coefficients in diabatic conditions, Junsei Kondo, 1975, Boundary-Layer Meteorology 9(1), 91-112 [https://doi.org/10.1007/BF00232256](https://doi.org/10.1007/BF00232256)
-
-MyLake—A multi-year lake simulation model code suitable for uncertainty and sensitivity analysis simulations, Tuomo M. Saloranta and Tom Andersen 2007, Ecological Modelling 207(1), 45-60, [https://doi.org/10.1016/j.ecolmodel.2007.03.018](https://doi.org/10.1016/j.ecolmodel.2007.03.018)
-
-Authors: Magnus D. Norling
-
-### External symbols
-
-| Name | Symbol | Type |
-| ---- | ------ | ---- |
-| Atmosphere | **air** | compartment |
-| Cosine of the solar zenith angle | **cos_z** | property |
-| Epilimnion | **surf** | compartment |
-| Actual specific humidity | **a_hum** | property |
-| Density | **rho** | property |
-| Ice | **ice** | quantity |
-| Heat energy | **heat** | quantity |
-| Temperature | **temp** | property |
-| Wind speed | **wind** | property |
-| Precipitation | **precip** | property |
-| Global radiation | **g_rad** | property |
-| Pressure | **pressure** | property |
-| Downwelling longwave radiation | **lwd** | property |
-| Shortwave radiation | **sw** | property |
-| Attenuation coefficient | **attn** | property |
-| Ice formation temperature | **freeze_temp** | property |
-| Ice indicator | **indicator** | property |
-| Evaporation | **evap** | property |
-|  | **A_surf** | loc |
-|  | **top_water** | loc |
-|  | **top_water_heat_sw** | loc |
-
-### Constants
-
-| Name | Symbol | Unit | Value |
-| ---- | ------ | ---- | ----- |
-| Ice density | **rho_ice** | kg m⁻³ | 917 |
-| Latent heat of freezing | **l_freeze** | J kg⁻¹ | 333500 |
-| Ice heat conduction coefficient | **lambda_ice** | W m⁻¹ K⁻¹ | 2.1 |
-| Water albedo | **water_alb** |  | 0.045 |
-
-### Parameters
-
-| Name | Symbol | Unit |  Description |
-| ---- | ------ | ---- |  ----------- |
-| **Ice** | | | Distributes like: `epi` |
-| Initial ice thickness | **init_ice** | m |  |
-| Ice albedo | **ice_alb** |  |  |
-| Ice attenuation coefficient | **ice_att_c** | m⁻¹ |  |
-| Frazil threshold | **th_frazil** | m |  |
-
-### State variables
-
-#### **Wind speed**
-
-Location: **air.wind**
-
-Unit: m s⁻¹
-
-This series is externally defined. It may be an input series.
-
-#### **Stability**
-
-Location: **surf.stab**
-
-Unit: 
-
-Value:
-
-$$
-\href{stdlib.html#air-sea}{\mathrm{surface\_stability}}\left(\mathrm{air}.\mathrm{wind},\, \mathrm{top\_water}.\mathrm{temp},\, \mathrm{air}.\mathrm{temp}\right)
-$$
-
-#### **Transfer coefficient for latent heat flux**
-
-Location: **surf.ced**
-
-Unit: 
-
-Value:
-
-$$
-\href{stdlib.html#air-sea}{\mathrm{tc\_latent\_heat}}\left(\mathrm{air}.\mathrm{wind},\, \mathrm{stab}\right)
-$$
-
-#### **Transfer coefficent for sensible heat flux**
-
-Location: **surf.chd**
-
-Unit: 
-
-Value:
-
-$$
-\href{stdlib.html#air-sea}{\mathrm{tc\_sensible\_heat}}\left(\mathrm{air}.\mathrm{wind},\, \mathrm{stab}\right)
-$$
-
-#### **Saturation specific humidity**
-
-Location: **surf.s_hum**
-
-Unit: 
-
-Value:
-
-$$
-\mathrm{svap} = \href{stdlib.html#meteorology}{\mathrm{saturation\_vapor\_pressure}}\left(\mathrm{top\_water}.\mathrm{temp}\right) \\ \href{stdlib.html#meteorology}{\mathrm{specific\_humidity\_from\_pressure}}\left(\mathrm{air}.\mathrm{pressure},\, \mathrm{svap}\right)
-$$
-
-#### **Emitted longwave radiation**
-
-Location: **surf.lwu**
-
-Unit: W m⁻²
-
-Value:
-
-$$
-\mathrm{emissivity} = 0.98 \\ \mathrm{emissivity}\cdot \href{stdlib.html#thermodynamics}{\mathrm{black\_body\_radiation}}\left(\left(\mathrm{top\_water}.\mathrm{temp}\rightarrow \mathrm{K}\,\right)\right)
-$$
-
-#### **Albedo**
-
-Location: **surf.albedo**
-
-Unit: 
-
-Value:
-
-$$
-\begin{cases}\mathrm{ice\_alb} & \text{if}\;\mathrm{ice}.\mathrm{indicator} \\ \mathrm{water\_alb} & \text{otherwise}\end{cases}
-$$
-
-#### **Shortwave radiation**
-
-Location: **surf.sw**
-
-Unit: W m⁻²
-
-Value:
-
-$$
-\left(1-\mathrm{albedo}\right)\cdot \left(1-\mathrm{ice}.\mathrm{attn}\right)\cdot \mathrm{air}.\mathrm{g\_rad}
-$$
-
-#### **Evaporation**
-
-Location: **surf.evap**
-
-Unit: mm day⁻¹
-
-Value:
-
-$$
-\mathrm{rho\_ref} = 1025 \mathrm{kg}\,\mathrm{m}^{-3}\, \\ \left(\;\text{not}\;\mathrm{surf}.\mathrm{ice}.\mathrm{indicator}\cdot \frac{\mathrm{air}.\mathrm{rho}}{\mathrm{rho\_ref}}\cdot \mathrm{chd}\cdot \mathrm{air}.\mathrm{wind}\cdot \left(\mathrm{s\_hum}-\mathrm{air}.\mathrm{a\_hum}\right)\rightarrow \mathrm{mm}\,\mathrm{day}^{-1}\,\right)
-$$
-
-#### **Ice thickness**
-
-Location: **surf.ice**
-
-Unit: m
-
-Initial value:
-
-$$
-\mathrm{init\_ice}
-$$
-
-#### **Freeze energy**
-
-Location: **surf.ice.energy**
-
-Unit: W m⁻²
-
-Value:
-
-$$
-\mathrm{z\_surf} = 1 \mathrm{m}\, \\ \mathrm{K\_ice} = 200 \mathrm{W}\,\mathrm{m}^{-3}\,\mathrm{°C}^{-1}\, \\ \mathrm{e} = \left(\mathrm{freeze\_temp}-\mathrm{top\_water}.\mathrm{temp}\right)\cdot \mathrm{z\_surf}\cdot \mathrm{K\_ice} \\ \begin{cases}0 & \text{if}\;\mathrm{ice}<10^{-6} \mathrm{m}\,\;\text{and}\;\mathrm{e}<0 \\ \mathrm{e} & \text{otherwise}\end{cases}
-$$
-
-#### **Ice indicator**
-
-Location: **surf.ice.indicator**
-
-Unit: 
-
-Value:
-
-$$
-\mathrm{ice}>\mathrm{th\_frazil}
-$$
-
-#### **Attenuation coefficient**
-
-Location: **surf.ice.attn**
-
-Unit: 
-
-Value:
-
-$$
-\mathrm{cz} = \mathrm{max}\left(0.01,\, \href{stdlib.html#radiation}{\mathrm{refract}}\left(\mathrm{air}.\mathrm{cos\_z},\, \mathrm{refraction\_index\_ice}\right)\right) \\ \mathrm{th} = \frac{\mathrm{ice}}{\mathrm{cz}} \\ \begin{cases}0 & \text{if}\;\;\text{not}\;\mathrm{indicator} \\ 1-e^{-\mathrm{ice\_att\_c}\cdot \mathrm{th}} & \text{otherwise}\end{cases}
-$$
-
-#### **Ice surface temperature**
-
-Location: **surf.ice.temp**
-
-Unit: °C
-
-Value:
-
-$$
-\mathrm{alpha} = \frac{1}{10 \mathrm{m}^{-1}\,\cdot \mathrm{ice}} \\ \begin{cases}\frac{\mathrm{alpha}\cdot \mathrm{freeze\_temp}+\mathrm{air}.\mathrm{temp}}{1+\mathrm{alpha}} & \text{if}\;\mathrm{indicator} \\ 0 & \text{otherwise}\end{cases}
-$$
-
-### Fluxes
-
-#### **Net shortwave**
-
-Source: out
-
-Target: top_water_heat_sw
-
-Unit: J day⁻¹
-
-Value:
-
-$$
-\left(\mathrm{A\_surf}\cdot \mathrm{surf}.\mathrm{sw}\rightarrow \mathrm{J}\,\mathrm{day}^{-1}\,\right)
-$$
-
-#### **Net longwave**
-
-Source: out
-
-Target: top_water.heat
-
-Unit: J day⁻¹
-
-Value:
-
-$$
-\mathrm{net\_rad} = \left(1-\mathrm{surf}.\mathrm{albedo}\right)\cdot \mathrm{air}.\mathrm{lwd}-\mathrm{surf}.\mathrm{lwu} \\ \left(\;\text{not}\;\mathrm{surf}.\mathrm{ice}.\mathrm{indicator}\cdot \mathrm{A\_surf}\cdot \mathrm{net\_rad}\rightarrow \mathrm{J}\,\mathrm{day}^{-1}\,\right)
-$$
-
-#### **Freeze heating**
-
-Source: out
-
-Target: top_water.heat
-
-Unit: J day⁻¹
-
-Value:
-
-$$
-\left(\mathrm{A\_surf}\cdot \mathrm{surf}.\mathrm{ice}.\mathrm{energy}\rightarrow \mathrm{J}\,\mathrm{day}^{-1}\,\right)
-$$
-
-#### **Latent heat flux**
-
-Source: out
-
-Target: top_water.heat
-
-Unit: J day⁻¹
-
-Value:
-
-$$
-\mathrm{l\_vap} = \href{stdlib.html#meteorology}{\mathrm{latent\_heat\_of\_vaporization}}\left(\mathrm{top\_water}.\mathrm{temp}\right) \\ \left(\;\text{not}\;\mathrm{surf}.\mathrm{ice}.\mathrm{indicator}\cdot \mathrm{A\_surf}\cdot \mathrm{surf}.\mathrm{ced}\cdot \mathrm{l\_vap}\cdot \mathrm{air}.\mathrm{rho}\cdot \mathrm{air}.\mathrm{wind}\cdot \left(\mathrm{air}.\mathrm{a\_hum}-\mathrm{surf}.\mathrm{s\_hum}\right)\rightarrow \mathrm{J}\,\mathrm{day}^{-1}\,\right)
-$$
-
-#### **Sensible heat flux**
-
-Source: out
-
-Target: top_water.heat
-
-Unit: J day⁻¹
-
-Value:
-
-$$
-\left(\;\text{not}\;\mathrm{surf}.\mathrm{ice}.\mathrm{indicator}\cdot \mathrm{A\_surf}\cdot \mathrm{surf}.\mathrm{chd}\cdot \mathrm{C\_air}\cdot \mathrm{air}.\mathrm{rho}\cdot \mathrm{air}.\mathrm{wind}\cdot \left(\left(\mathrm{air}.\mathrm{temp}\rightarrow \mathrm{K}\,\right)-\left(\mathrm{top\_water}.\mathrm{temp}\rightarrow \mathrm{K}\,\right)\right)\rightarrow \mathrm{J}\,\mathrm{day}^{-1}\,\right)
-$$
-
-#### **Evaporation**
-
-Source: top_water
-
-Target: out
-
-Unit: m³ day⁻¹
-
-Value:
-
-$$
-\left(\mathrm{surf}.\mathrm{evap}\cdot \mathrm{A\_surf}\rightarrow \mathrm{m}^{3}\,\mathrm{day}^{-1}\,\right)
-$$
-
-#### **Precipitation to surface**
-
-Source: out
-
-Target: top_water
-
-Unit: m³ day⁻¹
-
-Value:
-
-$$
-\left(\mathrm{air}.\mathrm{precip}\cdot \mathrm{A\_surf}\rightarrow \mathrm{m}^{3}\,\mathrm{day}^{-1}\,\right)
-$$
-
-#### **Precipitation heat**
-
-Source: out
-
-Target: top_water.heat
-
-Unit: J day⁻¹
-
-Value:
-
-$$
-\mathrm{precip\_t} = \mathrm{max}\left(0 \mathrm{°C}\,,\, \mathrm{air}.\mathrm{temp}\right) \\ \mathrm{V} = \left(\mathrm{A\_surf}\cdot \mathrm{air}.\mathrm{precip}\rightarrow \mathrm{m}^{3}\,\mathrm{day}^{-1}\,\right) \\ \left(\href{stdlib.html#water-utils}{\mathrm{water\_temp\_to\_heat}}\left(\left(\mathrm{V}\Rightarrow \mathrm{m}^{3}\,\right),\, \mathrm{precip\_t}\right)\Rightarrow \mathrm{J}\,\mathrm{day}^{-1}\,\right)
-$$
-
-#### **Ice change**
-
-Source: out
-
-Target: surf.ice
-
-Unit: m day⁻¹
-
-Value:
-
-$$
-\left(\frac{\mathrm{energy}+\begin{cases}\mathrm{lambda\_ice}\cdot \frac{\left(\mathrm{freeze\_temp}\rightarrow \mathrm{K}\,\right)-\left(\mathrm{temp}\rightarrow \mathrm{K}\,\right)}{\mathrm{ice}} & \text{if}\;\mathrm{temp}\leq \mathrm{freeze\_temp}\;\text{and}\;\mathrm{indicator} \\ -\left(1-\mathrm{albedo}\right)\cdot \mathrm{air}.\mathrm{g\_rad}\cdot \mathrm{attn} & \text{if}\;\mathrm{indicator} \\ 0 & \text{otherwise}\end{cases}}{\mathrm{rho\_ice}\cdot \mathrm{l\_freeze}}\rightarrow \mathrm{m}\,\mathrm{day}^{-1}\,\right)+\left(\begin{cases}\mathrm{air}.\mathrm{precip} & \text{if}\;\mathrm{indicator}\;\text{and}\;\mathrm{air}.\mathrm{temp}\leq \mathrm{freeze\_temp} \\ 0 & \text{otherwise}\end{cases}\rightarrow \mathrm{m}\,\mathrm{day}^{-1}\,\right)
-$$
-
----
-
 ## EasyChem
 
 Version: 0.0.5
@@ -749,6 +375,7 @@ Authors: François Clayer, Magnus D. Norling
 | Shortwave radiation | **sw** | property |
 | Ice indicator | **indicator** | property |
 | Total phosphorous | **tp** | property |
+| Chlorophyll-a | **chl_a** | property |
 | Surface area | **area** | property |
 
 ### Constants
@@ -774,12 +401,12 @@ Authors: François Clayer, Magnus D. Norling
 | Piston velocity scaler for O₂ | **pvel_scaler** |  |  |
 | Background sediment O₂ demand | **sod** | g m⁻² day⁻¹ |  |
 | **Microbes** | | |  |
-| Respiration rate | **K_OM** | year⁻¹ |  |
+| Respiration rate | **K_OM** | year⁻¹ | Rate at 20°C |
 | Respiration Q10 | **respQ10** |  | Adjustment of rate with 10°C change in temperature |
 | Half-saturation concentration O₂ | **Km_o2** | mmol m⁻³ |  |
 | P mineralization rel rate | **relrate_p** |  |  |
 | N mineralization rel rate | **relrate_n** |  |  |
-| Denitrification rate | **denit** | m⁻² year⁻¹ |  |
+| Denitrification rate | **denit** | m⁻² year⁻¹ | Rate at 20°C |
 | Denitrification Q10 | **denitQ10** |  | Adjustment of rate with 10°C change in temperature |
 | **Phytoplankton** | | |  |
 | Chl-a of phyto at equilibrium | **phyt_eq_20** | mg l⁻¹ | Assuming 20°C and no nutrient or light limitations. |
@@ -1731,7 +1358,7 @@ Unit: kg day⁻¹
 Value:
 
 $$
-\mathrm{in\_s} = \mathrm{in\_flux}\left(\mathrm{downstream},\, \mathrm{epi}.\mathrm{water}.\mathrm{sed}\right) \\ \mathrm{in\_q} = \mathrm{in\_flux}\left(\mathrm{downstream},\, \mathrm{epi}.\mathrm{water}\right) \\ \mathrm{in\_conc} = \left(\href{stdlib.html#basic}{\mathrm{safe\_divide}}\left(\mathrm{in\_s},\, \mathrm{in\_q}\right)\rightarrow \mathrm{mg}\,\mathrm{l}^{-1}\,\right) \\ \mathrm{excess} = \mathrm{in\_conc}-\mathrm{maxconc} \\ \left(\href{stdlib.html#response}{\mathrm{s\_response}}\left(\mathrm{excess},\, 0,\, \mathrm{maxconc},\, 0,\, \mathrm{excess}\cdot \mathrm{in\_q}\right)\rightarrow \mathrm{kg}\,\mathrm{day}^{-1}\,\right)
+\mathrm{in\_s} = \mathrm{in\_flux}\left(\mathrm{downstream},\, \mathrm{epi}.\mathrm{water}.\mathrm{sed}\right) \\ \mathrm{in\_q} = \mathrm{in\_flux}\left(\mathrm{downstream},\, \mathrm{epi}.\mathrm{water}\right) \\ \mathrm{in\_conc} = \left(\href{stdlib.html#basic}{\mathrm{safe\_divide}}\left(\mathrm{in\_s},\, \mathrm{in\_q}\right)\rightarrow \mathrm{mg}\,\mathrm{l}^{-1}\,\right) \\ \mathrm{excess} = \mathrm{max}\left(0,\, \mathrm{in\_conc}-\mathrm{maxconc}\right) \\ \left(\mathrm{max}\left(0,\, \mathrm{in\_conc}-\mathrm{maxconc}\right)\cdot \mathrm{in\_q}\rightarrow \mathrm{kg}\,\mathrm{day}^{-1}\,\right)
 $$
 
 
