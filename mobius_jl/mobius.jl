@@ -4,7 +4,8 @@ module mobius
 
 using Libdl, Dates
 
-mobius_dll = dlopen("../mobipy/c_abi.dll")
+dll_path = @static Sys.iswindows() ? "../mobipy/c_abi.dll" : "../mobipy/c_abi.so"
+mobius_dll = dlopen(dll_path)
 
 export setup_model, run_model, get_entity, get_var_from_list, get_var, conc, transport, get_var_by_name, get_steps, get_dates, get_series_data, invalid_entity_id, invalid_var, no_index
 
