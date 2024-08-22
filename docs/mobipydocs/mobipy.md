@@ -2,6 +2,7 @@
 layout: default
 title: mobipy
 nav_order: 4
+has_children: true
 ---
 
 # mobipy
@@ -16,13 +17,18 @@ Among other things, this allows you to:
 - Make a website for stakeholder interaction that uses a python backend such as [streamlit](https://streamlit.io/), and have it dynamically run a model based on a custom user web interface or forecasts from a database. See one [example of this being done with INCA-Microplastics](https://ikhapp.org/inca-microplastics/) using Mobius1.
 - Write your own autocalibration and uncertainty analysis scripts if you need something more specific than what you find in [MobiView2](../mobiviewdocs/sensitivity.html).
 
-To be able to run mobipy you need to download mobipy/c_abi.dll from ftp://mobiserver.niva.no/Mobius2 and put it in your local Mobius2/mobipy folder.
-
 ![Notebook](../img/notebook.png)
 
 Figure: An example of running the [NIVAFjord](../existingmodels/nivafjord.html) model with mobipy in a [jupyter notebook](https://jupyter.org/).
 
 You can also look at some more [example notebooks](https://github.com/NIVANorge/Mobius2/blob/main/example_notebooks/).
+
+## Installation
+
+This assumes you have already followed the [getting started guide](../gettingstarted/gettingstarted.html) and cloned the Mobius2 repository.
+
+- Windows: To be able to run mobipy on Windows you need to download mobipy/c_abi.dll from ftp://mobiserver.niva.no/Mobius2 and put it in your local Mobius2/mobipy folder.
+- Linux: See the [separate document](linux_install.html)
 
 ## Basic usage
 
