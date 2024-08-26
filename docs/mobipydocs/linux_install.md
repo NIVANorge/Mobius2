@@ -41,7 +41,7 @@ cmake --build . --target OpenXLSX --config Release
 cmake --install .
 ```
 
-In some cases there is an error where `cmake --install .` doesn't copy all the files, in that case you may also need to run
+In some cases there is an error where `cmake --install .` doesn't copy all the header files correctly, in that case you may also need to run
 
 ```shell
 cp ../OpenXLSX/external /usr/local/include/OpenXLSX
@@ -72,6 +72,8 @@ go to `Mobius2/mobipy` and run
 chmod +x compile.sh
 ./compile.sh
 ```
+
+You should re-run `compile.sh` every time you pull the Mobius2 repository to get the latest changes and fixes.
 
 ## 4. Test it
 
