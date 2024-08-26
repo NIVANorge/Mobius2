@@ -70,12 +70,25 @@ class Mobius_Entity_Metadata(ctypes.Structure) :
 	]
 
 
-# NOTE: Must match Reg_Type: We should find a way to auto-generate this from reg_types.incl instead!
-MODULE_TYPE = 1
-COMPONENT_TYPE = 2
-PARAMETER_TYPE = 3
-FLUX_TYPE = 4
-PAR_GROUP_TYPE = 6
+# The below recreates the Reg_Type enum using global variables, equivalent to
+# It is auto-generated so that it is guaranteed to match the C++ code.
+# MODULE_TYPE = 1
+# COMPONENT_TYPE = 2
+# PARAMETER_TYPE = 3
+# FLUX_TYPE = 4
+# PAR_GROUP_TYPE = 6
+# ...
+
+with open('../src/reg_types.incl', 'r') as f :
+	t = f.read()
+	idx = 1
+	for line in t.split('\n') :
+		if line.startswith('//') : continue
+		glob_name = '%s_TYPE' % line[line.find('(')+1:line.rfind(')')].upper()
+		globals()[glob_name] = idx
+		idx += 1
+
+
 
 def load_dll() :
 	shared_ext = 'dll'
@@ -431,10 +444,10 @@ class Entity(Scope) :
 	
 	def min(self) :
 		if self.entity_id.reg_type != PARAMETER_TYPE :
-			raise ValueError("This entity doesn't have a min value.")
+			raise ValueError("This entity type doesn't have a min value.")
 		type = dll.mobius_get_value_type(self.data_ptr, entity_id)
 		if type > 1 :
-			raise ValueError("This parameter does not have a min value.")
+			raise ValueError("This parameter type does not have a min value.")
 		data = dll.mobius_get_entity_metadata(self.data_ptr, self.entity_id)
 		_check_for_errors()
 		if type == 0 :
@@ -444,10 +457,10 @@ class Entity(Scope) :
 		
 	def max(self) :
 		if self.entity_id.reg_type != PARAMETER_TYPE :
-			raise ValueError("This entity doesn't have a max value.")
+			raise ValueError("This entity type doesn't have a max value.")
 		type = dll.mobius_get_value_type(self.data_ptr, self.entity_id)
 		if type > 1 :
-			raise ValueError("This parameter does not have a max value.")
+			raise ValueError("This parameter type does not have a max value.")
 		data = dll.mobius_get_entity_metadata(self.data_ptr, self.entity_id)
 		_check_for_errors()
 		if type == 0 :
@@ -459,14 +472,14 @@ class Entity(Scope) :
 		
 	def description(self) :
 		if self.entity_id.reg_type != PARAMETER_TYPE :
-			raise ValueError("This entity doesn't have a description.")
+			raise ValueError("This entity type doesn't have a description.")
 		data = dll.mobius_get_entity_metadata(self.data_ptr, self.entity_id)
 		_check_for_errors()
 		return data.description.decode('utf-8')
 		
 	def unit(self) :
 		if self.entity_id.reg_type != PARAMETER_TYPE :
-			raise ValueError("This entity doesn't have a unit.")
+			raise ValueError("This entity type doesn't have a unit.")
 		data = dll.mobius_get_entity_metadata(self.data_ptr, self.entity_id)
 		_check_for_errors()
 		return data.unit.decode('utf-8')
@@ -552,7 +565,7 @@ class State_Var :
 			raise ValueError("Slices not yet supported for setting input series")
 		
 		if not isinstance(values, pd.Series) :
-			raise ValueError("Expected a pandas Series object for the values")
+			raise ValueError("Expected a pandas.Series object for the values")
 		
 		time_steps = len(values)
 		dates = (ctypes.c_int64 * time_steps)(*(ts.astype('datetime64[s]').astype(np.int64) for ts in values.index.values))

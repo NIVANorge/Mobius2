@@ -10,7 +10,7 @@ import builtins
 # Note: we can't use multiprocessing for this, only multithreading, since a Model_Application object that is allocated from C++ on one process
 # can't be accessed from a different python process.
 
-# Oooops, this doesn't work as intended yet.
+# Oooops, this doesn't work as intended. Why??
 #class Thread_Pool :
     
 #    def map(self, fn, args) :

@@ -78,12 +78,6 @@ add_random_error(double* series, s64 time_steps, double *err_param, LL_Type ll_t
 				double std_dev = err_param[0]*series[ts];
 				std::normal_distribution<double> distr(series[ts], std_dev);
 				series[ts] = distr(gen);
-				/*
-				std::normal_distribution<double> distr(0.0, std_dev);
-				double draw = distr(gen);
-				warning_print("Par: ", err_param[0], " series: ", series[ts], " stddev: ", std_dev, " draw: ", draw, "\n");
-				series[ts] = series[ts] + draw;
-				*/
 			} break;
 			
 			case LL_Type::wls : {
