@@ -1,0 +1,103 @@
+
+
+model("NIVAFjord-SimplyCNP-IsolatedBasin") {
+	
+	extend("simplycnp_model.txt") @exclude(
+		downstream : connection, 
+		air : compartment, 
+		water : quantity,
+		heat : quantity,
+		temp : property,
+		precip : property,
+		sol : solver
+	)
+	
+	basin_idx     : index_set("Basin index")
+	layer_idx     : index_set("Layer index") @sub(basin_idx)
+
+	air       : compartment("Atmosphere")
+	basin     : compartment("Basin",          basin_idx)
+	layer     : compartment("Fjord layer",    basin_idx, layer_idx)
+	sediment  : compartment("Fjord sediment", basin_idx, layer_idx)
+	
+	water : quantity("Water")
+	ice   : quantity("Ice")
+	salt  : quantity("Salt")
+	heat  : quantity("Heat energy")
+	
+	temp     : property("Temperature")
+	salinity : property("Salinity")
+	precip   : property("Precipitation")
+	wind     : property("Wind speed")
+	g_rad    : property("Global radiation")
+	pressure : property("Pressure")
+	a_hum    : property("Actual specific humidity")
+	rho      : property("Density")
+	lwd      : property("Downwelling longwave radiation")
+	sw       : property("Shortwave radiation")
+	cos_z    : property("Cosine of the solar zenith angle") 
+	attn     : property("Attenuation")
+	freeze_t : property("Ice formation temperature")
+	indicator : property("Ice indicator")
+	a_vap    : property("Actual vapor pressure")
+	s_vap    : property("Saturation vapor pressure")
+	
+	z    : property("Depth")
+	dz   : property("Thickness")
+	h    : property("Sea level")
+	evap : property("Evaporation")
+	area : property("Area")
+	
+	vert    : connection("Fjord vertical") @grid1d(layer, layer_idx)
+	sw_vert : connection("Shortwave vertical") @grid1d(layer, layer_idx)
+	
+	par_group("Solver step") {
+		solver_h    : par_real("Initial solver step", [hr], 1)
+		solver_hmin : par_real("Solver relative min step", [], 0.01)
+	}
+	
+	load("modules/atmospheric.txt",
+		module("Atmospheric", air, temp, wind, g_rad, pressure, a_hum, rho, lwd, cos_z, a_vap, s_vap))
+	
+	load("modules/airsea.txt",
+		module("AirSea", "AirSea Fjord", air, basin, ice, heat, temp, precip, wind, g_rad, pressure, rho, a_hum, lwd, sw, attn, indicator,
+							evap, cos_z, loc(basin.freeze_t), loc(basin.area), loc(layer.water[vert.top]), loc(layer.water.heat[sw_vert.top])))
+	
+	load("modules/nivafjord/basin.txt",
+		dims : preamble("NIVAFjord dimensions", basin_idx, layer_idx, layer),
+		module("NIVAFjord basin", air, basin, layer, water, salt, heat, temp, salinity, pressure, wind, g_rad, rho, attn, z, dz, h, area, freeze_t, sw, vert, sw_vert, loc(sediment.heat), dims))
+	
+	sol : solver("NIVAFjord solver", inca_dascru, solver_h, solver_hmin)
+	solve(sol, layer.water, basin.ice)
+	
+	fjord_phyt : quantity("Fjord phytoplankton")
+	zoo        : quantity("Zooplankton")
+	o2         : quantity("O₂")
+	chl_a      : property("Chlorophyll-a")
+	
+	# TODO: Need something for just river horizontal fluxes.
+	
+	load("modules/nivafjord/fjordchem.txt",
+		chem_par : preamble("NIVAFjord chemistry rates", fjord_phyt),
+		module("NIVAFjord chemistry", air, basin, layer, sediment, water, o2, ice, oc, din, on, phos, op, sed, fjord_phyt, zoo, chl_a, temp, salinity, wind, z, dz, indicator, attn, precip, area, cos_z, sw, vert, chem_par, dims))
+	
+	load("modules/nivafjord/sediment.txt",
+		module("NIVAFjord sediments", layer, sediment, water, o2, sed, oc, din, on, phos, op, heat, area, temp, dz, vert, chem_par, dims))
+		
+	load("modules/easychem.txt",
+		module("Simple River O₂", river, water, o2, temp))
+		
+	solve(sol, sediment.sed, sediment.heat)
+	solve(sol, air.cos_z)
+	
+	wb_index : index_set("Water body") @union(sc, basin_idx)
+	
+	downstream : connection("Downstream") @directed_graph {
+		river+
+	} @no_cycles
+	
+	horz : connection("Fjord horizontal") @directed_graph { 
+		(river? layer+) | river
+	} @no_cycles
+}
+

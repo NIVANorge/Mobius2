@@ -1,6 +1,7 @@
 
 import numpy as np
 import matplotlib.pyplot as plt
+import corner
 
 def quick_heatmap(ax, data, dates, ys, cmap='coolwarm') :
 	x, y = np.meshgrid(dates, ys)
@@ -43,3 +44,38 @@ def plot_targets(app, targets, sl, width=10, height_per=5) :
 		plot_target(app, targets, axs)
 		
 	return fig, axs
+	
+def chain_plot(result, burn) :
+	# For MCMC result
+
+	chain = result.chain
+	ndim = result.chain.shape[-1]
+	labels = result.var_names
+
+	samples = result.chain
+
+	# Plot
+	fig_height = max(30, len(labels)*3.5)
+
+	fig, axes = plt.subplots(nrows=ndim, ncols=1, figsize=(10, fig_height))   
+	for idx, label in enumerate(labels):        
+		axes[idx].plot(samples[..., idx], '-', color='k', alpha=0.3)
+		axes[idx].set_title(label, fontsize=12) 
+	plt.subplots_adjust(hspace=0.5)   
+	plt.tight_layout()
+	
+def corner_plot(result) :
+	# For MCMC result
+	
+	# Remove burnin and flatten the chains.
+	chain = result.chain[burn:, :, :]
+	ndim = result.chain.shape[-1]
+	samples = chain.reshape((-1, ndim))
+
+	# Make a corner plot of the posterior distributions
+	c = corner.corner(samples,
+		labels=result.var_names,
+		title_args={'fontsize':20},
+		label_kwargs={'fontsize':18},
+		verbose=False,
+		quantiles=[0.025, 0.5, 0.975])

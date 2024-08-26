@@ -94,11 +94,11 @@ def update_mcmc_results(result, nburn, thin=1):
 
 
 def ll_wls(sim, obs, params) :
-	l2pi = 1.83787706641 #np.log(np.pi)
+	l2pi = 1.83787706641 #np.log(2*np.pi)
 	
 	mu  = params["__mu"].value
 	sig = params["__sigma"].value
-	st  = mu + sig*obs
+	st  = mu + sig*sim
 	
 	vals = 0.5*(-np.log(st**2) - l2pi - ((sim-obs)**2)/(st**2) )
 	return np.nansum(vals)
@@ -155,7 +155,12 @@ def ll_from_target(target, start_date, end_date, ll_fun=ll_wls) :
 			sim = data.var(simname)[simidx].loc[sl].values
 			obs = data.var(obsname)[obsidx].loc[sl].values
 			
-			return ll_fun(sim, obs, params)
+			res = ll_fun(sim, obs, params)
+			
+			if not np.isfinite(res) :
+				raise RuntimeError('Nonfinite log likelihood')
+			
+			return res
 		
 		return log_likelihood
 	
