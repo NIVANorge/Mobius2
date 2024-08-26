@@ -41,7 +41,7 @@ cmake --build . --target OpenXLSX --config Release
 cmake --install .
 ```
 
-In some cases there is an error where `cmake --install .` doesn't copy all the header files correctly, in that case you may also need to run
+In some cases `cmake --install .` doesn't copy all the header files correctly, in that case you may also need to run
 
 ```shell
 cp ../OpenXLSX/external /usr/local/include/OpenXLSX

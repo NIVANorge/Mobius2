@@ -103,7 +103,7 @@ model("NIVAFjord-SimplyCNP-IsolatedBasin") {
 	
 	module("River-Basin simple flux", version(0, 0, 0)) {
 		
-		# Just directing the river water to the top layer instead of doing the density check.
+		# Just directing the catchment runoff to the top layer instead of doing the density check.
 		flux(river.water, layer.water[horz.below, vert.top], [m 3, s-1], "River discharge to fjord") {
 			flow->>
 		}
