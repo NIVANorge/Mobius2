@@ -4,14 +4,17 @@ import lmfit
 import emcee
 from joblib import Parallel, delayed
 from pyDOE import lhs
+import builtins
 
 
 # Note: we can't use multiprocessing for this, only multithreading, since a Model_Application object that is allocated from C++ on one process
 # can't be accessed from a different python process.
-class Thread_Pool :
+
+# Oooops, this doesn't work as intended yet.
+#class Thread_Pool :
     
-    def map(self, fn, args) :
-        return Parallel(n_jobs=-1, verbose=0, backend='threading')(map(delayed(fn), args))
+#    def map(self, fn, args) :
+#        return Parallel(n_jobs=-1, verbose=0, backend='threading')(builtins.map(delayed(fn), args))
 
 
 def run_mcmc(app, params, set_params, log_likelihood, burn, steps, walkers, run_timeout=-1) :
@@ -29,14 +32,18 @@ def run_mcmc(app, params, set_params, log_likelihood, burn, steps, walkers, run_
 		
 		return ll
 	
-	init_values = [params[par_name].value for par_name in params]
+	init_values = np.array([params[par_name].value for par_name in params])
+	mins = np.array([params[par_name].min for par_name in params])
+	maxs = np.array([params[par_name].max for par_name in params])
 	
-	# TODO: Constrain within [min, max] interval..
-	starting_guesses = list(np.random.normal(loc=init_values, scale=1e-4, size=(walkers, len(init_values))))
+	starting_guesses = list(np.random.normal(loc=init_values, scale=1e-4*(maxs-mins), size=(walkers, len(init_values))))
+	starting_guesses = np.maximum(starting_guesses, mins)
+	starting_guesses = np.minimum(starting_guesses, maxs)
 	
 	mcmc = lmfit.Minimizer(ll_fun, params, nan_policy='omit', kws={'moves':emcee.moves.StretchMove()})
 
-	return mcmc.emcee(params=params, pos=starting_guesses, burn=burn, steps=steps, nwalkers=walkers, workers=Thread_Pool(), float_behavior='posterior')
+	#return mcmc.emcee(params=params, pos=starting_guesses, burn=burn, steps=steps, nwalkers=walkers, workers=Thread_Pool(), float_behavior='posterior')
+	return mcmc.emcee(params=params, pos=starting_guesses, burn=burn, steps=steps, nwalkers=walkers, float_behavior='posterior')
 	
 def update_mcmc_results(result, nburn, thin=1):
     """ The summary statistics contained in the LMFit result object do not account for
@@ -156,9 +163,6 @@ def ll_from_target(target, start_date, end_date, ll_fun=ll_wls) :
 			obs = data.var(obsname)[obsidx].loc[sl].values
 			
 			res = ll_fun(sim, obs, params)
-			
-			if not np.isfinite(res) :
-				raise RuntimeError('Nonfinite log likelihood')
 			
 			return res
 		

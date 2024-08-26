@@ -66,6 +66,8 @@ model("NIVAFjord-SimplyCNP-IsolatedBasin") {
 	load("modules/nivafjord/basin.txt",
 		dims : preamble("NIVAFjord dimensions", basin_idx, layer_idx, layer),
 		module("NIVAFjord basin", air, basin, layer, water, salt, heat, temp, salinity, pressure, wind, g_rad, rho, attn, z, dz, h, area, freeze_t, sw, vert, sw_vert, loc(sediment.heat), dims))
+		
+	# TODO: Need a module that positions the horizontal flux from the river.
 	
 	sol : solver("NIVAFjord solver", inca_dascru, solver_h, solver_hmin)
 	solve(sol, layer.water, basin.ice)
@@ -74,8 +76,6 @@ model("NIVAFjord-SimplyCNP-IsolatedBasin") {
 	zoo        : quantity("Zooplankton")
 	o2         : quantity("O₂")
 	chl_a      : property("Chlorophyll-a")
-	
-	# TODO: Need something for just river horizontal fluxes.
 	
 	load("modules/nivafjord/fjordchem.txt",
 		chem_par : preamble("NIVAFjord chemistry rates", fjord_phyt),
@@ -99,5 +99,14 @@ model("NIVAFjord-SimplyCNP-IsolatedBasin") {
 	horz : connection("Fjord horizontal") @directed_graph { 
 		(river? layer+) | river
 	} @no_cycles
+	
+	
+	module("River-Basin simple flux", version(0, 0, 0)) {
+		
+		# Just directing the river water to the top layer instead of doing the density check.
+		flux(river.water, layer.water[horz.below, vert.top], [m 3, s-1], "River discharge to fjord") {
+			flow->>
+		}
+	}
 }
 
