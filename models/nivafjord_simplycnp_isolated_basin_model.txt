@@ -82,7 +82,7 @@ model("NIVAFjord-SimplyCNP-IsolatedBasin") {
 		module("NIVAFjord sediments", layer, sediment, water, o2, sed, oc, din, on, phos, op, heat, area, temp, dz, vert, chem_par, dims))
 		
 	solve(sol, sediment.sed, sediment.heat)
-	solve(sol, air.cos_z)
+	solve(sol, air.cos_z, air.g_rad)
 	
 	module("Basin inflow", version(0, 0, 0)) {
 		
@@ -95,8 +95,8 @@ model("NIVAFjord-SimplyCNP-IsolatedBasin") {
 		
 		# Water
 		
-		flow : property("Basin inflow") # Input series
-		var(basin.flow, [m 3, s-1])
+		flow : property("Basin inflow")
+		var(basin.flow, [m 3, s-1]) # Input series
 		
 		# Just directing the catchment runoff to the top layer instead of doing the density check.
 		flux(out, layer.water[vert.top], [m 3, s-1], "Discharge from land to basin") { basin.flow->> }

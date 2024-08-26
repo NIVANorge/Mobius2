@@ -262,7 +262,7 @@ module("NIVAFjord chemistry", version(0, 0, 5),
 	
 	var(layer.water.phyt.chl_a, [m g, l-1], "Phyto chl-a") {   conc(phyt)*chl_a_f->>   }
 	
-	var(layer.water.chl_a, [m g, l-1], "Layer chl-a") {   aggregate(phyt.chl_a)   }
+	var(layer.water.chl_a, [m g, l-1], "Layer chl-a") {   aggregate(phyt.chl_a)   } # Hmm, only relevant if we have many species of phyto.
 	
 	/*
 	sed_vel : property("Sedimentation velocity")
