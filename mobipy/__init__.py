@@ -79,7 +79,11 @@ class Mobius_Entity_Metadata(ctypes.Structure) :
 # PAR_GROUP_TYPE = 6
 # ...
 
-with open('../src/reg_types.incl', 'r') as f :
+def mobius2_path() :
+	#NOTE: We have to add a trailing slash to the path for Mobius2 to understand it.
+	return f'{pathlib.Path(__file__).parent.resolve().parent}{os.sep}'
+
+with open(mobius2_path() + f'src{os.sep}reg_types.incl', 'r') as f :
 	t = f.read()
 	idx = 1
 	for line in t.split('\n') :
@@ -318,10 +322,6 @@ def is_valid(id) :
 		return id.reg_type > 0 and id.id >= 0
 	if isinstance(id, Var_Id) :
 		return id.id >= 0
-		
-def mobius2_path() :
-	#NOTE: We have to add a trailing slash to the path for Mobius2 to understand it.
-	return f'{pathlib.Path(__file__).parent.resolve().parent}{os.sep}'
 
 class Scope :
 	def __init__(self, data_ptr, scope_id) :

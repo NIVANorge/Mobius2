@@ -533,3 +533,36 @@ mobius_get_flux(Model_Data *data, Entity_Id decl_id) {
 	} catch(int) {}
 	return invalid_var;
 }
+
+/*
+
+// Whoops, this doesn't work because the reg_type in by_type is a template parameter!
+// But there is no reason that it should be.. Big refactor to change that though.
+
+DLLEXPORT s64
+mobius_entity_count(Model_Data *data, Entity_Id scope_id, Reg_Type type) {
+	
+	try {
+		auto scope = data->app->model->get_scope(scope_id);
+		return scope->by_type(type).size();
+	} catch(int) {}
+	return 0;
+}
+
+DLLEXPORT void
+mobius_list_all_entities(Model_Data *data, Entity_Id scope_id, Reg_Type type, const char **idents_out, const char **names_out) {
+	
+	try {
+		auto model = data->app->model;
+		auto iter = model->get_scope(scope_id)->by_type(type);
+		int idx = 0;
+		for(Entity_Id id : iter) {
+			
+			names_out[idx] = model->get_entity(id)->name.c_str();
+			idents_out[idx] = (*scope)[id].c_str();
+			
+			++idx;
+		}
+	} catch(int) {}
+}
+*/

@@ -149,4 +149,7 @@ mobius_get_parameter_string(Model_Data *data, Entity_Id par_id, Mobius_Index_Val
 DLLEXPORT Mobius_Entity_Metadata
 mobius_get_entity_metadata(Model_Data *data, Entity_Id id);
 
+//DLLEXPORT void
+//mobius_list_all_entities(Model_Data *data, Entity_Id scope_id, Reg_Type type);
+
 #endif
