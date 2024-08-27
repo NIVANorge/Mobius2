@@ -116,51 +116,53 @@ Riley, J. P. & Skirrow, G. Chemical oceanography. 2 edn, Vol. 1 606 (Academic Pr
 		ref_diff * (dynamic_viscosity_sea_water(ref_T, ref_S) / dynamic_viscosity_sea_water(T, S)) * ((T -> [K]) / (ref_T -> [K]))
 	}
 	
-	# seawater_secant_bulk_modulus : function(T : [deg_c], S : [], P : [d bar]) {
-		# T68 := T * 1.00024 => []
-		# h3 := -5.77905e-7
-		# h2 := 1.16092e-4
-		# h1 := 1.43713e-3
-		# h0 := 3.239908
-		# AW := h0 + (h1 + (h2 + h3*T68)*T68)*T68
-		# k2 := 5.2787e-8
-		# k1 := -6.12293e-6
-		# k0 := 8.50935e-5
-		# BW := k0 + (k1 + k2*T68)*T68
-		# e4 := -5.155288e-5
-		# e3 := 1.360477e-2
-		# e2 := -2.327105
-		# e1 := 148.4206
-		# e0 := 19652.21
-		# KW := e0 + (e1 + (e2 + (e3 + e4*T68)*T68)*T68)*T68
-		# j0 := 1.91075e-4
-		# i2 := -1.6078e-6
-		# i1 := -1.0981e-5
-		# i0 :=  2.2838e-3
-		# SR := sqrt(S)
-		# A  := AW + (i0 + (i1 + i2*T68)*T68 + j0*SR)*S
-		# m2 := 9.1697e-10
-		# m1 := 2.0816e-8
-		# m0 := -9.9348e-7
-		# B  := (BW + (m0 + (m1 + m2*T68)*T68)*S) => [bar-1]
-		# f3 := -6.1670e-5
-		# f2 := 1.09987e-2
-		# f1 := -0.603459
-		# f0 := 54.6746
-		# g2 := -5.3009e-4
-		# g1 := +1.6483e-2
-		# g0 := +7.944e-2
-		# K0 := (KW + (f0 + (f1 + (f2 + f3*T68)*T68)*T68 + (g0 + (g1 + g2*T68)*T68)*SR)*S) => [bar]
-		# p  := P->[bar]
-		# K0 + (A + B*p)*p
-	# }
+	/*
+	seawater_secant_bulk_modulus : function(T : [deg_c], S : [], P : [d bar]) {
+		T68 := T * 1.00024 => []
+		h3 := -5.77905e-7
+		h2 := 1.16092e-4
+		h1 := 1.43713e-3
+		h0 := 3.239908
+		AW := h0 + (h1 + (h2 + h3*T68)*T68)*T68
+		k2 := 5.2787e-8
+		k1 := -6.12293e-6
+		k0 := 8.50935e-5
+		BW := k0 + (k1 + k2*T68)*T68
+		e4 := -5.155288e-5
+		e3 := 1.360477e-2
+		e2 := -2.327105
+		e1 := 148.4206
+		e0 := 19652.21
+		KW := e0 + (e1 + (e2 + (e3 + e4*T68)*T68)*T68)*T68
+		j0 := 1.91075e-4
+		i2 := -1.6078e-6
+		i1 := -1.0981e-5
+		i0 :=  2.2838e-3
+		SR := sqrt(S)
+		A  := AW + (i0 + (i1 + i2*T68)*T68 + j0*SR)*S
+		m2 := 9.1697e-10
+		m1 := 2.0816e-8
+		m0 := -9.9348e-7
+		B  := (BW + (m0 + (m1 + m2*T68)*T68)*S) => [bar-1]
+		f3 := -6.1670e-5
+		f2 := 1.09987e-2
+		f1 := -0.603459
+		f0 := 54.6746
+		g2 := -5.3009e-4
+		g1 := +1.6483e-2
+		g0 := +7.944e-2
+		K0 := (KW + (f0 + (f1 + (f2 + f3*T68)*T68)*T68 + (g0 + (g1 + g2*T68)*T68)*SR)*S) => [bar]
+		p  := P->[bar]
+		K0 + (A + B*p)*p
+	}
 	
-	# seawater_density : function(T : [deg_c], S : [], P : [h bar]) {
-		# densP0 := seawater_dens_p0(T, S)
-		# K      := seawater_secant_bulk_modulus(T, S, P);
-		# P      := P -> [bar]
-		# densP0/(1.0 - p/K)
-	# }
+	seawater_density : function(T : [deg_c], S : [], P : [h bar]) {
+		densP0 := seawater_dens_p0(T, S)
+		K      := seawater_secant_bulk_modulus(T, S, P);
+		P      := P -> [bar]
+		densP0/(1.0 - p/K)
+	}
+	*/
 }
 
 library("Sea oxygen") {

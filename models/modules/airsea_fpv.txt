@@ -195,7 +195,7 @@ Authors: Francois Clayer, Magnus D. Norling
 	
 	var(fpv.h_water, [W, m-2, K-1]) {
 		Nu := 0.664* sqrt(0.1 [m, s-1] * length_FPV / surf.k_vis )* ((dynamic_viscosity_fresh_water(top_water.temp, 0)*C_water / k_water) =>[]^(0.333)),
-		Nu =>[] * k_water / length_FPV 
+		(Nu * k_water / length_FPV) =>>
 	}
 	
 	var(fpv.temp, [deg_c], "FPV cell temperature") {
@@ -216,7 +216,7 @@ Authors: Francois Clayer, Magnus D. Norling
 			C_front := h_air*T_air + h_sky*T_sky,
 			numer :=  B_front*B_back*2*A_both - (A_both^2)*(B_front - B_back),
 			T_cell := (B_front*B_back*(1- FPV_alb) * (1-FPV_eff)*air.g_rad + A_both*B_back*C_front + A_both*B_front*C_back) / numer -> [deg_c],
-			#A_both * h_water / (A_both + h_water) + A_both / (A_both + h_air + h_sky)*(h_air + h_sky *(Tc - T_sky)/(Tc - T_air))
+			#A_both * h_water / (A_both + h_water) + A_both / (A_both + h_air + h_sky)*(h_air + h_sky*(Tc - T_sky)/(Tc - T_air))
 			T_front_final := ((A_both =>[] * (T_cell->[K])=>[]) + C_front=>[]) / B_front=>[],
 			
 		T_cell
