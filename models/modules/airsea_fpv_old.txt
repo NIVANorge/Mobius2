@@ -1,5 +1,5 @@
 
-module("AirSeaRes_bis", version(0, 1, 0),
+module("AirSea FPV", version(0, 1, 0),
 	air  : compartment,
 	surf : compartment,
 	
@@ -25,16 +25,12 @@ module("AirSeaRes_bis", version(0, 1, 0),
 	deg_cov : par_real,
 	area	  : loc,
 	
-	top_water_heat    : loc, # TODO: System for composing locs also? E.g. top_water.heat
-	top_water_heat_sw : loc, # Needed since it could be on a separate connection e.g. in NIVAFjord. This is a bit awkward though..
+	top_water_heat    : loc, 
+	top_water_heat_sw : loc,
 	top_water_temp    : loc
 ) {
 """
-Air-sea/lake heat fluxes are based off of
-[Air-Sea bulk transfer coefficients in diabatic conditions, Junsei Kondo, 1975, Boundary-Layer Meteorology 9(1), 91-112](https://link.springer.com/article/10.1007/BF00232256)
-The implementation used here is influenced by the implementation in [GOTM](https://github.com/gotm-model).
-
-The ice module is influenced by the ice module in MyLake, and uses Stefan's law for ice accumulation.
+This is a modification to the AirSea module where you can cover a basin with floating photovoltaics (solar panels) (FPV).
 """
 	
 	load("stdlib/seawater.txt", library("Air-sea"), library("Seawater"))
