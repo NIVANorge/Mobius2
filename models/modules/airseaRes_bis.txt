@@ -17,17 +17,24 @@ module("AirSeaRes_bis", version(0, 1, 0),
 	a_hum     : property,
 	lwd       : property,
 	sw        : property,
+	sw_heat   : property,
 	attn      : property,
+	deg_cov   : property,
+	sol_elec  : property,
+	depth     : property,
+	saved_water : property,
 	precip_scalor : par_real,
 	evap_scalor : par_real,
 	swr_scalor : par_real,
 	always_cover : par_bool,
-	deg_cov : par_real,
+	Area_cov : par_real,
 	area	  : loc,
 	
 	top_water_heat    : loc, # TODO: System for composing locs also? E.g. top_water.heat
 	top_water_heat_sw : loc, # Needed since it could be on a separate connection e.g. in NIVAFjord. This is a bit awkward though..
-	top_water_temp    : loc
+	top_water_temp    : loc,
+	top_water_heatf    : loc,
+	top_water_tempf    : loc
 ) {
 """
 Air-sea/lake heat fluxes are based off of
@@ -64,12 +71,14 @@ The ice module is influenced by the ice module in MyLake, and uses Stefan's law 
 	}
 	
 	stab   : property("Stability")
+	stabf   : property("Stability FPV")
 	ced    : property("Transfer coefficient for latent heat flux")
 	chd    : property("Transfer coefficent for sensible heat flux")
 	s_hum  : property("Saturation specific humidity")
 	lwu    : property("Emitted longwave radiation")
-	albedo : property("Albedo")
-	sw_heat : property("SWR as heat") 
+	s_humf  : property("Saturation specific humidity FPV")
+	lwuf    : property("Emitted longwave radiation FPV")
+	albedo : property("Albedo") 
 	
 	energy    : property("Freeze energy")
 	Ice_indicator : property("Ice indicator")
@@ -87,6 +96,8 @@ The ice module is influenced by the ice module in MyLake, and uses Stefan's law 
 	
 	var(surf.stab, []) {   surface_stability(air.wind, top_water_temp, air.temp)   }
 	
+	var(surf.stabf, []) {   surface_stability(air.wind, top_water_tempf, air.temp)   }
+	
 	var(surf.ced, [])  {   tc_latent_heat(air.wind, stab)   }
 	
 	var(surf.chd, [])  {   tc_sensible_heat(air.wind, stab)   }
@@ -101,25 +112,56 @@ The ice module is influenced by the ice module in MyLake, and uses Stefan's law 
 		emissivity * black_body_radiation(top_water_temp->[K])
 	}
 	
+	var(surf.s_humf, []) {
+		svap := saturation_vapor_pressure(top_water_tempf),
+		specific_humidity_from_pressure(air.pressure, svap)
+	}
+	
+	var(surf.lwuf, [W, m-2]) {
+		emissivity := 0.98,
+		emissivity * black_body_radiation(top_water_tempf->[K])
+	}
+	
+	
+	
 	var(surf.albedo, []) {
 		ice_alb        if ice.Ice_indicator,
 		water_alb      otherwise
 	}
 	
+	var(surf.deg_cov, []) {
+		(Area_cov / area)       if FPV.FPV_indicator,
+		0      					otherwise
+	}
+	
 	var(surf.sw, [W, m-2]) { 
 		irradiance :=  (1 - albedo) * (1 - ice.attn) * air.g_rad * swr_scalor,
-		irradiance * (1- deg_cov)					if FPV.FPV_indicator,
+		irradiance * max(0,(1- deg_cov))					if FPV.FPV_indicator,
 		irradiance									otherwise
 	}
+	
+	var(surf.sol_elec, [W]) { 
+		0										if FPV.FPV_indicator,
+		surf.sw * 300000[m 2] * 0.18[] *4.5[]		otherwise
+	}
+	sol_elecGWh : property("real Solar production")
+	var(surf.sol_elecGWh, [W]) {
+		sol_elec * 24[] * 365[] *0.000000001[]
+	}
+	
+	var(surf.saved_water, [m 3, day-1]) {
+		sol_elec / ((surf.depth + 33[m]) *0.55[] * 9.81[m, s-2] * 998 [k g, m-3]) * (24*3600[s, day-1])
+	}
+	
 
 	var(surf.sw_heat, [W, m-2]) { 
 		under_FPV := max(0,surf.FPV.A_both * (surf.FPV.FPV_temp ->[K] - surf.FPV.T_s_back ->[K])) * swr_scalor,
 		normal :=  (1 - albedo) * (1 - ice.attn) * air.g_rad * swr_scalor,
-		under_FPV * deg_cov + normal * (1- deg_cov)					if FPV.FPV_indicator,
+		(under_FPV * deg_cov) + (normal * (1- deg_cov))					if FPV.FPV_indicator,
 		normal														otherwise
 	}
 	
-	flux(nowhere, top_water_heat_sw, [J, day-1], "Net shortwave") {  area * surf.sw ->>  }
+	flux(nowhere, top_water_heat_sw, [J, day-1], "Net shortwave") {  area * surf.sw_heat ->>  }
 	
 	flux(nowhere, top_water_heat,    [J, day-1], "Net longwave") {
 		net_rad := (1 - surf.albedo)*air.lwd - surf.lwu,    # W/m2       # TODO: Should really albedo be detracted from longwave?
@@ -143,6 +185,23 @@ The ice module is influenced by the ice module in MyLake, and uses Stefan's law 
 		area * (surf.chd * C_air * air.rho * air.wind * (air.temp->[K] - top_water_temp->[K])) * (1- deg_cov) ->>			if surf.FPV.FPV_indicator,
 		#area * (surf.chd * C_air * air.rho * (air.wind - 0.8 * air.wind * log10(max(air.wind,0.000001[m, s-1])=>[])) * (air.temp->[K] - top_water_temp->[K])) ->> otherwise
 		area * (surf.chd * C_air * air.rho * air.wind * (air.temp->[K] - top_water_temp->[K])) ->> otherwise
+	}
+	
+	
+	
+	flux(nowhere, top_water_heatf, [J, day-1], "Latent heat flux FPV") {
+		l_vap := latent_heat_of_vaporization(top_water_tempf),
+		0                                                                               				if surf.ice.Ice_indicator,
+		area * (surf.ced * l_vap * air.rho * air.wind * (air.a_hum - surf.s_humf))* (1- deg_cov) ->>     if surf.FPV.FPV_indicator,
+		#area * (surf.ced * l_vap * air.rho * (air.wind - 0.8 * air.wind * log10(max(air.wind,0.000001[m, s-1])=>[])) * (air.a_hum - surf.s_humf)) ->> otherwise
+		area * (surf.ced * l_vap * air.rho * air.wind * (air.a_hum - surf.s_humf)) ->> otherwise
+	}
+	
+	flux(nowhere, top_water_heatf, [J, day-1], "Sensible heat flux FPV") {
+		0                                                                                                                   if surf.ice.Ice_indicator,
+		area * (surf.chd * C_air * air.rho * air.wind * (air.temp->[K] - top_water_tempf->[K])) * (1- deg_cov) ->>			if surf.FPV.FPV_indicator,
+		#area * (surf.chd * C_air * air.rho * (air.wind - 0.8 * air.wind * log10(max(air.wind,0.000001[m, s-1])=>[])) * (air.temp->[K] - top_water_temp->[K])) ->> otherwise
+		area * (surf.chd * C_air * air.rho * air.wind * (air.temp->[K] - top_water_tempf->[K])) ->> otherwise
 	}
 	
 	var(surf.evap_mm, [m m, day-1]) {
@@ -204,13 +263,14 @@ The ice module is influenced by the ice module in MyLake, and uses Stefan's law 
 	var(surf.FPV.FPV_temp, [deg_c]) {  # deg_c
 		0                      if !FPV_indicator,
 		{
-			#T_front_final := (air.temp+273.15[deg_c])  =>[K],
-			#need to iterate to updte T_front  
-				T_front := (top_water_temp+276.15[deg_c])  =>[K],
-				T_air := (air.temp+273.15[deg_c])=>[K],
+			#Iterate to updte T_front  
+			T_front := (top_water_temp+3[deg_c])  ->[K],
+			eps := 0.001[K],
+			i:{
+				T_air := air.temp->[K],
 				T_sky := (0.0552 * (T_air=>[]^(1.5))) => [K],
-				T_water := (top_water_temp + 273.15[deg_c]) =>[K],
-				h_air := (2.8[] + 3[] * air.wind=>[]) => [W, m-2, K-1],
+				T_water := top_water_temp ->[K],
+				h_air := (2.8 + 3 * air.wind=>[]) => [W, m-2, K-1],
 				h_sky := (1/(1/0.88+1/0.80-1)) * 5.67e-8 [W, m-2, K-4]* (T_front+T_sky)*(T_front^2 + T_sky^2),
 				B_back := surf.FPV.A_both + surf.FPV.h_water,
 				C_back := surf.FPV.h_water * T_water,
@@ -219,9 +279,10 @@ The ice module is influenced by the ice module in MyLake, and uses Stefan's law 
 				numer :=  B_front*B_back*(surf.FPV.A_both+surf.FPV.A_both)-surf.FPV.A_both*surf.FPV.A_both*B_front - surf.FPV.A_both*surf.FPV.A_both*B_back,
 				T_cell :=((B_front*B_back* (1- FPV_alb) * (1-FPV_eff)* air.g_rad  + surf.FPV.A_both * B_back *C_front  + surf.FPV.A_both * B_front *C_back ) / numer - (273.15[K])) =>[deg_c],
 				#surf.FPV.A_both * h_water / (surf.FPV.A_both + h_water) + surf.FPV.A_both / (surf.FPV.A_both + h_air + h_sky)*(h_air + h_sky *(Tc - T_sky)/(Tc - T_air))
-				T_front_final := ((surf.FPV.A_both =>[] * (T_cell=>[]+273.15[])=>[]) + C_front=>[]) / B_front=>[],
-				
-			T_cell
+				T_front_final := ((surf.FPV.A_both =>[] * (T_cell->[K])=>[]) + C_front=>[]) / B_front=>[K],
+				T_cell										if abs(T_front - T_front_final) < eps,
+				{T_front <- T_front_final, iterate i}		otherwise
+			}	
 		} 	otherwise 
 	}
 	

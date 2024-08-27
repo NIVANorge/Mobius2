@@ -4,23 +4,34 @@ module("EasyReservoir", version(0, 1, 0),
 	air    : compartment,
 	epi    : compartment,
 	hyp    : compartment,
+	surf   : compartment,
 	water  : quantity,
+	water_FPV : quantity,
 	ice    : quantity,
 	heat   : quantity,
 	temp   : property,
+	heatf   : quantity,
+	tempf   : property,
 	precip : property,
 	z_e    : property,
 	evap_mm : property,
 	abstrac  : property,
+	ruleCurve : property,
 	area   : property,
 	sed_area : property,
+	sw_heat : property,
+	hydro_elec:property,
+	depth : property,
+	saved_water : property,
 	A_surf : par_real,
 	A_total : par_real,
 	precip_scalor : par_real,
 	always_cover : par_bool,
 	wl : property,
+	wl_Wsaved : property,
 	epi_inflow : property,
-	in_Temp : property
+	in_Temp : property,
+	in_Tempf : property
 	#epi_target : loc,
 	#downstream : connection
 ) {
@@ -48,6 +59,7 @@ The water balance part of the model is conceptually similar to VEMALA
 		mix_deg   : par_real("T. diff threshold for epi and hypo mixing", [deg_c], 0.4, 0.01, 2)
 	}
 
+	k_wat    : constant("Thermal conduct of water", [W, m-1, K-1], 0.6)
 	var(air.precip, [m m, day-1])
 	var(air.temp, [deg_c])
 	var(epi.water, [m 3], "Epilimnion volume")  @initial {   0.5 * A_surf * (z_wl_masl - z_bottom_masl) - hyp.water   }
@@ -57,10 +69,20 @@ The water balance part of the model is conceptually similar to VEMALA
 		A := A_surf * (z/(z_wl_masl - z_bottom_masl)),
 		0.5 * A * z
 	}
+	
+	var(epi.water_FPV, [m 3], "Epilimnion volume")  @initial {   0.5 * A_surf * (z_wl_masl - z_bottom_masl) - hyp.water_FPV   }
+	
+	var(hyp.water_FPV, [m 3], "Hypolimnion volume") @initial {
+		z := (z_wl_masl - z_bottom_masl) - z_epi,
+		A := A_surf * (z/(z_wl_masl - z_bottom_masl)),
+		0.5 * A * z
+	}
+	
 
-	depth : property("Depth")
 	#wl : property("WL")
 	flow : property("Flow")
+	depth_Wsaved : property("Depth with saved water")
+	Wsaved_ratio : property("Water saved vs abstraction ratio")
 	
 	var(epi.z_e, [m], "Epilimnion thickness") @initial { z_epi }
 	{
@@ -70,12 +92,20 @@ The water balance part of the model is conceptually similar to VEMALA
 	} 
 	
 	
-	flux(nowhere, epi.water, [m 3, day-1], "Precipitation to lake")         { air.precip * area * precip_scalor ->>} 
+	flux(nowhere, epi.water, [m 3, day-1], "Precipitation to lake")         { air.precip * area * precip_scalor ->>}
+	
+	flux(nowhere, epi.water_FPV, [m 3, day-1], "Precipitation to lake FPV")         { air.precip * area * precip_scalor ->>} 
 	
 	var(epi.depth, [m], "Lake depth")     @initial { z_wl_masl - z_bottom_masl }  
 	{
 		sqrt(2*(epi.water + hyp.water)/A_surf * (z_wl_masl - z_bottom_masl))
 	}
+	
+	var(epi.depth_Wsaved, [m])     @initial { z_wl_masl - z_bottom_masl }  
+	{
+		sqrt(2*(epi.water_FPV + hyp.water_FPV )/A_surf * (z_wl_masl - z_bottom_masl))
+	}
+	
 	
 	var(epi.sed_area, [m 2], "Sediment surface area (epi)") {
 		2* (sqrt(depth*depth + area/4)*sqrt(area)) - hyp.sed_area
@@ -90,23 +120,46 @@ The water balance part of the model is conceptually similar to VEMALA
 		depth + z_bottom_masl
 	}
 	
+	var(epi.wl_Wsaved, [m])     @initial { z_wl_masl}  
+	{
+		depth_Wsaved + z_bottom_masl
+	}
+	
+	var(epi.Wsaved_ratio, [])     
+	{
+		epi.saved_water / (hyp.abstrac / A_surf * A_total + epi.saved_water)
+	}
+	
 	var(epi.area, [m 2], "Lake surface area")   @initial  {   A_surf   }
 	{
-		A_surf											if always_cover,
-		A_surf * (depth / (z_wl_masl - z_bottom_masl)) 	otherwise
+		#A_surf											if always_cover,
+		A_surf * (depth / (z_wl_masl - z_bottom_masl)) #	otherwise
 	}	
 	var(epi.water.flow, [m 3, s-1], "Lake outflow")  {   max(0, rate_l*(z_bottom_masl + depth - z_outflow))   }
 
 	lake_out :
 	flux(epi.water, out, [m 3, day-1], "Lake outflow flux")                   {   flow ->>  }
 	var(hyp.abstrac, [m 3, day-1], "Lake abstraction")
+	
+	var(epi.ruleCurve, [m], "Rule Curve")
+	
 	flux(hyp.water, nowhere, [m 3, day-1], "Hyp abstraction") {
-		hyp.abstrac 
+		hyp.abstrac * A_surf / A_total
+    }
+	
+	flux(hyp.water_FPV, nowhere, [m 3, day-1], "Hyp abstraction FPV") {
+		hyp.abstrac * A_surf / A_total - epi.saved_water  						if epi.wl_Wsaved < (epi.ruleCurve + 10[m]) & epi.wl_Wsaved < 195[m],
+		hyp.abstrac * A_surf / A_total + (hyp.water_FPV - hyp.water) *1[day-1] 	otherwise
+	#	hyp.abstrac * A_surf / A_total 						otherwise
     } 
 	
 	var(epi.epi_inflow, [m 3, day-1])
 	
 	flux(out, epi.water, [m 3, day-1], "Inflow to epilimnion") {
+		epi.epi_inflow 
+	}
+	
+	flux(out, epi.water_FPV, [m 3, day-1], "Inflow to epilimnion FPV") {
 		epi.epi_inflow 
 	} 
 	
@@ -114,14 +167,36 @@ The water balance part of the model is conceptually similar to VEMALA
 		26.1[deg_c]+0.2*(air.temp - 27.77[deg_c])
 	}
 	
+	var(epi.water_FPV.in_Tempf, [deg_c], "Inflow Temp FPV"){
+		26.1[deg_c]+0.2*(air.temp - 27.77[deg_c])
+	}
+	
+	var(epi.hydro_elec, [W]) {
+		min(360000000[W] *0.55[] , (epi.depth + 33[m]) *0.55[] * 9.81[m, s-2] * 998 [k g, m-3] * hyp.abstrac / (24*3600[s, day-1]))
+	}
+	hydro_elecGWh : property("real production")
+	var(epi.hydro_elecGWh, [W]) {
+		epi.hydro_elec * 24[] * 365[] *0.000000001[]
+	}
+
+	
 	flux(out, epi.water.heat, [J, day-1], "Inflow heat to epi" ) {
 		water_temp_to_heat(epi.epi_inflow => [m 3], in_Temp) =>>
 	}
 	
-	flux(epi.water, hyp.water, [m 3, day-1], "Epi compensation") {
-		#hyp.abstrac
-		epi.epi_inflow + air.precip * epi.area * precip_scalor ->> - epi.water.flow ->> - evap_mm*area ->> 
-    } #@no_carry { heat }
+	flux(out, epi.water_FPV.heatf, [J, day-1], "Inflow heat to epi FPV" ) {
+		water_temp_to_heat(epi.epi_inflow => [m 3], in_Tempf) =>>
+	}
+	
+	flux(epi.water, hyp.water, [m 3, day-1], "Epi compensation") 
+	{		
+		max(0,epi.epi_inflow + air.precip * epi.area * precip_scalor ->> - epi.water.flow ->> - evap_mm*area ->> )
+	}#@no_carry { heat }
+	
+	flux(epi.water_FPV, hyp.water_FPV, [m 3, day-1], "Epi compensation FPV") 
+	{		
+		max(0,epi.epi_inflow + air.precip * epi.area * precip_scalor ->> - epi.water.flow ->> - evap_mm*area ->> )
+	}#@no_carry { heat }
 
 	
 	rho_ice    : constant("Ice density", [k g, m-3], 917)
@@ -138,25 +213,90 @@ The water balance part of the model is conceptually similar to VEMALA
 		water_temp_to_heat(water, t_hyp)
 	}
 	
+	
+		var(epi.water_FPV.heatf, [J]) @initial {
+		water_temp_to_heat(water_FPV, t_epi)
+	}
+	
+	var(hyp.water_FPV.heatf, [J]) @initial {
+		# TODO: Not quite the correct formula for what the mean hypolimnion temperature should be.
+		t_hyp := 0.5*(t_epi + t_bot),
+		water_temp_to_heat(water_FPV, t_hyp)
+	}
+	
 	evap :
 	flux(epi.water, nowhere, [m 3, day-1], "Evaporation") {
 		evap_mm*area ->>
 	} @no_carry # Don't carry any dissolved substances
 	
-	epi_temp_should_be : property("Epi temp should be")
-	var(epi.epi_temp_should_be, [deg_c]) {
+	flux(epi.water_FPV, nowhere, [m 3, day-1], "Evaporation FPV") {
+		evap_mm*area ->>
+	} @no_carry # Don't carry any dissolved substances
+	
+	mean_lake_temp : property("Mean Lake Temp")
+	var(epi.mean_lake_temp, [deg_c]) {
 		V := water + hyp.water,  # entire volume
 		lake_t := water_heat_to_temp(V, water.heat + hyp.water.heat), # Mean lake temperature.
-		(lake_t*V - 0.5*t_bot*hyp.water) / (water + 0.5*hyp.water)
+		lake_t
 	}
+	
+	mean_epi_temp : property("Mean Epi Temp")
+	var(epi.mean_epi_temp, [deg_c]) {
+		(mean_lake_temp * (water + hyp.water) - hyp.water.temp * hyp.water) / water
+	}
+	heat_in : property("Heat input")
+	var(epi.heat_in, [J, day-1]){in_flux(epi.water.heat)}
 	
 	flux(epi.water.heat, hyp.water.heat, [J, day-1], "Layer heat transfer") {
 		V := water + hyp.water,
 		lake_t := water_heat_to_temp(V, heat + hyp.water.heat), # Mean lake temperature.
 		epi_t_should_be := (lake_t*V - 0.5*t_bot*hyp.water) / (water + 0.5*hyp.water),
+		#epi_t_should_FPV := (lake_t*V - 0.2*t_bot*hyp.water) / (water + 0.8*hyp.water),
 		epi_heat_should_be := water_temp_to_heat(water, epi_t_should_be),
-		20[day-1]*(heat - epi_heat_should_be)   # The 5 is pretty arbitrary. Just to get a quick equilibration
+		#epi_heat_should_FPV := water_temp_to_heat(water, epi_t_should_FPV),
+		#5[day-1]*(heat - epi_heat_should_FPV) 		if always_cover, 
+		5[day-1]*(heat - epi_heat_should_be) 	#	otherwise   # The 5 is pretty arbitrary. Just to get a quick equilibration
 	}
+	
+	
+	mean_lake_tempf : property("Mean Lake Temp FPV")
+	var(epi.mean_lake_tempf, [deg_c]) {
+		V := water_FPV + hyp.water_FPV,  # entire volume
+		lake_t := water_heat_to_temp(V, water_FPV.heatf + hyp.water_FPV.heatf), # Mean lake temperature.
+		lake_t
+	}
+	
+	mean_epi_tempf : property("Mean Epi Temp FPV")
+	var(epi.mean_epi_tempf, [deg_c]) {
+		(mean_lake_tempf * (water_FPV + hyp.water_FPV) - hyp.water_FPV.tempf * hyp.water_FPV) / water_FPV
+	}
+	heat_inf : property("Heat input FPV")
+	var(epi.heat_inf, [J, day-1]){in_flux(epi.water_FPV.heatf)}
+	
+	flux(epi.water_FPV.heatf, hyp.water_FPV.heatf, [J, day-1], "Layer heat transfer FPV") {
+		V := water_FPV + hyp.water_FPV,
+		lake_t := water_heat_to_temp(V, heatf + hyp.water_FPV.heatf), # Mean lake temperature.
+		epi_t_should_be := (lake_t*V - 0.5*t_bot*hyp.water_FPV) / (water_FPV + 0.5*hyp.water_FPV),
+		#epi_t_should_FPV := (lake_t*V - 0.2*t_bot*hyp.water_FPV) / (water_FPV + 0.8*hyp.water_FPV),
+		epi_heat_should_be := water_temp_to_heat(water_FPV, epi_t_should_be),
+		#epi_heat_should_FPV := water_temp_to_heat(water, epi_t_should_FPV),
+		#5[day-1]*(heat - epi_heat_should_FPV) 		if always_cover, 
+		5[day-1]*(heatf - epi_heat_should_be) 	#	otherwise   # The 5 is pretty arbitrary. Just to get a quick equilibration
+	}
+	
+	#flux(epi.water.heat, hyp.water.heat, [J, day-1], "Layer heat transfer") {
+#		(conc(epi.water.heat)-conc(hyp.water.heat)) * min(epi.water, hyp.water)* 0.1[day-1]
+#	}
+	
+	
+	#flux(epi.water.heat, hyp.water.heat, [J, day-1], "Layer heat transfer") {
+	#	V := water + hyp.water,
+	#	lake_t := water_heat_to_temp(V, heat + hyp.water.heat), # Mean lake temperature.
+	#	hypo_temp := hypo_temperature_integral(A_surf, temp, t_bot, depth - z_e, depth, 0),
+	#	T_e_should_be := (lake_t*V - hypo_temp)/water,
+	#	epi_heat_should_be := water_temp_to_heat(water, T_e_should_be),
+	#	5[day-1]*(heat - epi_heat_should_be)   # The 5 is pretty arbitrary. Just to get a quick equilibration
+	#}
 	
 	var(epi.water.temp, [deg_c], "Epilimnion temperature") {
 		water_heat_to_temp(water, water.heat)
@@ -167,19 +307,57 @@ The water balance part of the model is conceptually similar to VEMALA
 	}
 	
 	
+	var(epi.water_FPV.tempf, [deg_c], "Epilimnion temperature FPV") {
+		water_heat_to_temp(water_FPV, water_FPV.heatf)
+	} @initial { t_epi }
+	
+	var(hyp.water_FPV.tempf, [deg_c], "Hypolimnion temperature (mean) FPV") {
+		water_heat_to_temp(water_FPV, water_FPV.heatf)
+	}
+	
+	
 	# TODO: How does mixing interact with ice (?)
 	ind : property("Mixing indicator")
+	indf : property("Mixing indicator FPV")
 	var(epi.ind, [], "Mixing indicator") { abs(water.temp - hyp.water.temp) < mix_deg }
 	
 	# NOTE: This moves an equal body of water up and down, which does not impact the water volume, but does mix dissolved substances.
 	# The no_carry for heat is because we can't let the mixing flux carry heat, since the heat transfer is computed in a different way.
 	mix_down :
 	flux(epi.water, hyp.water, [m 3, day-1], "Mixing down") {
-		0.5*area * z_e * epi.ind * 1[day-1] ->>
+		0.05*epi.water * epi.ind * 1[day-1] ->>
 	} @no_carry { heat }
 	
 	mix_up : 
 	flux(hyp.water, epi.water, [m 3, day-1], "Mixing up") {
-		0.5*epi.area * epi.z_e * epi.ind * 1[day-1] ->>
+		0.05*epi.water * epi.ind * 1[day-1] ->>
 	} @no_carry { heat }
+	
+	
+	var(epi.indf, [], "Mixing indicator FPV") { abs(water_FPV.tempf - hyp.water_FPV.tempf) < mix_deg }
+	
+	# NOTE: This moves an equal body of water up and down, which does not impact the water volume, but does mix dissolved substances.
+	# The no_carry for heat is because we can't let the mixing flux carry heat, since the heat transfer is computed in a different way.
+	mix_downf :
+	flux(epi.water_FPV, hyp.water_FPV, [m 3, day-1], "Mixing down FPV") {
+		0.05*epi.water_FPV * epi.indf * 1[day-1] ->>
+	} @no_carry { heatf }
+	
+	mix_upf : 
+	flux(hyp.water_FPV, epi.water_FPV, [m 3, day-1], "Mixing up FPV") {
+		0.05*epi.water_FPV * epi.indf * 1[day-1] ->>
+	} @no_carry { heatf }
+	
+	
+	
+	# This formula is integral(A(z)*T(z)dz, 0, z_e) where T(z) is the temperature profile in the hypolimnion, set in this model to be
+	#   T(z) = ((T_e - T_b)/z_e^2)*z^2 + T_b
+	# where T_e is epilimnion temperature and T_b is bottom temperature
+	# Can be symbolically integrated e.g. in sympy:
+	#	integrate((((T_e-T_b)/z_e**2)*z**2+T_b)*(z/z_0)*(theta + (1-theta)*z/z_0), (z, 0, z_e))
+	hypo_temperature_integral : function(A_0 : [m 2], T_e : [deg_c], T_b : [deg_c], z_e : [m], z_0 : [m], theta : []) {
+		A_0*(z_e^2/z_0)*(theta*(T_b+T_e)/4 + (z_e/z_0)*(1-theta)*(5*T_e - 2*T_b)/15)
+	}
+	
+	
 }
