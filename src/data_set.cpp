@@ -661,7 +661,7 @@ Connection_Data::process_declaration(Catalog *catalog) {
 		
 		data_set->index_data.initialize_edge_index_set(edge_index_set, edge_set->source_loc);
 				
-		for(auto component_id : scope.by_type<Reg_Type::component>()) {
+		for(auto component_id : scope.by_type(Reg_Type::component)) {
 			auto component = data_set->components[component_id];
 			if(component->index_sets.size() == 1) {
 				if(data_set->index_data.can_be_sub_indexed_to(component->index_sets[0], edge_index_set))
@@ -891,14 +891,14 @@ Data_Set::read_from_file(String_View file_name) {
 	}
 	
 	// Almost everything depends on the index sets being correctly set up before the data is processed.
-	for(auto id : scope->by_type<Reg_Type::index_set>())
+	for(auto id : scope->by_type(Reg_Type::index_set))
 		process_index_data(this, scope, id); // Can't call process_declaration on index_sets since we can't reuse the same function as in the model.
 	
-	for(auto id : scope->by_type<Reg_Type::position_map>())
+	for(auto id : scope->by_type(Reg_Type::position_map))
 		find_entity(id)->process_declaration(this);
 	
 	// Also have to process connections in order to set indexes for edge index sets before anything else is done.
-	for(auto id : scope->by_type<Reg_Type::connection>())
+	for(auto id : scope->by_type(Reg_Type::connection))
 		find_entity(id)->process_declaration(this);
 	
 	for(auto id : scope->all_ids) {
@@ -1503,31 +1503,31 @@ write_scope_to_file(Data_Set *data_set, Decl_Scope *scope, Scope_Writer *writer,
 	if(leading_newline)
 		writer->newline();
 	
-	for(auto id : scope->by_type<Reg_Type::series>())
+	for(auto id : scope->by_type(Reg_Type::series))
 		write_series_to_file(data_set, writer, id);
 	
-	for(auto id : scope->by_type<Reg_Type::index_set>())
+	for(auto id : scope->by_type(Reg_Type::index_set))
 		write_index_set_to_file(data_set, writer, id);
 	
-	for(auto id : scope->by_type<Reg_Type::position_map>())
+	for(auto id : scope->by_type(Reg_Type::position_map))
 		write_position_map_to_file(data_set, writer, id);
 	
-	for(auto id : scope->by_type<Reg_Type::connection>())
+	for(auto id : scope->by_type(Reg_Type::connection))
 		write_connection_to_file(data_set, writer, id);
 	
-	for(auto id : scope->by_type<Reg_Type::component>())
+	for(auto id : scope->by_type(Reg_Type::component))
 		write_component_to_file(data_set, writer, id);
 	
-	for(auto id : scope->by_type<Reg_Type::quick_select>())
+	for(auto id : scope->by_type(Reg_Type::quick_select))
 		write_quick_select_to_file(data_set, writer, id);
 	
-	for(auto id : scope->by_type<Reg_Type::par_group>())
+	for(auto id : scope->by_type(Reg_Type::par_group))
 		write_par_group_to_file(data_set, writer, id);
 	
-	for(auto id : scope->by_type<Reg_Type::module>())
+	for(auto id : scope->by_type(Reg_Type::module))
 		write_module_to_file(data_set, writer, id);
 	
-	for(auto id : scope->by_type<Reg_Type::parameter>())
+	for(auto id : scope->by_type(Reg_Type::parameter))
 		write_parameter_to_file(data_set, writer, id);
 }
 

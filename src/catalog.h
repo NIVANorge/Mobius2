@@ -66,11 +66,12 @@ Decl_Scope {
 	std::unordered_map<Decl_AST *, Entity_Id>                      by_decl;  // Used to look up the id we put for a decl when we go back and process it.
 	std::set<Entity_Id>                                            all_ids;
 	
-	template<Reg_Type reg_type> struct
+	struct
 	By_Type {
 		
-		By_Type(Decl_Scope *scope) : scope(scope) {
+		By_Type(Decl_Scope *scope, Reg_Type reg_type) : scope(scope), reg_type(reg_type) {
 			end_it.scope = scope;
+			end_it.reg_type = reg_type;
 			end_it.it = scope->all_ids.end();
 		}
 		
@@ -78,6 +79,7 @@ Decl_Scope {
 		Scope_It {
 			std::set<Entity_Id>::iterator it;
 			Decl_Scope *scope;
+			Reg_Type reg_type;
 			Scope_It &operator++() {
 				do it++; while(it != scope->all_ids.end() && (it->reg_type != reg_type));
 				return *this;
@@ -88,10 +90,12 @@ Decl_Scope {
 		
 		Scope_It end_it;
 		Decl_Scope *scope;
+		Reg_Type reg_type;
 		
 		Scope_It begin() {
 			Scope_It it;
 			it.scope = scope;
+			it.reg_type = reg_type;
 			it.it = scope->all_ids.begin();
 			while(it != end_it && (it.it->reg_type != reg_type))
 				++it.it;
@@ -107,8 +111,7 @@ Decl_Scope {
 		}
 	};
 	
-	template<Reg_Type reg_type> By_Type<reg_type>
-	by_type() { return By_Type<reg_type>(this); }
+	By_Type by_type(Reg_Type reg_type) { return By_Type(this, reg_type); }
 };
 
 struct

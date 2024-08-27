@@ -1145,7 +1145,7 @@ process_module_load(Mobius_Model *model, Token *load_name, Entity_Id template_id
 		}
 	}
 	
-	for(auto id : module->scope.by_type<Reg_Type::loc>()) {
+	for(auto id : module->scope.by_type(Reg_Type::loc)) {
 		model->find_entity(id)->process_declaration(model);
 	}
 	
@@ -1796,11 +1796,11 @@ load_model(String_View file_name, Mobius_Config *config) {
 			} else {
 				model->register_decls_recursive(scope, child, allowed_model_decls);
 			}
-		}	
+		}
 	}
 	
 	// NOTE: The declarations are processed in this order because the processing of some types can depend on the data of other ones.
-	for(auto id : scope->by_type<Reg_Type::index_set>())
+	for(auto id : scope->by_type(Reg_Type::index_set))
 		model->index_sets[id]->process_declaration(model);
 	
 	for(auto id : scope->all_ids) {

@@ -69,20 +69,19 @@ class Mobius_Entity_Metadata(ctypes.Structure) :
 		("max", Parameter_Value)
 	]
 
-
-# The below recreates the Reg_Type enum using global variables, equivalent to
-# It is auto-generated so that it is guaranteed to match the C++ code.
-# MODULE_TYPE = 1
-# COMPONENT_TYPE = 2
-# PARAMETER_TYPE = 3
-# FLUX_TYPE = 4
-# PAR_GROUP_TYPE = 6
-# ...
-
 def mobius2_path() :
 	#NOTE: We have to add a trailing slash to the path for Mobius2 to understand it.
 	return f'{pathlib.Path(__file__).parent.resolve().parent}{os.sep}'
 
+# The below recreates the Reg_Type enum using global variables, equivalent to
+# MODULE_TYPE = 1
+# COMPONENT_TYPE = 2
+# PARAMETER_TYPE = 3
+# FLUX_TYPE = 4
+# LIBRARY_TYPE = 5
+# PAR_GROUP_TYPE = 6
+# ...
+# It is auto-generated so that it is guaranteed to match the C++ code.
 with open(mobius2_path() + f'src{os.sep}reg_types.incl', 'r') as f :
 	t = f.read()
 	idx = 1
@@ -179,6 +178,11 @@ def load_dll() :
 
 	dll.mobius_get_entity_metadata.argtypes = [ctypes.c_void_p, Entity_Id]
 	dll.mobius_get_entity_metadata.restype = Mobius_Entity_Metadata
+	
+	dll.mobius_entity_count.argtypes = [ctypes.c_void_p, Entity_Id, ctypes.c_int16]
+	dll.mobius_entity_count.restype = ctypes.c_int64
+	
+	dll.mobius_list_all_entities.argtypes = [ctypes.c_void_p, Entity_Id, ctypes.c_int16, ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(ctypes.c_char_p)]
 
 	return dll
 
@@ -353,8 +357,18 @@ class Scope :
 			self.__getattr__(identifier).__setitem__((), value)
 	
 	def list_all(self, type) :
-		# TODO
-		pass
+		
+		# TODO: Should this also output the type and/or other info?
+		count = dll.mobius_entity_count(self.data_ptr, self.scope_id, type)
+		
+		idents = (ctypes.c_char_p * count)()
+		names  = (ctypes.c_char_p * count)()
+		
+		dll.mobius_list_all_entities(self.data_ptr, self.scope_id, type, idents, names)
+		_check_for_errors()
+		
+		return [(id.decode('utf-8'), n.decode('utf-8')) for id, n in zip(idents, names)]
+		
 
 class Model_Application(Scope) :
 	def __init__(self, data_ptr, is_main) :
@@ -408,7 +422,7 @@ class Entity(Scope) :
 		self.entity_id = entity_id
 		self.superscope_id = scope_id
 		
-		if entity_id.reg_type == MODULE_TYPE :
+		if entity_id.reg_type == MODULE_TYPE or entity_id.reg_type == PAR_GROUP_TYPE:
 			Scope.__init__(self, data_ptr, entity_id)
 		else :
 			Scope.__init__(self, data_ptr, scope_id)
@@ -428,7 +442,7 @@ class Entity(Scope) :
 			raise ValueError("This entity can't be accessed using []")
 	
 	def __getattr__(self, identifier) :
-		if self.entity_id.reg_type == MODULE_TYPE :
+		if self.entity_id.reg_type == MODULE_TYPE or self.entity_id.reg_type == PAR_GROUP_TYPE :
 			return Scope.__getattr__(self, identifier)
 		elif self.entity_id.reg_type == COMPONENT_TYPE :
 			scope = Scope(self.data_ptr, self.superscope_id)

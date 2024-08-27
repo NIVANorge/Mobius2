@@ -458,7 +458,7 @@ print_function_definition(Mobius_Model *model, Decl_Scope *scope, Entity_Id fun_
 
 void
 print_constants(std::stringstream &ss, Mobius_Model *model, Decl_Scope *scope) {
-	auto constants = scope->by_type<Reg_Type::constant>();
+	auto constants = scope->by_type(Reg_Type::constant);
 	if(constants.size() > 0) {
 		
 		ss << "### Constants\n\n";
@@ -529,7 +529,7 @@ document_module(std::stringstream &ss, Mobius_Model *model, std::string &module_
 	
 	print_constants(ss, model, &module->scope);
 	
-	auto funs = module->scope.by_type<Reg_Type::function>();
+	auto funs = module->scope.by_type(Reg_Type::function);
 	if(funs.size() > 0) {
 		ss << "### Module functions\n\n";
 		
@@ -538,7 +538,7 @@ document_module(std::stringstream &ss, Mobius_Model *model, std::string &module_
 		}
 	}
 	
-	auto groups = module->scope.by_type<Reg_Type::par_group>();
+	auto groups = module->scope.by_type(Reg_Type::par_group);
 	if(groups.size() > 0) {
 		
 		ss << "### Parameters\n\n";
@@ -559,7 +559,7 @@ document_module(std::stringstream &ss, Mobius_Model *model, std::string &module_
 			}
 			ss << "| **" << group->name << "** | | | " << possible_distr << " |\n";
 			
-			for(auto par_id : group->scope.by_type<Reg_Type::parameter>()) {
+			for(auto par_id : group->scope.by_type(Reg_Type::parameter)) {
 				auto par = model->parameters[par_id];
 				
 				std::string unit;
@@ -588,7 +588,7 @@ document_module(std::stringstream &ss, Mobius_Model *model, std::string &module_
 		ss << "\n";
 	}
 	
-	auto vars = module->scope.by_type<Reg_Type::var>();
+	auto vars = module->scope.by_type(Reg_Type::var);
 	if(vars.size() > 0) {
 		ss << "### State variables\n\n";
 		
@@ -635,7 +635,7 @@ document_module(std::stringstream &ss, Mobius_Model *model, std::string &module_
 		}
 	}
 	
-	auto fluxes = module->scope.by_type<Reg_Type::flux>();
+	auto fluxes = module->scope.by_type(Reg_Type::flux);
 	if(fluxes.size() > 0) {
 		ss << "### Fluxes\n\n";
 		
@@ -741,7 +741,7 @@ document_library(std::stringstream &ss, Mobius_Model *model, Entity_Id lib_id) {
 	
 	print_constants(ss, model, &lib->scope);
 	
-	auto funs = lib->scope.by_type<Reg_Type::function>();
+	auto funs = lib->scope.by_type(Reg_Type::function);
 	if(funs.size() > 0) {
 		ss << "### Library functions\n\n";
 		

@@ -1,4 +1,4 @@
-// NOTE: The order of some of these can't be changed without breaking mobipy.
+// NOTE: This file can't have empty lines. Only comment lines starting with // or ENUM_VALUE(sym) lines.
 ENUM_VALUE(module)
 ENUM_VALUE(component)
 ENUM_VALUE(parameter)

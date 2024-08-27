@@ -148,7 +148,7 @@ Model_Application::set_up_parameter_structure(std::unordered_map<Entity_Id, std:
 				index_sets.push_back(id);
 		}
 	
-		for(auto par_id : model->get_scope(group_id)->by_type<Reg_Type::parameter>())
+		for(auto par_id : model->get_scope(group_id)->by_type(Reg_Type::parameter))
 			par_by_index_sets[index_sets].push_back(par_id);
 	}
 	
@@ -553,7 +553,7 @@ process_parameters(Model_Application *app, Data_Set *data_set, Entity_Id par_gro
 		return;
 	}
 	
-	for(auto par_data_id : par_group_data->scope.by_type<Reg_Type::parameter>()) {
+	for(auto par_data_id : par_group_data->scope.by_type(Reg_Type::parameter)) {
 		
 		auto par_data = data_set->parameters[par_data_id];
 		if(par_data->mark_for_deletion) continue;
@@ -813,7 +813,7 @@ pre_process_connection_data(Model_Application *app, Data_Set *data_set, Entity_I
 		fatal_error("This connection was given an edge index set in the model, but not in the data set."); 
 	}
 	
-	for(auto comp_data_id : connection_data->scope.by_type<Reg_Type::component>()) {
+	for(auto comp_data_id : connection_data->scope.by_type(Reg_Type::component)) {
 		
 		auto comp_data = data_set->components[comp_data_id];
 		// Can't do this since they are scoped differently in the model and the data_set
@@ -1130,7 +1130,7 @@ Model_Application::save_to_data_set(Model_Data *save_from) {
 		
 		bool index_sets_resolved = false;
 		par_group_data->error = false;
-		for(auto par_id : par_group->scope.by_type<Reg_Type::parameter>()) {
+		for(auto par_id : par_group->scope.by_type(Reg_Type::parameter)) {
 			if(!index_sets_resolved) {
 				auto &index_sets = parameter_structure.get_index_sets(par_id);
 				
