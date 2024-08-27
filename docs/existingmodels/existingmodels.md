@@ -19,9 +19,10 @@ The following model is stand-alone:
 - [MAGIC](magic.html). This is a longer-timescale model for development of soil water chemistry (with a focus on acidity) in smaller catchment.
 
 In addition to these, Mobius2 comes with modules for other processes that are convenient to include into larger models, for instance
-- Snow pack and melt
-- Evapotranspiration
-- Atmospheric variables (radiation, humidity...)
-- Air-sea heat exchange
+- [Snow pack and melt](autogen/auxiliary.html#hbvsnow)
+- [Evapotranspiration](autogen/auxiliary.html#degree-day-pet) (Penman-Monteith and Priestley-Taylor are also available, but not documented yet)
+- [Atmospheric variables](autogen/auxiliary.html#atmospheric) (radiation, humidity...)
+- [Air-sea heat exchange](autogen/auxiliary.html#airsea-lake) (including ice growth)
+- Air-sea exchange in presence of a partial cover with floating solar panels.
 
 We expect to eventually port over other models from Mobius1 such as SedFlex and the plastic models.
