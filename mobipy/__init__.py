@@ -301,7 +301,7 @@ def _get_par_value(data_ptr, entity_id, indexes) :
 	return result
 	
 def _set_par_value(data_ptr, entity_id, indexes, value) :
-	#TODO: Other value types
+	
 	type = dll.mobius_get_value_type(data_ptr, entity_id)
 	if type <= 2 :
 		val = Parameter_Value()
@@ -332,7 +332,8 @@ class Scope :
 		self.data_ptr = data_ptr
 		self.scope_id = scope_id
 	
-	# TODO: If either of these are a flux, it should return a State_Var
+	# TODO: If either of these are a flux, it should return a State_Var. Or alternatively make a var() method on Entity that returns the state var
+	# associated to a 'var' or 'flux' declaration.
 	def __getitem__(self, serial_name) :
 		entity_id = dll.mobius_deserialize_entity(self.data_ptr, self.scope_id, _c_str(serial_name))
 		_check_for_errors()
@@ -482,7 +483,11 @@ class Entity(Scope) :
 		else :
 			return data.max.val_int
 			
-	# TODO: default(self) :
+	# TODO (for parameters):
+	# default(self) :
+	# index_sets(self)
+	# (for index sets) :
+	# indexes()   # This one is a bit tricky for some index set types.. Need optional parent index?
 		
 	def description(self) :
 		if self.entity_id.reg_type != PARAMETER_TYPE :
@@ -620,3 +625,5 @@ class State_Var :
 		data = dll.mobius_get_series_metadata(self.data_ptr, self.var_id)
 		_check_for_errors()
 		return data.unit.decode('utf-8')
+		
+	# TODO index_sets(self)
