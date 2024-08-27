@@ -12,19 +12,19 @@ par_group("System") {
 
 par_group("Lake data") [ "Lake" ] {
 	par_real("Initial lake surface area")
-	[ 25200000 5000000 ]
+	[ 15200000 15000000 ]
 
 	par_real("Precipitation scalor")
 	[ 0.65 0.65 ]
 
 	par_real("Humidity scalor")
-	[ 3.06 3.06 ]
+	[ 3.51 3.51 ]
 
 	par_real("SWR scalor")
 	[ 0.9 0.9 ]
 
 	par_bool("Always cover (FPV)")
-	[ false true ]
+	[ false false ]
 
 	par_real("Degree of FPV coverage")
 	[ 1 0.9 ]
@@ -66,7 +66,7 @@ module("EasyReservoir", version(0, 1, 0)) {
 		[ 28 28 ]
 
 		par_real("Bottom temperature")
-		[ 26 26 ]
+		[ 27 27 ]
 
 		par_real("Epilimnion thickening rate")
 		[ 0.01 0.01 ]
