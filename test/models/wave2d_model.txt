@@ -2,20 +2,18 @@
 
 model("Wave2D") {
 	
-	cell : compartment("Cell")
+	vi : index_set("Vertical")
+	hi : index_set("Horizontal")
+	
+	cell : compartment("Cell", vi, hi)
 	
 	amp   : quantity("Amplitude")
 	mom   : quantity("Momentum")
 	
-	vi : index_set("Vertical")
-	hi : index_set("Horizontal")
+	solve(solver("Solver", inca_dascru, [hr]), cell.amp, cell.mom)
 	
-	distribute(cell, vi, hi)
-	
-	solve(solver("Solver", "INCADascru", 0.1), cell.amp, cell.mom)
-	
-	v : connection("Vert", grid1d) { cell[vi] }
-	h : connection("Horz", grid1d) { cell[hi] }
+	v : connection("Vert") @grid1d(cell, vi)
+	h : connection("Horz") @grid1d(cell, hi)
 	
 	module("Wave2D", version(1, 0, 0)) {
 		
@@ -24,14 +22,14 @@ model("Wave2D") {
 		}
 		
 		var(cell.amp, [m]) @initial { in_amp }
-		var(cell.mom, [m, day-1])	
+		var(cell.mom, [m, day-1])
 		
 		c : constant("Wave speed", [day-1], 0.08)
 		
-		flux(cell.mom, h, [m, day-2], "Momentum propagation horizontal") {  c^2*(amp[below] - amp)  }
+		flux(cell.mom, h, [m, day-2], "Momentum propagation horizontal") {  c^2*(amp[below] - amp)  } @bidirectional @no_store
 		
-		flux(cell.mom, v, [m, day-2], "Momentum propagation vertical") {  c^2*(amp[below] - amp)  }
+		flux(cell.mom, v, [m, day-2], "Momentum propagation vertical") {  c^2*(amp[below] - amp)  } @bidirectional @no_store
 		
-		flux(cell.amp, out, [m, day-1], "Wave propagation") { mom }
+		flux(cell.amp, out, [m, day-1], "Wave propagation") { mom } @no_store
 	}
 }

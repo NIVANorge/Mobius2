@@ -5,7 +5,6 @@
 #include <cmath>
 #include <sstream>
 
-// TODO: complete this and make sure it is correct
 s16
 parse_si_prefix(Token *token) {
 	String_View m = token->string_value;
@@ -35,12 +34,14 @@ parse_si_prefix(Token *token) {
 	return 0;
 }
 
-// TODO: Complete this
+// TODO: Fill in with all possible ones.
 const char *
 get_si_prefix(int pow10, bool declared=false) {
 	static const char *prefixes[] = {"G", "100M", "10M", "M", "100k", "10k", "k", "h", "da", "", "d", "c", "m", "100µ", "10µ", "µ", "100n", "10n", "n"};
 	static const char *prefixes2[] = {"G", "100M", "10M", "M", "100k", "10k", "k", "h", "da", "", "d", "c", "m", "100u", "10u", "u", "100n", "10n", "n"};
 	int idx = 9-pow10;
+	if(idx < 0 || idx > 18)
+		fatal_error(Mobius_Error::internal, "Unimplemented SI prefix.");
 	return declared ? prefixes2[idx] : prefixes[idx];
 }
 
@@ -55,8 +56,7 @@ parse_compound_unit(Token *token) {
 	
 	token->print_error_header();
 	fatal_error("Unrecognized unit ", u, " .");
-	//warning_print("Unrecognized unit ", u, " .\n");
-	
+
 	return Compound_Unit::m;
 }
 
@@ -113,40 +113,54 @@ Unit_Data::set_standard_form() {
 		standard_form.powers[idx] = 0;
 	standard_form.reduce();
 
+	// TODO: There has to be a more efficient way to organize the below data:
+
 	for(auto &part : declared_form) {
-		if((int)part.unit <= (int)Base_Unit::max)
+		if((int)part.unit < (int)Base_Unit::max)
 			standard_form.powers[(int)part.unit] += part.power;
 		else if(part.unit == Compound_Unit::N) {
 			standard_form.powers[(int)Base_Unit::g] += part.power;
 			standard_form.powers[(int)Base_Unit::m] += part.power;
 			standard_form.powers[(int)Base_Unit::s] -= 2*part.power;
-			standard_form.magnitude += 3*part.power;  // N = 10^3 g m s^-2
+			standard_form.magnitude += 3*part.power;  // Newton = 10^3 g m s^-2
 		} else if(part.unit == Compound_Unit::J) {
 			standard_form.powers[(int)Base_Unit::g] += part.power;
 			standard_form.powers[(int)Base_Unit::m] += 2*part.power;
 			standard_form.powers[(int)Base_Unit::s] -= 2*part.power;
-			standard_form.magnitude += 3*part.power;  // J = 10^3 g m^2 s^-2
+			standard_form.magnitude += 3*part.power;  // Joule = 10^3 g m^2 s^-2
 		} else if(part.unit == Compound_Unit::W) {
 			standard_form.powers[(int)Base_Unit::g] += part.power;
 			standard_form.powers[(int)Base_Unit::m] += 2*part.power;
 			standard_form.powers[(int)Base_Unit::s] -= 3*part.power;
-			standard_form.magnitude += 3*part.power;  // W = 10^3 g m^2 s^-3
+			standard_form.magnitude += 3*part.power;  // Watt = 10^3 g m^2 s^-3
 		} else if(part.unit == Compound_Unit::l) {
 			standard_form.powers[(int)Base_Unit::m] += 3*part.power;
-			standard_form.magnitude -= 3*part.power;   // l = 10^-3 m^3
+			standard_form.magnitude -= 3*part.power;   // liter = 10^-3 m^3
 		} else if(part.unit == Compound_Unit::ha) {
 			standard_form.powers[(int)Base_Unit::m] += 2*part.power;
-			standard_form.magnitude += 4*part.power;
+			standard_form.magnitude += 4*part.power;   // hectare = (10^2 m)^2
 		} else if(part.unit == Compound_Unit::Pa) {
 			standard_form.powers[(int)Base_Unit::g] += part.power;
 			standard_form.powers[(int)Base_Unit::m] -= part.power;
 			standard_form.powers[(int)Base_Unit::s] -= 2*part.power;
-			standard_form.magnitude += 3*part.power;  // Pa = 10^3 g m^-1 s^-2
+			standard_form.magnitude += 3*part.power;  // Pascal = 10^3 g m^-1 s^-2
 		} else if(part.unit == Compound_Unit::bar) {
 			standard_form.powers[(int)Base_Unit::g] += part.power;
 			standard_form.powers[(int)Base_Unit::m] -= part.power;
 			standard_form.powers[(int)Base_Unit::s] -= 2*part.power;
 			standard_form.magnitude += 8*part.power;  // bar = 10^5*10^3 g m^-1 s^-2
+		} else if(part.unit == Compound_Unit::V) {
+			standard_form.powers[(int)Base_Unit::g] += part.power;
+			standard_form.powers[(int)Base_Unit::m] += 2*part.power;
+			standard_form.powers[(int)Base_Unit::s] -= 3*part.power;
+			standard_form.powers[(int)Base_Unit::A] -= part.power;
+			standard_form.magnitude += 3*part.power;  // Volt = 10^3 g m^2 s^-3 A^-1
+		} else if(part.unit == Compound_Unit::ohm) {
+			standard_form.powers[(int)Base_Unit::g] += part.power;
+			standard_form.powers[(int)Base_Unit::m] += 2*part.power;
+			standard_form.powers[(int)Base_Unit::s] -= 3*part.power;
+			standard_form.powers[(int)Base_Unit::A] -= 2*part.power;
+			standard_form.magnitude += 3*part.power;  // Ohm = (10^3 g) m^2 s^-3 A^-2
 		} else if(part.unit == Compound_Unit::perc) {
 			standard_form.magnitude -= 2*part.power;  // % = 1/100
 		} else {
@@ -169,7 +183,7 @@ Unit_Data::set_standard_form() {
 				standard_form.powers[(int)Base_Unit::s] += part.power;
 				standard_form.magnitude += 2*part.power;
 				standard_form.multiplier *= pow_i<s64>(6048, part.power.nom);
-			}else
+			} else
 				fatal_error(Mobius_Error::internal, "Unhandled compound unit in set_standard_form().");
 		}
 		standard_form.magnitude += ((int)part.magnitude)*part.power;
@@ -333,7 +347,7 @@ void
 write_utf8_superscript_char(std::ostream &ss, char c, int number = 0) {
 	if(c == '-')
 		ss << u8"\u207b";
-	else if(c == '/')      // None of these raised slashes are perfect..
+	else if(c == '/')      // Trying to find a unicode symbol that looks like a forward slash in raised position, but none of them are perfect.
 		ss << u8"\u2032";
 		//ss << u8"\u141f";
 		//ss << "´";
@@ -362,7 +376,8 @@ write_utf8_superscript_char(std::ostream &ss, char c, int number = 0) {
 void
 write_utf8_superscript_number(std::ostream &ss, int number) {
 	static char buf[32];
-	itoa(number, buf, 10);
+	//itoa(number, buf, 10);
+	sprintf(buf, "%d", number);
 	char *c = &buf[0];
 	while(*c) {
 		write_utf8_superscript_char(ss, *c, number);
@@ -432,6 +447,41 @@ Unit_Data::to_decl_str() {
 	return ss.str();
 }
 
+template<typename T> void
+print_latex_rational(std::stringstream &ss, Rational<T> r) {
+	if(r.denom != 1) {
+		if(r.nom > 0)
+			ss << "-";
+		ss << "\\frac{" << std::abs(r.nom) << "}{" << r.denom << "}";
+	} else {
+		ss << r.nom;
+	}
+}
+
+std::string
+Unit_Data::to_latex() {
+	std::stringstream ss;
+	if(declared_multiplier != Rational<s64>(1))
+		print_latex_rational(ss, declared_multiplier);
+	else if (declared_form.empty())
+		ss << "1";
+	
+	for(auto &part : declared_form) {
+		ss << "\\mathrm{";
+		if(part.magnitude != 0)
+			ss << get_si_prefix(part.magnitude, false);
+		ss << unit_symbols[(int)part.unit]; //TODO: Do we need a separate LaTeX version for greek letters?
+		ss << "}"; // end mathrm
+		if(part.power != Rational<s16>(1)) {
+			ss << "^{";
+			print_latex_rational(ss, part.power);
+			ss << "}";
+		}
+		ss << "\\,";
+	}
+	return ss.str();
+}
+
 std::string
 Standardized_Unit::to_utf8() {
 	std::stringstream ss;
@@ -473,11 +523,18 @@ Unit_Data::set_data(Decl_AST *decl) {
 	declared_form.clear();
 	declared_multiplier = 1;
 	int idx = 0;
-	for(auto arg : decl->args) {
+	for(int idx = 0; idx < decl->args.size(); ++idx) {
+		auto arg = decl->args[idx];
 		bool skip = false;
-		if(idx == 0 && arg->chain.size() == 1 && arg->chain[0].type == Token_Type::integer) {
-			skip = true;
-			declared_multiplier = arg->chain[0].val_int;
+		if(idx == 0) {
+			if(arg->chain.size() == 1 && arg->chain[0].type == Token_Type::integer) {
+				skip = true;
+				declared_multiplier = arg->chain[0].val_int;
+			} else if (arg->chain.size() == 3 && arg->chain[0].type == Token_Type::integer 
+				&& (char)arg->chain[1].type == '/' && arg->chain[2].type == Token_Type::integer) {
+				skip = true;
+				declared_multiplier = Rational<s64>(arg->chain[0].val_int, arg->chain[2].val_int);
+			}
 			if(declared_multiplier.nom < 0) {
 				arg->chain[0].print_error_header();
 				fatal_error("A unit can not have a negative size.");
@@ -485,7 +542,6 @@ Unit_Data::set_data(Decl_AST *decl) {
 		}
 		if(!skip)
 			declared_form.push_back(parse_unit(&arg->chain));
-		++idx;
 	}
 	set_standard_form();
 }

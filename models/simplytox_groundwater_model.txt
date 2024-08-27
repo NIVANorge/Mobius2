@@ -1,0 +1,25 @@
+
+
+model("SimplyToxGroundwater") {
+"""
+This is a specialized version of SimplyTox where there are several groundwater layers, but no river.
+"""
+
+	extend("simplyq_groundwater_model.txt")
+	
+	tox_index : index_set("Contaminant type")
+	
+	tox   : quantity("Contaminant", tox_index)
+
+	dsoil   : compartment("Slow-accessible soil", lu)
+	soilair : compartment("Soil air", lu)
+
+	load("modules/simplytox.txt",
+		phys : preamble("SimplyTox physiochemical", tox, temp),
+		module("SimplyTox partitioning", "SimplyTox soil water", soil, water, oc, tox, temp, loc(soil.oc), [n g, m-2], constant(true), phys),
+		module("SimplyTox soil", air, soil, dsoil, soilair, gw, water, oc, tox, temp, phys),
+		module("SimplyTox partitioning", "SimplyTox groundwater", gw, water, oc, tox, temp, loc(gw.oc), [n g, m-2], constant(false), phys)
+	)
+	
+	solve(sol, soil.oc, dsoil.oc, gw.oc, soilair.tox)
+}

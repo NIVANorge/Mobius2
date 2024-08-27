@@ -1,27 +1,33 @@
-/*
-index_set("I") [ 10 ]
+data_set {
+	
+"""
+The doc string
+"""
+	
+	i : index_set("I") [ 5 ]
+	
+	par_group("System") {
+		
+		par_datetime("Start date") 
+		[ 1990-01-01 ]
+		
+		par_datetime("End date") 
+		[ 1990-12-31 ]
+	
+	}
+	
+	module("So simple", version(2, 0, 0)) {
+		
+		par_group("Pars", i) {
+			
+			par_real("T") 
+			[ 0 0 0 0 0 ]
+			
+			par_real("F") 
+			[ 1 2 3 4 5 ]
+		
+		}
+	
+	}
 
-index_set("J") [ "(generated)" ]
-
-connection("Grid") [
-	compartment("B") [ "I" ]
-]
-*/
-
-par_group("System") {
-	par_datetime("Start date")
-	[ 1990-01-01 ]
-
-	par_datetime("End date")
-	[ 1990-12-31 ]
 }
-/*
-par_group("Ploff") [ "J" ] {
-	par_real("K")
-	[ 0 ]
-}
-
-module("So simple", 1, 0, 0) {
-}
-
-*/

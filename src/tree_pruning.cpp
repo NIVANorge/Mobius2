@@ -182,6 +182,8 @@ are_the_same(Math_Expr_FT *a, Math_Expr_FT *b) {
 				return id_a->local_var == id_b->local_var;
 			if(id_a->variable_type == Variable_Type::connection_info)
 				return true;  // NOTE: This is only supposed to be called once the offsets are put on it (in the exprs), and then it is sufficient to check those.
+			if(id_a->variable_type == Variable_Type::index_count)
+				return true;  // Same as for connection_info
 		} break;
 		
 		case Math_Expr_Type::binary_operator :
@@ -257,8 +259,11 @@ check_binop_reduction(Source_Location loc, Token_Type oper, Parameter_Value val,
 				result.type = Value_Type::none;
 		}
 	} else if (op == '&') {
-		result.type = Value_Type::boolean;
-		result.val_boolean = val.val_boolean;
+		if(!val.val_boolean) {
+			result.type = Value_Type::boolean;
+			result.val_boolean = false;
+		} else
+			result.type = Value_Type::none;
 	} else if (op == '|') {
 		if(val.val_boolean) {
 			result.type = Value_Type::boolean;
@@ -698,10 +703,13 @@ remove_single_statement_blocks(Math_Expr_FT *expr) {
 		auto block = static_cast<Math_Block_FT *>(expr);
 		
 		if(!block->iter_tag.empty()) return expr;
-		if(block->exprs.empty()) return expr; // TODO: Happened if the only code at all is a special_computation. Should it happen?
+		if(block->exprs.empty()) return expr; // TODO: Happened if the only code at all is a external_computation. Should it happen?
 		
 		// If the final value of a block is just a local var reference and that local var is declared on the line above, just replace the two last lines with the value of that local var.
 		//			We could maybe do something more sophisticated where we keep track of the number of references to a local var and substitute it if there is just one.
+		
+		// NOTE: This was causing a bug. Disabling it for now. Could probably delete it as it doesn't do anything important.
+		/*
 		bool loop = true;
 		while(loop) {
 			loop = false;
@@ -726,6 +734,7 @@ remove_single_statement_blocks(Math_Expr_FT *expr) {
 				}
 			}
 		}
+		*/
 		
 		if(!block->is_for_loop && block->exprs.size() == 1) {   // A block with a single statement can be replaced with that statement.
 			auto result = block->exprs[0];
@@ -853,7 +862,7 @@ is_constant_rational(Math_Expr_FT *expr, Function_Scope *scope, bool *found) {
 				else if((char)binop->oper == '^' && res2.is_int())
 					return pow_i(res1, res2.nom);
 			}
-			if((found1 && res1 == Rational<s64>(0)) || (found2 && res2 == Rational<s64>(0))) {
+			if((char)binop->oper=='*' && ((found1 && res1 == Rational<s64>(0)) || (found2 && res2 == Rational<s64>(0)))) {
 				*found = true;
 				return Rational<s64>(0);
 			}

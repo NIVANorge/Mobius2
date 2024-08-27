@@ -1,0 +1,134 @@
+
+module("NIVAFjord sediments", version(0, 0, 3),
+	layer    : compartment,
+	sediment : compartment,
+	water    : quantity,
+	o2       : quantity,
+	sed      : quantity,
+	oc       : quantity,
+	din      : quantity,
+	on       : quantity,
+	phos     : quantity,
+	op       : quantity,
+	heat     : quantity,
+	area     : property,
+	temp     : property,
+	dz       : property,
+	vert     : connection,
+	dims     : preamble,
+	chem_par : preamble
+) {
+	
+	par_group("Sediments") {
+		th       : par_real("Active sediment thickness", [m], 0.1, 0.00001, 1)
+		porosity : par_real("Sediment porosity", [], 0.5, 0, 0.99)
+		resus    : par_real("Resuspension fraction", [], 0.01, 0, 1, "Fraction of settling material that is resuspended")
+	}
+	
+	par_group("Initial chem", sediment) {
+		init_c   : par_real("Initial sediment C fraction", [g, k g-1], 10, 0, 1)
+		init_p   : par_real("Initial sediment IP fraction", [g, k g-1], 1, 0, 1)
+	}
+	
+	load("stdlib/physiochemistry.txt", library("Chemistry"))
+	
+	# Set these as parameters: ?
+	sed_rho : constant("Sediment density", [k g, m-3], 2600)
+	sed_C   : constant("Sediment specific heat capacity", [J, k g-1, K-1], 5000) #TODO: Find a good value
+	sed_k   : constant("Sediment heat conductivity coefficient", [W, m-1, K-1], 20) #TODO: This is 10 times too high, but it probably must black-body radiate??
+	
+	par_group("Sediment temperature") {
+		dzh : par_real("Thickness of thermally active sediment layer", [m], 0.5)
+		T_bot : par_real("Deep sediment temperature", [deg_c], 8)
+	}
+	
+	var(sediment.heat, [J], "Sediment thermal energy") @initial {
+		(temp->[K]) * sed_C * (area*dzh) * sed_rho
+	}
+	
+	var(sediment.temp, [deg_c], "Sediment surface temperature") {
+		V := area*dzh,
+		T_avg := heat / (sed_C*sed_rho*area*dzh) -> [deg_c],
+		2*T_avg - T_bot
+	} @initial { layer.water.temp } # Or T_bot?
+	
+	flux(layer.water.heat, sediment.heat, [J, day-1], "Water-sediment heat conduction") {
+		dz_ := 0.5*(layer.dz + dzh),
+		sediment.area*(layer.water.temp->[K] - sediment.temp->[K])*sed_k/dz_ ->>
+	}
+	
+	
+	sed_cn : constant("Sediment C/N", [], 6.25)
+	sed_cp : constant("Sediment C/P", [], 106)
+	
+	
+	# The sediment area of a water layer is the area of the layer minus the area of the water layer below.
+	var(sediment.area, [m 2], "Sediment area") {   A - A[vert.below]   }
+	
+	var(sediment.sed, [k g], "Sediment mass") @initial {   area*th*sed_rho*(1 - porosity)   }
+	
+	var(sediment.sed.oc, [k g], [g, k g-1], "Sediment organic carbon") @initial_conc { init_c }
+	
+	var(sediment.sed.on, [k g], [g, k g-1], "Sediment organic N") @initial_conc { init_c / cn_molar_to_mass_ratio(sed_cn) }
+	
+	var(sediment.sed.phos, [k g], [g, k g-1], "Sediment IP") @initial_conc { init_p }
+	
+	var(sediment.sed.op, [k g], [g, k g-1], "Sediment OP") @initial_conc { init_c / cp_molar_to_mass_ratio(sed_cp) }
+	
+	# NOTE: In NIVAFjord it is just a reduction in settling, here instead it causes mixing of concentrations. Not sure what is best.
+	#   We could also make it independent of the settling (which is more realistic maybe).
+	flux(sediment.sed, layer.water.sed, [k g, day-1], "Sediment resuspension") {  in_flux(sed)*resus ->>  }
+	
+	flux(sediment.sed, out, [k g, day-1], "Sediment burial") {   in_flux(sed)*(1 - resus) ->>   }  # Keep the layer the same thickness by moving down as much as accumulates on top
+	
+	
+	#TODO: Take into account porosity?
+	#   Track temperature in sediments separately (with heat balance)?
+	#  Should sediment processes access pore water instead, and then have slow exchange between pore water and water column?
+	#           Probably unnecessary?
+	
+	#TODO: It is annoying to redo the below formulas for the sediments. Should be possible to unify the code.
+	
+	#flux(sediment.sed.oc, layer.water.oc, [k g, day-1], "Sediment POC dissolution") {
+	#	diss_r * sed.oc
+	#}
+	
+	flux(sediment.sed.oc, out, [k g, day-1], "POC mineralization") {
+		sed.oc*layer.water.min_rat
+	}
+	
+	flux(sediment.sed.on, layer.water.din, [k g, day-1], "PON mineralization and nitrification") {
+		sed.on*layer.water.min_rat*n_min
+	}
+	
+	# TODO: Should we assume PO4 formation is O2 limited?
+	flux(sediment.sed.op, sediment.sed.phos, [k g, day-1], "POP mineralization") {
+		sed.op*layer.water.temp_fac*maxdecomp_20*p_min
+	}
+	
+	# How take into account existing oxygen content of DOM?
+	flux(layer.water.o2, out, [k g, day-1], "O₂ sediment microbial consumption") {
+		mr := layer.water.min_rat,
+		(sediment.sed.oc)*mr*(o2_mol_mass/c_mol_mass)*O2toC    
+		+ (sediment.sed.on)*mr*n_min*(o2_mol_mass/n_mol_mass)*1.5    # ON -> NH4 -> NO3   #TODO: Should the 1.5 be parametrizable?
+	}
+	
+	flux(sediment.sed.oc, out, [k g, day-1], "POC mineralization by denitrification") {
+		sediment.sed.oc*layer.water.denit_rat
+	}
+	
+	flux(layer.water.din, out, [k g, day-1], "NO3 sediment denitrification consumption") {
+		bo2 := sediment.sed.oc*layer.water.denit_rat*O2toC*o2_mol_mass/c_mol_mass,  # Bacterial O2 demand in nitrification
+		bo2*1.5*n_mol_mass/o2_mol_mass
+	}
+	
+	flux(layer.water.phos, sediment.sed.phos, [k g, day-1], "PO4 adsorption / desorption to sediment layer") {
+		
+		epc0 := conc(sediment.sed.phos)/k_sorp -> [m g, l-1],
+		epc0_ := min(epc0, 0[m g, l-1]), # We get numeric instability if we don't put the 'min(.., 0)' there.
+		
+		# If there is high oxicity, use regular partitioning. With low oxicity, PO4 leeches out. (TODO: should maybe be a different rate)
+		r_sorp*(ox_fac*(conc(water.phos) - epc0_)*water->[k g] - (1-ox_fac)*sediment.sed.phos)
+	}
+	
+}

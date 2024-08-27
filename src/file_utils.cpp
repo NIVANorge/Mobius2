@@ -1,4 +1,8 @@
 
+
+#include <stdio.h>
+#include <locale>
+#include <codecvt>
 #include "file_utils.h"
 
 FILE *
@@ -83,7 +87,7 @@ make_path_relative_to(String_View file_name, String_View relative_to) {
 	while(pos < relative_to.count) {
 		if(pos == maxpath) fatal_error(Mobius_Error::internal, "Oops too long path, make better implementation!");
 		char c = relative_to[pos];
-		if(is_slash(c)) { last_slash = pos; c = '\\'; }
+		if(is_slash(c)) { last_slash = pos; c = '/'; }
 		new_path[pos] = c;
 		++pos;
 	}
@@ -122,6 +126,13 @@ make_path_relative_to(String_View file_name, String_View relative_to) {
 	}
 	if(pos == maxpath) fatal_error(Mobius_Error::internal, "Oops too long path, make better implementation!");
 	new_path[pos] = '\0';
+	
+	// To make it work on Linux:
+	char *c = &new_path[0];
+	while(*c) {
+		if(is_slash(*c)) *c = '/';
+		c++;
+	}
 	
 	String_View result = new_path;
 	return result;

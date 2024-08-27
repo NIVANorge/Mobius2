@@ -4,140 +4,75 @@
 
 // NOTE: this is a work-in-progress replacement for the module declaration and scope system.
 
-#include <string>
-#include <set>
-#include <unordered_set>
-
 #include "ast.h"
 #include "ode_solvers.h"
 #include "units.h"
+#include "catalog.h"
+
+#include <string>
+#include <set>
+#include <unordered_set>
+#include <algorithm>
 
 struct
-Scope_Entity {
-	std::string handle;
-	Entity_Id id  = invalid_entity_id;
-	bool external = false;
-	bool was_referenced = false;
-	bool is_load_arg = false;
-	Source_Location source_loc;
-};
-
-struct
-Serial_Entity {
-	Entity_Id id = invalid_entity_id;
-	Source_Location source_loc;
-};
-
-struct Mobius_Model;
-
-struct
-Decl_Scope {
-	struct Entity_Id_Hash {
-		int operator()(const Entity_Id &id) const { return 97*(int)id.reg_type + id.id; }
-	};
+Module_Template_Registration : Registration_Base {
 	
-	std::unordered_map<std::string, Scope_Entity>                  visible_entities;
-	std::unordered_map<std::string, Serial_Entity>                 serialized_entities;
-	std::unordered_map<Entity_Id, std::string, Entity_Id_Hash>     handles;
-	//TODO: Could we remove the all_ids set and just use the handles map instead? (would have to put empty handles there, but that should not be a problem)
-	std::unordered_set<Entity_Id, Entity_Id_Hash>                  all_ids;
-	
-	Entity_Id parent_id = invalid_entity_id; // Id of module or library this is the scope of. Invalid if it is the global or model scope.
-	
-	Scope_Entity *add_local(const std::string &handle, Source_Location source_loc, Entity_Id id);
-	void set_serial_name(const std::string &serial_name, Source_Location source_loc, Entity_Id id);
-	void import(const Decl_Scope &other, Source_Location *import_loc = nullptr, bool allow_recursive_import_params = false);
-	void check_for_missing_decls(Mobius_Model *model);
-	void check_for_unreferenced_things(Mobius_Model *model);
-	
-	Scope_Entity *operator[](const std::string &handle) {
-		auto find = visible_entities.find(handle);
-		if(find != visible_entities.end()) {
-			find->second.was_referenced = true;
-			return &find->second;
-		}
-		return nullptr;
-	}
-	
-	// TODO: The [Entity_Id] operator should return the reg instead (and that still allows you to access the handle)
-	const std::string& operator[](Entity_Id id) {
-		auto find = handles.find(id);
-		if(find == handles.end())
-			fatal_error(Mobius_Error::internal, "Attempt to look up handle name of an entity id in a scope where it was not declared.");
-		return find->second;
-	}
-	
-	Entity_Id deserialize(const std::string &serial_name, Reg_Type expected_type) const;
-};
-
-
-struct
-Entity_Registration_Base {
-	Decl_Type       decl_type;
-	Source_Location source_loc;         // if it has_been_declared, this should be the declaration location. Will not always be canonical for all entity types (some can be redeclared)
-	Entity_Id       scope_id = invalid_entity_id;  // The id of the decl of the parent scope if it exists
-	std::string     name;
-	bool            has_been_declared = false;
-};
-
-template<Reg_Type reg_type> struct
-Entity_Registration : Entity_Registration_Base {
-	Entity_Registration() = delete;  // NOTE: prevent instantiation of the completely generic version.
-};
-
-template<> struct
-Entity_Registration<Reg_Type::module_template> : Entity_Registration_Base {
 	Module_Version version;
-	Decl_AST      *decl;
 	std::string    doc_string;
 	std::string    normalized_path;
+	bool           was_inline_declared = false;
 	
-	Entity_Registration() : decl(nullptr) {}
+	void process_declaration(Catalog *catalog);
 };
 
-template<> struct
-Entity_Registration<Reg_Type::module> : Entity_Registration_Base {
-	Entity_Id      template_id;
+struct
+Module_Registration : Registration_Base {
 	
+	Entity_Id      template_id = invalid_entity_id;
 	Decl_Scope     scope;
-	
 	std::string    full_name;
 	
-	Entity_Registration() : template_id(invalid_entity_id) {}
+	void process_declaration(Catalog *catalog);
 };
 
-template<> struct
-Entity_Registration<Reg_Type::par_group> : Entity_Registration_Base {
-	std::vector<Entity_Id> components;
+struct
+Par_Group_Registration : Registration_Base {
 	
+	std::vector<Entity_Id> components;
+	std::vector<Entity_Id> direct_index_sets;
 	Decl_Scope             scope;
 	
-	Entity_Registration() {}
+	Index_Set_Tuple        max_index_sets; // This one will not be correctly set until the model is fully loaded.
+	
+	void process_declaration(Catalog *catalog);
 };
 
-template<> struct
-Entity_Registration<Reg_Type::library> : Entity_Registration_Base {
+struct
+Library_Registration : Registration_Base {
+	
 	Decl_Scope     scope;
-	Decl_AST      *decl;
-	bool           has_been_processed;
-	bool           is_being_processed;
+	bool           is_being_processed = false;
 	std::string    doc_string;
 	std::string    normalized_path;
 	
-	Entity_Registration() : decl(nullptr), has_been_processed(false), is_being_processed(false) {}
+	void process_declaration(Catalog *catalog);
 };
 
-template<> struct
-Entity_Registration<Reg_Type::loc> : Entity_Registration_Base {
+struct
+Loc_Registration : Registration_Base {
+	
 	Specific_Var_Location loc;
-	Entity_Id             par_id = invalid_entity_id;    // One could also pass a parameter as a loc.
+	Entity_Id             val_id = invalid_entity_id;    // One could also pass a parameter or constant as a loc.
+	
+	void process_declaration(Catalog *catalog);
 };
 
 struct
 Aggregation_Data {
-	Entity_Id to_compartment;
-	Math_Block_AST *code;
-	Entity_Id       scope_id;
+	Entity_Id       to_compartment      = invalid_entity_id;
+	Entity_Id       only_for_connection = invalid_entity_id;
+	Math_Block_AST *code                = nullptr;
+	Entity_Id       scope_id            = invalid_entity_id;
 };
 
 struct
@@ -148,8 +83,8 @@ Flux_Unit_Conversion_Data {
 	Entity_Id       scope_id;
 };
 
-template<> struct
-Entity_Registration<Reg_Type::component> : Entity_Registration_Base {
+struct
+Component_Registration : Registration_Base {
 	//Entity_Id    unit;            //NOTE: tricky. could clash between different vars. Better just to have it on the "var" ?
 	
 	// For compartments:
@@ -160,74 +95,102 @@ Entity_Registration<Reg_Type::component> : Entity_Registration_Base {
 	std::vector<Entity_Id> index_sets;
 	
 	// For properties:
-	Math_Block_AST *default_code;
+	Math_Block_AST *default_code = nullptr;
 	
-	Entity_Registration() : default_code(nullptr) {}
+	void process_declaration(Catalog *catalog);
 };
 
-template<> struct
-Entity_Registration<Reg_Type::parameter> : Entity_Registration_Base {
-	Entity_Id       par_group;
-	Entity_Id       unit;
+struct
+Parameter_Registration : Registration_Base {
 	
+	Entity_Id       unit = invalid_entity_id;
 	Parameter_Value default_val;
 	Parameter_Value min_val;
 	Parameter_Value max_val;
+	std::string     description;
 	
 	std::vector<std::string> enum_values;
 	
-	std::string     description;
+	s64 enum_int_value(const std::string &name) {
+		auto find = std::find(enum_values.begin(), enum_values.end(), name);
+		if(find != enum_values.end())
+			return (s64)(find - enum_values.begin());
+		return -1;
+	}
 	
-	Entity_Registration() : unit(invalid_entity_id), par_group(invalid_entity_id) {}
+	void process_declaration(Catalog *catalog);
 };
 
-template<> struct
-Entity_Registration<Reg_Type::var> : Entity_Registration_Base {
-	Var_Location   var_location;
-	Entity_Id      unit;
-	Entity_Id      conc_unit;
+struct
+Var_Registration : Registration_Base {
+	Var_Location   var_location          = invalid_var_location;
+	Entity_Id      unit                  = invalid_entity_id;
+	Entity_Id      conc_unit             = invalid_entity_id;
 	
-	std::string     var_name;
+	Var_Location   additional_conc_medium = invalid_var_location;
+	Entity_Id      additional_conc_unit   = invalid_entity_id;
 	
-	Math_Block_AST *code;
+	std::string    var_name;
+	
+	bool           store_series = true;
+	bool           clear_nan    = false; // If this ends up being an input series, clear it to NaN initially.
+	
+	Math_Block_AST *code = nullptr;
 	bool initial_is_conc;
-	Math_Block_AST *initial_code;
-	bool override_is_conc;
-	Math_Block_AST *override_code;
-	//Entity_Id       code_scope;
+	Math_Block_AST *initial_code = nullptr;
+	bool override_is_conc = false;
+	Math_Block_AST *override_code = nullptr;
+	
+	Math_Block_AST *adds_code_to_existing = nullptr;
+	
+	void process_declaration(Catalog *catalog);
 };
 
-template<> struct
-Entity_Registration<Reg_Type::flux> : Entity_Registration_Base {
+struct
+Flux_Registration : Registration_Base {
 	Specific_Var_Location   source;
 	Specific_Var_Location   target;
 	
-	Entity_Id      unit;
+	Entity_Id      unit           = invalid_entity_id;
+	Entity_Id      discrete_order = invalid_entity_id; // A discrete_order declaration that (among others) specifies the order of computation of this flux.
 	
-	Entity_Id      discrete_order; // A discrete_order declaration that (among others) specifies the order of computation of this flux.
+	bool           store_series = true;
 	
-	Math_Block_AST  *code;
-	Math_Block_AST  *no_carry_ast;
-	Math_Block_AST  *specific_target_ast;
-	bool             no_carry_by_default;
+	Math_Block_AST  *code                = nullptr;
+	Math_Block_AST  *no_carry_ast        = nullptr;
+	Math_Block_AST  *specific_target_ast = nullptr;
+	bool             no_carry_by_default = false;
+	bool             bidirectional       = false;
+	bool             mixing              = false;
 	
-	Entity_Registration() : code(nullptr), no_carry_ast(nullptr), specific_target_ast(nullptr), discrete_order(invalid_entity_id), no_carry_by_default(false) {}
+	void process_declaration(Catalog *catalog);
 };
 
-template<> struct
-Entity_Registration<Reg_Type::discrete_order> : Entity_Registration_Base {
+struct
+Discrete_Order_Registration : Registration_Base {
 	// TODO: eventually this one could be more complex to take into account order of when things are added or subtracted, or recomputation of values etc.
 	std::vector<Entity_Id> fluxes;
+	
+	void process_declaration(Catalog *catalog);
 };
 
-template<> struct
-Entity_Registration<Reg_Type::special_computation> : Entity_Registration_Base {
+struct
+External_Computation_Registration : Registration_Base {
 	std::string      function_name;
 	
 	// TODO: May need a vector of components
 	Entity_Id        component = invalid_entity_id;
 	
-	Math_Block_AST  *code;
+	Entity_Id        connection_component = invalid_entity_id;
+	Entity_Id        connection           = invalid_entity_id;
+	
+	Math_Block_AST  *code = nullptr;
+	
+	std::string      init_function_name;
+	
+	Math_Block_AST  *init_code = nullptr;
+	
+	void process_declaration(Catalog *catalog);
 };
 
 enum class
@@ -235,205 +198,128 @@ Function_Type {
 	decl, intrinsic, linked,
 };
 
-template<> struct
-Entity_Registration<Reg_Type::function> : Entity_Registration_Base {
+struct
+Function_Registration : Registration_Base {
 	std::vector<std::string> args;
 	std::vector<Entity_Id> expected_units;
 	
 	Function_Type    fun_type;
-	Math_Block_AST  *code;
+	Math_Block_AST  *code = nullptr;
 	
 	// TODO: may need some info on expected argument types (especially for externals)
-	Entity_Registration() : code(nullptr) {}
+	
+	void process_declaration(Catalog *catalog);
 };
 
-template<> struct
-Entity_Registration<Reg_Type::constant> : Entity_Registration_Base {
-	double    value;   //Hmm, should we allow integer constants too? But that would require two declaration types.
+struct
+Constant_Registration : Registration_Base {
+	Value_Type value_type;
+	Parameter_Value value;
 	Entity_Id unit;
 	
-	Entity_Registration() {}
+	void process_declaration(Catalog *catalog);
 };
 
-template<> struct
-Entity_Registration<Reg_Type::unit> : Entity_Registration_Base {
-	Unit_Data data;
-};
+struct
+Unit_Registration : Registration_Base {
+	
+	void process_declaration(Catalog *catalog);
 
-template<> struct
-Entity_Registration<Reg_Type::index_set> : Entity_Registration_Base {
-	Entity_Id sub_indexed_to;
+	Unit_Data data; // This is only guaranteed to be valid after model is finalized.
 	
-	Entity_Id is_edge_of_connection;
-	Entity_Id is_edge_of_node; // TODO: This one seems unused?
-	
-	Entity_Registration() : sub_indexed_to(invalid_entity_id), is_edge_of_connection(invalid_entity_id), is_edge_of_node(invalid_entity_id) {}
+	// The below ones are only used until the model is finalized.
+	std::vector<Entity_Id> composed_of;
+	Entity_Id unit_of        = invalid_entity_id;
+	Var_Location unit_of_loc = invalid_var_location;
+	Entity_Id refers_to      = invalid_entity_id;
 };
 
 enum class
 Connection_Type {
-	unrecognized = 0, directed_tree, directed_graph, all_to_all, grid1d,
+	unrecognized = 0, directed_graph, grid1d,
 };
 
-template<> struct
-Entity_Registration<Reg_Type::connection> : Entity_Registration_Base {
-	Connection_Type type;
+struct
+Connection_Registration : Registration_Base {
+	Connection_Type type = Connection_Type::unrecognized;
 	
-	std::vector<std::pair<Entity_Id, Entity_Id>> components;
-	Math_Expr_AST *regex;
+	Entity_Id node_index_set = invalid_entity_id;  // Only for grid1d. For directed graph, the nodes could be indexed variously
+	Entity_Id edge_index_set = invalid_entity_id;  // Only for directed_graph for now.
 	
-	Entity_Registration() : type(Connection_Type::unrecognized) {}
+	bool no_cycles = false;
+	
+	std::vector<Entity_Id> components;
+	Math_Expr_AST *regex = nullptr;
+	
+	void process_declaration(Catalog *catalog);
 };
 
-
-template<> struct
-Entity_Registration<Reg_Type::solver> : Entity_Registration_Base {
-	Solver_Function *solver_fun;
-	double h;
+struct
+Solver_Registration : Registration_Base {
+	Entity_Id solver_fun = invalid_entity_id;
+	Entity_Id h_unit = invalid_entity_id;
 	double hmin;
 	Entity_Id h_par = invalid_entity_id;
 	Entity_Id hmin_par = invalid_entity_id;
-	std::vector<Specific_Var_Location> locs; // NOTE: We use a specific_var_location to merge some functionality in model_composition.cpp, but all the data we need is really just in Var_Location
+	std::vector<std::pair<Specific_Var_Location, Source_Location>> locs; // NOTE: We use a specific_var_location to merge some functionality in model_composition.cpp, but all the data we need is really just in Var_Location
+	
+	void process_declaration(Catalog *catalog);
 };
 
 struct
-Registry_Base {
-	virtual Entity_Id find_or_create(Decl_Scope *scope, Token *handle = nullptr, Token *serial_name = nullptr, Decl_AST *declaration = nullptr) = 0;
-	virtual Entity_Registration_Base *operator[](Entity_Id id) = 0;
-};
-
-template <Reg_Type reg_type> struct
-Registry : Registry_Base {
-	std::vector<Entity_Registration<reg_type>> registrations;
+Solver_Function_Registration : Registration_Base {
+	Solver_Function *solver_fun = nullptr;
 	
-	Entity_Id
-	find_or_create(Decl_Scope *scope, Token *handle = nullptr, Token *name = nullptr, Decl_AST *declaration = nullptr);
-	
-	Entity_Id
-	standard_declaration(Decl_Scope *decl_scope, Decl_AST *decl);
-	
-	Entity_Id
-	create_internal(const std::string &handle, Decl_Scope *scope, const std::string &name, Decl_Type decl_type);
-	
-	Entity_Registration<reg_type> *operator[](Entity_Id id);
-	
-	s64 count() { return (s64)registrations.size(); }
-	
-	Entity_Id begin() { return { reg_type, 0 }; }
-	Entity_Id end() { return { reg_type, (s16)registrations.size() }; }
-};
-
-struct
-Mobius_Model {
-	
-	std::string model_name;
-	std::string doc_string;
-	
-	std::string  path;
-	
-	std::string  mobius_base_path;
-	
-	Registry<Reg_Type::module_template> module_templates;
-	Registry<Reg_Type::module>      modules;
-	Registry<Reg_Type::library>     libraries;
-	Registry<Reg_Type::unit>        units;
-	Registry<Reg_Type::par_group>   par_groups;
-	Registry<Reg_Type::parameter>   parameters;  // par_real, par_int, par_bool, par_enum, par_datetime
-	Registry<Reg_Type::function>    functions;
-	Registry<Reg_Type::constant>    constants;
-	Registry<Reg_Type::component>   components;  // compartment, quantity, property
-	Registry<Reg_Type::var>         vars;
-	Registry<Reg_Type::flux>        fluxes;
-	Registry<Reg_Type::discrete_order> discrete_orders;
-	Registry<Reg_Type::special_computation> special_computations;
-	Registry<Reg_Type::index_set>   index_sets;
-	Registry<Reg_Type::solver>      solvers;
-	Registry<Reg_Type::connection>  connections;
-	Registry<Reg_Type::loc>         locs;
-	
-	Decl_Scope model_decl_scope;
-	Decl_Scope global_scope;
-	
-	Registry_Base *
-	registry(Reg_Type reg_type);
-	
-	Entity_Registration_Base *
-	find_entity(Entity_Id id) { return (*registry(id.reg_type))[id]; }
-	
-	Decl_Scope *
-	get_scope(Entity_Id id);
-	
-	std::string
-	serialize(Entity_Id id);
-	
-	Entity_Id
-	deserialize(const std::string &serial_name, Reg_Type expected_type);
-	
-	File_Data_Handler file_handler;
-	std::unordered_map<std::string, std::unordered_map<std::string, Entity_Id>> parsed_decls;
-	Decl_AST *main_decl = nullptr;
-	
-	// NOTE: The ASTs are reused every time you create a Model_Application from the model, so you should only free them if you know you are not going to create more Model_Applications from them.
-	//    A Model_Application is not dependent on the ASTs still existing after it is constructed though.
-	// TODO: Or do we get problems with some stored Source_Locations ?
-	void free_asts();
-	~Mobius_Model() {
-		//free_asts();   // TODO: Hmm, seems like it causes a problem some times??
-	}
-	
-	template<Reg_Type reg_type> struct
-	By_Scope {
-		By_Scope(Decl_Scope *scope) : scope(scope) {
-			end_it.scope = scope;
-			end_it.it = scope->all_ids.end();
-		}
-		
-		struct
-		Scope_It {
-			std::unordered_set<Entity_Id>::iterator it;
-			Decl_Scope *scope;
-			Scope_It &operator++() {
-				do it++; while(it != scope->all_ids.end() && (it->reg_type != reg_type));
-				return *this;
-			}
-			Entity_Id operator*() { return *it; }
-			bool operator!=(const Scope_It &other) { return it != other.it; }
-		};
-		
-		Scope_It end_it;
-		Decl_Scope *scope;
-		
-		Scope_It begin() {
-			Scope_It it;
-			it.scope = scope;
-			it.it = scope->all_ids.begin();
-			while(it != end_it && (it.it->reg_type != reg_type))
-				++it.it;
-			return it;
-		}
-		Scope_It end() { return end_it; }
-		
-		s64 size() {
-			s64 sz = 0;
-			for(auto id : scope->all_ids)
-				if(id.reg_type == reg_type) ++sz;
-			return sz;
-		}
-	};
-	
-	template<Reg_Type reg_type> By_Scope<reg_type>
-	by_scope(Entity_Id scope_id) { return By_Scope<reg_type>(get_scope(scope_id)); }
-	
-	const std::string &get_symbol(Entity_Id id) {
-		auto decl = (*registry(id.reg_type))[id];
-		return (*get_scope(decl->scope_id))[id];
-	}
+	void process_declaration(Catalog *catalog);
 };
 
 struct
 Mobius_Config {
 	std::string mobius_base_path;
+	bool store_all_series = false;
+	bool developer_mode   = false;
 };
+
+struct
+Mobius_Model : Catalog {
+	
+	Mobius_Config config;
+	
+	Registry<Module_Template_Registration,      Reg_Type::module_template>      module_templates;
+	Registry<Module_Registration,               Reg_Type::module>               modules;
+	Registry<Library_Registration,              Reg_Type::library>              libraries;
+	Registry<Par_Group_Registration,            Reg_Type::par_group>            par_groups;
+	Registry<Unit_Registration,                 Reg_Type::unit>                 units;
+	Registry<Parameter_Registration,            Reg_Type::parameter>            parameters;  // par_real, par_int, par_bool, par_enum, par_datetime
+	Registry<Function_Registration,             Reg_Type::function>             functions;
+	Registry<Constant_Registration,             Reg_Type::constant>             constants;
+	Registry<Component_Registration,            Reg_Type::component>            components;  // compartment, quantity, property
+	Registry<Var_Registration,                  Reg_Type::var>                  vars;
+	Registry<Flux_Registration,                 Reg_Type::flux>                 fluxes;
+	Registry<Discrete_Order_Registration,       Reg_Type::discrete_order>       discrete_orders;
+	Registry<External_Computation_Registration, Reg_Type::external_computation> external_computations;
+	Registry<Solver_Registration,               Reg_Type::solver>               solvers;
+	Registry<Solver_Function_Registration,      Reg_Type::solver_function>      solver_functions;
+	Registry<Connection_Registration,           Reg_Type::connection>           connections;
+	Registry<Loc_Registration,                  Reg_Type::loc>                  locs;
+	
+	// This is the global scope that is visible everywhere, as opposed to the top_scope of the model, which is not visible inside externally declared modules or libraries.
+	Decl_Scope global_scope;
+	
+	Registry_Base *registry(Reg_Type reg_type);
+	Decl_Scope    *get_scope(Entity_Id id);
+	
+	std::unordered_map<std::string, std::unordered_map<std::string, Entity_Id>> parsed_decls;
+	
+	// NOTE: The ASTs are reused every time you create a Model_Application from the model, so you should only free them if you know you are not going to create more Model_Applications from them.
+	void free_asts();
+	~Mobius_Model() {
+		free_asts();
+	}
+};
+
+void
+insert_dependency(Mobius_Model *model, Index_Set_Tuple &index_sets, Entity_Id index_set);
 
 Mobius_Config
 load_config(String_View config = "config.txt");
@@ -441,45 +327,9 @@ load_config(String_View config = "config.txt");
 Mobius_Model *
 load_model(String_View file_name, Mobius_Config *config = nullptr);
 
-template<Reg_Type reg_type> Entity_Registration<reg_type> *
-Registry<reg_type>::operator[](Entity_Id id) {
-	if(!is_valid(id))
-		fatal_error(Mobius_Error::internal, "Tried to look up an entity using an invalid id.");
-	else if(id.reg_type != reg_type)
-		fatal_error(Mobius_Error::internal, "Tried to look up an entity using an id of a wrong type. Expected ", name(reg_type), " got ", name(id.reg_type), ".");
-	else if(id.id >= registrations.size())
-		fatal_error(Mobius_Error::internal, "Tried to look up an entity using a id that was out of bounds.");
-	return &registrations[id.id];
-}
-
-//TODO: Does this function need to be in this header?
-inline Parameter_Value
-get_parameter_value(Token *token, Token_Type type) {
-	if((type == Token_Type::integer || type == Token_Type::boolean) && token->type == Token_Type::real)
-		fatal_error(Mobius_Error::internal, "Invalid use of get_parameter_value().");
-	Parameter_Value result;
-	if(type == Token_Type::real)
-		result.val_real = token->double_value();
-	else if(type == Token_Type::integer)
-		result.val_integer = token->val_int;
-	else if(type == Token_Type::boolean)
-		result.val_boolean = token->val_bool;
-	else
-		fatal_error(Mobius_Error::internal, "Invalid use of get_parameter_value().");
-	return result;
-}
-
-inline s64
-enum_int_value(Entity_Registration<Reg_Type::parameter> *reg, const std::string &name) {
-	auto find = std::find(reg->enum_values.begin(), reg->enum_values.end(), name);
-	if(find != reg->enum_values.end())
-		return (s64)(find - reg->enum_values.begin());
-	return -1;
-}
-
-void
-process_location_argument(Mobius_Model *model, Decl_Scope *scope, Argument_AST *arg, Var_Location *location,
-	bool allow_unspecified = false, bool allow_restriction = false, Entity_Id *par_id = nullptr);
+//void
+//process_location_argument(Mobius_Model *model, Decl_Scope *scope, Argument_AST *arg, Var_Location *location,
+//	bool allow_unspecified = false, bool allow_restriction = false, Entity_Id *par_id = nullptr);
 
 // TODO: these could be moved to common_types.h (along with impl.)
 Var_Location
@@ -493,5 +343,7 @@ error_print_location(Mobius_Model *model, const Specific_Var_Location &loc);
 void
 debug_print_location(Mobius_Model *model, const Specific_Var_Location &loc);
 
+void
+check_valid_distribution(Mobius_Model *model, std::vector<Entity_Id> &index_sets, Source_Location &err_loc);
 
 #endif // MOBIUS_MODEL_DECLARATION_H

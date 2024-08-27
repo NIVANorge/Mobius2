@@ -1,88 +1,26 @@
 
 model("EasyLake-SimplyCNP") {
 	extend("easylake_simplyq_model.txt")
-	extend("simplyc_model.txt")
-	extend("simplyn_model.txt")
-	extend("simplyp_model.txt")
 	
-	module("EasyLake-CNP", version(0, 0, 1)) {
-		
-		load("stdlib/basic_math.txt", library("Rates"))
-		
-		par_group("Lake C", epi) {
-			init_c : par_real("Initial lake DOC concentration", [m g, l-1], 0, 0, 1000)
-			#TODO: Maybe calibrate photomin differently than using the oc_doc as this should be fairly constant.
-			oc_doc : par_real("Optical cross-section of DOC", [m 2, m g-1], 0.01, 0.001, 1.0, "Can be used to scale the photomineralization speed")
-		}
-		
-		var(epi.water.oc, [k g], [m g, l-1], "Epilimnion DOC")  @initial_conc { init_c }
-		var(hyp.water.oc, [k g], [m g, l-1], "Hypolimnion DOC") @initial_conc { init_c }
-		
-		var(epi.attn, []) {
-			coeff := 5[m-1],#0.2[m-1],   # TODO: Maybe parametrize, and add effect from DOC,SS
-			1 - exp(-coeff*epi.z_e)
-		}
-		
-		var(hyp.sw, [W, m-2]) {
-			epi.sw * (1 - epi.attn)
-		}
-		
-		photodeg : function(sw, oc_doc) {
-			oc_doc * qy_doc * (f_par / e_par) * sw
-		}
-		
-		qy_doc : constant("DOC quantum yield",               [m g, mol-1], 0.1)
-		f_par  : constant("Fraction of PAR in SW radiation", [],           0.45)
-		e_par  : constant("Average energy of PAR photons",   [J, mol-1],  240800.0)
-		
-		flux(epi.water.oc, out, [k g, day-1], "Photo-mineralization (epilimnion)") {
-			photodeg(sw*attn, oc_doc) * oc ->>
-		}
-		
-		flux(hyp.water.oc, out, [k g, day-1], "Photo-mineralization (hypolimnion)") {
-			# Just assume all remaining shortwave is attenuated in the hypolimnion
-			photodeg(sw, oc_doc) * oc ->>
-		}
-		
-		# TODO: Some other sinks of DOC (?)
-
-		par_group("Lake N", epi) {
-			init_din     : par_real("Initial lake DIN concentration", [m g, l-1], 0, 0, 1000)
-			lake_din_ret : par_real("Lake DIN retention at 20°C", [day-1], 0, 0, 5)
-			lake_din_q10 : par_real("Lake DIN retention Q10", [], 1, 1, 5)
-			hyp_din_ret  : par_real("Hypolimnion N retention factor", [], 1, 0, 2)
-		}
-		
-		var(epi.water.din, [k g], [m g, l-1], "Epilimnion DIN")  @initial_conc { init_din }
-		var(hyp.water.din, [k g], [m g, l-1], "Hypolimnion DIN") @initial_conc { init_din }
-		
-		flux(epi.water.din, out, [k g, day-1], "Epilimnion N retention") {
-			ret := q10_adjust(lake_din_ret, 20.0[deg_c], temp, lake_din_q10),
-			din * ret
-		}
-		
-		flux(hyp.water.din, out, [k g, day-1], "Hypolimnion N retention") {
-			ret := q10_adjust(lake_din_ret, 20.0[deg_c], temp, lake_din_q10),
-			din * ret * hyp_din_ret
-		}
-
-		par_group("Lake P", epi) {
-			init_tdp : par_real("Initial lake TDP concentration", [m g, l-1], 0, 0, 1000)
-			tdp_ret : par_real("Lake TDP retention", [day-1], 0, 0, 5)
-			hyp_tdp_ret : par_real("Hyplimnion TDP retention factor", [], 0, 0, 1)
-		}
-		
-		var(epi.water.tdp, [k g], [m g, l-1], "Epilimnion TDP")  @initial_conc { init_tdp }
-		var(hyp.water.tdp, [k g], [m g, l-1], "Hypolimnion TDP") @initial_conc { init_tdp }
-		
-		flux(epi.water.tdp, out, [k g, day-1], "Epilimnion TDP retention") {
-			tdp * tdp_ret
-		}
-		
-		flux(hyp.water.tdp, out, [k g, day-1], "Hypolimnion TDP retention") {
-			tdp * tdp_ret * hyp_tdp_ret
-		}
-		
-		# TODO: SS, PP
-	}
+	extend("simplycnp_model.txt") @exclude(heat : quantity) # To not clash with easylake decls of this
+	
+	phyt : quantity("Phytoplankton")
+	o2   : quantity("O₂")
+	chl_a     : property("Chlorophyll-a")
+	
+	#lake_sed : compartment("Lake sediment bed", lake_index)
+	#solve(sol, lake_sed.sed)
+	
+	#unit_conversion(epi.water.sed, lake_sed.sed) { 1/(epi.area - hyp.area) }
+	#unit_conversion(hyp.water.sed, lake_sed.sed) { 1/hyp.area }
+	#unit_conversion(epi.water.phos, lake_sed.sed.phos) { 1/(epi.area - hyp.area) }
+	
+	load("modules/easychem.txt",
+		module("Simple River O₂", river, water, o2, temp),
+		module("EasyChem", air, epi, hyp, water, oc, phyt, o2, din, phos, on, op, ice, sed, temp, precip, sw, wind, indicator, tp, tdp, tn, toc, chl_a, area, om_cnp),
+		module("EasyChem-Particulate", air, epi, hyp, water, sed, wind, area, downstream, loc(out)),
+		module("EasyChem-Sediment-Simple-P", epi, hyp, water, phos, area)
+		#module("EasyChem-Particulate", air, epi, hyp, water, sed, wind, area, downstream, loc(lake_sed.sed)),
+		#module("EasyChem-Sediment-P", lake_sed, epi, hyp, water, phos, sed, temp, area)
+	)
 }

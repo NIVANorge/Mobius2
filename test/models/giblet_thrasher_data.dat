@@ -1,44 +1,81 @@
-time_step([day])
-
-index_set("Habitat index") [  "Plateau" "Forest" "Bogs" ]
-
-module("Giblet-Thrasher", 1, 0, 0) {
-
-	par_group("General parameters") {
-		par_int ("Giblet preferred birthday") [ 120 ]
-		par_real("Giblet propensity to migrate") [ 0.02 ]
-		par_real("Predation rate") [ 0.1 ]
-		par_real("Thrasher birth rate") [ 0.025 ]
-		par_real("Thrasher death rate") [ 0.05 ]
-	}
+data_set {
+	time_step([day])
 	
-	par_group("Habitat parameters") ["Habitat index"] {
-		par_real("Initial predators") [ 1 0.5 0.5 ]
-		par_real("Initial prey") [ 0.4 1 2 ]
-		par_real("Giblet birth rate") [ 0.2 0.1 0.3 ]
-	}
+	hi : index_set("Habitat index") [ "Plateau" "Forest" "Bogs" ]
 	
-	par_group("Migration weights") [ "Habitat index" "Habitat index" ] {
-		par_real("Migration weight") [
-			0   0.5 0.5
-			0.8 0   0.2
-			0   1   0
+	mr : index_set("Migration route index") @sub(hi) 
+	
+	connection("Migration route connection") {
+		
+		h : compartment("Habitat", hi)
+		
+		directed_graph(mr) [ 
+			h[ "Plateau" ] -> h[ "Forest" ]
+			h[ "Plateau" ] -> h[ "Bogs" ]
+			h[ "Forest" ] -> h[ "Plateau" ]
+			h[ "Forest" ] -> h[ "Bogs" ] -> h[ "Forest" ]
 		]
 	}
-}
+	
+	series("meteors.dat")
+	
+	par_group("System") {
+		
+		par_datetime("Start date") 
+		[ 1990-01-01 ]
+		
+		par_datetime("End date") 
+		[ 2000-01-01 ]
+	
+	}
+	
+	module("Giblet-Thrasher", version(1, 1, 0)) {
+		
+		par_group("General parameters") {
+			
+			par_int("Giblet preferred birthday") 
+			[ 120 ]
+			
+			par_real("Giblet propensity to migrate") 
+			[ 0.02 ]
+			
+			par_real("Predation rate") 
+			[ 0.1 ]
+			
+			par_real("Thrasher birth rate") 
+			[ 0.025 ]
+			
+			par_real("Thrasher death rate") 
+			[ 0.05 ]
+			
+			par_real("Meteor strike death rate increase") 
+			[ 0.7 ]
+		
+		}
+		
+		par_group("Habitat parameters", hi) {
+			
+			par_real("Initial predators") 
+			[ 1 0.5 0.5 ]
+			
+			par_real("Initial prey") 
+			[ 0.4 1 2 ]
+			
+			par_real("Giblet birth rate") 
+			[ 0.2 0.1 0.3 ]
+		
+		}
+		
+		par_group("Migration weights", hi, mr) {
+			
+			par_real("Migration weight") [
+				0.5 0.5 
+				0.8 0.2 
+				1 
+			]
+		
+		}
+	
+	}
 
-par_group("System") {
-	par_datetime("Start date") [ 1990-1-1 ]
-	par_datetime("End date")   [ 2000-1-1 ]
 }
-
-series [
-	"Meteor strikes"["Habitat index" : "Plateau"][[u mol, m-2]]
-1990-1-1	0
-1990-1-12	1
-1990-6-1	1
-1992-4-21	1
-1994-3-15	1
-1998-5-6    2
-2000-1-1	0
-]

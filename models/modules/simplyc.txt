@@ -1,19 +1,26 @@
 
 
-module("SimplyC", version(1, 0, 1),
+module("SimplyC land", version(1, 0, 1),
 	air   : compartment,
 	soil  : compartment,
 	gw    : compartment,
-	river : compartment,
 	water : quantity,
 	oc    : quantity,
 	temp  : property
 ) {
 """
-A simple DOC model.
+This is a simple dissolved organic carbon (DOC) model that has as its main assumption that temperature and SO4 deposition are the strongest drivers for soil water DOC concentration.
+
+The main purpose of the module is to predict DOC transport from land to river. The module does *not* keep track of the soil organic carbon pool as a whole, and so long-term changes in soil carbon availability are not taken into account, neither are effects from vegetation disturbance.
+
+The user can configure the soil DOC concentration to either be constant, at a (temperature- and SO4-dependent) equilibrium, or always tending toward that equilibrium with a speed set by the `cdoc` parameter. In the latter case, influx of clean water (precipitation or snow melt) will dilute the soil water DOC concentration for a while before it again reaches equilibrium.
+
+The ground water DOC concentration can be set to either be constant, equal to the average of the soil water DOC concentration, or follow mass balance (transport with recharge and runoff). In the latter case, the groundwater DOC decays with a user-set half life.
+
+Authors: Magnus D. Norling, Leah A. Jackson-Blake
 """
 
-	load("stdlib/basic_math.txt", library("Rates"))
+	load("stdlib/basic_math.txt", library("Response"))
 	
 	so4   : property("SO4 deposition")
 	
@@ -25,16 +32,16 @@ A simple DOC model.
 		kso4       : par_real("Soil DOC linear SO4 dependence", [l, m g-1], 0, 0, 0.1)
 		cdoc       : par_real("Baseline soil DOC dissolution rate", [m g, l-1, day-1], 1, 0, 10, "Only used if the soil DOC computation type is dynamic.")
 		soildoc_type : par_enum("Soil DOC computation type", equilibrium) { const equilibrium dynamic }
-		gwdoc_type : par_enum("Groundwater DOC computation type", soil_avg) { const soil_avg half_life }
+		gwdoc_type : par_enum("Groundwater DOC computation type", soil_avg) { const soil_avg mass_bal }
 	}
 	
 	par_group("DOC land", soil) {
-		basedoc    : par_real("Baseline soil DOC concentration", [m g, l-1], 10, 0, 100)
+		basedoc    : par_real("Baseline soil DOC concentration", [m g, l-1], 10, 0, 100, "Soil water equilibrium DOC concentration when temperature is 0°C and there is no SO4.")
 	}
 	
 	par_group("DOC deep soil", gw) {
-		gwdochl    : par_real("Groundwater DOC half-life", [day], 80, 1, 500)
-		gwdocconc  : par_real("Groundwater DOC concentration", [m g, l-1], 3, 0, 20)
+		gwdochl    : par_real("Groundwater DOC half-life", [day], 80, 1, 500, "Half life of decay rate if groundwater DOC follows mass balance.")
+		gwdocconc  : par_real("Groundwater DOC concentration", [m g, l-1], 3, 0, 20, "Concentration if groundwater DOC is set to be constant.")
 	}
 	
 	var(soil.water.oc, [k g, k m -2], [m g, l-1], "Soil water DOC")
@@ -47,7 +54,7 @@ A simple DOC model.
 		
 	var(gw.water.oc,   [k g, k m -2], [m g, l-1], "Deep soil DOC")
 		@initial_conc {
-			gwdocconc                       if gwdoc_type.const,
+			gwdocconc                       if gwdoc_type.const | gwdoc_type.mass_bal,
 			aggregate(conc(soil.water.oc))  otherwise
 		} @override_conc {
 			gwdocconc                       if gwdoc_type.const,
@@ -55,16 +62,67 @@ A simple DOC model.
 			no_override                     otherwise
 		}
 	
-	var(river.water.oc, [k g], [m g, l-1], "River water DOC") @initial_conc {  conc(gw.water.oc)  }
-	
 	flux(out, soil.water.oc, [k g, k m-2, day-1], "Soil DOC production") {  max(0, water*cdoc*(1 + (kt1 + kt2*temp)*temp - kso4*air.so4))  }
 	
-	smin :
 	flux(soil.water.oc, out, [k g, k m-2, day-1], "Soil DOC mineralization+resorption") {  oc * (cdoc / basedoc)  } @no_carry
 	
-	gwmin :
 	flux(gw.water.oc, out, [k g, k m-2, day-1], "Deep soil DOC mineralization") {
 		rate := hl_to_rate(gwdochl),
 		oc * rate
 	} @no_carry
+	
 }
+
+module("SimplyC river", version(0, 0, 1),
+	river : compartment,
+	gw    : compartment,
+	water : quantity,
+	oc    : quantity,
+	temp  : property
+) {
+"""
+River processes for DOC.
+
+Authors: Magnus D. Norling
+"""
+	load("stdlib/basic_math.txt", library("Response"))
+
+	par_group("DOC river", river) {
+		r_loss : par_real("River DOC loss rate at 20°C", [day-1], 0)
+		r_q10  : par_real("River DOC loss Q10", [], 1)
+	}
+
+	var(river.water.oc, [k g], [m g, l-1], "River water DOC") @initial_conc {  conc(gw.water.oc)  }
+	
+	flux(river.water.oc, out, [k g, day-1], "River DOC loss") {
+		rate := q10_adjust(r_loss, 20.0[deg_c], temp, r_q10),
+		oc * rate
+	} @no_carry
+}
+
+
+module("Simple river TOC", version(0, 1, 1),
+	river : compartment,
+	water : quantity,
+	oc    : quantity,
+	sed   : quantity,
+	toc   : property
+) {
+"""
+River particulate organic carbon.
+
+Authors: Magnus D. Norling
+"""
+	par_group("Particulate carbon") {
+		sed_oc : par_real("Particle OC mass fraction", [g, k g-1], 20, 0, 1)
+	}
+
+	var(river.water.sed.oc, [k g], "River POC") @show_conc(river.water, [m g, l-1])
+	
+	flux(out, river.water.sed.oc, [k g, day-1], "River POC mobilization") {   sed_oc*in_flux(river.water.sed)->>   }
+	
+	var(river.water.toc, [m g, l-1], "River TOC") {   conc(oc) + conc(sed.oc)*conc(sed)   }
+}
+
+
+

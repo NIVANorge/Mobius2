@@ -1,17 +1,20 @@
 
 module("NIVAFjord tracer test", version(0, 0, 1),
 	layer  : compartment,
+	bnd_layer : compartment,
 	river  : compartment,
 	water  : quantity,
-	tracer : quantity,
-	horz   : connection
+	tracer : quantity
 ) {
+
+	par_group("Tracer") {
+		tracer_river : par_real("River tracer concentration", [k g, m-3], 1)
+		tracer_bnd   : par_real("Boundary tracer concentration", [k g, m-3], 0.2)
+	}
 
 	var(layer.water.tracer, [k g])
 	
-	var(river.water.tracer, [k g]) @override_conc { 1[k g, m-3] }
+	var(bnd_layer.water.tracer, [k g]) @override_conc { tracer_bnd }
 	
-	flux(out, layer.water.tracer, [k g, day-1], "Horizontal flux tracer equivalent removal") {
-		-in_flux(horz, layer.water)*conc(tracer)->>
-	}
+	var(river.water.tracer, [k g]) @override_conc { tracer_river }
 }

@@ -12,7 +12,9 @@ struct Indexed_Parameter {
 	std::string          symbol;
 	std::string          expr;
 	
-	Indexed_Parameter(Mobius_Model *model) : indexes(model) {}
+	Indexed_Parameter(Mobius_Model *model) : indexes(model) {
+		locks.resize(indexes.indexes.size(), false);
+	}
 };
 
 void

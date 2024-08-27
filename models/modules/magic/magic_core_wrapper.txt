@@ -1,0 +1,310 @@
+
+module("MAGIC core", version(0, 0, 3),
+	comp : compartment,
+	ca  : quantity,
+	mg  : quantity,
+	na  : quantity,
+	k   : quantity,
+	nh4 : quantity,
+	so4 : quantity,
+	cl  : quantity,
+	no3 : quantity,
+	f   : quantity,
+	po4 : quantity,
+	concn : property,
+	conc_all : property,
+	bal : property,
+	conc_oa : property,
+	temp : property,
+	rel_runoff : property
+) {
+"""
+This module is for now just for testing calling the MAGIC core from Mobius2. Will be turned into a full MAGIC model eventually.
+"""
+	
+	par_group("Convergence") {
+		max_diff  : par_real("Maximal charge difference before convergence", [m eq, m-3], 1, 0, 1, "Convergence criterion to stop solution routine, difference in total plus and total minus charges in solution. A max difference of 1.0 is usual, but smaller values may be necessary (at computational cost) if reliable pH's above 6-7 are needed.")
+	}
+	
+	par_group("Compartment parameters", comp) {
+		is_soil   : par_bool("This is a soil compartment", true, "Whether or not there is a solid phase with adsorption")
+		pco2      : par_real("CO2 partial pressure", [perc], 0.3, 0.1, 40.0)
+		depth     : par_real("Depth", [m], 1, 0, 100)
+		porosity  : par_real("Porosity", [], 0.5, 0, 1)
+		bd        : par_real("Bulk density", [k g, m-3], 600, 0, 2000)
+		cec       : par_real("Cation exchange capacity", [m eq, k g-1], 100, 0, 500)
+		so4_hs    : par_real("Soil sulfate adsorption capacity, half saturation", [m eq, m-3], 0, 0, 1000, "Only relevant for soils")
+		so4_max   : par_real("Soil sulfate adsorption max capacity", [m eq, k g-1], 0, 0, 1, "Only relevant for soils")
+		k_al      : par_real("(log10) Al(OH)3 dissociation equilibrium constant", [], 0, -10, 10)
+		s_al      : par_real("Al(OH)3 dissociation equation exponent", [], 3, 1, 5)
+		pk1_doc   : par_real("(-log10) pK 1st equilibrium constant for triprotic organic acid", [], 0, -10, 10)
+		pk2_doc   : par_real("(-log10) pK 2nd equilibrium constant for triprotic organic acid", [], 0, -10, 10)
+		pk3_doc   : par_real("(-log10) pK 3rd equilibrium constant for triprotic organic acid", [], 0, -10, 10)
+		pk1_aldoc : par_real("(-log10) pK Al(A) equilibrium constant for [(Al3+)(A3-)]", [], 0, -10, 10)
+		pk2_aldoc : par_real("(-log10) pK Al(HA)+ equilibrium constant for [(Al3+)(HA2-)+]", [], 0, -10, 10)
+		init_eca  : par_real("Initial exchangeable Ca on soil as % of CEC", [perc], 0, 0, 100, "Only relevant for soils")
+		init_emg  : par_real("Initial exchangeable Mg on soil as % of CEC", [perc], 0, 0, 100, "Only relevant for soils")
+		init_ena  : par_real("Initial exchangeable Na on soil as % of CEC", [perc], 0, 0, 100, "Only relevant for soils")
+		init_ek   : par_real("Initial exchangeable K on soil as % of CEC", [perc], 0, 0, 100, "Only relevant for soils")
+	}
+	
+	water : property("Water")
+	var(comp.water, [m]) {
+		depth*porosity if is_soil,
+		depth          otherwise
+	} @no_store
+	
+	var(comp.ca,  [m eq, m-2]) @initial {
+		scececa := {
+			(exch_ca->[])*cec*depth*bd if is_soil,
+			0                          otherwise
+		},
+		scececa + water*concn
+	}
+	
+	var(comp.mg,  [m eq, m-2]) @initial {
+		scecemg := {
+			(exch_mg->[])*cec*depth*bd if is_soil,
+			0                          otherwise
+		},
+		scecemg + water*concn
+	}
+	
+	var(comp.na,  [m eq, m-2]) @initial {
+		scecena := {
+			(exch_na->[])*cec*depth*bd if is_soil,
+			0                          otherwise
+		},
+		scecena + water*concn
+	}
+	
+	var(comp.k,   [m eq, m-2]) @initial {
+		scecek := {
+			(exch_k->[])*cec*depth*bd if is_soil,
+			0                          otherwise
+		},
+		scecek + water*concn
+	}
+	
+	var(comp.nh4, [m eq, m-2]) @initial { concn * water }
+	
+	var(comp.so4, [m eq, m-2]) @initial {
+		smeso4 := {
+			(exch_so4->[])*depth*bd*so4_max  if is_soil,
+			0                                otherwise
+		},
+		smeso4 + water*conc_all
+	}
+	
+	var(comp.cl,  [m eq, m-2]) @initial { concn * water }
+	
+	var(comp.no3, [m eq, m-2]) @initial { concn * water }
+	
+	var(comp.f,   [m eq, m-2]) @initial { conc_all * water }
+	
+	var(comp.po4, [m eq, m-2]) @initial { concn * water }
+	
+	
+	
+	ph        : property("pH")
+	exch_ca   : property("Exchangeable Ca on soil as % of CEC")
+	exch_mg   : property("Exchangeable Mg on soil as % of CEC")
+	exch_na   : property("Exchangeable Na on soil as % of CEC")
+	exch_k    : property("Exchangeable K on soil as % of CEC")
+	exch_so4  : property("Exchangeable SO4 on soil as % of max cap")
+	bss       : property("Base saturation of soil (ECa + EMg + ENa + EK)")
+	
+	conc_hco3 : property("HCO3 (bicarbonate) ionic concentration")
+	conc_co3  : property("CO3 (carbonate) ionic concentration")
+	all_dic   : property("Total anionic charge from inorganic carbon in solution (HCO3, CO3)")
+	all_doc   : property("Total anionic charge from DOC (triprotic acid) in solution (H2AM, HA2M, A3M)")
+	
+	conc_al   : property("Al(3+) ionic concentration")
+	all_al    : property("Total aluminum in solution (ionic + SO4-F-DOC complexes)")
+	org_al    : property("Aluminum in solution as organic complexes (AlA, Al(HA)(+))")
+	
+	conc_h    : property("H(+) ionic concentration")
+	ionic_str : property("Ionic strength")
+	
+	s_al_ca : property("Al-Ca selectivity coefficient")
+	s_al_mg : property("Al-Mg selectivity coefficient")
+	s_al_na : property("Al-Na selectivity coefficient")
+	s_al_k  : property("Al-K selectivity coefficient")
+	
+	min_init_conc : constant("Minimal initial concentration", [m eq, m-3], 1e-6)
+	
+	var(comp.ca.concn, [m eq, m-3], "Ca(2+) ionic concentration") @initial {
+		max(bal / rel_runoff, min_init_conc)
+	}
+	
+	var(comp.mg.concn, [m eq, m-3], "Mg(2+) ionic concentration") @initial {
+		max(bal / rel_runoff, min_init_conc)
+	}
+	
+	var(comp.na.concn, [m eq, m-3], "Na(+) ionic concentration") @initial {
+		max(bal / rel_runoff, min_init_conc)
+	}
+	
+	var(comp.k.concn,  [m eq, m-3], "K(+) ionic concentration") @initial {
+		max(bal / rel_runoff, min_init_conc)
+	}
+	
+	var(comp.nh4.concn, [m eq, m-3], "NH4(+) ionic concentration") @initial {
+		max(bal / rel_runoff, min_init_conc)
+	}
+	
+	var(comp.so4.concn, [m eq, m-3], "SO4(2-) ionic concentration") #No initial, instead set initial conc_all_so4
+	
+	var(comp.cl.concn, [m eq, m-3], "Cl(-) ionic concentration") @initial {
+		max(bal / rel_runoff, min_init_conc)
+	}
+	
+	var(comp.no3.concn, [m eq, m-3], "NO3(-) ionic concentration") @initial {
+		max(bal / rel_runoff, min_init_conc)
+	}
+	
+	var(comp.f.concn, [m eq, m-3], "F(-) ionic concentration") #No initial, instead set initial conc_all_f
+	
+	var(comp.po4.concn, [m eq, m-3], "PO4(3-) ionic concentration") @initial {
+		max(bal / rel_runoff, min_init_conc)
+	}
+	
+	var(comp.so4.conc_all, [m eq, m-3], "Total sulfate in solution (ionic + Al complexes)") @initial {
+		max(bal / rel_runoff, min_init_conc)
+	}
+	
+	var(comp.f.conc_all, [m eq, m-3], "Total fluoride in solution (ionic + Al complexes)") @initial {
+		max(bal / rel_runoff, min_init_conc)
+	}
+	
+	var(comp.ph, [])
+	var(comp.exch_ca, [perc]) @initial { init_eca }
+	var(comp.exch_mg, [perc]) @initial { init_emg }
+	var(comp.exch_na, [perc]) @initial { init_ena }
+	var(comp.exch_k, [perc])  @initial { init_ek }
+	var(comp.exch_so4, [perc])
+	var(comp.bss, [perc])
+	var(comp.conc_hco3, [m mol, m-3])
+	var(comp.conc_co3, [m mol, m-3])
+	var(comp.all_dic, [m eq, m-3])
+	var(comp.all_doc, [m eq, m-3])
+	
+	var(comp.conc_al, [m mol, m-3])
+	var(comp.all_al, [m mol, m-3])
+	var(comp.org_al, [m mol, m-3])
+	
+	var(comp.conc_h, [m mol, m-3]) 
+	var(comp.ionic_str, [])
+	
+	#TODO: @no_store these
+	var(comp.s_al_ca, []) { last(s_al_ca) } #TODO: Using 'last' here should not be necessary.
+	var(comp.s_al_mg, []) { last(s_al_mg) }
+	var(comp.s_al_na, []) { last(s_al_na) }
+	var(comp.s_al_k, []) { last(s_al_k) }
+
+	external_computation("MAGIC Core", "magic_core", comp) {
+		result(comp.ca.concn)
+		result(comp.mg.concn)
+		result(comp.na.concn)
+		result(comp.k.concn)
+		result(comp.nh4.concn)
+		result(comp.so4.concn)
+		result(comp.cl.concn)
+		result(comp.no3.concn)
+		result(comp.f.concn)
+		result(comp.po4.concn)
+		result(comp.so4.conc_all)
+		result(comp.f.conc_all)
+		result(comp.ph)
+		result(comp.exch_ca)
+		result(comp.exch_mg)
+		result(comp.exch_na)
+		result(comp.exch_k)
+		result(comp.exch_so4)
+		result(comp.bss)
+		result(comp.conc_hco3)
+		result(comp.conc_co3)
+		result(comp.all_doc)
+		result(comp.all_dic)
+		result(comp.conc_al)
+		result(comp.all_al)
+		result(comp.org_al)
+		result(comp.conc_h)
+		result(comp.ionic_str)
+		comp.ca
+		comp.mg
+		comp.na
+		comp.k
+		comp.nh4
+		comp.so4
+		comp.cl
+		comp.no3
+		comp.f
+		comp.po4
+		max_diff
+		is_soil
+		depth
+		comp.temp
+		pco2
+		comp.conc_oa
+		k_al
+		s_al
+		pk1_doc
+		pk2_doc
+		pk3_doc
+		pk1_aldoc
+		pk2_aldoc
+		porosity
+		bd
+		cec
+		so4_hs
+		so4_max
+		comp.s_al_ca
+		comp.s_al_mg
+		comp.s_al_na
+		comp.s_al_k
+	} @initial("magic_core_initial") {
+		result(comp.so4.concn)
+		result(comp.f.concn)
+		result(comp.conc_h)
+		result(comp.s_al_ca)
+		result(comp.s_al_mg)
+		result(comp.s_al_na)
+		result(comp.s_al_k)
+		result(comp.ph)
+		result(comp.ionic_str)
+		result(comp.exch_so4)
+		comp.ca.concn
+		comp.mg.concn
+		comp.na.concn
+		comp.k.concn
+		comp.nh4.concn
+		comp.so4.conc_all
+		comp.cl.concn
+		comp.no3.concn
+		comp.f.conc_all
+		comp.po4.concn
+		comp.exch_ca
+		comp.exch_mg
+		comp.exch_na
+		comp.exch_k
+		max_diff
+		is_soil
+		depth
+		comp.temp
+		pco2
+		comp.conc_oa
+		k_al
+		s_al
+		pk1_doc
+		pk2_doc
+		pk3_doc
+		pk1_aldoc
+		pk2_aldoc
+		porosity
+		bd
+		cec
+		so4_hs
+		so4_max
+	}	
+}

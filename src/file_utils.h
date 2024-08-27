@@ -3,12 +3,10 @@
 #ifndef MOBIUS_FILE_UTILS_H
 #define MOBIUS_FILE_UTILS_H
 
+#include <string>
+#include <unordered_map>
 #include <stdio.h>
-#include <locale>
-#include <codecvt>
 
-#include "mobius_common.h"
-#include "linear_memory.h"
 #include "common_types.h"
 
 FILE *
@@ -34,7 +32,7 @@ File_Data_Handler {
 	String_View
 	load_file(String_View file_name, Source_Location from = {}, String_View relative_to = {}, std::string *normalized_path_out = nullptr);
 	
-	bool
+	inline bool
 	is_loaded(String_View file_name, String_View relative_to) {
 		String_View load_name = file_name;
 		if(relative_to.count)
@@ -43,7 +41,7 @@ File_Data_Handler {
 		return find != loaded_files.end();
 	}
 	
-	void
+	inline void
 	unload(String_View file_name, String_View relative_to = {}) {
 		String_View load_name = file_name;
 		if(relative_to.count)
@@ -55,7 +53,7 @@ File_Data_Handler {
 		}
 	}
 	
-	void
+	inline void
 	unload_all() {
 		for(auto find : loaded_files) free(find.second.data);
 		loaded_files.clear();
@@ -65,4 +63,4 @@ File_Data_Handler {
 };
 
 
-#endif
+#endif // MOBIUS_FILE_UTILS_H

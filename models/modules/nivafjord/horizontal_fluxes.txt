@@ -1,15 +1,13 @@
 
-
-
 module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 	basin  : compartment,
+	bnd_basin : compartment,
 	layer  : compartment,
+	bnd_layer : compartment,
 	river  : compartment,
-	outlet : compartment,
 	edge   : compartment,
 	edge_layer : compartment,
 	water  : quantity,
-	heat   : quantity,
 	salt   : quantity,
 	temp   : property,
 	salin  : property,
@@ -17,134 +15,139 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 	rho    : property,
 	pressure : property,
 	dz     : property,
+	h      : property,
 	
 	horz   : connection,
 	vert   : connection,
-	w_bnd  : par_real
+	dims   : preamble
 ) {
 
 	load("stdlib/seawater.txt", library("Seawater"))
 	load("stdlib/physiochemistry.txt", library("Water utils"))
 	
-	# Should we index this one over basin?
-	par_group("Horizontal coefficients") {
-		alpha_u : par_real("Pressure difference mixing coefficient", [], 0.5, 0.1, 1)
+	# Should we index this one over basin or connection?
+	par_group("Horizontal exchange") {
+		alpha_u : par_real("Pressure difference flow coefficient", [], 0.5, 0.1, 1)
+		
+		align_rate : par_real("Vertical realignment rate", [], 0.1, 0, 1)
+	}
+	
+	par_group("Fjord horizontal boundary", edge_layer) {
+		w_bnd  : par_real("Boundary width", [m], 0, 0, 10000)
 	}
 
 	vert_target : property("Vertical exchange target")
 	
-	#var(outlet.vert_target, [], "Outlet vertical target")
 	var(river.vert_target, [], "Outlet vertical target")
 	
-	special_computation("Place river horizontal fluxes", "nivafjord_place_river_flux", outlet) {
-		#result(outlet.vert_target)
+	external_computation("Place river horizontal fluxes", "nivafjord_place_river_flux", river) {
 		result(river.vert_target)
 		river.water.rho
-		
-		#TODO: This is broken now since we disable when there is no connection layer.water->layer.water . argh.
-		# If we say river.water.rho[horz.below], it will try to look up connection data from river to river, which also breaks.
-			# Need to the same thing here as for the below() lookup in a regular variable.
-		layer.water.rho[horz.below]
-	}
+		last(river.water.rho[horz.below]) # This must be 'last' because layer.water.rho must be solved after this instruction.
+	} @allow_connection(river, horz)
 	
-	flux(river.water, layer.water[horz.below, vert.specific], [m 3, day-1], "River discharge to fjord") {
+	flux(river.water, layer.water[horz.below, vert.specific], [m 3, s-1], "River discharge to fjord") {
 		flow->>
-	} @specific { river.vert_target }#outlet.vert_target }
-	
-	#TODO: Only until we figure out how to do this properly
-	flux(layer.water, out, [k g, day-1], "Horizontal flux equivalent removal") {
-		in_flux(horz, water)
-	}
-	
+	} @specific { river.vert_target }
+
 	# TODO: Could have a SimplyCl module
-	var(river.water.salt, [k g]) @override_conc { 0=>> }
+	var(river.water.salin, [], "River salinity") {  0  } @no_store
 	
-	var(river.water.salin, []) {
-		(conc(salt)/rho_water)*1000
-	}
+	var(river.water.salt, [k g], [k g, m-3]) @override_conc {   1e-3*salin*rho_water   }
 	
 	var(river.water.rho, [k g, m-3]) {
 		seawater_pot_dens(temp, salin)
 	}
 	
-	var(edge_layer.vert_target, [], "Fjord layer boundary horizontal exchange vertical target")
+	var(edge_layer.vert_target, [], "Fjord layer horizontal exchange vertical target") @no_store
 	
-	# How would the framework know that this one is only for the edge layers, not below that (?)
-	# Or maybe it doesn't need to, and it just does a 'break' when w_bnd becomes 0.
-	# That is simpler, but wastes some time series storage space.
-	special_computation("Place horizontal boundary fluxes", "nivafjord_place_horizontal_fluxes", edge) {
+	external_computation("Place horizontal fluxes", "nivafjord_place_horizontal_fluxes", edge) {
 		result(edge_layer.vert_target)
 		layer.water.rho
 		layer.water.rho[horz.below]
+		layer.water.pressure
+		layer.water.pressure[horz.below]
 		w_bnd
+	} @allow_connection(layer, horz)
+	
+	dP : property("Pressure difference")
+	
+	var(edge_layer.dP, [Pa]) @no_store
+	#{
+	#	layer.water.pressure - layer.water.pressure[horz.below]
+	#}
+	
+	# Note: The only reason we don't just pass the h-value directly to the external comp is that we can't get h[horz.below] since basin is not on the connection.
+	#    This is annoying and should be possible to do somehow.
+	# Maybe need sub-compartments, and then only put the parent compartment on the connection, which would also be good for EasyReservoir.
+	
+	align_z : property("Aligned depth")
+	
+	var(layer.align_z, [m], "Aligned depth of layer bottom") {
+		dz - basin.h                        if is_at[vert.top],
+		layer.align_z[vert.above] + dz      otherwise
+	} #@no_store
+	
+	var(bnd_layer.align_z, [m], "Aligned depth of boundary layer bottom") {
+		dz - bnd_basin.h                    if is_at[vert.top],
+		bnd_layer.align_z[vert.above] + dz  otherwise
+	} #@no_store
+	
+	external_computation("Compute pressure difference", "nivafjord_compute_pressure_difference", edge) {
+		result(edge_layer.dP)
+		layer.align_z
+		layer.align_z[horz.below]
+		layer.dz
+		layer.dz[horz.below]
+		layer.water.pressure
+		layer.water.pressure[horz.below]
+	} @allow_connection(layer, horz)
+	
+	horz_flow_vel : property("Horizontal flow velocity")
+	var(edge_layer.horz_flow_vel, [m, s-1], "Layer horizontal flow velocity") {
+		copysign(sqrt(2*alpha_u*abs(dP)/rho_water), dP)->>
 	}
 	
-	horz_flow : property("Horizontal flow")
-	var(edge_layer.horz_flow, [k g, day-1], "Layer horizontal outflow") {
-		dP := layer.water.pressure - layer.water.pressure[vert.below],
-		
-		u := max(sqrt(2*alpha_u*abs(dP)/rho_water), 0),
-		u * w_bnd * layer.dz * rho_water->>
-	}
-	
-	# TODO: if the edge is to a boundary, this is different.
-	flux(layer.water, layer.water[horz.below, vert.specific], [k g, day-1], "Layer horizontal outflow flux") {
-		edge_layer.horz_flow
+	flux(layer.water, layer.water[horz.below, vert.specific], [m 3, day-1], "Layer horizontal outflow flux") {
+		#NOTE: This can be both positive and negative depending on the flow direction.
+		w := 0.5*(w_bnd + w_bnd[vert.below]),
+		#w := w_bnd,
+		edge_layer.horz_flow_vel*w*layer.dz->>
 	} @specific {
 		edge_layer.vert_target
-	}
-	
-	horz_bal : property("Horizontal water balance")
-	var(layer.water.horz_bal, [k g, day-1]) {
-		aggregate(edge_layer.horz_flow) - in_flux(horz, water)
-	}
+	} @bidirectional
 	
 	align : property("Vertical realignment")
-	var(layer.water.align, [k g, day-1])
+	var(layer.water.align, [m 3, day-1])
 	
-	# NOTE: Needs to be special computation since it would otherwise require reverse iteration (could be implemented later maybe)
-	special_computation("Layer vertical realignment computation", "nivafjord_vertical_realignment", basin) {
+	# NOTE: Needs to be external computation since it would otherwise require reverse iteration (could be implemented later maybe)
+	
+	/*
+	external_computation("Layer vertical realignment computation", "nivafjord_vertical_realignment", basin) {
 		result(layer.water.align)
 		layer.water.horz_bal
 	}
-	
-	/* # We can only get this one to work once we have some exchange with an outer boundary.
-	flux(layer.water, vert, [k g, day-1], "Vertical realignment flux") {
-		align
-	}
 	*/
+	
+	external_computation("Layer vertical realignment computation", "nivafjord_vertical_realignment_slow", basin) {
+		result(layer.water.align)
+		layer.dz
+		dz0
+		A
+		align_rate
+	}
+	
+	flux(layer.water, vert, [m 3, day-1], "Vertical realignment flux") {
+		align
+	} @bidirectional
+	
+	align_frac : property("Alignment fraction")
+	var(layer.align_frac, [day-1]) {
+		water.align/water
+	}
+	
+	horz_flow_frac : property("Horizontal balance fraction")
+	var(layer.horz_flow_frac, [day-1]) {
+		(out_flux(horz, water) - in_flux(horz, water)) / water ->>
+	}
 }
-
-
-
-/*
-	#TODO: This is now just sketching, it has to be reworked.
-
-	#w_bnd_ : property("Width to boundary")
-	A_bnd : property("Total area to boundary")
-	tot_barotropic_u : property("Total barotropic boundary flux")
-	barotropic_bnd_u : property("Barotropic boundary flux")
-	horz_target : property("Target of horizontal flux")
-	
-	var(oair.A_bnd, [m 2]) { aggregate(layer.w_bnd_)*dz }
-	
-	var(oair.h, [m]) @override { bnd.h }
-	
-	var(oair.tot_barotropic_u, [m 3, s-1]) {
-		-(h - last(h))*A[vert.top]/time.step_length_in_seconds
-	}
-	
-	var(layer.water.barotropic_bnd_u, [k g, s-1]) {
-		#0[m 3, s-1] #TODO.
-		oair.tot_barotropic_u * w_bnd * dz * rho_water / oair.A_bnd
-	}
-	
-	flux(bnd_layer.water, layer.water[vert2.specific], [k g, day-1], "Horizontal flow") {
-		bcl := -(layer.water.barocline_bnd_u + layer.water.barotropic_bnd_u)->>,
-		bcl    if bcl > 0,
-		0      otherwise
-	} @specific {
-		layer.water.horz_target
-	}
-
-*/

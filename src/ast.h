@@ -54,16 +54,17 @@ Decl_Base_AST : Expr_AST {
 	virtual ~Decl_Base_AST() { for(auto arg : args) delete arg; delete body; }
 };
 
+struct Data_AST;
+
 struct
 Decl_AST : Decl_Base_AST {
-	Token                        handle_name;
+	Token                        identifier;
 	Source_Location              source_loc;    // Will be the same as decl.source_loc . Should we delete it? It is a handy short-hand in usage code though.
 	Decl_Type                    type;
 	std::vector<Decl_Base_AST *> notes;
+	Data_AST                    *data = nullptr;
 	
-	//std::vector<Token>           data;  //TODO: Do something like this for Data_Set so that we can simplify parsing it.
-	
-	virtual ~Decl_AST() { for(auto note : notes) delete note; }
+	virtual ~Decl_AST();
 };
 
 struct
@@ -174,7 +175,9 @@ Local_Var_AST : Math_Expr_AST {
 
 struct
 Unit_Convert_AST : Math_Expr_AST {
-	Decl_AST *unit;
+	Decl_AST *unit = nullptr;
+	Token     unit_identifier;
+	bool by_identifier = false;
 	bool auto_convert, force;
 	
 	Unit_Convert_AST() : Math_Expr_AST(Math_Expr_Type::unit_convert) {};
@@ -203,21 +206,66 @@ Regex_Or_Chain_AST : Math_Expr_AST {
 struct
 Regex_Identifier_AST : Math_Expr_AST {
 	Token                        ident;
-	Token                        index_set;
-	bool                         wildcard;
+	bool                         wildcard = false;
 	
-	Regex_Identifier_AST() : Math_Expr_AST(Math_Expr_Type::regex_identifier), wildcard(false) {};
+	Regex_Identifier_AST() : Math_Expr_AST(Math_Expr_Type::regex_identifier) {};
 };
 
 struct
 Regex_Quantifier_AST : Math_Expr_AST {
-	int min_matches, max_matches;
+	int min_matches = 0;
+	int max_matches = -1;
 	
-	Regex_Quantifier_AST() : Math_Expr_AST(Math_Expr_Type::regex_quantifier), min_matches(0), max_matches(-1) {}
+	Regex_Quantifier_AST() : Math_Expr_AST(Math_Expr_Type::regex_quantifier) {}
+};
+
+enum class Data_Type {
+	none = 0,
+	map,
+	list,
+	directed_graph,
+};
+
+struct
+Data_AST : Expr_AST {
+	Data_Type data_type = Data_Type::none;
+	Source_Location source_loc;
+	virtual ~Data_AST() {};
+	Data_AST(Data_Type data_type) : data_type(data_type) {}
+};
+
+struct
+Data_Map_AST : Data_AST {
+	struct Entry {
+		Token key;
+		Token single_value;
+		Data_AST *data = nullptr;
+	};
+	std::vector<Entry> entries;
+	Data_Map_AST() : Data_AST(Data_Type::map) {}
+	~Data_Map_AST() { for(auto &entry : entries) delete entry.data; }
+};
+
+struct
+Data_List_AST : Data_AST {
+	std::vector<Token> list;
+	Data_List_AST() : Data_AST(Data_Type::list) {}
+};
+
+struct
+Directed_Graph_AST : Data_AST {
+	struct Node {
+		Token identifier;
+		std::vector<Token> indexes;
+	};
+	std::vector<Node> nodes;
+	std::vector<std::pair<int, int>> arrows;
+	Directed_Graph_AST() : Data_AST(Data_Type::directed_graph) {}
 };
 
 
-
+void
+parse_decl_header_base(Decl_Base_AST *decl, Token_Stream *stream, bool allow_unit = true);
 
 Decl_AST *
 parse_decl_header(Token_Stream *stream);
@@ -242,7 +290,7 @@ parse_regex_list(Token_Stream *stream, bool outer);
 
 
 inline Token *
-single_arg(Decl_AST *decl, int which) {
+single_arg(Decl_Base_AST *decl, int which) {
 	if(decl->args[which]->chain.size() != 1) {
 		decl->args[which]->chain[1].source_loc.print_error_header(Mobius_Error::internal);
 		fatal_error(Mobius_Error::internal, "Expected a single value or identifier, not a chain.");
@@ -256,7 +304,7 @@ single_arg(Decl_AST *decl, int which) {
 
 //TODO: Make a general-purpose tagged union?
 struct Arg_Pattern {
-	enum class Type { any, value, decl };
+	enum Type { any, value, decl, loc };
 	Type pattern_type;
 	bool is_vararg;
 	
@@ -268,6 +316,10 @@ struct Arg_Pattern {
 	Arg_Pattern(bool is_vararg = false) : pattern_type(Type::any), is_vararg(is_vararg) {}
 	Arg_Pattern(Token_Type token_type, bool is_vararg = false) : token_type(token_type), pattern_type(Type::value), is_vararg(is_vararg) {}
 	Arg_Pattern(Decl_Type decl_type, bool is_vararg = false)   : decl_type(decl_type), pattern_type(Type::decl), is_vararg(is_vararg) {}
+	Arg_Pattern(Type pattern_type, bool is_vararg = false) : pattern_type(pattern_type), is_vararg(is_vararg) {
+		if(pattern_type != any && pattern_type != loc)
+			fatal_error(Mobius_Error::internal, "Value type and Decl type patterns should be constructed with an explicit type.");
+	}
 	
 	bool matches(Argument_AST *arg) const;
 	
@@ -275,6 +327,7 @@ struct Arg_Pattern {
 		switch(pattern_type) {
 			case Type::decl :         { error_print(name(decl_type));  } break;
 			case Type::value :        { error_print(name(token_type)); } break;
+			case Type::loc :          { error_print("location"); } break;
 			case Type::any :          { error_print("any"); } break;
 		}
 		if(is_vararg) error_print("...");
@@ -284,12 +337,18 @@ struct Arg_Pattern {
 
 int
 match_declaration_base(Decl_Base_AST *decl, const std::initializer_list<std::initializer_list<Arg_Pattern>> &patterns, int allow_body);
-
+	
 int
 match_declaration(Decl_AST *decl, const std::initializer_list<std::initializer_list<Arg_Pattern>> &patterns,
-	bool allow_handle = true, int allow_body = true, bool allow_notes = false);
+	bool allow_identifier = true, int allow_body = 1, bool allow_notes = false, int allow_data = 0);
+
+// Convenient shorthand for use in Data_Set parsing:
+inline int
+match_data_declaration(Decl_AST *decl, const std::initializer_list<std::initializer_list<Arg_Pattern>> &patterns,
+	bool allow_identifier = false, int allow_body = 0, bool allow_notes = false, int allow_data = -1) {
+		return match_declaration(decl, patterns, allow_identifier, allow_body, allow_notes, allow_data);
+}
 	
-// TODO: Allow a version of match_declaration that operates on notes.
 
 int
 operator_precedence(Token_Type t);
@@ -298,6 +357,6 @@ void
 check_allowed_serial_name(String_View name, Source_Location &loc);
 
 bool
-is_reserved(const std::string &handle);
+is_reserved(const std::string &identifier);
 
 #endif // MOBIUS_AST_H

@@ -1,29 +1,50 @@
 
 model("SimplyTox") {
-	extend("simplyc_model.txt")
-	extend("simplysed_model.txt")
+
+	# This is not a finished model, only partial
+
+	extend("simplyc_model.txt") @exclude(sol : solver)
+	extend("simplysed_model.txt") @exclude(sol : solver)
 	
-	tox   : quantity("Toxin")
-	heat  : quantity("Heat energy")
+	par_group("Solver step") {
+		solver_h     : par_real("Solver desired step", [hr], 2, 0.01, 24)
+		solver_rel_h : par_real("Solver minimal relative step", [], 0.01, 1e-8, 0.1)
+	}
+	
+	# It is in some instances necessary for the user to configure the solver step in this model.
+	sol : solver("Simply solver", inca_dascru, solver_h, solver_rel_h)
+	solve(sol, soil.oc, dsoil.oc, gw.oc, soilair.tox,
+		river_sed.oc, river_sed.water)
+	
+	tox_index : index_set("Contaminant type")
+	
+	tox   : quantity("Contaminant", tox_index)
+	toc   : property("Total organic carbon")
+	wind  : property("Wind speed")
 		
-	dsoil : compartment("Slow-accessible soil")
-	
-	distribute(dsoil, sc, lu)
-	distribute(tox, index_set("Toxin type"))
-	
+	dsoil     : compartment("Slow-accessible soil",  sc, lu)
+	soilair   : compartment("Soil air",              sc, lu)
+	river_sed : compartment("River sediment bed",    sc)
+
 	par_group("River data", river) {
 		eff_a : par_real("River effective surface area", [m 2], 1000, 0, 1000000)
 	}
-
-	load("modules/rivertemp.txt",      module("RiverTemperature", air, soil, river, water, heat, temp))
-	load("modules/simplytox.txt",      module("SimplyTox", air, soil, dsoil, gw, river, water, sed, oc, tox, temp, precip, e_fact, eff_a))
 	
-	solve(simply_solver, soil.oc)
-	solve(simply_solver, dsoil.oc)
+	load("modules/simplyc.txt",    module("Simple river TOC", river, water, oc, sed, toc))
 
-	#TODO: Need a way to override this!
-	# For some reason the partitioning in the groundwater and river is numerically unstable, so we decrease the solver step.
-	#solver("Simply solver", "INCADascru", 0.001)
+	load("modules/simplytox.txt",
+		phys : preamble("SimplyTox physiochemical", tox, temp),
+		module("SimplyTox soil", air, soil, dsoil, soilair, gw, water, oc, tox, temp, phys),
+		module("SimplyTox partitioning", "SimplyTox soil water", soil, water, oc, tox, temp, loc(soil.oc), [n g, m-2], constant(true), phys),
+		module("SimplyTox partitioning", "SimplyTox groundwater", gw, water, oc, tox, temp, loc(gw.oc), [n g, m-2], constant(false), phys),
+		module("SimplyTox partitioning", "SimplyTox river water", river, water, oc, tox, temp, loc(river.water.sed.oc), [n g], constant(true), phys),
+		module("SimplyTox air-water", "SimplyTox river air-water", air, river, water, tox, temp, wind, loc(eff_a), phys),
+		module("SimplyTox partitioning", "SimplyTox river bed", river_sed, water, oc, tox, temp, loc(river_sed.oc), [n g, m-2], constant(false), phys),
+		module("SimplyTox river", air, soil, river, river_sed, water, oc, sed, tox, e_fact, temp, loc(eff_a), phys)
+	)
 	
 	unit_conversion(soil.oc.tox, river.water.sed.oc.tox) { a_catch }
+	
+	unit_conversion(river.water.sed.oc, river_sed.oc) { 1/eff_a }
+	unit_conversion(river.water, river_sed.water) { 1/eff_a }
 }

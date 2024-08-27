@@ -1,10 +1,14 @@
 
 library("Air-sea") {
 	
-	# TODO: Document and reference!
+"""
+Air-sea/lake heat fluxes are based off of
+Air-Sea bulk transfer coefficients in diabatic conditions, Junsei Kondo, 1975, Boundary-Layer Meteorology 9(1), 91-112 [https://doi.org/10.1007/BF00232256](https://doi.org/10.1007/BF00232256)
+
+The implementation used here is influenced by the implementation in [GOTM](https://github.com/gotm-model).
+"""
 	
 	surface_stability : function(wind : [m, s-1], water_temp : [deg_c], air_temp : [deg_c]) {
-		#ww := max(wind, 0.001[m, s-1]),
 		ww := wind + 1e-10[m, s-1],
 		s0 := 0.25*(water_temp - air_temp) / (ww*ww) => [],
 		s0*abs(s0)/(abs(s0) + 0.01)
@@ -40,12 +44,20 @@ library("Air-sea") {
 	}
 }
 
-
 library("Seawater") {
+"""
+This is a library for highly accurate, but more computationally expensive, properties of sea water (taking salinity into account). Se the library "Water utils" for simplified versions of these functions.
 
-	# TODO: Put in the references!
+The formulas for density are taken from the [Matlab seawater package](http://www.marine.csiro.au/~morgan/seawater).
+
+The formulas for viscosity and diffusivity are taken from
+
+Riley, J. P. & Skirrow, G. Chemical oceanography. 2 edn, Vol. 1 606 (Academic Press, 1975).
+"""
 	
-	fr_t_s : constant("Ice formation temperature dependence", [deg_c], 0.056)
+	load("basic_math.txt", library("Response"))
+	
+	fr_t_s : constant("Ice formation temperature salinity dependence", [deg_c], 0.056)
 	
 	ice_formation_temperature   : function(S : []) {
 		# Ice formation temperature as a function of salinity
@@ -78,85 +90,127 @@ library("Seawater") {
 		   + ((b0 + (b1 + (b2 + (b3 + b4*T68)*T68)*T68)*T68)*S + (c0 + (c1 + c2*T68)*T68)*S*sqrt(S) + d0*S^2) => [k g, m-3]
 	}
 	
-	# seawater_secant_bulk_modulus : function(T : [deg_c], S : [], P : [d bar]) {
-		# T68 := T * 1.00024 => []
-		# h3 := -5.77905e-7
-		# h2 := 1.16092e-4
-		# h1 := 1.43713e-3
-		# h0 := 3.239908
-		# AW := h0 + (h1 + (h2 + h3*T68)*T68)*T68
-		# k2 := 5.2787e-8
-		# k1 := -6.12293e-6
-		# k0 := 8.50935e-5
-		# BW := k0 + (k1 + k2*T68)*T68
-		# e4 := -5.155288e-5
-		# e3 := 1.360477e-2
-		# e2 := -2.327105
-		# e1 := 148.4206
-		# e0 := 19652.21
-		# KW := e0 + (e1 + (e2 + (e3 + e4*T68)*T68)*T68)*T68
-		# j0 := 1.91075e-4
-		# i2 := -1.6078e-6
-		# i1 := -1.0981e-5
-		# i0 :=  2.2838e-3
-		# SR := sqrt(S)
-		# A  := AW + (i0 + (i1 + i2*T68)*T68 + j0*SR)*S
-		# m2 := 9.1697e-10
-		# m1 := 2.0816e-8
-		# m0 := -9.9348e-7
-		# B  := (BW + (m0 + (m1 + m2*T68)*T68)*S) => [bar-1]
-		# f3 := -6.1670e-5
-		# f2 := 1.09987e-2
-		# f1 := -0.603459
-		# f0 := 54.6746
-		# g2 := -5.3009e-4
-		# g1 := +1.6483e-2
-		# g0 := +7.944e-2
-		# K0 := (KW + (f0 + (f1 + (f2 + f3*T68)*T68)*T68 + (g0 + (g1 + g2*T68)*T68)*SR)*S) => [bar]
-		# p  := P->[bar]
-		# K0 + (A + B*p)*p
-	# }
-	
-	# seawater_density : function(T : [deg_c], S : [], P : [h bar]) {
-		# densP0 := seawater_dens_p0(T, S)
-		# K      := seawater_secant_bulk_modulus(T, S, P);
-		# P      := P -> [bar]
-		# densP0/(1.0 - p/K)
-	# }
-
-
-
-
-#TODO: Fix the units of this one!
-	dynamic_viscosity_water : function(T : [deg_c], S : []) {
-	# # Formula from J.P. Riley, Chemical Oceanography, vol 4, 2nd edition. AP. 1975
-	# # Returns viscosity in centipose [k Pa, s]
-	# # It is also possible to add pressure corrections. Pressure is here assumed to be at 1atm.
-		eta20 := 1.0020e-3[Pa, s],             # Dynamic viscosity at t=20, s=0  ### NOTE THAT UNITS SHOULD BE Pa s, this is now corrected
+	dynamic_viscosity_fresh_water : function(T : [deg_c]) {
+		# Formula from J.P. Riley, Chemical Oceanography, vol 4, 2nd edition. AP. 1975
+		# Returns viscosity in [Pa, s]
+		# It is also possible to add pressure corrections. Pressure is here assumed to be at 1atm.
+		eta20 := 1.0020e-3[Pa, s],             # Dynamic viscosity at t=20, s=0
 		tm20  := 20[deg_c]-T,
 		lograt := (1.1709*tm20 - 0.001827[deg_c-1]*tm20^2) / (T + 89.93[deg_c]),
-		eta_t := eta20*10^lograt,   #Dynamic viscosity of distilled water, corrected for temperature
-		eta_t
+		eta20*10^lograt   #Dynamic viscosity of distilled water, corrected for temperature
 	}
+	
+	dynamic_viscosity_sea_water : function(T : [deg_c], S : []) {
+		# Same reference as dynamic_viscosity_fresh_water
+		eta_t := dynamic_viscosity_fresh_water(T),
+		a := lerp(T, 5[deg_c], 25[deg_c], 0.000366, 0.001403),
+		b := lerp(T, 5[deg_c], 25[deg_c], 0.002756, 0.003416),
+		cl := max(0, (S-0.03)/1.805),
+		clv := seawater_pot_dens(T, S) * cl =>[],  # Volume chlorinity    #TODO: What is the correct density to use here? Could also take it as a function argument since it is usually computed anyway.
+		eta_t * (1 + a*sqrt(clv) + b*clv)
+	}
+	
+	diffusivity_in_water : function(ref_diff, ref_T : [deg_c], ref_S : [], T : [deg_c], S : []) {
+		# Diffusivity of some substance in water.
+		# ref_diff  - the diffusivity of the substance in water at temperature ref_T and salinity ref_S.
+		ref_diff * (dynamic_viscosity_sea_water(ref_T, ref_S) / dynamic_viscosity_sea_water(T, S)) * ((T -> [K]) / (ref_T -> [K]))
+	}
+	
+	/*
+	seawater_secant_bulk_modulus : function(T : [deg_c], S : [], P : [d bar]) {
+		T68 := T * 1.00024 => []
+		h3 := -5.77905e-7
+		h2 := 1.16092e-4
+		h1 := 1.43713e-3
+		h0 := 3.239908
+		AW := h0 + (h1 + (h2 + h3*T68)*T68)*T68
+		k2 := 5.2787e-8
+		k1 := -6.12293e-6
+		k0 := 8.50935e-5
+		BW := k0 + (k1 + k2*T68)*T68
+		e4 := -5.155288e-5
+		e3 := 1.360477e-2
+		e2 := -2.327105
+		e1 := 148.4206
+		e0 := 19652.21
+		KW := e0 + (e1 + (e2 + (e3 + e4*T68)*T68)*T68)*T68
+		j0 := 1.91075e-4
+		i2 := -1.6078e-6
+		i1 := -1.0981e-5
+		i0 :=  2.2838e-3
+		SR := sqrt(S)
+		A  := AW + (i0 + (i1 + i2*T68)*T68 + j0*SR)*S
+		m2 := 9.1697e-10
+		m1 := 2.0816e-8
+		m0 := -9.9348e-7
+		B  := (BW + (m0 + (m1 + m2*T68)*T68)*S) => [bar-1]
+		f3 := -6.1670e-5
+		f2 := 1.09987e-2
+		f1 := -0.603459
+		f0 := 54.6746
+		g2 := -5.3009e-4
+		g1 := +1.6483e-2
+		g0 := +7.944e-2
+		K0 := (KW + (f0 + (f1 + (f2 + f3*T68)*T68)*T68 + (g0 + (g1 + g2*T68)*T68)*SR)*S) => [bar]
+		p  := P->[bar]
+		K0 + (A + B*p)*p
+	}
+	
+	seawater_density : function(T : [deg_c], S : [], P : [h bar]) {
+		densP0 := seawater_dens_p0(T, S)
+		K      := seawater_secant_bulk_modulus(T, S, P);
+		P      := P -> [bar]
+		densP0/(1.0 - p/K)
+	}
+	*/
+}
+
+library("Sea oxygen") {
+"""
+This contains formulas for O2 saturation and surface exchange in sea water. Based on
+
+R.F. Weiss, The solubility of nitrogen, oxygen and argon in water and seawater, Deep Sea Research and Oceanographic Abstracts, Volume 17, Issue 4, 1970, 721-735, [https://doi.org/10.1016/0011-7471(70)90037-9](https://doi.org/10.1016/0011-7471(70)90037-9).
+
+The implementation is influenced by the one in [SELMA](https://github.com/fabm-model/fabm/tree/master/src/models/selma).
+"""
+	/*
+	o2_saturation_alt : function (T : [deg_c], S : []) {
+		tk := (T->[K]*0.01)=>[],
+		c := -173.4292 + 249.6339/tk + 143.3483*ln(tk) - 21.8492*tk
+			+ S*(-0.033096 + 0.014259*tk - 0.0017*tk^2),
+		exp(c)*1[m l, l-1]*((1.33/32)=>[m mol, m l-1])  # This is at surface pressure. TODO: Make this work better
+	}
+	
+	o2_piston_velocity_alt : function(wind : [m, s-1], temp : [deg_c]) {
+		t := temp=>[],
+		schmidt := 1920.4 - 135.6*t + 5.2122*t^2 -0.10939*t^3 + 0.00093777*t^4,
+		(0.251*wind*2*(schmidt/660)^(-0.5)=>[c m, hr-1])
+	}
+	*/
 	
 	o2_saturation : function (T : [deg_c], S : []) {
-	# Formula from Weiss 1970 (also in Selma).
-		T_k := (T+ 273.15[deg_c] ) => [], # 
-		Cs_umol_L := exp (-135.90205 + (1.575701*100000 / T_k) - (6.642308*10000000/(T_k*T_k)) + (1.243800*10000000000/ (T_k*T_k*T_k)) - (8.621949*100000000000 / (T_k*T_k*T_k*T_k)) - (S * (0.017674 - (10.754 / T_k) + (2140.7/(T_k*T_k)) ))) => [m mol, m-3],
-		Cs_umol_L
+		# Formula from Weiss 1970 (also in Selma).
+		T_k := (T -> [K]) => [], # 
+		exp(
+			- 135.90205
+			+ 1.575701e5  / T_k
+			- 6.642308e7  / T_k^2
+			+ 1.243800e10 / T_k^3
+			- 8.621949e11 / T_k^4
+			- S*(0.017674 - 10.754/T_k + 2140.7/T_k^2)
+		) => [m mol, m-3]
 	}
-	
-}
-	# a := lerp(T, 5[deg_c], 25[deg_c], 0.000366, 0.001403)
-	# b := lerp(T, 5[deg_c], 25[deg_c], 0.002756, 0.003416)
-	# cl := max(0, (S-0.03)/1.805)
-	# clv := water_density(T) * cl =>[]  # Volume chlorinity
-	# eta_t * (1 + a*sqrt(clv) + b*clv)
-# }
 
-# diffusivity_in_water : function(ref_diff, ref_T : [deg_c], ref_S : [], T : [deg_c], S : []) {
-	# # Diffusivity of some substance in water.
-	# # 	ref_diff  - the diffusivity of the substance in water at temperature ref_T and salinity ref_S.
-	
-	# ref_diff * (dynamic_viscosity_water(ref_T, ref_S) / dynamic_viscosity_water(T, S)) * ((T -> [K]) / (ref_T -> [K]))
-# }
+	o2_piston_velocity : function(wind : [m, s-1], temp : [deg_c]) {
+		# TODO: Document the source!
+		wnd     := wind => [],
+		T       := temp => [],
+		k_600   := 2.07 + 0.215*(wnd^1.7),
+		schmidt := 1800.6 - 120.10*T + 3.7818*T^2 - 0.047608*T^3,
+		k_600*(schmidt/600)^(-0.666) => [c m, hr-1]
+		#sc := (1450 + (1.1*T - 71)*T),
+		#max(0.05, 5.9*(5.9*wnd - 49.3)/sqrt(sc))     if wind >= 13[m, s-1],
+		#max(0.05, 1.003*wnd / ((sc)^0.66))           if wind <= 3.6[m, s-1],
+		#max(0.05, 5.9*(2.85*wnd - 9.65) / sqrt(sc)   otherwise
+	}
+}

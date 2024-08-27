@@ -1,0 +1,20 @@
+remote_theme: just-the-docs/just-the-docs
+logo: "mobius.png"
+favicon_ico: "mobius.ico"
+
+title: Mobius2
+
+nav_external_links:
+  - title: Mobius2 on GitHub
+    url: https://github.com/NIVANorge/Mobius2/tree/main
+    hide_icon: false
+    opens_in_new_tab: true
+  - title: NIVA
+    url: https://www.niva.no/en
+    hide_icon: false
+    opens_in_new_tab: true
+
+mermaid:
+  # Version of mermaid library
+  # Pick an available version from https://cdn.jsdelivr.net/npm/mermaid/
+  version: "9.1.6"

@@ -5,14 +5,18 @@ module("Degree-day PET", version(1, 0, 0),
 	pet  : property,
 	temp : property
 ) {
-"This is a very simple potential evapotranspiration model using a linear relationship between PET and air temperature."
+"""
+This is a very simple potential evapotranspiration model that uses a linear relationship between PET and air temperature.
+
+Authors: Magnus D. Norling
+"""
 	
 	par_group("Potential evapotranspiration", soil) {
-		ddf_pet   : par_real("Deegree-day factor for evapotranspiration", [m m, deg_c -1, day -1], 0.12, 0.05, 0.2)
+		ddf_pet   : par_real("Degree-day factor for evapotranspiration", [m m, deg_c -1, day -1], 0.12, 0.05, 0.2)
 		pet_min_t : par_real("Minimal temperature for evapotranspiration", [deg_c], 0, -5, 5)
 	}
 	
-	var(soil.pet, [m m, day -1])                {   max(0, ddf_pet*(air.temp - pet_min_t))   }
+	var(soil.pet, [m m, day -1]) {   max(0, ddf_pet*(air.temp - pet_min_t))   }
 }
 
 
@@ -22,12 +26,25 @@ module("Penman-Monteith PET", version(1, 0, 0),
 	snow_box : compartment,
 	snow     : quantity,
 	temp     : property,
-	pet      : property
-	
+	pet      : property,
+	pressure : property,
+	lwd      : property,
+	g_rad    : property,
+	wind     : property,
+	s_vap    : property,
+	a_vap    : property
 ) {
-	# TODO: Docstring
-	
-	# TODO: Finish port to new module loading system.
+"""
+This implementation of the Penman-Monteith equation for potential evapotranspiration for the most part follows
+
+Ventura, F., Spano, D., Duce, P. et al. An evaluation of common evapotranspiration equations. Irrig Sci 18, 163–170 (1999). [https://doi.org/10.1007/s002710050058](https://doi.org/10.1007/s002710050058)
+
+See also [FAO paper 56](https://www.fao.org/4/X0490E/x0490e00.htm).
+
+It is possible to configure it to instead use the Priestley-Taylor equation (i.e. replacing wind correction with a constant).
+
+Authors: Magnus D. Norling
+"""
 	
 	load("stdlib/atmospheric.txt", library("Meteorology"))
 	load("stdlib/physiochemistry.txt", library("Thermodynamics"), library("Water utils"))
@@ -41,13 +58,6 @@ module("Penman-Monteith PET", version(1, 0, 0),
 		r_a_w : par_real("Aerodynamic resistance / wind speed", [], 208, "Only used without Priestley-Taylor")
 	}
 	
-	pressure : property("Pressure")
-	lwd      : property("Downwelling longwave radiation")
-	g_rad    : property("Global radiation")
-	wind     : property("Wind speed")
-	s_vap    : property("Saturation vapour pressure")
-	a_vap    : property("Actual vapour pressure")
-	
 	net_sw : property("Net shortwave")
 	lwu    : property("Emitted longwave radiation")
 	
@@ -60,19 +70,19 @@ module("Penman-Monteith PET", version(1, 0, 0),
 	}
 
 	var(soil.lwu, [W, m-2]) {
-		emissivity := 0.9, #TODO: Could maybe be made more granular.
-		black_body_radiation(soil.temp->[K])
+		emissivity := 0.9, #TODO: Could maybe be made more granular e.g. for snow
+		black_body_radiation(temp->[K])
 	}
 	
 	var(soil.pet, [m m, day-1]) {
 		
-		# Reference :  https://www.fao.org/3/x0490e/x0490e06.htm 
-		
-		 #NOTE: we could factor some of these out as properties, which can be interesting to some for debugging
+		#NOTE: we could factor some of these out as properties, which can be interesting to some for debugging
 		lvap    := latent_heat_of_vaporization(air.temp),
 		psy     := psychrometric_constant(air.pressure->[k Pa], lvap),
 		slope   := slope_of_saturation_pressure_curve(air.temp, air.s_vap->[k Pa]),
-		net_rad := net_sw + air.lwd - lwu, # May need to substitute  with the net longwave here: https://www.fao.org/3/x0490e/x0490e07.htm because this doesn't seem to give good results.
+		# May need to substitute  with the net longwave here: https://www.fao.org/3/x0490e/x0490e07.htm because this doesn't seem to give good results.
+		# Also, the energy balance should take snow melt into account.
+		net_rad := net_sw + air.lwd - lwu,
 		
 		u := max(0.5[m, s-1], air.wind),
 		# Modified psychrometric constant
@@ -90,8 +100,8 @@ module("Penman-Monteith PET", version(1, 0, 0),
 			1            otherwise
 		},
 	
-		# TODO: This is really for wind at 2m, and one should use daily min and max temperatures to compute some means of some of the things...
-		
+		# TODO: This is really for wind at 2m (while wind at 10 m is more often used for air-sea interactions, so we should distinguish between them)
+		# And one should use daily min and max temperatures to compute some means of some of the values (see reference above)
 		et := alpha * (slope*net_rad + psy*pressure_term) / (slope + psy_corr),
 		
 		max(0, et/(lvap*rho_water))->>

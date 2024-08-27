@@ -1,4 +1,8 @@
 
+This is about how you can build Mobius2 yourself. If you just want to download the Windows binaries, go to
+ftp://mobiserver.niva.no/Mobius2
+
+
 # Building Mobius 2 (preliminary, before proper system)
 
 ## Get LLVM
@@ -13,26 +17,30 @@ Inside Visual Studio, select the Release build and build it (you can also build 
 
 Depending on how you chose to set things up you will have a path to the clone of the llvm repository and a path to your build of LLVM. The build of Mobius2 will need to link to files in both of these paths.
 
-My setup ( for instance Mobius2/test/compile.bat , which is the one you should start with ) assumes specific paths to these:
+My setup ( for instance Mobius2/mobipy/compile_dll.bat , which is the one you should start with ) assumes specific paths to these:
 - C:\Data\llvm
 - C:\Data\build     -- this one is particularly badly named.
 
 but we should definitely have a better system for it, and that is possible with Cmake.
 
-To run visual studio from the command line (which is what you do in compile.bat ), you also need to run vcvars64 , which is what I do in Mobius2/test/setupvc.bat , but your path to vcvars64 may be different.
+To run visual studio from the command line (which is what you do in compile.bat ), you also need to run vcvars64 , which is what I do in Mobius2/mobipy/setupvc.bat , but your path to vcvars64 may be different.
+
+## Get OpenXLSX
+Clone https://github.com/troldal/OpenXLSX
+
+Next use cmake to run their CMakeLists.txt
+
+Next you must make sure that your compilation script points to the right folders for include and lib files for OpenXLSX (see mobipy/compile_dll.bat).
 
 ## Build Mobius2
 
-To build the preliminary test, you only need to run Mobius2/test/compile.bat (if all the paths in it are correct)
+To build mobipy run mobipy/compile_dll.bat
 
-It will produce prelim_test.exe, which you can run using
+You can then use mobipy to run Mobius2 models, see for instance test/python_test.ipynb
 
-	prelim_test.exe ../models/models/simplyq_model.txt ../models/models/data/simplyq_tarland.dat
-
-It produces a results.dat file.
 
 ## Building MobiView
-**Don't worry about this for now**
+This is a bit more difficult for now.
 
 MobiView is the GUI. It is a separate repository
 https://github.com/NIVANorge/MobiView2
@@ -43,3 +51,4 @@ You should clone MobiView2 to
 upp/MyApps/MobiView2
 
 unfortunately the build system I set up for MobiView2 also assumes specific paths to Mobius2 and LLVM for now :(
+It also has a few other dependencies like Dlib and Graphviz.

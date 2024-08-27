@@ -49,7 +49,7 @@ bool inca_dascru(double *try_h, double hmin, int n, double *x0, Model_Run_State 
 		bool step_was_reduced = false;
 		bool step_can_be_reduced = true;
 
-		// make a backup of the initial state of the step.
+		// Make a backup of the initial state of the step.
 		for(int var_idx = 0; var_idx < n; ++var_idx)
 			wk0[var_idx] = x0[var_idx];
 
@@ -60,10 +60,14 @@ bool inca_dascru(double *try_h, double hmin, int n, double *x0, Model_Run_State 
 			step_can_be_increased = true;
 
 			if (t + h > 1.0) {
-				*try_h = h; // return it out again so that it can be used for the next time the function is entered, if desirable.
+				// This is the last step
 				
+				// Write h out again so that it can be used for the next time the function is entered, if desirable.
+				// Note that we don't cap try_h since we want it to be representative of the desired step size, not the one that is capped to reach 1.0 exactly.
+				*try_h = h;
 				h = 1.0 - t;
 				run = false;
+				// TODO: If h is extremely small or 0, shouldn't this just exit immediately?
 			}
 			
 			call_fun(ode_fun, run_state, t);
@@ -114,13 +118,12 @@ bool inca_dascru(double *try_h, double hmin, int n, double *x0, Model_Run_State 
 				double est = std::abs(dx + dx - 1.5 * (dx0 + wk2[var_idx]));
 				
 				if (est < tol || !step_can_be_reduced) {
-					if (est >= 0.03125 * tol)
+					if (est >= (1.0/32.0) * tol)
 						step_can_be_increased = false;
 				} else {
+					h *= 0.5; // Reduce the step size.
 					run = true; // If we thought we reached the end of the integration, that may no longer be true since we are reducing the step size.
 					step_was_reduced = true;
-					
-					h = 0.5 * h; // Reduce the step size.
 
 					if(h < hmin) {
 						h = hmin;
@@ -140,7 +143,7 @@ bool inca_dascru(double *try_h, double hmin, int n, double *x0, Model_Run_State 
 		} while(reset);
 
 		if(step_can_be_increased && !step_was_reduced && run) {
-			h = h + h;
+			h = std::min(h + h, 1.0);
 			step_can_be_reduced = true;
 		}
 	}

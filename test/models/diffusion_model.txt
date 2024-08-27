@@ -20,15 +20,16 @@ model("Diffusion") {
 		var(layer.o2, [m g, c m-2], "Layer O₂") @initial { in_o2 }
 		var(botcomp.o2, [m g, c m-2], "Bottom O₂") @initial { in_o2_bot }
 		
-		c : connection("Layer connection", grid1d) { layer[layer_index] }
-		s : connection("Sideways", all_to_all) { layer[branch_index] }
+		c : connection("Layer connection") @grid1d(layer, layer_index)
+		
+		s : connection("Sideways") @grid1d(layer, branch_index)
 		
 		z : constant("Layer thickness", [c m], 1)
 		
 		flux(layer.o2, c, [m g, c m-2, day-1], "Diffusion") {
 			d := 0.5*(dc + dc[below]),
 			d*(o2 - o2[below])/z ->>
-		}
+		} @bidirectional
 		
 		flux(layer.o2[c.bottom], botcomp.o2, [m g, c m-2, day-1], "Input from bottom") {
 			dc[bottom]*(o2[bottom]-botcomp.o2)/z ->>
@@ -37,7 +38,7 @@ model("Diffusion") {
 		flux(layer.o2, s, [m g, c m-2, day-1], "Sideflow") {
 			d := 0.5*(dc + dc[below]),
 			tc*d*(o2 - o2[below])/z ->>
-		}
+		} @bidirectional
 	}
 	
 	layer_index : index_set("Layer index")
@@ -50,7 +51,7 @@ model("Diffusion") {
 	distribute(botcomp, branch_index)
 	distribute(layer, branch_index, layer_index)
 	
-	sol : solver("Solver", "INCADascru", 0.1)
+	sol : solver("Solver", inca_dascru, [2, hr])
 	solve(sol, layer.o2, botcomp.o2)
 	
 }

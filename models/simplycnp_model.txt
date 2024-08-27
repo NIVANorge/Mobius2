@@ -1,0 +1,18 @@
+	
+model("SimplyCNP") {
+
+	extend("simplyc_model.txt")
+	extend("simplyn_model.txt") @exclude(heat : quantity) # Exclude it to not clash with the one in SimplyC
+	extend("simplyp_model.txt") @exclude(phos : quantity) # To be able to rename it
+
+	phos : quantity("Inorganic phosphorous")
+	on   : quantity("Organic nitrogen")
+	op   : quantity("Organic phosphorous")
+	toc  : property("Total organic carbon")
+	
+	load("modules/simplyc.txt",
+		module("Simple river TOC", river, water, oc, sed, toc))
+	load("modules/organic_np.txt",
+		om_cnp : preamble("Organic CNP land"),
+		module("Simple organic NP", river, water, oc, sed, on, op, tn, tp, tdp, om_cnp))
+}

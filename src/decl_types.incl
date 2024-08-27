@@ -1,22 +1,25 @@
 // The arguments are Decl_Type, Body_Type, Reg_Type
 
 ENUM_VALUE(model, decl, unrecognized)
+ENUM_VALUE(data_set, decl, unrecognized)
 ENUM_VALUE(module, decl, module_template)
+ENUM_VALUE(preamble, decl, module_template)
 ENUM_VALUE(version, none, unrecognized)
 ENUM_VALUE(library, decl, library)
 ENUM_VALUE(load, none, unrecognized)
 ENUM_VALUE(extend, none, unrecognized)
 ENUM_VALUE(loc, none, loc)
-ENUM_VALUE(to, none, to)
-ENUM_VALUE(index_set, decl, index_set)
-ENUM_VALUE(connection, regex, connection)
-ENUM_VALUE(distribute, none, unrecognized)
+ENUM_VALUE(index_set, none, index_set)
+ENUM_VALUE(connection, decl, connection)
 ENUM_VALUE(solver, none, solver)
 ENUM_VALUE(solve, none, unrecognized)
+ENUM_VALUE(solver_function, none, solver_function)
 ENUM_VALUE(aggregation_weight, function, unrecognized)
 ENUM_VALUE(unit_conversion, function, unrecognized)
 ENUM_VALUE(par_group, decl, par_group)
 ENUM_VALUE(unit, none, unit)
+ENUM_VALUE(compose_unit, none, unit)
+ENUM_VALUE(unit_of, none, unit)
 ENUM_VALUE(quantity, none, component)
 ENUM_VALUE(property, function, component)
 ENUM_VALUE(compartment, none, component)
@@ -30,7 +33,11 @@ ENUM_VALUE(function, function, function)
 ENUM_VALUE(var, function, var)
 ENUM_VALUE(flux, function, flux)
 ENUM_VALUE(discrete_order, function, discrete_order)
-ENUM_VALUE(special_computation, function, special_computation)
-ENUM_VALUE(series, none, unrecognized)    // NOTE: This one is only for data sets, not in model code.
+ENUM_VALUE(external_computation, function, external_computation)
+ENUM_VALUE(series, none, series)    // NOTE: This one is only for data sets, not in model code.
+ENUM_VALUE(series_interval, none, unrecognized) // data set
+ENUM_VALUE(directed_graph, regex, unrecognized)  // same here, although it does appear as a note in the model.
 ENUM_VALUE(time_step, none, unrecognized) // only for data sets.
+ENUM_VALUE(quick_select, none, quick_select) // data sets
+ENUM_VALUE(position_map, none, position_map) // data sets
 ENUM_VALUE(config, none, unrecognized)    // only for config files.

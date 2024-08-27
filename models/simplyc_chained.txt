@@ -4,11 +4,14 @@ model("SimplyC chained") {
 A test version of SimplyC where the land units can be connected as a chain instead of paralelly discharging to the river.
 """
 
-	air      : compartment("Atmosphere")
-	snow_box : compartment("Snow layer")
-	soil     : compartment("Soil")
-	gw       : compartment("Groundwater")
-	river    : compartment("River")
+	sc : index_set("Subcatchment")
+	lu : index_set("Landscape units")
+
+	air      : compartment("Atmosphere", sc)
+	snow_box : compartment("Snow layer", sc)
+	soil     : compartment("Soil", sc, lu)
+	gw       : compartment("Groundwater", sc)
+	river    : compartment("River", sc)
 	
 	snow     : quantity("Snow")
 	water    : quantity("Water")
@@ -29,8 +32,8 @@ A test version of SimplyC where the land units can be connected as a chain inste
 	
 	# TODO: For now we have to do this since we don't have a way to override the connection regex later in easylake_simplyq_model.txt
 	epi        : compartment("Epilimnion")
-	downstream : connection("Downstream", directed_tree) { (river|epi)+ out }
-	downhill   : connection("Downhill",   directed_tree) { soil+ river }
+	downstream : connection("Downstream") @directed_graph { (river|epi)+ out }
+	downhill   : connection("Downhill")   @directed_graph { soil+ river }
 	
 	###### Import modules
 	load("modules/pet.txt",            module("Degree-day PET", air, soil, pet, temp))
@@ -49,15 +52,6 @@ A test version of SimplyC where the land units can be connected as a chain inste
 	
 	unit_conversion(soil.water, river.water) { a_catch }
 	unit_conversion(gw.water, river.water)   { a_catch }
-		
-	###### Distribute compartments over index sets and set solvers
-	
-	sc : index_set("Subcatchment")
-	lu : index_set("Landscape units")
-	
-	distribute(soil,  sc, lu)
-	distribute(gw,    sc)
-	distribute(river, sc)
 	
 	simply_solver : solver("Simply solver", "INCADascru", 0.1)
 	

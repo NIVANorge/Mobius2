@@ -11,7 +11,9 @@
 
 //#include <windows.h>   // If you want to use SetConsoleOutputCP
 
-void write_result_data(String_View file_name, Model_Application *app) {
+/*
+void
+write_result_data(String_View file_name, Model_Application *app) {
 	FILE *file = open_file(file_name, "w");
 	
 	std::vector<s64> offsets;
@@ -36,9 +38,10 @@ void write_result_data(String_View file_name, Model_Application *app) {
 	
 	fclose(file);
 }
+*/
 
-
-int main(int argc, char** argv) {
+int
+main(int argc, char** argv) {
 	//SetConsoleOutputCP(65001);
 	
 	String_View model_file = "models/stupidly_simple_model.txt";
@@ -49,7 +52,8 @@ int main(int argc, char** argv) {
 	if(argc >= 3)
 		input_file = argv[2];
 	
-	Mobius_Model *model = load_model(model_file, "my_config.txt");
+	auto config = load_config("my_config.txt");
+	Mobius_Model *model = load_model(model_file, &config);
 	
 	std::cout << "Loading done.\n";
 	
@@ -65,7 +69,7 @@ int main(int argc, char** argv) {
 		
 		run_model(&app);
 		
-		write_result_data("results.dat", &app);
+		//write_result_data("results.dat", &app);
 		
 		app.save_to_data_set();
 		data_set.write_to_file("models/test_save_data.dat");

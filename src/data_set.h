@@ -1,183 +1,26 @@
 
-#ifndef MOBIUS_DATA_SET_H
-#define MOBIUS_DATA_SET_H
+#ifndef MOBIUS_DATASET_H
+#define MOBIUS_DATASET_H
 
-#include <unordered_map>
-#include <vector>
-
-#include "linear_memory.h"
-#include "ast.h"
-#include "units.h"
-
-// NOTE: the idea is that this class should not have to know about the rest of the framework except for what is needed for the ast parser and lexer.
-
-
-// Hmm, this is the n'th time we make something like this.
-// But it is not that trivial to just merge them since there are slight differences in functionality needed.
-template<typename Info_Type> struct
-Info_Registry {
-	
-	std::unordered_map<std::string, int>        name_to_id;
-	std::vector<Info_Type> data;
-	
-	//bool has(String_View name) { return name_to_id.find(name) != name_to_id.end(); }
-	
-	Info_Type *operator[](int idx) {
-		if(idx < 0 || idx >= data.size())
-			fatal_error(Mobius_Error::internal, "Tried to look up data set info using an invalid index.\n");
-		return &data[idx];
-	}
-	int expect_exists_idx(Token *name, String_View info_type) {
-		auto find = name_to_id.find(name->string_value);
-		if(find == name_to_id.end()) {
-			name->print_error_header();
-			fatal_error("\"", name->string_value, "\" does not name an already declared ", info_type, ".");
-		}
-		return find->second;
-	}
-	Info_Type *expect_exists(Token *name, String_View info_type) {
-		return &data[expect_exists_idx(name, info_type)];
-	}
-	int find_idx(String_View name) {
-		auto find = name_to_id.find(name);
-		if(find == name_to_id.end())
-			return -1;
-		return find->second;
-	}
-	Info_Type *find(String_View name) {
-		int idx = find_idx(name);
-		if(idx >= 0) return &data[idx];
-		return nullptr;
-	}
-	Info_Type *create(const std::string &name, Source_Location loc) {
-		check_allowed_serial_name(name, loc);
-		auto find = name_to_id.find(name);
-		if(find != name_to_id.end()) {
-			loc.print_error_header();
-			fatal_error("Re-declaration of \"", name, "\".");
-		}
-		name_to_id[name] = (int)data.size();
-		data.push_back({});
-		data.back().name = name;
-		data.back().source_loc = loc;
-		return &data.back();
-	}
-	int count() { return data.size(); }
-	void clear() {
-		name_to_id.clear();
-		data.clear();
-	}
-	
-	Info_Type *begin() { return data.data(); }
-	Info_Type *end()   { return data.data() + data.size(); }
-};
+#include "catalog.h"
+#include "index_data.h"
 
 struct
-Info_Type_Base {
-	std::string name;
-	Source_Location source_loc;
-};
-
-struct
-Index_Info : Info_Type_Base {
-};
-
-struct
-Sub_Indexing_Info {
-	enum class Type {
-		none,
-		named,
-		numeric1,
-	} type;
-	Info_Registry<Index_Info> indexes;
-	int                       n_dim1;
-	int get_count() {
-		if(type == Type::named) return indexes.count();
-		return n_dim1;
-	}
-	Sub_Indexing_Info() : n_dim1(0), type(Type::none) {}
-};
-
-struct
-Index_Set_Info : Info_Type_Base {
-
-	int sub_indexed_to = -1;
-	bool is_edge_index_set = false;
-	
-	std::vector<Sub_Indexing_Info> indexes;
-	int get_count(int index_of_super) {
-		int super = (sub_indexed_to >= 0) ? index_of_super : 0;
-		return indexes[super].get_count();
-	}
-	int get_max_count() {
-		int max = -1;
-		for(auto &idxs : indexes) max = std::max(max, idxs.get_count());
-		return max;
-	}
-	Sub_Indexing_Info::Type get_type(int index_of_super) {
-		int super = (sub_indexed_to >= 0) ? index_of_super : 0;
-		return indexes[super].type;
-	}
-	int get_index(Token *idx_name, int index_of_super);
-	int get_index(const char *buf, int index_of_super);
-	bool check_index(int index, int index_of_super);
-};
-
-struct Component_Info : Info_Type_Base {
-	Decl_Type decl_type;
-	std::string handle;
-	std::vector<int> index_sets;
-	int edge_index_set = -1;
-};
-
-struct Compartment_Ref {
-	int id;   // This is the id of the Component_Info. -1 if it is an 'out'
-	std::vector<int> indexes;
-};
-
-inline bool operator==(const Compartment_Ref &a, const Compartment_Ref &b) {
-	return a.id == b.id && a.indexes == b.indexes;
-}
-
-struct
-Connection_Info : Info_Type_Base {    // This must either be subclased or have different data when we implement other connection structure types.
-
-	enum class Type {
-		none,
-		graph,
-	} type;
-	std::vector<std::pair<Compartment_Ref, Compartment_Ref>> arrows;
-	
-	Info_Registry<Component_Info>        components;
-	std::unordered_map<std::string, int> component_handle_to_id; // Hmm, a bit annoying that we have to keep a separate one of these...
-	
-	Connection_Info() : type(Type::none) {}
-};
-
-struct
-Par_Info : Info_Type_Base {
-	Decl_Type type;
-	std::vector<Parameter_Value> values;
-	std::vector<std::string> values_enum; // Can't resolve them to int without knowledge of the model, which we on purpose don't have here.
-	bool mark_for_deletion = false;
-	int get_count() {
-		if(type == Decl_Type::par_enum) return values_enum.size();
-		else                            return values.size();
-	}
-};
-
-struct
-Par_Group_Info : Info_Type_Base {
-	std::vector<int> index_sets;
-	Info_Registry<Par_Info> pars;
-};
-
-struct
-Module_Info : Info_Type_Base {
+Module_Data : Registration_Base {
 	Module_Version version;
+	Decl_Scope scope;
 	
-	Info_Registry<Par_Group_Info>   par_groups;
-	Info_Registry<Connection_Info>  connections;
+	void process_declaration(Catalog *catalog);
+};
+
+struct
+Par_Group_Data : Registration_Base {
+	std::vector<Entity_Id> index_sets;
+	Decl_Scope scope;
+	bool error = false;
+	bool mark_for_deletion = false;
+	
+	void process_declaration(Catalog *catalog);
 };
 
 enum
@@ -188,7 +31,6 @@ Series_Data_Flags {
 	series_data_interp_spline     = 0x04,
 	series_data_interp_inside     = 0x08,
 	series_data_repeat_yearly     = 0x10,
-	// TODO: could allow specifying an "series_data_override" to let this series override a state variable.
 };
 
 inline bool
@@ -196,67 +38,172 @@ set_flag(Series_Data_Flags *flags, String_View name) {
 	if     (name == "step_interpolate")   *flags = (Series_Data_Flags)(*flags | series_data_interp_step);
 	else if(name == "linear_interpolate") *flags = (Series_Data_Flags)(*flags | series_data_interp_linear);
 	else if(name == "spline_interpolate") *flags = (Series_Data_Flags)(*flags | series_data_interp_spline);
-	else if(name == "inside")        *flags = (Series_Data_Flags)(*flags | series_data_interp_inside);
-	else if(name == "repeat_yearly") *flags = (Series_Data_Flags)(*flags | series_data_repeat_yearly);
+	else if(name == "inside")             *flags = (Series_Data_Flags)(*flags | series_data_interp_inside);
+	else if(name == "repeat_yearly")      *flags = (Series_Data_Flags)(*flags | series_data_repeat_yearly);
 	else
 		return false;
 	return true;
 }
 
 struct
-Series_Header_Info : Info_Type_Base {
-	std::vector<std::vector<std::pair<int, int>>> indexes;
-	Series_Data_Flags flags;
-	Unit_Data         unit;
+Series_Header {
+	Source_Location       source_loc;
+	std::string           name;
+	std::vector<Indexes>  indexes;
+	Series_Data_Flags     flags;
+	Unit_Data             unit;
 	
-	Series_Header_Info() : flags(series_data_none) {}
+	Series_Header() : flags(series_data_none) {}
 };
 
 struct
-Series_Set_Info {
-	std::string file_name;
-	Date_Time start_date;
-	Date_Time end_date;    // Invalid if the series doesn't have a date vector.
-	s64       time_steps;  // For series that don't have a date vector.
+Series_Set {
+	Date_Time                        start_date;
+	Date_Time                        end_date;    // Invalid if the series doesn't have a date vector.
+	s64                              time_steps;  // For series that don't have a date vector.
 	bool has_date_vector;
-	std::vector<Series_Header_Info>  header_data;
+	std::vector<Series_Header>       header_data;
 	std::vector<Date_Time>           dates;
 	std::vector<std::vector<double>> raw_values;
 	
-	Series_Set_Info() : has_date_vector(true) {};
+	Series_Set() : has_date_vector(true) {};
 };
 
 struct
-Data_Set {
+Series_Data : Registration_Base {
 	
-	File_Data_Handler file_handler;
+	std::string file_name;
+	std::vector<Series_Set> series; // Need multiple since there could be multiple tabs in an xlsx.
 	
-	Data_Set() {
+	void process_declaration(Catalog *catalog);
+};
+
+
+struct
+Parmap_Entry {
+	Indexes indexes;
+	double pos;
+	double value;
+};
+
+struct Data_Set;
+
+struct
+Parameter_Data : Registration_Base {
+	std::vector<Parameter_Value> values;
+	std::vector<std::string> values_enum; // Can't resolve them to int without knowledge of the model, which we on purpose don't have here.
+	
+	Entity_Id from_pos = invalid_entity_id;
+	
+	bool is_on_map_form = false;
+	std::vector<Parmap_Entry> parmap_data;
+	
+	bool mark_for_deletion = false;
+	int get_count();
+	
+	void process_declaration(Catalog *catalog);
+	
+	void unpack_parameter_map(Data_Set *data_set);
+};
+
+struct
+Component_Data : Registration_Base {
+	std::vector<Entity_Id> index_sets;
+	bool can_have_edge_index_set = false;
+	
+	void process_declaration(Catalog *catalog);
+};
+
+struct Compartment_Ref {
+	Entity_Id id = invalid_entity_id;   // This is the id of the Component_Info. invalid if it is an 'out'
+	Indexes indexes;
+};
+
+inline bool operator==(const Compartment_Ref &a, const Compartment_Ref &b) {
+	return a.id == b.id && a.indexes == b.indexes;
+}
+
+struct
+Connection_Data : Registration_Base {
+	
+	Decl_Scope scope; // For components and things declared inside the connection declaration.
+	
+	enum class Type {
+		none,
+		directed_graph,
+	} type;
+	
+	std::vector<std::pair<Compartment_Ref, Compartment_Ref>> arrows;
+	Entity_Id edge_index_set = invalid_entity_id;
+	
+	void process_declaration(Catalog *catalog);
+};
+
+struct
+Quick_Select {
+	std::string name;
+	std::vector<std::string> series_names;
+};
+
+struct
+Quick_Select_Data : Registration_Base {
+	std::vector<Quick_Select> selects;
+	
+	void process_declaration(Catalog *catalog);
+};
+
+struct
+Position_Map_Data : Registration_Base {
+	
+	// NOTE: This is just in order to store sufficient info to save it out again.
+	// The processed data that will be used is stored in the index_data.
+	
+	Entity_Id           index_set_id = invalid_entity_id;
+	std::vector<double> pos_vals_raw;
+	std::vector<double> width_vals_raw;
+	//bool raw_is_widths = false;
+	//bool linear_interp = false;
+	
+	void process_declaration(Catalog *catalog);
+};
+
+struct
+Data_Set : Catalog {
+	
+	Data_Set() : index_data(this) {
 		// Default to one day.
 		time_step_unit.declared_form.push_back({0, 1, Compound_Unit::day});
 		time_step_unit.set_standard_form();
 	}
 	
-	void read_from_file(String_View file_name);
-	void write_to_file(String_View file_name);
+	Registry<Module_Data,       Reg_Type::module>     modules;
+	Registry<Par_Group_Data,    Reg_Type::par_group>  par_groups;
+	Registry<Parameter_Data,    Reg_Type::parameter>  parameters;
+	Registry<Series_Data,       Reg_Type::series>     series;
+	Registry<Component_Data,    Reg_Type::component>  components;
+	Registry<Connection_Data,   Reg_Type::connection> connections;
+	Registry<Quick_Select_Data, Reg_Type::quick_select> quick_selects;
+	Registry<Position_Map_Data, Reg_Type::position_map> position_maps;
 	
-	std::string main_file;
-	std::string doc_string;
+	Index_Data                      index_data;
 	
-	// TODO: Just put the global_module into the modules Info_Registry ... Could simplify some code.
-	Module_Info                     global_module;   // This is for par groups and connections that are not in a module but were declared in the model directly.
-	Info_Registry<Index_Set_Info>   index_sets;
-	Info_Registry<Module_Info>      modules;
-	std::vector<Series_Set_Info>    series;
-	
-	
+	// NOTE: The step unit could be stored as a Registration, but we are ever only going to want to have one.
 	Source_Location                 unit_source_loc;
 	Unit_Data                       time_step_unit;
 	bool                            time_step_was_provided = false;
+	
+	Date_Time                       series_begin;
+	Date_Time                       series_end;
+	bool                            series_interval_was_provided = false;
+	
+	
+	void read_from_file(String_View file_name);
+	void write_to_file(String_View file_name);
+	void generate_index_data(const std::string &name, const std::string &sub_indexed_to, const std::vector<std::string> &union_of);
+	
+	Registry_Base *registry(Reg_Type reg_type);
+	Decl_Scope    *get_scope(Entity_Id scope_id);
 };
 
-void
-get_indexes(Data_Set *data_set, std::vector<int> &index_sets, std::vector<Token> &index_names, std::vector<int> &indexes_out);
 
-
-#endif // MOBIUS_DATA_SET_H
+#endif // MOBIUS_DATASET_H

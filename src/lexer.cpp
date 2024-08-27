@@ -3,7 +3,6 @@
 
 #include <limits>
 
-
 //NOTE: This is to produce excel-style cell names, like "K32". Doesn't really belong to this file except that this is where we decided to do the print Source_Location implementation.
 char *
 col_row_to_cell(int col, int row, char *buf) {
@@ -22,7 +21,8 @@ col_row_to_cell(int col, int row, char *buf) {
 			buf++;
 		}
 	}
-	itoa(row, buf, 10);
+	sprintf(buf, "%d", row);
+	//itoa(row, buf, 10);
 	while(*buf != 0) ++buf;
 	return buf;
 }
@@ -47,29 +47,29 @@ Source_Location::print_error_header(Mobius_Error type) const {
 }
 
 void
-Source_Location::print_log_header() const {
+Source_Location::print_log_header(Log_Mode mode) const {
 	if(type == Type::text_file)
-		log_print("file ", filename, " line ", line+1, " column ", column, ":\n");
+		log_print(mode, "In file ", filename, " line ", line+1, " column ", column, ":\n");
 	else if(type == Type::spreadsheet) {
 		static char buf[64];
 		col_row_to_cell(column, line, buf);
-		log_print("file ", filename, " cell ", buf, ":\n");
+		log_print(mode, "In file ", filename, " cell ", buf, ":\n");
 	} else
-		log_print("(compiler internal)\n");
+		log_print(mode, "In (compiler internal)\n");
 }
 
 void
-Token::print_error_location() {
+Token::print_error_location() const {
 	source_loc.print_error();
 }
 
 void
-Token::print_error_header() {
+Token::print_error_header() const {
 	source_loc.print_error_header();
 }
 
 void
-Token::print_log_header() {
+Token::print_log_header() const {
 	source_loc.print_log_header();
 }
 
@@ -263,6 +263,7 @@ Token_Stream::read_token_base(Token *token) {
 				else if(c == '<' && n == '-') token->type = Token_Type::arr_l;
 				else if(c == '-' && n == '>') token->type = Token_Type::arr_r;
 				else if(c == '=' && n == '>') token->type = Token_Type::d_arr_r;
+				else if(c == '/' && n == '/') token->type = Token_Type::div_int;
 				
 				if     (c == '-' && n == '>' && nn == '>') token->type = Token_Type::arr_r_r;
 				else if(c == '=' && n == '>' && nn == '>') token->type = Token_Type::d_arr_r_r;
@@ -321,14 +322,13 @@ Token_Stream::read_string(Token *token) {
 		read_char(); read_char();
 		token->string_value.data += 2;
 		c = peek_char();
-		if(c == '\r') { //Skip initial carriage return
-			read_char();
-			++token->string_value.data;
-			c = peek_char();
-		}
-		if(c == '\n') { //Skip initial newline.
-			read_char();
-			++token->string_value.data;
+		
+		for(int i = 0; i < 2; ++i) {
+			if(c == '\n' || c == '\r') { //Skip initial newline
+				read_char();
+				++token->string_value.data;
+				c = peek_char();
+			}
 		}
 	}
 	
@@ -339,16 +339,16 @@ Token_Stream::read_string(Token *token) {
 		++token->string_value.count;
 		
 		if(c == '"') {
-			bool close = true;
 			if(docstring) {
 				// determine if this is actually closing the string.
 				if(peek_char(0) == '"' && peek_char(1) == '"') {
 					read_char(); read_char();
 					--token->string_value.count;
-					if(token->string_value[token->string_value.count-1] == '\n')
-						--token->string_value.count;  // Trim away closing newline right before """ if it exists.
-					if(token->string_value[token->string_value.count-1] == '\r')
-						--token->string_value.count; // Trim away carriage return if it exists.
+					for(int i = 0; i < 2; ++i) {
+						auto c = token->string_value[token->string_value.count-1];
+						if(c == '\n' || c == '\r')
+							--token->string_value.count;  // Trim away closing newline right before """ if it exists.						
+					}
 					break;
 				}
 			} else {

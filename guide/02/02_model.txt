@@ -1,0 +1,29 @@
+
+model("The first model") {
+	
+	soil : compartment("Soil")
+	temp : property("Temperature")
+	growth_rate : property("Growth rate")
+	
+	module("A module", version(0, 0, 1)) {
+		
+		par_group("Growing parameters") {
+			
+			# A par_real is a parameter taking values in the real number line.
+			# The third argument is the default value. This is not always the value that is used when the model is run, 
+			# instead the value from the data_set is used
+			br : par_real("Base growth rate", [k g, day-1], 1)
+			
+			# This parameter has a dimensionless unit:
+			td : par_real("Growth rate temperature dependence", [], 2)
+		}
+		
+		# This variable does not have a math expression, and since this is the only module, it can't be declared with one anywhere else either. It must therefore be a forcing.
+		var(soil.temp, [deg_c], "Soil temperature")
+		
+		# We can refer to other values in the math expression for this variable:
+		var(soil.growth_rate, [k g, day-1], "Plant growth rate") {
+			br * td^((soil.temp - 20[deg_c])/10[deg_c])
+		}
+	}
+}

@@ -27,7 +27,7 @@
 
 #include "llvm/MC/TargetRegistry.h"
 #include "llvm/Support/FileSystem.h"
-#include "llvm/Support/Host.h"
+//#include "llvm/Support/Host.h"
 //#include "llvm/Support/TargetSelect.h"
 //#include "llvm/Support/raw_ostream.h"
 //#include "llvm/Target/TargetMachine.h"
@@ -38,7 +38,7 @@
 
 
 #include "llvm_jit.h"
-#include "special_computations.h"
+#include "external_computations.h"
 
 
 extern "C" DLLEXPORT double
@@ -105,13 +105,22 @@ create_llvm_module() {
 	// TODO: maybe set the fast math flags a bit more granularly.
 	// we should monitor better how they affect model correctness and/or interfers with is_finite
 	
-	data->builder->setFastMathFlags(llvm::FastMathFlags::getFast());
+	// We can't set NoNan or NoInf optimizations, because then even our custom "is_finite" function will be optimized out... (as of llvm18)
+	//data->builder->setFastMathFlags(llvm::FastMathFlags::getFast());
+	// It seems like fast math optimizations are not that impactful for our models. Could maybe leave some of them out?
+	llvm::FastMathFlags fmf;
+	fmf.setNoSignedZeros();
+	fmf.setAllowReciprocal();
+	fmf.setAllowContract();
+	fmf.setAllowReassoc();
+	fmf.setApproxFunc();
+	data->builder->setFastMathFlags(fmf);
 	
 	//auto triple = llvm::sys::getDefaultTargetTriple();
 	auto triple = global_jit->getTargetTriple();
 	auto trip_str = triple.getTriple();
 	
-	//warning_print("Target triple is ", trip_str, ".\n");
+	//log_print("Target triple is ", trip_str, ".\n");
 	
 	data->module->setTargetTriple(trip_str);
 	
@@ -128,6 +137,9 @@ create_llvm_module() {
 	llvm::getOrInsertLibFunc(data->module.get(), *data->libinfo, llvm::LibFunc_atan, mathfun_type);
 	llvm::getOrInsertLibFunc(data->module.get(), *data->libinfo, llvm::LibFunc_acos, mathfun_type);
 	llvm::getOrInsertLibFunc(data->module.get(), *data->libinfo, llvm::LibFunc_asin, mathfun_type);
+	llvm::getOrInsertLibFunc(data->module.get(), *data->libinfo, llvm::LibFunc_tanh, mathfun_type);
+	llvm::getOrInsertLibFunc(data->module.get(), *data->libinfo, llvm::LibFunc_sinh, mathfun_type);
+	llvm::getOrInsertLibFunc(data->module.get(), *data->libinfo, llvm::LibFunc_cosh, mathfun_type);
 	llvm::getOrInsertLibFunc(data->module.get(), *data->libinfo, llvm::LibFunc_cbrt, mathfun_type);
 	llvm::getOrInsertLibFunc(data->module.get(), *data->libinfo, llvm::LibFunc_floor, mathfun_type);
 	llvm::getOrInsertLibFunc(data->module.get(), *data->libinfo, llvm::LibFunc_ceil, mathfun_type);
@@ -135,7 +147,7 @@ create_llvm_module() {
 	
 	auto int_64_ty     = llvm::Type::getInt64Ty(*data->context);
 	auto int_32_ty     = llvm::Type::getInt32Ty(*data->context);
-	auto double_ptr_ty = llvm::Type::getDoublePtrTy(*data->context);
+	auto double_ptr_ty = llvm::PointerType::getUnqual(llvm::Type::getDoubleTy(*data->context));
 	
 	#define TIME_VALUE(name, nbits) int_##nbits##_ty,
 	std::vector<llvm::Type *> dt_member_types = {
@@ -146,9 +158,11 @@ create_llvm_module() {
 	data->dt_struct_type = llvm::StructType::get(*data->context, dt_member_types);
 	llvm::Type       *dt_ptr_ty = llvm::PointerType::getUnqual(data->dt_struct_type);
 	
+	#define BATCH_FUN_ARG(name, llvm_ty, cpp_ty) llvm_ty,
 	std::vector<llvm::Type *> arg_types = {
-		double_ptr_ty, double_ptr_ty, double_ptr_ty, double_ptr_ty, dt_ptr_ty, double_ty
+		#include "batch_fun_args.incl"
 		};
+	#undef BATCH_FUN_ARG
 		
 	data->batch_fun_type = llvm::FunctionType::get(llvm::Type::getVoidTy(*data->context), arg_types, false);
 	
@@ -190,9 +204,12 @@ jit_compile_module(LLVM_Module_Data *data, std::string *output_string) {
 	data->resource_tracker = global_jit->getMainJITDylib().createResourceTracker();
 	auto tsm = llvm::orc::ThreadSafeModule(std::move(data->module), std::move(data->context));
 	auto maybe_error = global_jit->addModule(std::move(tsm), data->resource_tracker);
-	if(maybe_error)
-		fatal_error(Mobius_Error::internal, "Failed to jit compile module.");
-	
+	if(maybe_error) {
+		std::string errstr;
+		llvm::raw_string_ostream errstream(errstr);
+		errstream << maybe_error;
+		fatal_error(Mobius_Error::internal, "Failed to jit compile module: ", errstream.str(), " .");
+	}
 	//TODO: Put a flag on the data to signify that it is now compiled (can't add more stuff to it), and properly error handle in other procs.
 }
 
@@ -216,21 +233,14 @@ get_jitted_batch_function(const std::string &fun_name) {
 	auto result = global_jit->lookup(fun_name);
 	if(result) {
 		// Get the symbol's address and cast it to the right type so we can call it as a native function.
-		batch_function *fun_ptr = (batch_function *)(intptr_t)result->getAddress();
+		batch_function *fun_ptr = (batch_function *)result->getAddress().getValue();
+
 		return fun_ptr;
 	} else
 		fatal_error(Mobius_Error::internal, "Failed to find function ", fun_name, " in LLVM module.");
 
 	return nullptr;
 }
-
-/*
-	Batch function is of the form
-	
-	void evaluate_batch(Parameter_Value *parameters, double *series, double *state_vars, double *solver_workspace, Expanded_Date_Time *date_time);
-	
-	since there are no union types in llvm, we treat Parameter_Value as a double and use bitcast when we want it as other types.
-*/
 
 typedef Scope_Local_Vars<llvm::Value *, llvm::BasicBlock *> Scope_Data;
 
@@ -264,14 +274,18 @@ jit_add_batch(Math_Expr_FT *batch_code, const std::string &fun_name, LLVM_Module
 	
 	llvm::Function *fun = llvm::Function::Create(data->batch_fun_type, llvm::Function::ExternalLinkage, fun_name, data->module.get());
 	
-	// Hmm, is it important to set the argument names, or could we skip it?
-	const char *argnames[6] = {"parameters", "series", "state_vars", "solver_workspace", "date_time", "fractional_step"};
+	#define BATCH_FUN_ARG(name, llvm_ty, cpp_ty) #name,
+	const char *argnames[] = {
+		#include "batch_fun_args.incl"
+	};
+	#undef BATCH_FUN_ARG
+	//"parameters", "series", "state_vars", "temp_vars", "solver_workspace", "date_time", "fractional_step"};
 	std::vector<llvm::Value *> args;
 	int idx = 0;
 	for(auto &arg : fun->args()) {
-		if(idx <= 4)
+		if(idx <= 5)
 			fun->addParamAttr(idx, llvm::Attribute::NoAlias);
-		//if(idx <= 3)
+		//if(idx <= 5)
 		//	fun->addParamAttr(idx, llvm::Attribute::get(*data->context, llvm::Attribute::Alignment, data_alignment));
 		
 		arg.setName(argnames[idx++]);
@@ -285,7 +299,6 @@ jit_add_batch(Math_Expr_FT *batch_code, const std::string &fun_name, LLVM_Module
 	build_expression_ir(batch_code, nullptr, args, data);
 	data->builder->CreateRetVoid();
 	
-	
 	std::string errmsg = "";
 	llvm::raw_string_ostream errstream(errmsg);
 	errstream.reserveExtraSpace(512);
@@ -295,6 +308,12 @@ jit_add_batch(Math_Expr_FT *batch_code, const std::string &fun_name, LLVM_Module
 		fatal_error(Mobius_Error::internal, "LLVM function verification failed for function \"", fun_name, "\" : ", errstream.str(), " .");
 	}
 }
+
+#define BATCH_FUN_ARG(name, llvm_ty, cpp_ty) name##_idx,
+enum argindex {
+	#include "batch_fun_args.incl"
+};
+#undef BATCH_FUN_ARG
 
 llvm::Value *get_zero_value(LLVM_Module_Data *data, Value_Type type) {
 	if(type == Value_Type::real)
@@ -509,7 +528,9 @@ build_if_chain_ir(Math_Expr_FT * expr, Scope_Data *locals, std::vector<llvm::Val
 	for(int if_case = 0; if_case < exprs.size() / 2 + 1; ++if_case) {
 		
 		if(if_case < exprs.size() / 2) {
-			fun->getBasicBlockList().push_back(cond_blocks[if_case]);
+			
+			fun->insert(fun->end(), cond_blocks[if_case]);
+			
 			if(if_case == 0)
 				data->builder->CreateBr(cond_blocks[0]);
 			data->builder->SetInsertPoint(cond_blocks[if_case]);
@@ -521,7 +542,8 @@ build_if_chain_ir(Math_Expr_FT * expr, Scope_Data *locals, std::vector<llvm::Val
 			data->builder->CreateCondBr(cond, blocks[if_case], else_block);
 		}
 		
-		fun->getBasicBlockList().push_back(blocks[if_case]);
+		fun->insert(fun->end(), blocks[if_case]);
+		
 		data->builder->SetInsertPoint(blocks[if_case]);
 		
 		auto value     = exprs[2*if_case];
@@ -537,7 +559,8 @@ build_if_chain_ir(Math_Expr_FT * expr, Scope_Data *locals, std::vector<llvm::Val
 			data->builder->CreateBr(merge_block);
 	}
 	
-	fun->getBasicBlockList().push_back(merge_block);
+	fun->insert(fun->end(), merge_block);
+
 	data->builder->SetInsertPoint(merge_block);
 	
 	if(val_is_none) return nullptr;
@@ -606,37 +629,39 @@ get_linked_function(LLVM_Module_Data *data, const std::string &fun_name, llvm::T
 }
 
 llvm::Value *
-build_special_computation_ir(Math_Expr_FT *expr, Scope_Data *locals, std::vector<llvm::Value *> &args, LLVM_Module_Data *data) {
+build_external_computation_ir(Math_Expr_FT *expr, Scope_Data *locals, std::vector<llvm::Value *> &args, LLVM_Module_Data *data) {
 	
 	auto double_ty = llvm::Type::getDoubleTy(*data->context);
 	auto int_64_ty = llvm::Type::getInt64Ty(*data->context);
-	auto double_ptr_ty = llvm::Type::getDoublePtrTy(*data->context);
+	auto double_ptr_ty = llvm::PointerType::getUnqual(llvm::Type::getDoubleTy(*data->context));
 	auto void_ty = llvm::Type::getVoidTy(*data->context);
 	
-	auto special = static_cast<Special_Computation_FT *>(expr);
+	auto external = static_cast<External_Computation_FT *>(expr);
 	
-	int n_call_args = special->arguments.size();
+	int n_call_args = external->arguments.size();
 	
 	std::vector<llvm::Value *> valptrs;
 	std::vector<llvm::Value *> strides;
 	std::vector<llvm::Value *> counts;
 	for(int idx = 0; idx < n_call_args; ++idx) {
-		auto offset = build_expression_ir(special->exprs[3*idx], locals, args, data);
-		auto stride = build_expression_ir(special->exprs[3*idx + 1], locals, args, data);
-		auto count  = build_expression_ir(special->exprs[3*idx + 2], locals, args, data);
+		auto offset = build_expression_ir(external->exprs[3*idx], locals, args, data);
+		auto stride = build_expression_ir(external->exprs[3*idx + 1], locals, args, data);
+		auto count  = build_expression_ir(external->exprs[3*idx + 2], locals, args, data);
 		llvm::Value *valptr;
-		if(special->arguments[idx].variable_type == Variable_Type::state_var)
-			valptr = data->builder->CreateGEP(double_ty, args[2], offset, "state_var_ptr");
-		else if(special->arguments[idx].variable_type == Variable_Type::parameter)
-			valptr = data->builder->CreateGEP(double_ty, args[0], offset, "par_ptr");
+		auto &ident = external->arguments[idx];
+		if(ident.is_computed_series()) {
+			int argidx = ident.var_id.type == Var_Id::Type::state_var ? state_vars_idx : temp_vars_idx;
+			valptr = data->builder->CreateGEP(double_ty, args[argidx], offset, "state_var_ptr");
+		} else if(ident.variable_type == Variable_Type::parameter)
+			valptr = data->builder->CreateGEP(double_ty, args[parameters_idx], offset, "par_ptr");
 		else
-			fatal_error(Mobius_Error::internal, "Unimplemented variable type for special computation LLVM IR generation.");
+			fatal_error(Mobius_Error::internal, "Unimplemented variable type for external computation LLVM IR generation.");
 		valptrs.push_back(valptr);
 		strides.push_back(stride);
 		counts.push_back(count);
 	}
 	
-	// Must match Special_Indexed_Value in special_computations.h
+	// Must match struct Value_Access in external_computations.h
 	std::vector<llvm::Type *> member_types = {
 		double_ptr_ty,
 		int_64_ty,
@@ -647,7 +672,7 @@ build_special_computation_ir(Math_Expr_FT *expr, Scope_Data *locals, std::vector
 	
 	std::vector<llvm::Type *> arguments_ty(n_call_args, struct_ptr_ty);
 	
-	auto special_fun = get_linked_function(data, special->function_name, void_ty, arguments_ty);
+	auto external_fun = get_linked_function(data, external->function_name, void_ty, arguments_ty);
 	
 	// Construct the struct arguments
 	std::vector<llvm::Value *> arguments;
@@ -662,7 +687,7 @@ build_special_computation_ir(Math_Expr_FT *expr, Scope_Data *locals, std::vector
 		arguments.push_back(alloc);
 	}
 	
-	data->builder->CreateCall(special_fun, arguments);
+	data->builder->CreateCall(external_fun, arguments);
 	
 	return llvm::ConstantInt::get(*data->context, llvm::APInt(64, 0, true));  // NOTE: This is a dummy, it should not be used by anyone.
 }
@@ -732,7 +757,7 @@ build_expression_ir(Math_Expr_FT *expr, Scope_Data *locals, std::vector<llvm::Va
 			llvm::Value *result = nullptr;
 			
 			llvm::Value *offset = nullptr;
-			if(ident->variable_type == Variable_Type::parameter || ident->variable_type == Variable_Type::state_var || ident->variable_type == Variable_Type::series
+			if(ident->variable_type == Variable_Type::parameter || ident->variable_type == Variable_Type::series
 				|| ident->variable_type == Variable_Type::connection_info || ident->variable_type == Variable_Type::index_count) {
 				if(expr->exprs.size() != 1)
 					fatal_error(Mobius_Error::internal, "An identifier was not properly indexed before LLVM codegen.");
@@ -745,7 +770,7 @@ build_expression_ir(Math_Expr_FT *expr, Scope_Data *locals, std::vector<llvm::Va
 			
 			int struct_pos = -1;
 			if(ident->variable_type == Variable_Type::parameter) {
-				result = data->builder->CreateGEP(double_ty, args[0], offset, "par_ptr");
+				result = data->builder->CreateGEP(double_ty, args[parameters_idx], offset, "par_ptr");
 				
 				//auto par = model->parameters[ident->par_id];   //Hmm, we don't have that here. Could maybe store a debug symbol in the identifier? Useful in several instances.
 				result = data->builder->CreateLoad(double_ty, result, "par");//std::string("par_")+par->symbol);
@@ -754,12 +779,21 @@ build_expression_ir(Math_Expr_FT *expr, Scope_Data *locals, std::vector<llvm::Va
 					if(ident->value_type == Value_Type::boolean)
 						result = data->builder->CreateTrunc(result, llvm::Type::getInt1Ty(*data->context));
 				}
-			} else if(ident->variable_type == Variable_Type::state_var) {
-				result = data->builder->CreateGEP(double_ty, args[2], offset, "var_ptr");
-				result = data->builder->CreateLoad(double_ty, result, "var");
 			} else if(ident->variable_type == Variable_Type::series) {
-				result = data->builder->CreateGEP(double_ty, args[1], offset, "series_ptr");
-				result = data->builder->CreateLoad(double_ty, result, "series");
+				
+				int argidx;
+				if(ident->var_id.type == Var_Id::Type::state_var)
+					argidx = state_vars_idx;
+				else if(ident->var_id.type == Var_Id::Type::temp_var)
+					argidx = temp_vars_idx;
+				else if(ident->var_id.type == Var_Id::Type::series)
+					argidx = series_idx;
+				else
+					fatal_error(Mobius_Error::internal, "Unexpected variable type for identifier.");
+				
+				result = data->builder->CreateGEP(double_ty, args[argidx], offset, "var_ptr");
+				result = data->builder->CreateLoad(double_ty, result, "var");
+		
 			} else if(ident->variable_type == Variable_Type::local) {
 				result = find_local_var(locals, ident->local_var);
 				if(!result)
@@ -779,7 +813,7 @@ build_expression_ir(Math_Expr_FT *expr, Scope_Data *locals, std::vector<llvm::Va
 			}
 			#define TIME_VALUE(name, bits) \
 			else if(++struct_pos, ident->variable_type == Variable_Type::time_##name) { \
-				result = data->builder->CreateStructGEP(data->dt_struct_type, args[4], struct_pos, #name); \
+				result = data->builder->CreateStructGEP(data->dt_struct_type, args[date_time_idx], struct_pos, #name); \
 				result = data->builder->CreateLoad(int_##bits##_ty, result); \
 				if(bits != 64) \
 					result = data->builder->CreateSExt(result, int_64_ty, "cast"); \
@@ -787,13 +821,13 @@ build_expression_ir(Math_Expr_FT *expr, Scope_Data *locals, std::vector<llvm::Va
 			#include "time_values.incl"
 			#undef TIME_VALUE
 			else if(ident->variable_type == Variable_Type::time_fractional_step) {
-				result = args[5];
+				result = args[fractional_step_idx];
 			} else if(ident->variable_type == Variable_Type::no_override) {
 				ident->source_loc.print_error_header(Mobius_Error::model_building);
 				fatal_error("This 'no_override' is not in a branch that could be resolved at compile time."); // TODO: should probably check for that before this.
 			} else if (ident->variable_type == Variable_Type::connection) {
 				ident->source_loc.print_error_header(Mobius_Error::model_building);
-				fatal_error("This handle refers to a connection, and should only appear in an expression as an argument to a special instruction like 'in_flux'."); //TODO: Should we name the rest when they are implemented?
+				fatal_error("This identifier refers to a connection, and should only appear in an expression as an argument to a special instruction like 'in_flux'."); //TODO: Should we name the rest when they are implemented?
 			} else {
 				fatal_error(Mobius_Error::internal, "Unhandled variable type in build_expression_ir().");
 			}
@@ -875,10 +909,13 @@ build_expression_ir(Math_Expr_FT *expr, Scope_Data *locals, std::vector<llvm::Va
 		} break;
 		
 		case Math_Expr_Type::state_var_assignment : {
+			auto assign = static_cast<Assignment_FT *>(expr);
+			int argidx = assign->var_id.type == Var_Id::Type::state_var ? state_vars_idx : temp_vars_idx;
+			
 			auto double_ty = llvm::Type::getDoubleTy(*data->context);
 			llvm::Value *offset = build_expression_ir(expr->exprs[0], locals, args, data);
 			llvm::Value *value  = build_expression_ir(expr->exprs[1], locals, args, data);
-			auto ptr = data->builder->CreateGEP(double_ty, args[2], offset, "var_ptr");
+			auto ptr = data->builder->CreateGEP(double_ty, args[argidx], offset, "var_ptr");
 			data->builder->CreateStore(value, ptr);
 			return nullptr;
 		} break;
@@ -887,7 +924,7 @@ build_expression_ir(Math_Expr_FT *expr, Scope_Data *locals, std::vector<llvm::Va
 			auto double_ty = llvm::Type::getDoubleTy(*data->context);
 			llvm::Value *offset = build_expression_ir(expr->exprs[0], locals, args, data);
 			llvm::Value *value  = build_expression_ir(expr->exprs[1], locals, args, data);
-			auto ptr = data->builder->CreateGEP(double_ty, args[3], offset, "deriv_ptr");
+			auto ptr = data->builder->CreateGEP(double_ty, args[solver_workspace_idx], offset, "deriv_ptr");
 			data->builder->CreateStore(value, ptr);
 			return nullptr;
 		} break;
@@ -897,8 +934,8 @@ build_expression_ir(Math_Expr_FT *expr, Scope_Data *locals, std::vector<llvm::Va
 			return build_cast_ir(a, expr->exprs[0]->value_type, expr->value_type, data);
 		} break;
 		
-		case Math_Expr_Type::special_computation : {
-			return build_special_computation_ir(expr, locals, args, data);
+		case Math_Expr_Type::external_computation : {
+			return build_external_computation_ir(expr, locals, args, data);
 		} break;
 		
 		case Math_Expr_Type::iterate : {

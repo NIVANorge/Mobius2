@@ -1,0 +1,42 @@
+
+
+model("Multisolver test") {
+	
+	a : compartment("A")
+	b : compartment("B")
+	
+	i : index_set("I")
+	
+	distribute(a, i)
+	
+	q : quantity("Q")
+	
+	c : connection("The French connection") @directed_graph {
+		a* b* out
+	} @no_cycles
+	
+	module("Module", version(0, 0, 1)) {
+	
+		par_group("Init Q", a) {
+			init_aq : par_real("Initial A Q", [], 0)
+		}
+		
+		var(a.q, []) @initial { init_aq }
+		var(b.q, []) @initial { 0 }
+		
+		flux(a.q, c, [day-1], "Q movement") {
+			0.1[day-1]*a.q
+		}
+		
+		flux(b.q, c, [day-1], "Q loss") {
+			0.001[day-1]*b.q
+		}
+	}
+	
+	sol1 : solver("First solver", inca_dascru, [2, hr], 0.01)
+	sol2 : solver("Second solver", euler, [1, hr], 0.01)
+	
+	solve(sol1, a.q)
+	solve(sol2, b.q)
+}
+

@@ -6,7 +6,7 @@ inline double
 log_pdf_normal(double x, double mu, double sigma_squared) {
 	constexpr double log_2_pi = 1.83787706641;
 	double factor = (x - mu);
-	return -0.5*std::log(sigma_squared) - log_2_pi - 0.5*factor*factor/sigma_squared;
+	return 0.5*(-std::log(sigma_squared) - log_2_pi - factor*factor/sigma_squared);
 }
 
 double
@@ -78,12 +78,6 @@ add_random_error(double* series, s64 time_steps, double *err_param, LL_Type ll_t
 				double std_dev = err_param[0]*series[ts];
 				std::normal_distribution<double> distr(series[ts], std_dev);
 				series[ts] = distr(gen);
-				/*
-				std::normal_distribution<double> distr(0.0, std_dev);
-				double draw = distr(gen);
-				warning_print("Par: ", err_param[0], " series: ", series[ts], " stddev: ", std_dev, " draw: ", draw, "\n");
-				series[ts] = series[ts] + draw;
-				*/
 			} break;
 			
 			case LL_Type::wls : {
@@ -142,7 +136,7 @@ compute_standard_residuals(double *obs, double *sim, s64 time_steps, double *err
 				if(!std::isfinite(prev_eta))
 					resid = eta;
 				else
-					resid = eta - err_param[2]*prev_eta;   //NOTE: The standardized residual is then Y, which is supposed to be normaly (independently) distributed.
+					resid = eta - err_param[2]*prev_eta;   //NOTE: The standardized residual is then Y, which is supposed to be normally (independently) distributed.
 				prev_eta = eta;
 			} break;
 			

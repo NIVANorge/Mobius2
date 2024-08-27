@@ -24,10 +24,6 @@ match_path_recursive(Decl_Scope *scope, std::vector<Connection_Node_Data> &nodes
 	// NOTE: Currently this does greedy matching.
 	
 	Match_State result = {false, path_idx};
-	if(path_idx >= path.size()) {
-		//log_print("* ", path_idx, "\n");
-		return result;
-	}
 	
 	switch(regex->type) {
 		case Math_Expr_Type::block : {
@@ -55,13 +51,15 @@ match_path_recursive(Decl_Scope *scope, std::vector<Connection_Node_Data> &nodes
 				if(match.match)
 					++n_matches;
 				else break;
-				if(quant->max_matches >= 0 && n_matches > quant->max_matches) {
+				if((quant->max_matches >= 0 && n_matches > quant->max_matches) || result.path_idx >= path.size()) {
 					result.path_idx--; // This is to make the error cursor point at the right position if this results in a full failure.
 					break;
 				}
 			}
 			
 			result.match = (n_matches >= quant->min_matches) && (quant->max_matches < 0 || n_matches <= quant->max_matches);
+			
+			//log_print("n_matches for ", static_cast<Regex_Identifier_AST *>(quant->exprs[0])->ident.string_value, " was ", n_matches, " (", quant->min_matches, ", ", quant->max_matches, ") match: ", result.match, "\n");
 			
 		} break;
 		
@@ -80,21 +78,23 @@ match_path_recursive(Decl_Scope *scope, std::vector<Connection_Node_Data> &nodes
 			if(ident->wildcard)
 				result.match = true;
 			else {
-				std::string handle = ident->ident.string_value;
+				std::string identifier = ident->ident.string_value;
 				Entity_Id regex_id = invalid_entity_id;
-				if(handle != "out") {
-					auto res = (*scope)[handle];
+				if(identifier != "out") {
+					auto res = (*scope)[identifier];
 					if(!res)
-						fatal_error(Mobius_Error::internal, "Somehow we have a handle in a regex that does not correspond to a component.");
+						fatal_error(Mobius_Error::internal, "Somehow we have a identifier in a regex that does not correspond to a component.");
 					regex_id = res->id;
 				}
 				
 				Entity_Id path_id = invalid_entity_id;
-				auto node_idx = path[path_idx];
+				int node_idx = -2;
+				if(path_idx < path.size())
+					node_idx = path[path_idx];
 				if(node_idx >= 0)
 					path_id = nodes[node_idx].id;
 				
-				result.match = (path_id == regex_id);
+				result.match = (path_id == regex_id) && (node_idx >= -1);
 			}
 			if(result.match)
 				result.path_idx = path_idx+1;
@@ -108,32 +108,57 @@ match_path_recursive(Decl_Scope *scope, std::vector<Connection_Node_Data> &nodes
 	return result;
 }
 
-
-
-
 void
-build_tree_paths_recursive(int idx, std::vector<Connection_Node_Data> &nodes, std::vector<int> &current, Source_Location error_loc) {
-	current.push_back(idx);
+build_graph_paths_recursive(int idx, std::vector<Connection_Node_Data> &nodes, std::vector<std::vector<int>> &paths, int path_idx, Source_Location error_loc) {
+	paths[path_idx].push_back(idx);
 	if(idx < 0) // Means we hit an 'out'
 		return;
 	auto &node = nodes[idx];
 	if(node.visited) {
 		error_loc.print_error_header();
-		fatal_error("The graph data for this directed_tree has a cycle.\n");
+		fatal_error("The graph data for this 'directed_graph' has a cycle, but that is specified to not be allowed in the model.\n");
 	}
 	if(node.points_at.empty()) {
 		return;
 	} else {
 		node.visited = true;
-		build_tree_paths_recursive(node.points_at[0], nodes, current, error_loc);
+		int edge = 0;
+		for(int points_at : node.points_at) {
+			int next_path_idx = path_idx;
+			// If there is more than one outgoing edge we need a copy of the initial path for each edge (for the first edge we can just keep the one we are currently on).
+			if(edge != 0) {
+				next_path_idx = paths.size();
+				paths.emplace_back(paths[path_idx]);
+			}
+			build_graph_paths_recursive(points_at, nodes, paths, path_idx, error_loc);
+			++edge;
+		}
 		node.visited = false;
 	}
 }
 
 void
+error_print_node(Model_Application *app, Decl_Scope *scope, std::vector<Connection_Node_Data> &nodes, int nodeidx) {
+	if(nodeidx < 0) {
+		error_print("out");
+		return;
+	}
+	
+	auto node = nodes[nodeidx];
+	error_print((*scope)[node.id], "[ ");   // Note: This is the identifier name used in the regex, not in the data set. May be confusing?
+	for(auto &index : node.indexes.indexes) {
+		bool quote;
+		auto index_name = app->index_data.get_index_name(node.indexes, index, &quote);
+		maybe_quote(index_name, quote);
+		error_print(index_name, " ");
+	}
+	error_print(']');
+}
+
+void
 match_regex(Model_Application *app, Entity_Id conn_id, Source_Location data_loc) {
 	
-	// TODO: Handle branching graphs and cycles!
+	// TODO: Handle cycles!
 		// Cycles:  Need to have the cycle itself match (something)*
 		// Isolated cycles (no source entry) are a bit more challenging because they would have to match from any starting point...
 			// Does that mean that they have to match something of the form (a|b|c...)*  ?
@@ -144,8 +169,8 @@ match_regex(Model_Application *app, Entity_Id conn_id, Source_Location data_loc)
 	auto connection = model->connections[conn_id];
 	Math_Expr_AST *regex = connection->regex;
 	
-	if(connection->type == Connection_Type::directed_graph) {
-		log_print("Note: Checking the connection regular expression is not yet supported for general directed_graph. It is thus skipped, and you have to verify yourself that the graph data is correct.\n");
+	if(!connection->no_cycles) {
+		log_print("Note: Checking the connection regular expression is not yet supported for a directed_graph that can have cycles. It is thus skipped, and the user is responsible for checking that the graph is correct.\n");
 		return;
 	}
 	
@@ -162,6 +187,8 @@ match_regex(Model_Application *app, Entity_Id conn_id, Source_Location data_loc)
 		});
 	}
 	
+	auto scope = model->get_scope(connection->scope_id);
+	
 	for(auto &arr : app->connection_components[conn_id].arrows) {
 		s64 target_idx = -1;
 		if(is_valid(arr.target_id)) {
@@ -169,12 +196,31 @@ match_regex(Model_Application *app, Entity_Id conn_id, Source_Location data_loc)
 			++nodes[target_idx].receives_count;
 		}
 		
-		// TODO: Check for duplicate arrows? (Are they allowed?)
 		s64 source_idx = node_structure.get_offset(arr.source_id, arr.source_indexes);
-		nodes[source_idx].points_at.push_back(target_idx);
+		auto &source = nodes[source_idx];
+		if(std::find(source.points_at.begin(), source.points_at.end(), target_idx) != source.points_at.end()) {
+			data_loc.print_error_header(Mobius_Error::model_building);
+			error_print("The following connection arrow is duplicate within the same connection:\n");
+			error_print_node(app, scope, nodes, source_idx);
+			error_print(" -> ");
+			error_print_node(app, scope, nodes, target_idx);
+			mobius_error_exit();
+		}
+		source.points_at.push_back(target_idx);
+		
+		// NOTE: We can do this check like this because the flattened indexes are ordered the same way as the index tuples, but we should maybe make the check more robust.
+		//   TODO: how does it work if it is between different components? Could we get unintended behaviour in the model solver if that is ordered wrong?
+		if(connection->no_cycles && (target_idx != -1) && (source_idx >= target_idx) && (nodes[source_idx].id == nodes[target_idx].id)) {
+			data_loc.print_error_header(Mobius_Error::model_building);
+			error_print("The directed_graph connection \"", connection->name, "\" is marked as @no_cycles. Because of this, for technical reasons, we require every arrow in the graph to go from a lower index to a higher index. The following arrow violates this:\n");
+			error_print_node(app, scope, nodes, source_idx);
+			error_print(" -> ");
+			error_print_node(app, scope, nodes, target_idx);
+			error_print("\nSee the declaration of the connection here:\n");
+			connection->source_loc.print_error();
+			mobius_error_exit();
+		}
 	}
-	
-	auto scope = model->get_scope(connection->scope_id);
 	
 	std::vector<std::vector<int>> paths;
 	
@@ -182,26 +228,42 @@ match_regex(Model_Application *app, Entity_Id conn_id, Source_Location data_loc)
 	for(auto &node : nodes) {
 		if(!is_valid(node.id))
 			continue;
-		
-		if(connection->type == Connection_Type::directed_tree && node.points_at.size() > 1) {
-			data_loc.print_error_header();
-			fatal_error("The graph for the directed tree has a node that has more than one outgoing edge.");
-		}
-		
+
 		if(node.receives_count == 0) {
-			std::vector<int> path = {};
-			build_tree_paths_recursive(idx, nodes, path, data_loc);
-			paths.push_back(std::move(path));
+			int path_idx = paths.size();
+			paths.emplace_back();
+			if(connection->no_cycles)
+				build_graph_paths_recursive(idx, nodes, paths, path_idx, data_loc);
+			else
+				fatal_error(Mobius_Error::internal, "Connection path checking for cycles unimplemented.");
+			
 		}
 		++idx;
 	}
+	/*
+	log_print("**** ", connection->name, "\n");
+	for(auto &path : paths) {
+		log_print("Path: ");
+		for(int nodeidx : path) {
+			if(nodeidx < 0) log_print("out");
+			else {
+				auto &node = nodes[nodeidx];
+				auto index = node.indexes.indexes[0];
+				auto index_name = app->index_data.get_index_name(node.indexes, index);
+				log_print(index_name);
+			}
+			log_print(", ");
+		}
+		log_print("\n");
+	}
+	*/
 	
 	for(auto &path : paths) {
 		
 		auto match = match_path_recursive(scope, nodes, path, 0, regex);
 		
-		if(!match.match || match.path_idx != path.size()) {
-			data_loc.print_error_header();
+		if(!match.match || (match.path_idx < path.size()-1)) {
+			data_loc.print_error_header(Mobius_Error::model_building);
 			error_print("The regular expression for the connection \"", connection->name, "\" failed to match the provided graph. See the declaration of the regex here:\n");
 			regex->source_loc.print_error();
 			error_print("The matching succeeded up to the marked '(***)' in the following sequence:\n");
@@ -211,15 +273,8 @@ match_regex(Model_Application *app, Entity_Id conn_id, Source_Location data_loc)
 				if(pathidx == match.path_idx) {
 					error_print("(***) ");
 					found_mark = true;
-				} if(nodeidx < 0)
-					error_print("out");
-				else {
-					auto &node = nodes[nodeidx];
-					error_print((*scope)[node.id], "[ ");   // Note: This is the handle name used in the regex, not in the data set. May be confusing?
-					for(auto &index : node.indexes.indexes)
-						error_print(app->get_possibly_quoted_index_name(index), " ");
-					error_print(']');
 				}
+				error_print_node(app, scope, nodes, nodeidx);
 				if(pathidx != path.size()-1)
 					error_print(" ");
 				

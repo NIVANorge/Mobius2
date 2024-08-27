@@ -1,0 +1,233 @@
+
+module("AirSea", version(0, 1, 1),
+	air       : compartment,
+	surf      : compartment,
+	fpv       : compartment,
+	
+	ice       : quantity,
+	heat      : quantity,
+	
+	temp      : property,
+	precip    : property,
+	wind      : property,
+	g_rad     : property,
+	pressure  : property,
+	rho       : property,
+	a_hum     : property,
+	lwd       : property,
+	sw        : property,
+	attn      : property,
+	indicator : property,
+	evap      : property,
+	cos_z     : property,
+	
+	freeze_temp       : loc,
+	A_surf            : loc,
+	top_water         : loc,
+	top_water_heat_sw : loc # Needed since it could be on a separate connection e.g. in NIVAFjord. This is a bit awkward though..
+) {
+"""
+This is a modification to the AirSea module where you can cover a basin with floating photovoltaics (solar panels) (FPV).
+
+Authors: Francois Clayer, Magnus D. Norling
+"""
+	
+	load("stdlib/seawater.txt", library("Air-sea"))
+	load("stdlib/atmospheric.txt", library("Meteorology"), library("Radiation"))
+	load("stdlib/physiochemistry.txt", library("Thermodynamics"), library("Water utils"))
+	
+	rho_ice    : constant("Ice density", [k g, m-3], 917)
+	l_freeze   : constant("Latent heat of freezing", [J, k g-1], 333500)
+	lambda_ice : constant("Ice heat conduction coefficient", [W, m-1, K-1], 2.1)
+	water_alb  : constant("Water albedo", [], 0.045)  # Could be a module parameter
+	
+	par_group("Ice", surf) {
+		init_ice  : par_real("Initial ice thickness", [m], 0, 0, 10)
+		ice_alb   : par_real("Ice albedo", [], 0.4, 0, 1)
+		ice_att_c : par_real("Ice attenuation coefficient", [m-1], 5)
+		th_frazil : par_real("Frazil threshold", [m], 0.05, 1e-5, 0.1)
+	}
+	
+	par_group("Tuning constants", surf) {
+		precip_scaler : par_real("Precipitation scaler", [], 1, 0, 5)
+		evap_scaler   : par_real("Evaporation scaler", [], 1, 0, 5)
+		swr_scaler    : par_real("Shortwave scaler", [], 1, 0, 5)
+	}
+	
+	par_group("FPV", fpv) {
+		cov        : par_real("FPV coverage degree", [], 0, 0, 1)
+		FPV_alb    : par_real("FPV albedo", [], 0.2, 0, 1)
+		FPV_eff    : par_real("FPV efficiency", [], 0.18)
+		length_FPV : par_real("Length of FPV module", [m], 0.5)
+	}
+	
+	stab   : property("Stability")
+	ced    : property("Transfer coefficient for latent heat flux")
+	chd    : property("Transfer coefficent for sensible heat flux")
+	s_hum  : property("Saturation specific humidity")
+	lwu    : property("Emitted longwave radiation")
+	albedo : property("Albedo")
+	
+	energy    : property("Freeze energy")
+	
+	var(air.wind, [m, s-1], "Wind speed")
+	
+	var(surf.stab, []) {   surface_stability(air.wind, top_water.temp, air.temp)   }
+	
+	var(surf.ced, [])  {   tc_latent_heat(air.wind, stab)   }
+	
+	var(surf.chd, [])  {   tc_sensible_heat(air.wind, stab) * evap_scaler   }
+	
+	var(surf.s_hum, []) {
+		svap := saturation_vapor_pressure(top_water.temp),
+		specific_humidity_from_pressure(air.pressure, svap)
+	}
+	
+	var(surf.lwu, [W, m-2]) {
+		emissivity := 0.98,
+		emissivity * black_body_radiation(top_water.temp->[K])
+	}
+	
+	var(surf.albedo, []) {
+		ice_alb        if ice.indicator,
+		water_alb      otherwise
+	}
+	
+	#TODO: the reflection should take into account the zenith angle.
+	var(surf.sw, [W, m-2]) {   (1 - albedo) * (1 - ice.attn) * air.g_rad * swr_scaler  }
+	
+	flux(out, top_water_heat_sw, [J, day-1], "Net shortwave") {  A_surf * (1 - cov) * surf.sw ->>  }
+	
+	flux(out, top_water.heat,    [J, day-1], "Net longwave") {
+		net_rad := (1 - surf.albedo)*air.lwd - surf.lwu,    # W/m2       # TODO: Should really albedo be detracted from longwave?
+		(!surf.ice.indicator) *	A_surf * (1 - cov) * net_rad ->>
+	}
+	
+	flux(out, top_water.heat, [J, day-1], "Freeze heating") {  A_surf * (1 - cov) * surf.ice.energy ->>  }    # Energy used to melt ice instead of heating the water body (or other way around with freezing)
+	
+	flux(out, top_water.heat, [J, day-1], "Latent heat flux") {
+		l_vap := latent_heat_of_vaporization(top_water.temp),
+		(!surf.ice.indicator) * A_surf * (1 - cov) * (surf.ced * l_vap * air.rho * air.wind * (air.a_hum - surf.s_hum)) ->>
+	}
+	
+	flux(out, top_water.heat, [J, day-1], "Sensible heat flux") {
+		(!surf.ice.indicator) * A_surf * (1 - cov) * (surf.chd * C_air * air.rho * air.wind * (air.temp->[K] - top_water.temp->[K])) ->>
+	}
+	
+	var(surf.evap, [m m, day-1]) {
+		rho_ref := 1025 [k g, m-3],
+		(!surf.ice.indicator) * (air.rho / rho_ref) * chd * air.wind * (s_hum - air.a_hum) ->>
+	}
+	
+	flux(top_water, out, [m 3, day-1], "Evaporation") {  surf.evap * A_surf * (1 - cov) ->>  } @no_carry
+	
+	# NOTE: Don't subtract FPV cover from precip since we can assume the precip that hit the FPV runs off into the basin
+	flux(out, top_water, [m 3, day-1], "Precipitation to surface") {   air.precip * precip_scaler * A_surf ->>   }
+	
+	flux(out, top_water.heat, [J, day-1], "Precipitation heat") {
+		precip_t := max(0[deg_c], air.temp),
+		V := A_surf*air.precip*precip_scaler -> [m 3, day-1],
+		water_temp_to_heat(V => [m 3], precip_t) => [J, day-1] # TODO: Not sure how to best express this. It is a bit annoying that the 1/day doesn't "pass through" the function.
+	}
+	
+	var(surf.ice, [m], "Ice thickness") @initial { init_ice }
+	
+	var(surf.ice.energy, [W, m-2]) {
+		z_surf := 1[m],   #  Thickness of water layer that ice formation can draw energy from. #TODO: Should probably be module parameter?
+		K_ice := 200[W, m-3, deg_c-1],   # freezing/melting heat transfer coefficient ... should not affect magnitude of temperature or ice cover, only how fast they "converge"
+		e := (freeze_temp - top_water.temp)*z_surf*K_ice,
+	
+		0[W, m-2]   if (ice < 1e-6[m]) & (e < 0),    # No melting when there is no ice
+		e           otherwise
+	}
+	
+	var(surf.ice.indicator, [], "Ice indicator") {  ice > th_frazil  }
+	
+	var(surf.ice.attn, []) {
+		cz := max(0.01, refract(air.cos_z, refraction_index_ice)),
+		th := ice / cz, # Length a sun ray travels through the ice sheet, taking solar zenith angle into account.
+		
+		0                         if !indicator,
+		1 - exp(-ice_att_c * th) otherwise
+	}
+	
+	var(surf.ice.temp, [deg_c], "Ice surface temperature") {
+		alpha := 1 / (10[m-1] * ice),
+		(alpha * freeze_temp + air.temp) / (1 + alpha)   if indicator,
+		0[deg_c]                                         otherwise
+	}
+	
+	flux(out, surf.ice, [m, day-1], "Ice change") {
+		#NOTE: Stefan's law in ODE form:
+		#d(h_ice)/dt = lambda_ice*(ice_bottom_temperature - ice_surface_temperature)/(h_ice*rho_ice*l_freeze)
+		(energy + {
+			lambda_ice * (freeze_temp->[K] - temp->[K]) / ice  if (temp <= freeze_temp) & indicator,  # TODO: Should the condition be on air.temp or ice.temp being less than freeze_temp?
+			-(1-albedo)*air.g_rad*attn                         if indicator,  # Hmm, MyLake includes all fluxes here, not just shortwave. Not sure if it matters since the thawing is so fast.
+			0                                                  otherwise
+		}) / (rho_ice * l_freeze) ->>
+		+ {
+			air.precip   if indicator & (air.temp <= freeze_temp),     # if there is ice, and temperature is below freezing, precipitation is added as ice
+			0            otherwise
+		} ->>
+	}
+	
+	
+	/*
+	
+	# TODO: Separate heat fluxes between FPV-surface (and FPV-air) ?
+	
+	# TODO: Make the below work (and add the correct heat budget for the basin?)
+	
+	k_vis    : property("Kinematic viscosity")
+	A_both   : property("FPV heat transfer coef. both side")
+	h_water  : property("FPV heat transfer coef. back side water")
+	T_s_back : property("FPV back surface temperature")
+	
+	var(fpv.A_both, [W, m-2, K-1]) {
+		# Name the magic constants!
+		1 / (0.000175[m]/(2*148[W, m-1, K-1])+(0.0004[m]/0.21[W, m-1, K-1])+(0.0025[m]/1.8[W, m-1, K-1])) 
+	}
+	
+	var(surf.k_vis, [m 2, s-1]) {
+		# TODO: Take into account salinity!
+		dynamic_viscosity_fresh_water(top_water.temp) / rho_water
+	}
+	
+	var(fpv.h_water, [W, m-2, K-1]) {
+		Nu := 0.664* sqrt(0.1 [m, s-1] * length_FPV / surf.k_vis )* ((dynamic_viscosity_fresh_water(top_water.temp, 0)*C_water / k_water) =>[]^(0.333)),
+		(Nu * k_water / length_FPV) =>>
+	}
+	
+	var(fpv.temp, [deg_c], "FPV cell temperature") {
+		
+		# TODO: Name the magic constants, and/or reference the formula
+		
+		#T_front_final := air.temp->[K],
+		#need to iterate to updte T_front  (what is the breaking condition?)
+			T_front := top_water.temp->[K],
+			T_air := air.temp->[K],
+			T_sky := (0.0552 * (T_air=>[]^(1.5))) => [K],
+			T_water := top_water.temp -> [K],                 # Why is it the same as T_front?
+			h_air := (2.8 + 3*air.wind=>[]) => [W, m-2, K-1],
+			h_sky := (1/(1/0.88+1/0.80-1)) * 5.67e-8[W, m-2, K-4] * (T_front+T_sky)*(T_front^2 + T_sky^2),
+			B_back := A_both + h_water,
+			C_back := h_water * T_water,
+			B_front := A_both + h_air + h_sky,
+			C_front := h_air*T_air + h_sky*T_sky,
+			numer :=  B_front*B_back*2*A_both - (A_both^2)*(B_front - B_back),
+			T_cell := (B_front*B_back*(1- FPV_alb) * (1-FPV_eff)*air.g_rad + A_both*B_back*C_front + A_both*B_front*C_back) / numer -> [deg_c],
+			#A_both * h_water / (A_both + h_water) + A_both / (A_both + h_air + h_sky)*(h_air + h_sky*(Tc - T_sky)/(Tc - T_air))
+			T_front_final := ((A_both =>[] * (T_cell->[K])=>[]) + C_front=>[]) / B_front=>[],
+			
+		T_cell
+		
+	}
+	
+	var(fpv.T_s_back, [deg_c]) {
+		A_both*(temp->[K]) + h_water*(top_water.temp->[K]) / (A_both  + h_water)  -> [deg_c]
+	}
+	
+	*/
+	
+	
+}

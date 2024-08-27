@@ -41,7 +41,7 @@ Source_Location {
 	
 	void print_error() const;
 	void print_error_header(Mobius_Error type = Mobius_Error::parsing) const;
-	void print_log_header() const;
+	void print_log_header(Log_Mode mode = Log_Mode::regular) const;
 };
 
 char *
@@ -73,10 +73,10 @@ inline bool operator<(const Module_Version &a, const Module_Version &b) {
 	return false;
 }
 
-// TODO: Could probably narrow these to s16 also (though need to reflect in mobipy)
+// TODO: Could probably narrow these to s16 also (though need to reflect in mobipy and mobi_jl)
 struct Var_Id {
 	enum class Type : s32 {
-		none = -1, state_var, series, additional_series
+		none = -1, state_var = 0, temp_var = 1, series = 2, additional_series = 3,
 	} type;
 	s32 id;
 	
@@ -163,20 +163,20 @@ get_token_type(Decl_Type type) {
 
 enum class
 Variable_Type {
-	parameter, series, state_var, connection_info, index_count, local, no_override, connection,
+	parameter, series, connection_info, index_count, local, constant,
+	// Not really variables, but identifier types:
+	no_override, is_at, connection,
 	// "special" state variables
 	#define TIME_VALUE(name, bits) time_##name,
 	#include "time_values.incl"
 	#undef TIME_VALUE
 	time_fractional_step,
-	// Maybe also computed_parameter eventually.
 };
 
 inline const char *
 name(Variable_Type type) {
 	if(type == Variable_Type::parameter) return "parameter";
 	if(type == Variable_Type::series) return "series";
-	if(type == Variable_Type::state_var) return "state_var";
 	if(type == Variable_Type::connection_info) return "connection_info";
 	if(type == Variable_Type::index_count) return "index_count";
 	if(type == Variable_Type::local) return "local";
@@ -232,9 +232,15 @@ Entity_Id {
 	Reg_Type reg_type;
 	s16      id;
 	
+	static constexpr Entity_Id invalid() { return { Reg_Type::unrecognized, -1}; }
+	
 	Entity_Id &operator *() { return *this; }  //trick so that it can be an iterator to itself..
 	Entity_Id &operator++() { id++; return *this; }
+	explicit operator size_t() { return (size_t)id; }
 };
+
+constexpr Entity_Id invalid_entity_id = Entity_Id::invalid();
+inline bool is_valid(Entity_Id id) { return id.id >= 0 && id.reg_type != Reg_Type::unrecognized; }
 
 inline bool
 operator==(const Entity_Id &a, const Entity_Id &b) {
@@ -252,10 +258,6 @@ operator<(const Entity_Id &a, const Entity_Id &b) {
 		return a.id < b.id;
 	return a.reg_type < b.reg_type;
 }
-
-constexpr Entity_Id invalid_entity_id = {Reg_Type::unrecognized, -1};
-
-inline bool is_valid(Entity_Id id) { return id.id >= 0 && id.reg_type != Reg_Type::unrecognized; }
 
 constexpr int max_var_loc_components = 6;
 
@@ -277,7 +279,7 @@ is_located(const Var_Location &loc) {
 	return loc.type == Var_Location::Type::located;
 }
 
-constexpr Var_Location invalid_var_location = {Var_Location::Type::out, 0, invalid_entity_id, invalid_entity_id, invalid_entity_id, invalid_entity_id};
+constexpr Var_Location invalid_var_location = {Var_Location::Type::out, 0};
 
 inline bool
 operator==(const Var_Location &a, const Var_Location &b) {
@@ -290,44 +292,50 @@ operator==(const Var_Location &a, const Var_Location &b) {
 
 inline bool operator!=(const Var_Location &a, const Var_Location &b) { return !(a == b); }
 
+
 struct
-Single_Restriction {
+Restriction {
 	Entity_Id        connection_id = invalid_entity_id;
-	enum Restriction {
+	enum Type {
 		none, top, bottom, above, below, specific
-	}                restriction = Restriction::none;
+	}                type = none;
 	
-	Single_Restriction() {}
-	Single_Restriction(Entity_Id connection_id, Restriction restriction) : connection_id(connection_id), restriction(restriction) {}
+	Restriction() {}
+	Restriction(Entity_Id connection_id, Type type) : connection_id(connection_id), type(type) {}
 };
 
-inline bool operator<(const Single_Restriction &a, const Single_Restriction &b) {
-	if(a.connection_id == b.connection_id) return (int)a.restriction < (int)b.restriction;
+inline bool operator<(const Restriction &a, const Restriction &b) {
+	if(a.connection_id == b.connection_id) return (int)a.type < (int)b.type;
 	return a.connection_id < b.connection_id;
 }
 
-inline bool operator==(const Single_Restriction &a, const Single_Restriction &b) {
-	return a.connection_id == b.connection_id && a.restriction == b.restriction;
+inline bool operator==(const Restriction &a, const Restriction &b) {
+	return a.connection_id == b.connection_id && a.type == b.type;
 }
 
 struct
-Var_Loc_Restriction : Single_Restriction {
+Var_Loc_Restriction {
 	
-	Single_Restriction restriction2;
+	Restriction r1;
+	Restriction r2;
 
 	// NOTE: These two are only supposed to be used for tree aggregates where the source/target could be ambiguous.
 	// TODO: It would be nice to be able to be able to remove these. Go over how they are used and see if not one could use a similar thing to directed_graph instead?
-	Entity_Id        source_comp = invalid_entity_id;
-	Entity_Id        target_comp = invalid_entity_id;
+	//Entity_Id        source_comp = invalid_entity_id;
+	//Entity_Id        target_comp = invalid_entity_id;
 	
 	Var_Loc_Restriction() {};
-	Var_Loc_Restriction(Entity_Id connection_id, Restriction restriction) : Single_Restriction(connection_id, restriction) {}
+	Var_Loc_Restriction(Entity_Id connection_id, Restriction::Type type) : r1(connection_id, type) {}
 };
 
+inline bool operator==(const Var_Loc_Restriction &a, const Var_Loc_Restriction &b) {
+	return a.r1 == b.r1 && a.r2 == b.r2;
+}
+
 inline bool operator<(const Var_Loc_Restriction &a, const Var_Loc_Restriction &b) {
-	if(static_cast<const Single_Restriction &>(a) == static_cast<const Single_Restriction &>(b))
-		return a.restriction2 < b.restriction2;
-	return static_cast<const Single_Restriction &>(a) < static_cast<const Single_Restriction &>(b);
+	if(a.r1 == b.r1)
+		return a.r2 < b.r2;
+	return a.r1 < b.r1;
 }
 
 struct
@@ -341,23 +349,45 @@ inline bool operator==(const Specific_Var_Location &a, const Specific_Var_Locati
 	return static_cast<const Var_Location &>(a) == static_cast<const Var_Location &>(b) && static_cast<const Var_Loc_Restriction &>(a) == static_cast<const Var_Loc_Restriction &>(b);
 }
 
-struct Index_T {
-	Entity_Id index_set;
-	s32       index;
+struct
+Index_Set_Tuple {
 	
-	Index_T& operator++() { index++; return *this; }
+	inline bool add_bits(u64 to_add) {
+		bool change = (to_add & bits) != to_add;
+		bits |= to_add;
+		return change;
+	}
+	inline bool remove_bits(u64 to_remove) {
+		bool change = (to_remove & bits);
+		bits &= ~to_remove;
+		return change;
+	}
+	bool insert(Entity_Id index_set_id) { return add_bits((u64(1) << index_set_id.id));	}
+	bool insert(Index_Set_Tuple &other) { return add_bits(other.bits); }
+	bool remove(Entity_Id index_set_id) { return remove_bits((u64(1) << index_set_id.id)); }
+	bool remove(Index_Set_Tuple &other) { return remove_bits(other.bits); }
+	bool has(Entity_Id index_set_id) { return bits & (u64(1) << index_set_id.id); }
+	bool has_some(Index_Set_Tuple &other) { return bits & other.bits; }
+	bool has_all(Index_Set_Tuple &other) { return (bits & other.bits) == other.bits; }
+	bool empty() { return bits == 0; }
+	
+	bool operator!=(const Index_Set_Tuple &other) const { return bits != other.bits; }
+	
+	struct Iterator {
+		int at = 0;
+		u64 bits;
+		Iterator(u64 bits, int at) : bits(bits), at(at) { advance_to_next(); }
+		Iterator &operator++(){ ++at; advance_to_next(); return *this; }
+		Entity_Id operator*() { return Entity_Id { Reg_Type::index_set, s16(at) }; }
+		bool operator!=(Iterator &other) { return at != other.at; }
+		void advance_to_next() { while( !(bits & (u64(1) << at)) && at < 64 ) ++at; }
+	};
+	
+	Iterator begin() { return Iterator(bits, 0); }
+	Iterator end() { return Iterator(0, 64); }
+
+	u64 bits = 0;
 };
-
-//TODO: should we do sanity check on the index_set in the order comparison operators?
-inline bool operator<(const Index_T &a, const Index_T &b) {	return a.index < b.index; }
-inline bool operator>=(const Index_T &a, const Index_T &b) { return a.index >= b.index; }
-inline bool operator==(const Index_T &a, const Index_T &b) { return a.index_set == b.index_set && a.index == b.index; }
-inline bool operator!=(const Index_T &a, const Index_T &b) { return a.index_set != b.index_set || a.index != b.index; }
-
-constexpr Index_T invalid_index = {invalid_entity_id, -1};
-
-inline bool
-is_valid(const Index_T &index) { return is_valid(index.index_set) && index.index >= 0; }
 
 enum class
 Aggregation_Period {

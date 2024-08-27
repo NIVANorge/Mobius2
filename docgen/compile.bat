@@ -1,0 +1,1 @@
+cl /MD docgen.cpp ../src/resolve_identifier.cpp ../src/lexer.cpp ../src/ast.cpp ../src/model_declaration.cpp ../src/units.cpp ../src/file_utils.cpp ../src/index_data.cpp ../src/catalog.cpp ../src/ode_solvers.cpp psapi.lib shell32.lib  uuid.lib advapi32.lib ntdll.lib    /w /std:c++17 /EHsc /GR- /O2 /link

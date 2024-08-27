@@ -6,6 +6,8 @@
 
 #include "linear_memory.h"
 
+#include <cmath>
+
 inline bool
 is_leap_year(s32 year) {
 	if(year % 4 != 0)   return false;
@@ -215,6 +217,22 @@ public:
 		return result;
 	}
 };
+
+inline Date_Time
+from_spreadsheet_time(s64 days_since_1900) {
+	Date_Time result;
+	result.seconds_since_epoch = 86400*(days_since_1900 - 25569); // 25569 days between 1900-1-1 and 1970-1-1
+	return result;
+}
+
+inline Date_Time
+from_spreadsheet_time_fractional(double days_since_1900) {
+	double whole;
+	double fractional = std::modf(days_since_1900, &whole);
+	Date_Time result = from_spreadsheet_time((s64)whole);
+	result.seconds_since_epoch += (s64)(86400.0*fractional);
+	return result;
+}
 
 struct Time_Step_Size {
 	enum Unit : s32 {

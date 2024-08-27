@@ -15,7 +15,18 @@
 // TODO: Why didn't we just decide that year = 12*month??
 enum class
 Base_Unit {
-	m = 0, s = 1, g = 2, mol = 3, deg_c = 4, deg = 5, month = 6, year = 7, K = 8, max = 9
+	m = 0,
+	s = 1,
+	g = 2,
+	mol = 3,
+	deg_c = 4,
+	deg = 5,
+	month = 6,
+	year = 7,
+	K = 8,
+	A = 9,
+	eq = 10,
+	max = 11
 };
 
 inline bool is_time(Base_Unit bu) {
@@ -78,7 +89,7 @@ Unit_Data {
 	
 	std::string to_utf8();
 	std::string to_decl_str();
-	// TODO: also to_latex(), and maybe to_mathml().
+	std::string to_latex();
 	
 	//bool operator==(const Unit_Data &other);
 	Time_Step_Size  to_time_step(bool &success);

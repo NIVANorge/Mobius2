@@ -1,7 +1,8 @@
 
-#include <unordered_set>
-
 #include "ast.h"
+
+#include <unordered_set>
+#include <algorithm>
 
 /*
 	The basis for any Mobius2 model specification is a "declaration". Any source file contains a sequence of declarations, and each of these can have sub-declarations.
@@ -12,8 +13,8 @@
 	
 		identifier : decl_type(arg, ...) { main_body } @note_1(args_1..) { body_1 } ... @note_n(args_n..) { body_n }
 	
-	The first identifier is the "handle" to the declaration, and can be used to refer to the object created by the declaration in other parts of the code.
-	In some cases you can make a declaration without a handle.
+	The first identifier is the "identifier" to the declaration, and can be used to refer to the object created by the declaration in other parts of the code.
+	In some cases you can make a declaration without a identifier.
 	
 	The decl_type is an identifier, the full list of allowed decl types are in decl_types.incl .
 	
@@ -69,7 +70,9 @@
 Argument_AST::~Argument_AST() { delete decl; }
 Function_Body_AST::~Function_Body_AST() { delete block; }
 Regex_Body_AST::~Regex_Body_AST() { delete expr; }
-Unit_Convert_AST::~Unit_Convert_AST() { delete unit; }
+Unit_Convert_AST::~Unit_Convert_AST() { if(unit) delete unit; }
+Decl_AST::~Decl_AST() { for(auto note : notes) delete note; if(data) delete data; }
+
 
 Source_Location &
 Argument_AST::source_loc() {
@@ -81,7 +84,7 @@ Argument_AST::source_loc() {
 
 inline bool
 is_accepted_for_chain(Token_Type type, bool identifier_only, bool allow_slash) {
-	return (identifier_only && type == Token_Type::identifier) || (!identifier_only && (can_be_value_token(type) || (char)type == '/'));
+	return (identifier_only && type == Token_Type::identifier) || (!identifier_only && (can_be_value_token(type) || (allow_slash && (char)type == '/')));
 }
 
 void
@@ -114,10 +117,6 @@ get_decl_type(Token *string_name) {
 	#define ENUM_VALUE(name, body_type, _) if(string_name->string_value == #name) { return Decl_Type::name; }
 	#include "decl_types.incl"
 	#undef ENUM_VALUE
-	
-	string_name->print_error_header();
-	fatal_error("Unrecognized declaration type '", string_name->string_value, "'.");
-	
 	return Decl_Type::unrecognized;
 }
 
@@ -127,6 +126,18 @@ get_body_type(Decl_Type decl_type) {
 	#include "decl_types.incl"
 	#undef ENUM_VALUE
 	return Body_Type::none;
+}
+
+Data_Type
+get_data_type(Decl_Type decl_type) {
+	// TODO: Maybe put this info into decl_types.incl same as body types so that it is more easily maintained.
+	if(decl_type == Decl_Type::index_set) return Data_Type::map;   // can be both map and list, but that is accounted for.
+	if(decl_type == Decl_Type::directed_graph) return Data_Type::directed_graph;
+	if(decl_type == Decl_Type::quick_select) return Data_Type::map;
+	if(decl_type == Decl_Type::position_map) return Data_Type::map;
+	if(get_reg_type(decl_type) == Reg_Type::parameter) return Data_Type::map; // list of parameter values, or special map format.
+	
+	return Data_Type::none;
 }
 
 void
@@ -139,7 +150,7 @@ parse_unit_decl(Token_Stream *stream, Decl_AST *decl) {
 		auto peek = stream->peek_token();
 		if(peek.type == Token_Type::eof) {
 			peek.print_error_header();
-			fatal_error("End of file before closing unit declaration");
+			fatal_error("End of file before closing unit declaration.");
 		} else if((char)peek.type == ']') {
 			stream->read_token();
 			break;
@@ -153,7 +164,7 @@ parse_unit_decl(Token_Stream *stream, Decl_AST *decl) {
 				stream->read_token();
 			else if((char)next.type != ']') {
 				next.print_error_header();
-				fatal_error("Expected a ] or a ,");
+				fatal_error("Expected a ']' or a ','.");
 			}
 		} else {
 			peek.print_error_header();
@@ -163,7 +174,7 @@ parse_unit_decl(Token_Stream *stream, Decl_AST *decl) {
 }
 
 void
-parse_decl_header_base(Decl_Base_AST *decl, Token_Stream *stream, bool allow_unit = true) {
+parse_decl_header_base(Decl_Base_AST *decl, Token_Stream *stream, bool allow_unit) {
 	Token next = stream->peek_token();
 	if(next.type == Token_Type::identifier) {
 		decl->decl = stream->read_token();
@@ -176,10 +187,14 @@ parse_decl_header_base(Decl_Base_AST *decl, Token_Stream *stream, bool allow_uni
 		fatal_error("Unexpected token: ", next.string_value, " .");
 	}
 	
+	// TODO: Had to disable this error since it triggers also when one passes units as arguments to a module.
+	//   But we should check that there is no erroneous use of this otherwise.
+	/*
 	if(decl->decl.string_value == "unit") {
 		next.source_loc.print_error_header();
 		fatal_error("Direct unit() declarations are not allowed. Use the [] format instead.");
 	}
+	*/
 	
 	next = stream->peek_token();
 	if((char)next.type != '(')
@@ -222,7 +237,7 @@ parse_decl_header_base(Decl_Base_AST *decl, Token_Stream *stream, bool allow_uni
 					stream->expect_token(']');
 				}
 			}
-		} else if(next.type == Token_Type::quoted_string || is_numeric_or_bool(next.type)) { // Literal values.
+		} else if(next.type == Token_Type::quoted_string || is_numeric_or_bool(next.type) || next.type == Token_Type::date) { // Literal values.
 			arg->chain.push_back(next);
 			stream->read_token();
 		} else if ((char)next.type == '[') { // Unit declaration
@@ -250,16 +265,20 @@ parse_decl_header(Token_Stream *stream) {
 	
 	Token next  = stream->peek_token(1);
 	if((char)next.type == ':') {
-		decl->handle_name = stream->expect_token(Token_Type::identifier);
+		decl->identifier = stream->expect_token(Token_Type::identifier);
 		stream->read_token(); // reads the ':'
 	}
 	
 	parse_decl_header_base(decl, stream);
-	
 	decl->source_loc = decl->decl.source_loc;
 	
-	if(is_valid(&decl->decl))
+	if(is_valid(&decl->decl)) {
 		decl->type = get_decl_type(&decl->decl);
+		if(decl->type == Decl_Type::unrecognized) {
+			decl->decl.print_error_header();
+			fatal_error("Unrecognized declaration type '", decl->decl.string_value, "'.");
+		}
+	}
 
 	return decl;
 }
@@ -323,6 +342,9 @@ parse_body(Token_Stream *stream, Decl_Type decl_type, Body_Type body_type) {
 	return body;
 }
 
+Data_AST *
+parse_data(Token_Stream *stream, Data_Type type);
+
 Decl_AST *
 parse_decl(Token_Stream *stream) {
 	
@@ -340,6 +362,17 @@ parse_decl(Token_Stream *stream) {
 				fatal_error("Multiple main bodies for declaration.");
 			}
 			decl->body = parse_body(stream, decl->type, body_type);
+		} else if(ch == '[') {
+			if(decl->data) {
+				next.print_error_header();
+				fatal_error("Multiple data blocks for declaration.");
+			}
+			auto data_type = get_data_type(decl->type);
+			if(data_type == Data_Type::none) {
+				next.print_error_header();
+				fatal_error("Did not expect a data block for this declaration.");
+			}
+			decl->data = parse_data(stream, data_type);
 		} else if (ch == '@') {
 			stream->read_token();
 			
@@ -348,8 +381,17 @@ parse_decl(Token_Stream *stream) {
 			
 			next = stream->peek_token();
 			if((char)next.type == '{') {
-				// TODO: We should maybe allow different body types per note type eventually.
-				note->body = parse_body(stream, decl->type, body_type);
+				// NOTE: This is a bit of a hacky way to allow different body types per note type. We should formalize it a bit more.
+				//  (so that note types don't have to have a Decl_Type for this to work.).
+				auto note_body_type = body_type;
+				auto decl_type_note = get_decl_type(&note->decl);
+				if(decl_type_note != Decl_Type::unrecognized) {
+					auto new_body_type = get_body_type(decl_type_note);
+					if(new_body_type != Body_Type::none)
+						note_body_type = new_body_type;
+				}
+				
+				note->body = parse_body(stream, decl->type, note_body_type);
 			}
 			
 			decl->notes.push_back(note);
@@ -404,7 +446,7 @@ operator_precedence(Token_Type t) {
 	else if((c == '<') || (c == '>') || (t == Token_Type::leq) || (t == Token_Type::geq) || (c == '=') || (t == Token_Type::neq)) return 3000;
 	else if((c == '+') || (c == '-')) return 4000;
 	else if(c == '*') return 5000;
-	else if(c == '/' || c == '%') return 6000;
+	else if(c == '/' || c == '%' || t == Token_Type::div_int) return 6000;
 	else if(c == '^') return 7000;
 	
 	return 0;
@@ -426,7 +468,7 @@ Math_Expr_AST *
 potentially_parse_binary_operation_rhs(Token_Stream *stream, int prev_prec, Math_Expr_AST *lhs) {
 	
 	while(true) {
-		// TODO: This is not clean...
+		// TODO: The code could maybe be cleaner if a unit conversion is treated as a binary operator, but the problem is that the rhs is not a math expression in that case.
 		if(prev_prec < 5000)
 			lhs = potentially_parse_unit_conversion(stream, lhs);
 		
@@ -438,7 +480,7 @@ potentially_parse_binary_operation_rhs(Token_Stream *stream, int prev_prec, Math
 		Token token = stream->read_token(); // consume the operator
 		Math_Expr_AST *rhs = parse_primary_expr(stream);
 		
-		// TODO: This is not clean...
+		// See note above.
 		if(cur_prec < 5000)
 			rhs = potentially_parse_unit_conversion(stream, rhs);
 		
@@ -486,14 +528,18 @@ potentially_parse_unit_conversion(Token_Stream *stream, Math_Expr_AST *lhs, bool
 	unit_conv->exprs.push_back(lhs);
 	if(!auto_convert) {
 		auto peek = stream->peek_token();
-		if((char)peek.type != '[') {     // TODO: We should also allow referencing units by identifiers!
+		if(peek.type == Token_Type::identifier) {
+			unit_conv->by_identifier = true;
+			unit_conv->unit_identifier = stream->read_token();
+		} else if ((char)peek.type == '[') {
+			unit_conv->unit = new Decl_AST();
+			stream->fold_minus = true;   // Fold e.g. -1 as a single token instead of two tokens - and 1 .
+			parse_unit_decl(stream, unit_conv->unit);
+			stream->fold_minus = false;
+		} else {
 			peek.print_error_header();
-			fatal_error("Expected a unit declaration, starting with '['");
+			fatal_error("Expected a unit identifier or a unit declaration, starting with '['");
 		}
-		unit_conv->unit = new Decl_AST();
-		stream->fold_minus = true;   // Fold e.g. -1 as a single token instead of two tokens - and 1 .
-		parse_unit_decl(stream, unit_conv->unit);
-		stream->fold_minus = false;
 	}
 	
 	return unit_conv;
@@ -546,9 +592,9 @@ parse_primary_expr(Token_Stream *stream) {
 			}
 		}
 	} else if (is_numeric_or_bool(token.type)) {
+		stream->read_token();
 		auto val = new Literal_AST();
 		val->source_loc = token.source_loc;
-		stream->read_token();
 		val->value = token;
 		result = potentially_parse_unit_conversion(stream, val, false);
 	} else if ((char)token.type == '(') {
@@ -663,7 +709,6 @@ parse_math_block(Token_Stream *stream) {
 	return block;
 }
 
-
 Math_Expr_AST *
 potentially_parse_regex_quantifier(Token_Stream *stream, Math_Expr_AST *arg) {
 	Math_Expr_AST *result = arg;
@@ -715,20 +760,9 @@ parse_regex_identifier(Token_Stream *stream) {
 	auto ident = new Regex_Identifier_AST();
 	ident->ident = stream->read_token();
 	ident->source_loc = ident->ident.source_loc;
-	if((char)ident->ident.type == '.') {
+	if((char)ident->ident.type == '.')
 		ident->wildcard = true;
-	} else {
-		auto token = stream->peek_token();
-		if((char)token.type != '[') return ident;
-		
-		stream->read_token();
-		ident->index_set = stream->read_token();
-		if(ident->index_set.type != Token_Type::identifier) {
-			ident->index_set.print_error_header();
-			fatal_error("Expected an index set identifier.");
-		}
-		stream->expect_token(']');
-	}
+	
 	return ident;
 }
 
@@ -818,6 +852,169 @@ parse_regex_list(Token_Stream *stream, bool outer) {
 	return result;
 }
 
+inline bool
+allow_list_or_map_item(Token_Type t) {
+	// We filter on these now. Then the declaration processing later will presumably figure out exactly which ones are allowed
+	return (t == Token_Type::real || t == Token_Type::integer || t == Token_Type::boolean || t == Token_Type::date || t == Token_Type::time 
+			|| t == Token_Type::quoted_string || t == Token_Type::identifier);
+}
+
+Data_AST *
+parse_list_or_map(Token_Stream *stream, Data_Type expected_type);
+
+void
+parse_list_data(Token_Stream *stream, std::vector<Token> &list) {
+	auto open = stream->expect_token('[');
+	
+	while(true) {
+		auto token = stream->read_token();
+		auto t = token.type;
+		if(t == Token_Type::eof) {
+			open.print_error_header();
+			fatal_error("Reached end of file while parsing a data list starting at this location.");
+		} else if ((char)t == ']')
+			break;
+		else if (allow_list_or_map_item(t))
+			list.push_back(token);
+		else {
+			token.print_error_header();
+			fatal_error("A token of type ", name(t), " is not allowed in a list.");
+		}
+	}
+}
+
+Data_AST *
+parse_list(Token_Stream *stream) {
+	auto list = new Data_List_AST();
+	
+	parse_list_data(stream, list->list);
+		
+	return list;
+}
+
+Data_AST *
+parse_map(Token_Stream *stream) {
+	auto map = new Data_Map_AST();
+	
+	auto open = stream->expect_token('[');
+	stream->expect_token('!');
+	
+	while(true) {
+		auto token = stream->read_token();
+		auto t = token.type;
+		if(t == Token_Type::eof) {
+			open.print_error_header();
+			fatal_error("Reached end of file while parsing a data map starting at this location.");
+		} else if ((char)t == ']')
+			break;
+		else if (allow_list_or_map_item(t)) {
+			Data_Map_AST::Entry entry;
+			entry.key = token;
+			stream->expect_token(':');
+			auto peek = stream->peek_token();
+			if(peek.type == Token_Type::quoted_string || is_numeric_or_bool(peek.type)) {
+				entry.single_value = stream->read_token();
+			} else
+				entry.data = parse_list_or_map(stream, Data_Type::map); // Allow recursive maps in general. Limitation to be done when processing later.
+			map->entries.push_back(entry);
+		} else {
+			token.print_error_header();
+			fatal_error("A token of type ", name(t), " is not allowed as the key in a map.");
+		}
+	}
+	
+	return map;
+}
+
+Data_AST *
+parse_list_or_map(Token_Stream *stream, Data_Type expected_type) {
+	
+	auto peek2 = stream->peek_token(1);
+	Data_Type found_type = Data_Type::list;
+	if((char)peek2.type == '!')
+		found_type = Data_Type::map;
+	if(expected_type == Data_Type::list && found_type == Data_Type::map) {
+		peek2.print_error_header();
+		fatal_error("Expected a simple list, not a map");
+	}
+	// NOTE: If the expected type is a map, a list is still allowed.
+	
+	if(found_type == Data_Type::list)
+		return parse_list(stream);
+	else if(found_type == Data_Type::map) {
+		// NOTE: The time format clashes with the map format so we can't allow those inside maps
+		bool allow_date_time_before = stream->allow_date_time_tokens;
+		stream->allow_date_time_tokens = false;
+		auto result = parse_map(stream);
+		stream->allow_date_time_tokens = allow_date_time_before;
+		return result;
+	}
+	
+	return nullptr;
+}
+
+Data_AST *
+parse_directed_graph(Token_Stream *stream) {
+	auto graph = new Directed_Graph_AST();
+	
+	auto open = stream->expect_token('[');
+	
+	int last_node = -1;
+	
+	while(true) {
+		auto token = stream->read_token();
+		// Note: we don't de-duplicate nodes here yet. That is taken care of later.
+		if(token.type == Token_Type::identifier) {
+			Directed_Graph_AST::Node node;
+			node.identifier = token;
+			if((char)stream->peek_token().type == '[')
+				parse_list_data(stream, node.indexes);
+			int nodeidx = graph->nodes.size();
+			graph->nodes.push_back(node);
+			if(last_node >= 0)
+				graph->arrows.emplace_back(last_node, nodeidx);
+			auto peek = stream->peek_token();
+			if(peek.type == Token_Type::arr_r) {
+				stream->read_token();
+				last_node = nodeidx;
+			} else
+				last_node = -1;
+			
+		} else if((char)token.type == ']') {
+			if(last_node >= 0) {
+				token.print_error_header();
+				fatal_error("Ending the graph data before finishing the last arrow '->'.");
+			}
+			break;
+		} else if(token.type == Token_Type::eof) {
+			open.print_error_header();
+			fatal_error("Reached the end of file while parsing directed_graph data starting at this location.");
+		}
+	}
+	
+	return graph;
+}
+
+Data_AST *
+parse_data(Token_Stream *stream, Data_Type type) {
+	
+	Data_AST *result = nullptr;
+	
+	auto source_loc = stream->peek_token().source_loc;
+	
+	if(type == Data_Type::list || type == Data_Type::map)
+		result = parse_list_or_map(stream, type);
+	else if(type == Data_Type::directed_graph)
+		result = parse_directed_graph(stream);
+	else
+		fatal_error(Mobius_Error::internal, "Unimplemented data type parsing.");
+	
+	result->source_loc = source_loc;
+	
+	return result;
+}
+
+
 int
 match_declaration_base(Decl_Base_AST *decl, const std::initializer_list<std::initializer_list<Arg_Pattern>> &patterns, int allow_body) {
 	
@@ -897,16 +1094,26 @@ match_declaration_base(Decl_Base_AST *decl, const std::initializer_list<std::ini
 
 int
 match_declaration(Decl_AST *decl, const std::initializer_list<std::initializer_list<Arg_Pattern>> &patterns, 
-	bool allow_handle, int allow_body, bool allow_notes) {
+	bool allow_identifier, int allow_body, bool allow_notes, int allow_data) {
 	
 	// allow_body:
 	//    0 - not allowed
 	//    1 - allowed if the body type of the expression is not none.
 	//   -1 - must have a body.
 	
-	if(!allow_handle && decl->handle_name.string_value.count > 0) {
-		decl->handle_name.print_error_header();
+	if(!allow_identifier && decl->identifier.string_value.count > 0) {
+		decl->identifier.print_error_header();
 		fatal_error("A '", name(decl->type), "' declaration can not be assigned to an identifier.");
+	}
+	
+	if(allow_data == 0 && decl->data) {
+		decl->data->source_loc.print_error_header();
+		fatal_error("A []-enclosed data block is not allowed in this context.");
+	}
+	
+	if(allow_data == -1 && !decl->data) {
+		decl->source_loc.print_error_header();
+		fatal_error("A []-enclosed data block is required in this context.");
 	}
 	
 	if(get_body_type(decl->type) == Body_Type::none)
@@ -937,12 +1144,24 @@ match_declaration(Decl_AST *decl, const std::initializer_list<std::initializer_l
 bool
 Arg_Pattern::matches(Argument_AST *arg) const {
 	Token_Type check_type = token_type;
+	Decl_Type check_decl_type = decl_type;
 	
 	switch(pattern_type) {
 		
 		case Type::any : {
 			return true;
 		} break;
+		
+		case Type::loc : {
+			if(!arg->chain.empty()) {
+				for(auto &token : arg->chain) {
+					if(token.type != Token_Type::identifier)
+						return false;
+				}
+				return true;
+			}
+			check_decl_type = Decl_Type::loc;
+		} // fall through to the next case to see if we have a loc decl.
 		
 		case Type::decl : {
 			if(arg->decl && (get_reg_type(arg->decl->type) == get_reg_type(decl_type))) return true;
@@ -956,14 +1175,6 @@ Arg_Pattern::matches(Argument_AST *arg) const {
 					return is_numeric(arg->chain[0].type);
 				return arg->chain[0].type == check_type;
 				
-			} else if(arg->chain.size() > 1 && check_type == Token_Type::identifier) {
-				if(pattern_type == Type::decl)
-					return false; // Only a single token can refer to a decl.
-				for(Token &token : arg->chain) {  //TODO: Not sure if we could ever get a chain of non-identifiers from the ast generation any way? So this check may be superfluous.
-					if(token.type != Token_Type::identifier)
-						return false;
-				}
-				return true;
 			}
 		}
 	}
@@ -972,6 +1183,10 @@ Arg_Pattern::matches(Argument_AST *arg) const {
 
 void
 check_allowed_serial_name(String_View serial_name, Source_Location &loc) {
+	if(serial_name.count == 0) {
+		loc.print_error_header();
+		fatal_error("A name can't be empty.");
+	}
 	for(int idx = 0; idx < serial_name.count; ++idx) {
 		char c = serial_name[idx];
 		if(c == ':' || c == '\\') {
@@ -982,7 +1197,7 @@ check_allowed_serial_name(String_View serial_name, Source_Location &loc) {
 }
 
 bool
-is_reserved(const std::string &handle) {
+is_reserved(const std::string &identifier) {
 	static std::string reserved[] = {
 		#define ENUM_VALUE(name, _a, _b) #name,
 		#include "decl_types.incl"
@@ -994,6 +1209,6 @@ is_reserved(const std::string &handle) {
 		
 		#include "other_reserved.incl"
 	};
-	return (std::find(std::begin(reserved), std::end(reserved), handle) != std::end(reserved));
+	return (std::find(std::begin(reserved), std::end(reserved), identifier) != std::end(reserved));
 }
 

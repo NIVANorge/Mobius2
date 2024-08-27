@@ -13,7 +13,8 @@ Batch_Data {
 	batch_function  *compiled_code;
 #endif
 	Solver_Function *solver_fun = nullptr;
-	double           h;
+	//double           h;
+	s64              h_address;
 	double           hmin;
 	s64              first_ode_offset;
 	int              n_ode;
@@ -23,6 +24,7 @@ Batch_Data {
 bool
 check_for_nans(Model_Data *data, Model_Run_State *run_state) {
 	// TODO: This is awfully inefficient. Could we just scan the results vector for NaN first, and then do this if a NaN occurs at all?
+	// TODO: Only works for stored results, not temp_results.
 	auto &structure = *data->results.structure;
 	for(auto &array : structure.structure) {
 		for(Var_Id var_id : array.handles) {
@@ -35,7 +37,10 @@ check_for_nans(Model_Data *data, Model_Run_State *run_state) {
 					error_print("Got a non-finite value for \"", data->app->vars[var_id]->name, "\" at time step ", run_state->date_time.step, ". Indexes: [");
 					int i = 0;
 					for(auto idx : idxs.indexes) {
-						error_print(data->app->get_possibly_quoted_index_name(idx));
+						bool quote;
+						auto index_name = data->app->index_data.get_index_name(idxs, idx, &quote);
+						maybe_quote(index_name, quote);
+						error_print(index_name);
 						if(i < idxs.indexes.size()-1) error_print(" ");
 						++i;
 					}
@@ -51,7 +56,7 @@ check_for_nans(Model_Data *data, Model_Run_State *run_state) {
 }
 
 bool
-run_model(Model_Data *data, s64 ms_timeout, bool check_for_nan) {
+run_model(Model_Data *data, s64 ms_timeout, bool check_for_nan, run_callback_type callback, void *callback_data) {
 	
 	Model_Application *app = data->app;
 	Mobius_Model *model    = app->model;
@@ -81,6 +86,7 @@ run_model(Model_Data *data, s64 ms_timeout, bool check_for_nan) {
 	}
 	
 	data->results.allocate(time_steps, start_date);
+	data->temp_results.allocate();
 	
 	int var_count    = app->result_structure.total_count;
 	int series_count = app->series_structure.total_count;
@@ -89,12 +95,13 @@ run_model(Model_Data *data, s64 ms_timeout, bool check_for_nan) {
 	
 	run_state.parameters       = data->parameters.data;
 	run_state.state_vars       = data->results.data;
+	run_state.temp_vars        = data->temp_results.data;
 	run_state.series           = data->series.data + series_count*input_offset;
 	run_state.connection_info  = data->connections.data;
 	run_state.index_counts     = data->index_counts.data;
 	run_state.solver_workspace = nullptr;
 	run_state.date_time        = Expanded_Date_Time(start_date, app->time_step_size);
-	run_state.solver_t         = 0.0;
+	run_state.fractional_step  = 0.0;
 	
 	std::vector<Batch_Data>   batch_data(app->batches.size());
 	
@@ -113,26 +120,44 @@ run_model(Model_Data *data, s64 ms_timeout, bool check_for_nan) {
 			solver_workspace_size = std::max(solver_workspace_size, 4*batch.n_ode); // TODO:    the 4*  is INCA-Dascru specific. Make it general somehow.
 			
 			auto solver             = model->solvers[batch.solver_id];
-			b_data.solver_fun       = solver->solver_fun;
+			b_data.solver_fun       = model->solver_functions[solver->solver_fun]->solver_fun;
 			b_data.first_ode_offset = batch.first_ode_offset;
 			b_data.n_ode            = batch.n_ode;
+			
+			Standardized_Unit *h_unit = nullptr;
+			
+			double h = 1.0;
 			if(is_valid(solver->h_par)) {
-				// TODO: Should probably check somewhere that this parameter is not indexed, but we could do that in the model_composition stage.
+				// TODO: Should probably check somewhere that this parameter is not distributed over index sets, but we could do that in the model_composition stage.
 				s64 offset   = data->parameters.structure->get_offset_base(solver->h_par);
-				b_data.h     = data->parameters.get_value(offset)->val_real;
-			} else
-				b_data.h     = solver->h;
+				h            = data->parameters.get_value(offset)->val_real;
+				h_unit       = &model->units[model->parameters[solver->h_par]->unit]->data.standard_form;
+			} else {
+				h_unit       = &model->units[solver->h_unit]->data.standard_form;
+			}
 			if(is_valid(solver->hmin_par)) {
 				s64 offset   = data->parameters.structure->get_offset_base(solver->hmin_par);
 				b_data.hmin  = data->parameters.get_value(offset)->val_real;
 			} else
 				b_data.hmin  = solver->hmin;
-			b_data.hmin = b_data.hmin*b_data.h; //NOTE: The given one was relative, but we need to store it as absolute since h can change in the run.
+			
+			double conv;
+			bool success = match(h_unit, &app->time_step_unit.standard_form, &conv);
+			if(!success) {
+				solver->source_loc.print_error_header(Mobius_Error::model_building);
+				fatal_error("It is not possible to convert between the model time step unit and the solver step unit.");
+			}
+			h *= conv;
+			h = std::max(std::min(h, 1.0), 1e-10);
+			b_data.hmin = std::max(std::min(b_data.hmin, 1.0), 1e-10);
+			b_data.hmin = b_data.hmin*h; //NOTE: The given one was relative, but we need to store it as absolute since h can change in the run.
+			
+			b_data.h_address = batch.h_address;
+			run_state.state_vars[b_data.h_address] = h;
 		}
 		++idx;
 	}
-	if(solver_workspace_size > 0)
-		run_state.solver_workspace = (double *)malloc(sizeof(double)*solver_workspace_size);
+	run_state.set_solver_workspace_size(solver_workspace_size);
 
 #if MOBIUS_EMULATE
 	#define BATCH_FUNCTION(batch) reinterpret_cast<batch_function *>(batch.run_code)
@@ -145,7 +170,9 @@ run_model(Model_Data *data, s64 ms_timeout, bool check_for_nan) {
 
 	// Initial values:
 	call_fun(BATCH_FUNCTION(app->initial_batch), &run_state);
-
+	
+	s64 callback_interval = time_steps / 10; // TODO: Make this customizable.
+	s64 prev_callback_iter = 0;
 	for(run_state.date_time.step = 0; run_state.date_time.step < time_steps; run_state.date_time.advance()) {
 		memcpy(run_state.state_vars+var_count, run_state.state_vars, sizeof(double)*var_count); // Copy in the last step's values as the initial state of the current step
 		run_state.state_vars += var_count;
@@ -157,7 +184,7 @@ run_model(Model_Data *data, s64 ms_timeout, bool check_for_nan) {
 			else {
 				double *x0 = run_state.state_vars + batch.first_ode_offset;
 				//NOTE: h is kept around for the next time step (trying an initial h that we ended up with from the previous step)
-				batch.solver_fun(&batch.h, batch.hmin, batch.n_ode, x0, &run_state, BATCH_FUNCTION(batch));
+				batch.solver_fun(run_state.state_vars + batch.h_address, batch.hmin, batch.n_ode, x0, &run_state, BATCH_FUNCTION(batch));
 			}
 		}
 		
@@ -172,14 +199,27 @@ run_model(Model_Data *data, s64 ms_timeout, bool check_for_nan) {
 			if(ms > ms_timeout)
 				return false;
 		}
+		
+		if(callback) {
+			s64 callback_iter = (run_state.date_time.step*10) / time_steps;
+			if(callback_iter > prev_callback_iter) {
+				s64 ms = run_timer.get_milliseconds();
+				if(ms > 500) {
+					double percent = 100.0 * ((double)run_state.date_time.step) / ((double)time_steps);
+					callback(callback_data, percent);
+					prev_callback_iter = callback_iter;
+				}
+			}
+		}
 	}
 	
-	if(run_state.solver_workspace) free(run_state.solver_workspace); // Ooops, leak if we return early. Put in run state destructor?
+	if(callback)
+		callback(callback_data, 100.0);
 	
 	return true;
 }
 
 bool
-run_model(Model_Application *app, s64 ms_timeout, bool check_for_nan) {
-	return run_model(&app->data, ms_timeout, check_for_nan);
+run_model(Model_Application *app, s64 ms_timeout, bool check_for_nan, run_callback_type callback, void *callback_data) {
+	return run_model(&app->data, ms_timeout, check_for_nan, callback, callback_data);
 }

@@ -1,0 +1,22 @@
+data_set {
+	par_group("System") {
+		par_datetime("Start date")
+		[ 2000-01-01 ]
+
+		par_datetime("End date")
+		[ 2000-12-31 ]
+	}
+	
+	module("A module", version(0, 0, 1)) {
+		par_group("Growing parameters") {
+			par_real("Base growth rate")
+			[ 4 ]
+			
+			par_real("Growth rate temperature dependence")
+			[ 2.1 ]
+		}
+	}
+	
+	# This instructs the model to load series data from the given .csv format. You can also use .xlsx files.
+	series("data.csv")
+}

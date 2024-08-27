@@ -1,0 +1,44 @@
+data_set {
+	series("tarland_series.xlsx")
+	
+	par_group("System") {
+		
+		par_datetime("Start date") 
+		[ 2000-01-01 ]
+		
+		par_datetime("End date") 
+		[ 2005-12-31 ]
+	
+	}
+	
+	module("Soil hydrology", version(0, 0, 1)) {
+		
+		par_group("Soil hydrology") {
+			
+			par_real("Field capacity") 
+			[ 50 ]
+			
+			par_real("Soil water time constant") 
+			[ 2 ]
+			
+			par_real("Groundwater time constant") 
+			[ 20 ]
+			
+			par_real("Baseflow index") 
+			[ 0.7 ]
+			
+			par_real("Degree-day factor for potential evapotranspiration") 
+			[ 0.12 ]
+		
+		}
+		
+		par_group("Groundwater hydrology") {
+		
+			par_real("Groundwater time constant") 
+			[ 20 ]
+			
+		}
+	
+	}
+
+}

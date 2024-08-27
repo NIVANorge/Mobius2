@@ -5,10 +5,11 @@
 #include "emulate.h"
 #include "units.h"
 #include "model_application.h"
+#include "resolve_identifier.h"
 
 void
 Math_Block_FT::set_id() {
-	//TODO: if we ever want to paralellize code generation, we have to make a better system here:
+	//TODO: if we ever want to parallellize code generation, we have to make a better system here:
 	static s32 id_counter = 0;
 	unique_block_id = id_counter++;
 }
@@ -56,10 +57,23 @@ make_literal(bool val_bool) {
 
 Math_Expr_FT *
 make_state_var_identifier(Var_Id state_var) {
+	if(!is_valid(state_var))
+		fatal_error(Mobius_Error::internal, "Tried to make an identifier to an invalid Var_Id.");
 	auto ident = new Identifier_FT();
 	ident->value_type    = Value_Type::real;
-	ident->variable_type = Variable_Type::state_var;
+	ident->variable_type = Variable_Type::series;
+	if(!(state_var.type == Var_Id::Type::state_var || state_var.type == Var_Id::Type::temp_var || state_var.type == Var_Id::Type::series))
+		fatal_error(Mobius_Error::internal, "Tried to make an identifier to something that is not supported.");
 	ident->var_id        = state_var;
+	return ident;
+}
+
+Math_Expr_FT *
+make_parameter_identifier(Mobius_Model *model, Entity_Id par_id) {
+	auto ident = new Identifier_FT();
+	ident->value_type    = get_value_type(model->parameters[par_id]->decl_type);
+	ident->variable_type = Variable_Type::parameter;
+	ident->par_id        = par_id;
 	return ident;
 }
 
@@ -181,6 +195,35 @@ make_safe_divide(Math_Expr_FT *lhs, Math_Expr_FT *rhs) {
 }
 
 Math_Expr_FT *
+make_clamp(Math_Expr_FT *var, Math_Expr_FT *low, Math_Expr_FT *high) {
+	/*
+	Equivalent to
+		v := var,
+		l := low,
+		h := high,
+		l if v < l,
+		h if v > h,
+		v otherwise
+	*/
+	auto block = new Math_Block_FT();
+	block->value_type = var->value_type;
+	auto var_ref = add_local_var(block, var);
+	auto low_ref = add_local_var(block, low);
+	auto high_ref = add_local_var(block, high);
+	auto cond1 = make_binop('<', var_ref, low_ref);
+	auto cond2 = make_binop('>', copy(var_ref), high_ref);
+	auto if_expr = new Math_Expr_FT(Math_Expr_Type::if_chain);
+	if_expr->value_type = var->value_type;
+	if_expr->exprs.push_back(copy(low_ref));
+	if_expr->exprs.push_back(cond1);
+	if_expr->exprs.push_back(copy(high_ref));
+	if_expr->exprs.push_back(cond2);
+	if_expr->exprs.push_back(copy(var_ref));
+	block->exprs.push_back(if_expr);
+	return block;
+}
+
+Math_Expr_FT *
 make_no_op() {
 	auto no_op = new Math_Expr_FT(Math_Expr_Type::no_op);
 	no_op->value_type = Value_Type::none;
@@ -249,7 +292,7 @@ find_tagged_scope(const std::string &iter_tag, Function_Scope *scope) {
 	auto block = scope->block;
 	if(block->iter_tag == iter_tag)
 		return block->unique_block_id;
-	if(scope->function_name.empty()) // Can't refernce iteration scopes through function calls.
+	if(scope->function_name.empty()) // Can't reference iteration scopes through function calls.
 		return find_tagged_scope(iter_tag, scope->parent);
 	return -1;
 }
@@ -320,63 +363,6 @@ fatal_error_trace(Function_Scope *scope) {
 	}
 }
 
-Var_Location
-make_var_location(const std::vector<Entity_Id> &chain) {
-	Var_Location result = {};
-	result.type = Var_Location::Type::located;
-	result.n_components = chain.size();
-	for(int idx = 0; idx < result.n_components; ++idx)
-		result.components[idx] = chain[idx];
-	return result;
-}
-
-Var_Id
-try_to_locate_variable(Var_Location &context, const std::vector<Entity_Id> &chain, std::vector<Token> &tokens, Model_Application *app, Function_Scope *scope) {
-
-	if(chain.size() > max_var_loc_components) {
-		tokens[0].print_error_header();
-		error_print("Too long chain of identifiers.");
-		fatal_error_trace(scope);
-	}
-
-	if(app->model->components[chain[0]]->decl_type == Decl_Type::compartment) {
-		// In this case, assume this is a full location specifier.
-		//TODO test that the chain is valid in the sense of the middle ones being quantities and the last being property or quantity.
-		//also validity of chain size.
-		Var_Location loc = make_var_location(chain);
-		return app->vars.id_of(loc);
-	}
-	// TODO: test validity of the chain in the sense of the first ones being quantities and the last being property or quantity.
-	
-	Var_Id result = invalid_var;
-	if(!is_located(context))
-		return result;
-	
-	// Try out various combinations based on the context.
-	std::vector<Entity_Id> context_chain;
-	for(int idx = 0; idx < context.n_components; ++idx)
-		context_chain.push_back(context.components[idx]); // TODO: maybe try the last one only if it is a quantity..
-	
-	// NOTE: we test the "closest" locations first, then go back. E.g.  temp will match to soil.water.temp in the context of soil.water if soil.water.temp exists, otherwise try soil.temp .
-	while(true) {
-		if(context_chain.size() + chain.size() > max_var_loc_components) {
-			context_chain.pop_back();
-			continue;
-		}
-		std::vector<Entity_Id> try_chain = context_chain;
-		try_chain.insert(try_chain.end(), chain.begin(), chain.end());
-		Var_Location loc = make_var_location(try_chain);
-		result = app->vars.id_of(loc);
-		
-		if(is_valid(result))
-			return result;
-		
-		if(context_chain.empty())
-			return result;
-		context_chain.pop_back();
-	}
-}
-
 void
 set_identifier_location(Function_Resolve_Data *data, Standardized_Unit &unit, Identifier_FT *ident, Var_Id var_id, std::vector<Token> &chain, Function_Scope *scope) {
 	Source_Location sl = chain[0].source_loc;
@@ -394,15 +380,15 @@ set_identifier_location(Function_Resolve_Data *data, Standardized_Unit &unit, Id
 			error_print("The location can not be inferred from the context.");
 		fatal_error_trace(scope);
 	}
-	ident->variable_type = (var_id.type == Var_Id::Type::state_var ? Variable_Type::state_var : Variable_Type::series);
+	ident->variable_type = Variable_Type::series;
 	ident->var_id        = var_id;
 	unit                 = data->app->vars[var_id]->unit.standard_form;
-	ident->value_type = Value_Type::real;
+	ident->value_type    = Value_Type::real;
 }
 
 Math_Expr_FT *
 fixup_potentially_baked_value(Model_Application *app, Math_Expr_FT *expr, std::vector<Entity_Id> *baked_parameters) {
-	if(expr->expr_type != Math_Expr_Type::identifier) return expr;
+	if(!baked_parameters || expr->expr_type != Math_Expr_Type::identifier) return expr;
 	
 	auto ident = static_cast<Identifier_FT *>(expr);
 	if(ident->variable_type != Variable_Type::parameter) return expr; //TODO: Could maybe eventually bake others.
@@ -543,7 +529,7 @@ apply_binop_to_units(Token_Type oper, const std::string &name, Standardized_Unit
 	} else if (op == '^') {
 		bool is_const;
 		auto val = is_constant_rational(rhs, scope, &is_const);
-		if(b.is_fully_dimensionless() && a.is_dimensionless()) {
+		if(b.is_fully_dimensionless() && a.is_fully_dimensionless()) {
 			// Do nothing, the unit should remain dimensionless.
 		} else if(is_const) {
 			bool success = pow(a, result, Rational<s16>((s16)val.nom, (s16)val.denom));  //TODO: Ooops, this could cause truncation!
@@ -562,6 +548,8 @@ apply_binop_to_units(Token_Type oper, const std::string &name, Standardized_Unit
 
 void
 check_if_expr_units(Standardized_Unit &result, std::vector<Standardized_Unit> &units, std::vector<Math_Expr_FT *> &exprs, Function_Scope *scope) {
+	// Check the units of an 'if' expression.
+	
 	// Check conditions:
 	for(int idx = 1; idx < units.size(); idx+=2)
 		check_boolean_dimensionless(units[idx], exprs[idx]->source_loc, scope);
@@ -585,6 +573,17 @@ check_if_expr_units(Standardized_Unit &result, std::vector<Standardized_Unit> &u
 	}
 }
 
+void
+arguments_must_be_values(Math_Expr_FT *expr, Function_Scope *scope) {
+	for(auto arg : expr->exprs) {
+		if(!is_value(arg->value_type)) {
+			arg->source_loc.print_error_header();
+			error_print("This expression argument must resolve to a value.");
+			fatal_error_trace(scope);
+		}
+	}
+}
+
 enum class Directive {
 	none = 0,
 	#define ENUM_VALUE(name) name,
@@ -593,19 +592,20 @@ enum class Directive {
 };
 
 Directive
-get_special_directive(const std::string &name) {
+get_special_directive(String_View name) {
 	Directive result = Directive::none;
 	if(false) {}
-	#define ENUM_VALUE(h) else if(#h == name) result = Directive::h;
+	#define ENUM_VALUE(h) else if(name == #h) result = Directive::h;
 	#include "special_directives.incl"
 	#undef ENUM_VALUE
 	
 	return result;
 }
 
-Function_Resolve_Result
-resolve_special_directive(Math_Expr_AST *ast, Directive directive, const std::string &fun_name, Function_Resolve_Data *data, Function_Scope *scope) {
-	Function_Resolve_Result result;
+void
+resolve_special_directive(Function_Call_AST *ast, Directive directive, Function_Resolve_Data *data, Function_Scope *scope, Function_Resolve_Result &result) {
+	
+	auto fun_name = ast->name.string_value;
 	
 	if(data->simplified) {
 		ast->source_loc.print_error_header();
@@ -613,10 +613,12 @@ resolve_special_directive(Math_Expr_AST *ast, Directive directive, const std::st
 		fatal_error_trace(scope);
 	}
 	auto new_fun = new Function_Call_FT(); // Hmm it is a bit annoying to have to do this only to delete it again.
+	new_fun->source_loc = ast->source_loc;
+	
 	std::vector<Standardized_Unit> arg_units;
 	resolve_arguments(new_fun, ast, data, scope, arg_units);
 	int allowed_arg_count = 1;
-	if(directive == Directive::in_flux)
+	if(directive == Directive::in_flux || directive == Directive::out_flux)
 		allowed_arg_count = 2;
 	int arg_count = new_fun->exprs.size();
 	if(arg_count == 0 || arg_count > allowed_arg_count) {
@@ -631,11 +633,12 @@ resolve_special_directive(Math_Expr_AST *ast, Directive directive, const std::st
 		fatal_error_trace(scope);
 	}
 	auto ident = static_cast<Identifier_FT *>(new_fun->exprs[var_idx]);
-	bool can_series = (directive != Directive::in_flux) && (directive != Directive::conc);
-	bool can_param  = false;
-	if(!(ident->variable_type == Variable_Type::state_var || (can_series && ident->variable_type == Variable_Type::series) || (can_param && ident->variable_type == Variable_Type::parameter))) {
+	bool can_series = (directive != Directive::in_flux) && (directive != Directive::out_flux) && (directive != Directive::conc);
+	bool can_param  = (directive == Directive::aggregate);
+	
+	if(!(ident->is_computed_series() || (can_series && ident->is_input_series()) || (can_param && ident->variable_type == Variable_Type::parameter))) {
 		ident->source_loc.print_error_header();
-		error_print("A ", fun_name, "() declaration can only be applied to a state variable");
+		error_print("A '", fun_name, "' declaration can only be applied to a state variable");
 		if(can_series) error_print(" or input series");
 		if(can_param)  error_print(" or parameter");
 		error_print(".\n");
@@ -645,6 +648,8 @@ resolve_special_directive(Math_Expr_AST *ast, Directive directive, const std::st
 		ident->set_flag(Identifier_FT::last_result);
 	else if(directive == Directive::in_flux)
 		ident->set_flag(Identifier_FT::in_flux);
+	else if(directive == Directive::out_flux)
+		ident->set_flag(Identifier_FT::out_flux);
 	else if(directive == Directive::aggregate)
 		ident->set_flag(Identifier_FT::aggregate);
 	else if(directive == Directive::result)
@@ -653,16 +658,31 @@ resolve_special_directive(Math_Expr_AST *ast, Directive directive, const std::st
 		//Do nothing, we can solve it directly.
 	}
 	
+	if (directive == Directive::last) {
+		if (!data->allow_last) {
+			new_fun->source_loc.print_error_header();
+			error_print("A 'last' is not allowed in this context.");
+			fatal_error_trace(scope);
+		}
+		if (ident->var_id.type == Var_Id::Type::temp_var) {
+			// TODO: We should check the var declaration, not the variable type, because otherwise the rule is not enforced if @no_store is overridden.
+			new_fun->source_loc.print_error_header();
+			error_print("Can't apply 'last' to this variable since it is @no_store.");
+			fatal_error_trace(scope);
+		}
+	}
+	
 	if(directive == Directive::result && !data->allow_result) {
 		new_fun->source_loc.print_error_header();
 		error_print("A 'result' is now allowed in this context.");
+		fatal_error_trace(scope);
 	}
 	
-	if(directive == Directive::in_flux) {
+	if(directive == Directive::in_flux || directive == Directive::out_flux) {
 		
 		if(!data->allow_in_flux) {
 			new_fun->source_loc.print_error_header();
-			error_print("An 'in_flux' is not allowed in this context.");
+			error_print("An 'in_flux' or 'out_flux' is not allowed in this context.");
 			fatal_error_trace(scope);
 		}
 		
@@ -689,7 +709,7 @@ resolve_special_directive(Math_Expr_AST *ast, Directive directive, const std::st
 	delete new_fun;
 	
 	result.fun = ident;
-	if(directive == Directive::in_flux) {
+	if(directive == Directive::in_flux || directive == Directive::out_flux) {
 		result.unit = multiply(arg_units[var_idx], data->app->time_step_unit.standard_form, -1);
 	} else if(directive == Directive::conc) {
 		auto var = as<State_Var::Type::declared>(data->app->vars[ident->var_id]);
@@ -700,77 +720,149 @@ resolve_special_directive(Math_Expr_AST *ast, Directive directive, const std::st
 			fatal_error_trace(scope);
 		}
 		ident->var_id = conc_id;
+		//if(conc_id.type == Var_Id::Type::series)  // Annoying that this is not automatic..
+		//	ident->variable_type = Variable_Type::series;
 		result.unit = data->app->vars[conc_id]->unit.standard_form;
 	} else
 		result.unit = std::move(arg_units[var_idx]);
-	
-	return result;
 }
 
 void
-maybe_add_bracketed_location(Model_Application *app, Function_Resolve_Result &result, Function_Resolve_Data *data, Function_Scope *scope, std::vector<Token> &chain) {
-	bool success = true;
-	Identifier_FT *ident = nullptr;
-	if(result.fun->expr_type != Math_Expr_Type::identifier)
-		success = false;
-	else {
-		ident = static_cast<Identifier_FT *>(result.fun);
-		if(ident->variable_type != Variable_Type::state_var && ident->variable_type != Variable_Type::series && ident->variable_type != Variable_Type::parameter)
-			success = false;
-	}
-	if(!success) {
-		chain[0].source_loc.print_error_header();
-		error_print("A bracketed qualifier is not supported for this type of variable.");
+resolve_function_call(Function_Call_AST *fun, Function_Resolve_Data *data, Function_Scope *scope, Function_Resolve_Result &result) {
+	
+	auto model = data->app->model;
+	auto fun_name = fun->name.string_value;
+	
+	auto reg = (*data->scope)[fun_name];
+	if(!reg || reg->id.reg_type != Reg_Type::function) {
+		fun->name.print_error_header();
+		error_print("The identifier '", fun_name, "' does not refer to a function.\n");
 		fatal_error_trace(scope);
 	}
-	Entity_Id conn_id = invalid_entity_id;
-	bool is_above = false;
-	int idx = 0;
-	if(chain.size() == 1) {   // TODO: It would maybe be cleaner just to remove the shorthand.
-		conn_id = data->connection;
-		if(!is_valid(conn_id)) {
-			chain[0].source_loc.print_error_header();
-			error_print("This expresion not resolved in the context of a connection, so a connection must be provided explicitly in the bracket.");
-			fatal_error_trace(scope);
-		}
-	} else if (chain.size() == 2) {
-		idx = 1;
-		std::string n = chain[0].string_value;
-		auto reg = (*data->scope)[n];
-		if(!reg || reg->id.reg_type != Reg_Type::connection) {
-			chain[0].source_loc.print_error_header();
-			error_print("The identifier '", n, "' does not refer to a connection.");
-			fatal_error_trace(scope);
-		}
-		conn_id = reg->id;
-	} else {
-		chain[0].source_loc.print_error_header();
-		error_print("Expected at most two tokens in the chain inside the bracket.");
+	auto fun_decl = model->functions[reg->id];
+	auto fun_type = fun_decl->fun_type;
+	
+	//TODO: should be replaced with check in resolve_arguments
+	if(fun->exprs.size() != fun_decl->args.size()) {
+		fun->name.print_error_header();
+		error_print("Wrong number of arguments to function '", fun_name, "'. Expected ", fun_decl->args.size(), ", got ", fun->exprs.size(), ".\n");
 		fatal_error_trace(scope);
 	}
-	ident->restriction.connection_id = conn_id;
 	
-	// TODO: Factor this out and reuse in model_declaration (although there we only allow top and bottom).
-	auto type = chain[idx].string_value;
-	if(type == "above")
-		ident->restriction.restriction = Var_Loc_Restriction::above;
-	else if (type == "below")
-		ident->restriction.restriction = Var_Loc_Restriction::below;
-	else if (type == "top")
-		ident->restriction.restriction = Var_Loc_Restriction::top;
-	else if (type == "bottom")
-		ident->restriction.restriction = Var_Loc_Restriction::bottom;
-	
-	ident->restriction.source_comp = data->source_compartment;
-	ident->restriction.target_comp = data->target_compartment;
+	if(fun_type == Function_Type::intrinsic) {
+		// Represents a function that is directly implemented in llvm, either as an llvm intrinsic or cstdlib.
+		auto new_fun = new Function_Call_FT();
+		
+		std::vector<Standardized_Unit> arg_units;
+		resolve_arguments(new_fun, fun, data, scope, arg_units);
+		
+		arguments_must_be_values(new_fun, scope);
+		
+		new_fun->fun_type = fun_type;
+		new_fun->fun_name = fun_name;
+		fixup_intrinsic(new_fun, &fun->name);
+		
+		result.fun = new_fun;
+		if(arg_units.size() == 1) {
+			set_intrinsic_unit(result.unit, arg_units[0], fun_name, fun->source_loc, scope);
+		} else if (arg_units.size() == 2) {
+			if(fun_name == "min" || fun_name == "max") {
+				// NOTE: The min and max functions behave like '+' when it comes to units
+				apply_binop_to_units((Token_Type)'+', fun_name, result.unit, arg_units[0], arg_units[1], fun->source_loc, scope, new_fun->exprs[0], new_fun->exprs[1]);
+			} else if(fun_name == "copysign") {
+				result.unit = arg_units[0];
+			} else
+				fatal_error(Mobius_Error::internal, "Unimplemented unit checking for intrinsic ", fun_name, ".");
+		} else
+			fatal_error(Mobius_Error::internal, "Unhandled number of arguments to intrinsic when unit checking");
+	} else if(fun_type == Function_Type::linked) {
+		// A function that is implemented in C++ and linked into the code.
+		
+		auto new_fun = new Function_Call_FT();
+		std::vector<Standardized_Unit> arg_units;
+		resolve_arguments(new_fun, fun, data, scope, arg_units);
+		
+		new_fun->fun_type = fun_type;
+		new_fun->fun_name = fun_name;
+		// TODO: If we make anything else of this than just the "_test_fun_" function, the types and units must be provided in the declaration.
+		new_fun->value_type = Value_Type::real;
+		result.fun = new_fun;
+		// result.unit remains dimensionless.
+	} else if(fun_type == Function_Type::decl) {
+		// A function that is implemented and compiled in the Mobius2 language.
+		
+		if(is_inside_function(scope, fun_name)) {
+			fun->name.print_error_header();
+			error_print("The function \"", fun_name, "\" calls itself either directly or indirectly. This is not allowed.\n");
+			fatal_error_trace(scope);
+		}
+		// Inline in the function call as a new block with the arguments as local vars.
+		auto inlined_fun = new Math_Block_FT();
+		inlined_fun->source_loc = fun->source_loc; //NOTE: do this to get correct diagnostics in fatal_error_trace()
+		
+		std::vector<Standardized_Unit> arg_units;
+		resolve_arguments(inlined_fun, fun, data, scope, arg_units);
+		
+		arguments_must_be_values(inlined_fun, scope);
+		
+		inlined_fun->n_locals = inlined_fun->exprs.size();
+		
+		Function_Scope new_scope;
+		new_scope.parent = scope;
+		new_scope.block = inlined_fun;
+		new_scope.function_name = fun_name;
+		
+		for(int argidx = 0; argidx < inlined_fun->exprs.size(); ++argidx) {
+			auto arg = inlined_fun->exprs[argidx];
+			
+			if(!is_value(arg->value_type)) {
+				arg->source_loc.print_error_header();
+				error_print("The arguments to a function must resolve to a value.");
+				fatal_error_trace(scope);
+			}
+			
+			auto inlined_arg = new Local_Var_FT();
+			inlined_arg->exprs.push_back(arg);
+			inlined_arg->name = fun_decl->args[argidx];
+			inlined_arg->value_type = arg->value_type;
+			inlined_fun->exprs[argidx] = inlined_arg;
+			inlined_arg->id = argidx;
+			new_scope.local_var_units[argidx] = arg_units[argidx];
+			
+		
+			auto &argg = inlined_arg->exprs[0];
+			auto loc = inlined_arg->exprs[0]->source_loc;
+			if(is_valid(fun_decl->expected_units[argidx])) {
+				auto &expect_unit = model->units[fun_decl->expected_units[argidx]]->data.standard_form;
+				if(is_constant_zero(argg, scope)) continue;  // Constant 0 match against any unit
+				if(!match_exact(&expect_unit, &arg_units[argidx])) {
+					loc.print_error_header();
+					error_print("The function declaration requires a unit (which on standard form is) ", expect_unit.to_utf8(), " for argument ", argidx, ", but we got ", arg_units[argidx].to_utf8(), ". See declaration of function here:\n");
+					fun_decl->source_loc.print_error();
+					fatal_error_trace(scope);
+				}
+			}
+		}
+		
+		Function_Resolve_Data sub_data = *data;
+		sub_data.scope = model->get_scope(fun_decl->scope_id);  // Resolve the function body in the scope it was declared in.
+		
+		auto res = resolve_function_tree(fun_decl->code, &sub_data, &new_scope);
+		inlined_fun->exprs.push_back(res.fun);
+		inlined_fun->value_type = inlined_fun->exprs.back()->value_type; // The value type is whatever the body of the function resolves to given these arguments.
+		
+		result.fun = inlined_fun;
+		result.unit = std::move(res.unit);
+	} else
+		fatal_error(Mobius_Error::internal, "Unhandled function type.");
 }
+
 
 void
 resolve_identifier(Identifier_Chain_AST *ident, Function_Resolve_Data *data, Function_Scope *scope, Function_Resolve_Result &result) {
 	
 	auto app = data->app;
 	auto model = app->model;
-	Decl_Scope &decl_scope = *data->scope;
 	
 	auto new_ident = new Identifier_FT();
 	result.fun = new_ident;
@@ -778,241 +870,194 @@ resolve_identifier(Identifier_Chain_AST *ident, Function_Resolve_Data *data, Fun
 	int chain_size = ident->chain.size();
 	
 	bool isfun = is_inside_function(scope);
-	bool found = false;
 	
 	std::string n1 = ident->chain[0].string_value;
 	
-	if(chain_size == 1) {
-		if(n1 == "no_override") {
-			if(!data->allow_no_override || isfun || data->simplified) {
-				ident->source_loc.print_error_header();
-				error_print("A 'no_override' does not make sense in this context.");
-				fatal_error_trace(scope);
-			}
-			new_ident->variable_type = Variable_Type::no_override;		
-			new_ident->value_type = Value_Type::real;
-			found = true;
-			result.unit = data->expected_unit;
-		} else
-			found = find_local_variable(new_ident, result.unit, n1, scope);
-	}
-	
-	auto reg = decl_scope[n1];
-	if(!found && chain_size == 1 && reg && reg->id.reg_type == Reg_Type::constant) {
-		delete new_ident; // A little stupid to do it that way, but oh well.
-		auto const_decl = model->constants[reg->id];
-		result.fun  = make_literal(const_decl->value);
-		result.unit = model->units[const_decl->unit]->data.standard_form;
-		found = true;
-	}
-	
-	if(!found && data->simplified) {
+	if(data->simplified) {
+		// For when we use this to only compute simple formulas of given symbols.
 		if(chain_size != 1) {
 			ident->chain[0].print_error_header();
 			fatal_error("Unable to resolve expressions with .'s in this context.");
 		}
+		bool found = false;
 		for(int idx = 0; idx < data->simplified_syms.size(); ++idx) {
 			if(data->simplified_syms[idx] == n1) {
 				found = true;
 				new_ident->exprs.push_back(make_literal((s64)idx));
 				new_ident->value_type = Value_Type::real;
-				new_ident->variable_type = Variable_Type::parameter;
+				new_ident->variable_type = Variable_Type::parameter; // Could maybe have a separate variable type for this.
 				break;
 			}
 		}
+		// TODO: Should we allow accessing global constants in this case?
 		if(!found) {
 			ident->chain[0].print_error_header();
 			fatal_error("Unable to resolve symbol '", n1, "'.");
 		}
+		return;
 	}
 	
-	if(isfun && !found) {
+	if(chain_size == 1) {
+		bool found = find_local_variable(new_ident, result.unit, n1, scope);
+		if(found) return;
+	}
+	
+	bool error = false;
+	Location_Resolve resolve;
+	resolve_full_location(model, resolve, ident->chain, ident->bracketed_chain, {}, data->scope, &error, data->connection);
+	if(error) fatal_error_trace(scope);
+	
+	new_ident->restriction   = resolve.restriction;
+	new_ident->variable_type = resolve.type;
+	
+	if (resolve.type == Variable_Type::constant) {
+		delete new_ident; // A bit of a stupid way to do it, but then we don't have to construct it separately in all the other instances.
+		auto const_decl = model->constants[resolve.val_id];
+		if(const_decl->value_type == Value_Type::real)
+			result.fun  = make_literal(const_decl->value.val_real);
+		else if(const_decl->value_type == Value_Type::boolean)
+			result.fun  = make_literal((bool)const_decl->value.val_boolean);
+		else
+			fatal_error(Mobius_Error::internal, "Unimplemented value type for constant.");
+		if(is_valid(const_decl->unit))
+			result.unit = model->units[const_decl->unit]->data.standard_form;
+		return;
+	}
+	
+	if(isfun) {
 		ident->chain[0].print_error_header();
 		error_print("The name '", n1, "' is not the name of a function argument or a local variable. Note that parameters and state variables can not be accessed inside functions directly, but have to be passed as arguments.\n");
 		fatal_error_trace(scope);
 	}
 	
-	if(!found) {
-		if(chain_size == 1) {
-			if(!reg) {
-				ident->chain[0].print_error_header();
-				error_print("The name '", n1, "' is not the name of a local variable or entity declared or loaded in this scope.\n");
+	if (resolve.type == Variable_Type::no_override) {
+		
+		if(!data->allow_no_override || isfun || data->simplified) {
+			ident->source_loc.print_error_header();
+			error_print("A 'no_override' is not allowed in this context.");
+			fatal_error_trace(scope);
+		}
+		new_ident->value_type = Value_Type::real;
+		result.unit = data->expected_unit;
+		return;
+		
+	} else if (resolve.type == Variable_Type::is_at) {
+		
+		new_ident->variable_type = Variable_Type::is_at;
+		new_ident->value_type = Value_Type::boolean;
+		return;
+		
+	} else if (resolve.type == Variable_Type::parameter) {
+		
+		auto par = model->parameters[resolve.val_id];
+				
+		if(par->decl_type == Decl_Type::par_enum) {
+			
+			if(ident->chain.size() != 2) {
+				ident->source_loc.print_error_header();
+				error_print("Enum parameters must be referenced as par.value .");
+			}
+			auto n2 = ident->chain[1].string_value;
+			s64 val = par->enum_int_value(n2);
+			if(val < 0) {
+				ident->chain[1].print_error_header();
+				error_print("The name \"", n2, "\" was not registered as a possible value for the parameter \"", n1, "\".\n");
 				fatal_error_trace(scope);
 			}
-			Entity_Id id = reg->id;
+			new_ident->variable_type = Variable_Type::parameter;
+			new_ident->par_id = resolve.val_id;
+			new_ident->value_type = Value_Type::integer;
+			auto ft = fixup_potentially_baked_value(app, new_ident, data->baked_parameters);
+			result.fun = make_binop('=', ft, make_literal(val));
 			
-			if(id.reg_type == Reg_Type::parameter) {
-				
-				auto par = model->parameters[id];
-				
-				if(par->decl_type == Decl_Type::par_enum) {
-					ident->chain[0].print_error_header();
-					error_print("Enum parameters should be referenced directly. Instead use the syntax name.value.\n");
-					fatal_error_trace(scope);
-				} else if (par->decl_type == Decl_Type::par_datetime) {
-					ident->chain[0].print_error_header();
-					error_print("It is currently not supported to look up the value of date time parameters inside equations.\n");
-					fatal_error_trace(scope);
-				}
-				new_ident->variable_type = Variable_Type::parameter;
-				new_ident->par_id = id;
-				new_ident->value_type = get_value_type(par->decl_type);
-				if(is_valid(par->unit)) // For e.g. boolean it will not have a unit, which means dimensionless, but that is the default of the result, so we don't need to set it.
-					result.unit = model->units[par->unit]->data.standard_form;
-			} else if (id.reg_type == Reg_Type::component) {
-				if(!is_located(data->in_loc)) {
-					ident->chain[0].print_error_header();
-					error_print("The name \"", n1, "\" can not properly be resolved since the location can not be inferred from the context.\n");
-					fatal_error_trace(scope);
-				}
-				Var_Id var_id = try_to_locate_variable(data->in_loc, { id }, ident->chain, app, scope);
-				set_identifier_location(data, result.unit, new_ident, var_id, ident->chain, scope);
-			} else if (id.reg_type == Reg_Type::connection) {
-				new_ident->variable_type = Variable_Type::connection;
-				new_ident->value_type = Value_Type::none;
-				new_ident->other_connection = id;
-			} else if (id.reg_type == Reg_Type::loc) {
-				// TODO: Will this break if the loc is a connection without a specific location? (In that case it should not be valid to reference it here).
-				auto loc = model->locs[id];
-				if(is_valid(loc->par_id)) {
-					auto par = model->parameters[loc->par_id];
-					new_ident->variable_type = Variable_Type::parameter;
-					new_ident->par_id = loc->par_id;
-					new_ident->value_type = get_value_type(par->decl_type);
-					if(is_valid(par->unit))
-						result.unit = model->units[par->unit]->data.standard_form;
-				} else {
-					Var_Id var_id = app->vars.id_of(loc->loc);
-					set_identifier_location(data, result.unit, new_ident, var_id, ident->chain, scope);
-				}
-				new_ident->restriction = loc->loc;
-			} else {
-				ident->chain[0].print_error_header();
-				error_print("The name \"", n1, "\" is not the name of a parameter or local variable.\n");
-				fatal_error_trace(scope);
-			}
-		} else if(chain_size >= 2) {
-			// This is either a time.xyz, a compartment.quantity_or_property, or an enum_par.enum_value
-			std::string n2 = ident->chain[1].string_value;
+		} else if (par->decl_type == Decl_Type::par_datetime) {
+			ident->source_loc.print_error_header();
+			error_print("It is currently not supported to reference datetime parameters.\n");
+			fatal_error_trace(scope);
+		} else {
+			new_ident->variable_type = Variable_Type::parameter;
+			new_ident->par_id = resolve.val_id;
+			new_ident->value_type = get_value_type(par->decl_type);
+			if(is_valid(par->unit)) // For e.g. boolean it will not have a unit, which means dimensionless, but that is the default of the result, so we don't need to set it.
+				result.unit = model->units[par->unit]->data.standard_form;
 			
-			bool resolved = false;
-			if(chain_size == 2) {
-				if(n1 == "time") {
-					new_ident->value_type = Value_Type::integer;
-					if(false){}
-					#define TIME_VALUE(name, bits) \
-					else if(n2 == #name) new_ident->variable_type = Variable_Type::time_##name;
-					#include "time_values.incl"
-					#undef TIME_VALUE
-					else if(n2 == "fractional_step") {
-						new_ident->value_type = Value_Type::real;
-						new_ident->variable_type = Variable_Type::time_fractional_step;
-					} else {
-						ident->chain[1].print_error_header();
-						error_print("The time structure does not have a member \"", n2, "\".\n");
-						fatal_error_trace(scope);
-					}
-					resolved = true;
-					set_time_unit(result.unit, app, new_ident->variable_type);
-					
-					if(new_ident->variable_type == Variable_Type::time_step_length_in_seconds && app->time_step_size.unit == Time_Step_Size::second) {
-						// If the step size is measured in seconds, it is constant.
-						auto new_literal = new Literal_FT();
-						new_literal->value_type = new_ident->value_type;
-						new_literal->value.val_integer = app->time_step_size.multiplier;
-						result.fun = new_literal;
-						delete new_ident;
-					}
-				} else {
-					auto reg = decl_scope[n1];
-					if(!reg) {
-						ident->chain[0].print_error_header();
-						error_print("The name '", n1, "' is not the name of an entity declared or loaded in this scope.\n");
-						fatal_error_trace(scope);
-					}
-					if(reg->id.reg_type == Reg_Type::parameter) {
-						auto parameter = model->parameters[reg->id];
-						
-						if(parameter->decl_type != Decl_Type::par_enum) {
-							ident->chain[0].print_error_header();
-							error_print("The syntax name.value is only available for enum parameters. The parameter \"", n1, "\" is of type ", name(parameter->decl_type), ".\n");
-							fatal_error_trace(scope);
-						}
-						s64 val = enum_int_value(parameter, n2);
-						if(val < 0) {
-							ident->chain[1].print_error_header();
-							error_print("The name \"", n2, "\" was not registered as a possible value for the parameter \"", n1, "\".\n");
-							fatal_error_trace(scope);
-						}
-						new_ident->variable_type = Variable_Type::parameter;
-						new_ident->par_id = reg->id;
-						new_ident->value_type = Value_Type::integer;
-						auto ft = fixup_potentially_baked_value(app, new_ident, data->baked_parameters);
-						result.fun = make_binop('=', ft, make_literal(val));
-						resolved = true;
-						// NOTE: In this case we don't set a unit, so it is dimensionless (which is what makes sense for truth values).
-					}
-				}
-			}
-			if(!resolved) {
-				std::vector<Entity_Id> chain;
-				for(int idx = 0; idx < chain_size; ++idx) {
-					std::string str = ident->chain[idx].string_value;
-					auto reg = decl_scope[str];
-					if(!reg) {
-						ident->chain[idx].print_error_header();
-						error_print("The handle '", str, "' is not declared or loaded in this scope.");
-						fatal_error_trace(scope);
-					}
-					if(reg->id.reg_type != Reg_Type::component) {
-						ident->chain[idx].print_error_header();
-						error_print("The handle '", str, "' does not refer to a variable location component (compartment, quantity or property)");
-						fatal_error_trace(scope);
-					}
-					chain.push_back(reg->id);
-				}
-				Var_Id var_id = try_to_locate_variable(data->in_loc, chain, ident->chain, app, scope);
-				set_identifier_location(data, result.unit, new_ident, var_id, ident->chain, scope);
-			}
+			// TODO: If we do fixups for other values than parameters we have to remember to call it separately for those.
+			result.fun = fixup_potentially_baked_value(app, new_ident, data->baked_parameters);
 		}
+		
+		return;
+		
+	} else if (resolve.type == Variable_Type::connection) {
+		
+		new_ident->value_type = Value_Type::none;
+		new_ident->other_connection = resolve.val_id;
+		return;
+		
+	} else if (n1 == "time") {
+		
+		new_ident->value_type = Value_Type::integer;
+		if(resolve.type == Variable_Type::time_fractional_step)
+			new_ident->value_type = Value_Type::real;
+			
+		set_time_unit(result.unit, app, new_ident->variable_type);
+		
+		if(new_ident->variable_type == Variable_Type::time_step_length_in_seconds && app->time_step_size.unit == Time_Step_Size::second) {
+			// If the step size unit is 'second', the step size is constant and can be inlined as a literal (if it is measured in months is is not).
+			auto new_literal = new Literal_FT();
+			new_literal->value_type = new_ident->value_type;
+			new_literal->value.val_integer = app->time_step_size.multiplier;
+			result.fun = new_literal;
+			delete new_ident;
+		}
+		return;
+		
 	}
 	
-	if(!data->simplified) {
-		if(!ident->bracketed_chain.empty())
-			maybe_add_bracketed_location(app, result, data, scope, ident->bracketed_chain);
-		result.fun = fixup_potentially_baked_value(app, result.fun, data->baked_parameters);
-	} else {
-		if(!ident->bracketed_chain.empty()) {
-			ident->source_loc.print_error_header();
-			error_print("Bracketed declarations are not supported in this context.");
-			fatal_error_trace(scope);
-		}
+	if(resolve.type != Variable_Type::series)
+		fatal_error(Mobius_Error::internal, "Unhandled variable type in resolution of identifier in function scope.");
+	
+	if(!is_located(resolve.loc)) {
+		ident->source_loc.print_error_header();
+		error_print("You can't reference 'out' as a value.");
+		fatal_error_trace(scope);
 	}
 	
-	if(data->restrictive_lookups && result.fun->expr_type == Math_Expr_Type::identifier) {
-		auto new_ident = static_cast<Identifier_FT *>(result.fun);
-		if(new_ident->variable_type != Variable_Type::local && new_ident->variable_type != Variable_Type::parameter) {
-			ident->source_loc.print_error_header();
-			error_print("Only parameters and constants can be referenced in this context, not dynamic variables.");
-			fatal_error_trace(scope);
+	Var_Id var_id = invalid_var;
+	// If it looks well-formed (begins with a compartment), try it directly.
+	if(model->components[resolve.loc.components[0]]->decl_type == Decl_Type::compartment) {
+		var_id = app->vars.id_of(resolve.loc);
+	}
+	
+	// Otherwise, try to locate it relatively to the context (if the context is set).
+	if(!is_valid(var_id) && (data->in_loc.type == Var_Location::Type::located)) {
+		Var_Location try_loc = data->in_loc;
+		int insert_pos = try_loc.n_components;
+		for(; insert_pos >= 0; --insert_pos) {
+			int try_size = insert_pos + resolve.loc.n_components;
+			if(try_size > max_var_loc_components)
+				continue;
+			
+			for(int idx = 0; idx < resolve.loc.n_components; ++idx)
+				try_loc.components[idx + insert_pos] = resolve.loc.components[idx];
+			try_loc.n_components = try_size;
+			
+			var_id = app->vars.id_of(try_loc);
+			if(is_valid(var_id))
+				break;
 		}
 	}
+	set_identifier_location(data, result.unit, new_ident, var_id, ident->chain, scope);
 }
-
-void
-arguments_must_be_values(Math_Expr_FT *expr, Function_Scope *scope) {
-	for(auto arg : expr->exprs) {
-		if(!is_value(arg->value_type)) {
-			arg->source_loc.print_error_header();
-			error_print("This expression argument must resolve to a value.");
-			fatal_error_trace(scope);
-		}
-	}
-}
-
 
 Function_Resolve_Result
 resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_Scope *scope) {
+	
+	// This takes a math expression AST and turns it into a more convenient internal representation (called function tree). It also
+	//   - Resolves all identifiers and ties them to specific model Entity_Ids or Var_Ids (or local variable declarations).
+	//   - Does type checking / resolution.
+	//   - Does unit checking / resolution and implements unit conversions.
+	//   - Inlines function calls if applicable.
+	
 	Function_Resolve_Result result = { nullptr, {}};
 	
 	Decl_Scope &decl_scope = *data->scope;
@@ -1036,7 +1081,7 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 			std::vector<Standardized_Unit> arg_units;
 			resolve_arguments(new_block, ast, data, &new_scope, arg_units);
 			
-			// the value of a block is the value of the last expression in the block.
+			// The value of a block is the value of the last expression in the block.
 			Math_Expr_FT *last = new_block->exprs.back();
 			if(last->value_type == Value_Type::none) {
 				last->source_loc.print_error_header();
@@ -1045,8 +1090,19 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 			}
 			new_block->value_type = last->value_type;
 			
+			if(data->value_last_only) {
+				for(int idx = 0; idx < (int)new_block->exprs.size()-1; ++idx) {
+					auto expr = new_block->exprs[idx];
+					if(expr->value_type != Value_Type::none) {
+						expr->source_loc.print_error_header();
+						error_print("This statement is not the last in its block, but it still resolves to a value. This is meaningless since that value would be discarded.");
+						fatal_error_trace(scope);
+					}
+				}
+			}
+			
 			// TODO: Better message. This also applies if the 'iterate' value type passes up through several blocks.
-			for(int idx = 0; idx < new_block->exprs.size()-1; ++idx) {
+			for(int idx = 0; idx < (int)new_block->exprs.size()-1; ++idx) {
 				if(new_block->exprs[idx]->value_type == Value_Type::iterate) {
 					new_block->exprs[idx]->source_loc.print_error_header();
 					error_print("An 'iterate' expression must be the last in a block.");
@@ -1061,6 +1117,15 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 			auto ident = static_cast<Identifier_Chain_AST *>(ast);
 			
 			resolve_identifier(ident, data, scope, result);
+			
+			if(data->restrictive_lookups && result.fun->expr_type == Math_Expr_Type::identifier) {
+				auto new_ident = static_cast<Identifier_FT *>(result.fun);
+				if(new_ident->variable_type != Variable_Type::local && new_ident->variable_type != Variable_Type::parameter) {
+					ident->source_loc.print_error_header();
+					error_print("Only parameters and constants can be referenced in this context, not dynamic variables.");
+					fatal_error_trace(scope);
+				}
+			}
 		} break;
 		
 		case Math_Expr_Type::literal : {
@@ -1077,133 +1142,13 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 		case Math_Expr_Type::function_call : {
 			auto fun = static_cast<Function_Call_AST *>(ast);
 			
-			std::string fun_name = fun->name.string_value;
+			// First check for "special" calls that are not really function calls, like last(), in_flux(), etc.
+			auto directive = get_special_directive(fun->name.string_value);
+			if(directive != Directive::none)
+				resolve_special_directive(fun, directive, data, scope, result);
+			else
+				resolve_function_call(fun, data, scope, result);
 			
-			// First check for "special" calls that are not really function calls.
-			auto directive = get_special_directive(fun_name);
-			if(directive != Directive::none) {
-				result = resolve_special_directive(ast, directive, fun_name, data, scope);
-			} else {
-				// Otherwise it should have been registered as an entity.
-
-				auto reg = decl_scope[fun_name];
-				if(!reg || reg->id.reg_type != Reg_Type::function) {
-					fun->name.print_error_header();
-					error_print("The name \"", fun_name, "\" has not been declared as a function.\n");
-					fatal_error_trace(scope);
-				}
-				auto fun_decl = model->functions[reg->id];
-				auto fun_type = fun_decl->fun_type;
-				
-				//TODO: should be replaced with check in resolve_arguments
-				if(fun->exprs.size() != fun_decl->args.size()) {
-					fun->name.print_error_header();
-					error_print("Wrong number of arguments to function \"", fun_name, "\". Expected ", fun_decl->args.size(), ", got ", fun->exprs.size(), ".\n");
-					fatal_error_trace(scope);
-				}
-				
-				if(fun_type == Function_Type::intrinsic) {
-					auto new_fun = new Function_Call_FT();
-					
-					std::vector<Standardized_Unit> arg_units;
-					resolve_arguments(new_fun, ast, data, scope, arg_units);
-					
-					arguments_must_be_values(new_fun, scope);
-					
-					new_fun->fun_type = fun_type;
-					new_fun->fun_name = fun_name;
-					fixup_intrinsic(new_fun, &fun->name);
-					
-					result.fun = new_fun;
-					if(arg_units.size() == 1) {
-						set_intrinsic_unit(result.unit, arg_units[0], fun_name, fun->source_loc, scope);
-					} else if (arg_units.size() == 2) {
-						if(fun_name == "min" || fun_name == "max") {
-							// NOTE: The min and max functions behave like '+' when it comes to units
-							apply_binop_to_units((Token_Type)'+', fun_name, result.unit, arg_units[0], arg_units[1], fun->source_loc, scope, new_fun->exprs[0], new_fun->exprs[1]);
-						} else if(fun_name == "copysign") {
-							result.unit = arg_units[0];
-						} else
-							fatal_error(Mobius_Error::internal, "Unimplemented unit checking for intrinsic ", fun_name, ".");
-					} else
-						fatal_error(Mobius_Error::internal, "Unhandled number of arguments to intrinsic when unit checking");
-				} else if(fun_type == Function_Type::linked) {
-					auto new_fun = new Function_Call_FT();
-					std::vector<Standardized_Unit> arg_units;
-					resolve_arguments(new_fun, ast, data, scope, arg_units);
-					
-					new_fun->fun_type = fun_type;
-					new_fun->fun_name = fun_name;
-					// TODO: If we make anything else of this than just the "_test_fun_" function, the types and units must be provided in the declaration.
-					new_fun->value_type = Value_Type::real;
-					result.fun = new_fun;
-					// result.unit remains dimensionless.
-				} else if(fun_type == Function_Type::decl) {
-					if(is_inside_function(scope, fun_name)) {
-						fun->name.print_error_header();
-						error_print("The function \"", fun_name, "\" calls itself either directly or indirectly. This is not allowed.\n");
-						fatal_error_trace(scope);
-					}
-					// Inline in the function call as a new block with the arguments as local vars.
-					auto inlined_fun = new Math_Block_FT();
-					inlined_fun->source_loc = fun->source_loc; //NOTE: do this to get correct diagnostics in fatal_error_trace()
-					
-					std::vector<Standardized_Unit> arg_units;
-					resolve_arguments(inlined_fun, ast, data, scope, arg_units);
-					
-					arguments_must_be_values(inlined_fun, scope);
-					
-					inlined_fun->n_locals = inlined_fun->exprs.size();
-					
-					Function_Scope new_scope;
-					new_scope.parent = scope;
-					new_scope.block = inlined_fun;
-					new_scope.function_name = fun_name;
-					
-					for(int argidx = 0; argidx < inlined_fun->exprs.size(); ++argidx) {
-						auto arg = inlined_fun->exprs[argidx];
-						
-						if(!is_value(arg->value_type)) {
-							arg->source_loc.print_error_header();
-							error_print("The arguments to a function must resolve to a value.");
-							fatal_error_trace(scope);
-						}
-						
-						auto inlined_arg = new Local_Var_FT();
-						inlined_arg->exprs.push_back(arg);
-						inlined_arg->name = fun_decl->args[argidx];
-						inlined_arg->value_type = arg->value_type;
-						inlined_fun->exprs[argidx] = inlined_arg;
-						inlined_arg->id = argidx;
-						new_scope.local_var_units[argidx] = arg_units[argidx];
-						
-					
-						auto &argg = inlined_arg->exprs[0];
-						auto loc = inlined_arg->exprs[0]->source_loc;
-						if(is_valid(fun_decl->expected_units[argidx])) {
-							auto &expect_unit = model->units[fun_decl->expected_units[argidx]]->data.standard_form;
-							if(is_constant_zero(argg, scope)) continue;  // Constant 0 match against any unit
-							if(!match_exact(&expect_unit, &arg_units[argidx])) {
-								loc.print_error_header();
-								error_print("The function declaration requires a unit (which on standard form is) ", expect_unit.to_utf8(), " for argument ", argidx, ", but we got ", arg_units[argidx].to_utf8(), ". See declaration of function here:\n");
-								fun_decl->source_loc.print_error();
-								fatal_error_trace(scope);
-							}
-						}
-					}
-					
-					Function_Resolve_Data sub_data = *data;
-					sub_data.scope = model->get_scope(fun_decl->scope_id);  // Resolve the function body in the scope of the library it was imported from (if relevant).
-					
-					auto res = resolve_function_tree(fun_decl->code, &sub_data, &new_scope);
-					inlined_fun->exprs.push_back(res.fun);
-					inlined_fun->value_type = inlined_fun->exprs.back()->value_type; // The value type is whatever the body of the function resolves to given these arguments.
-					
-					result.fun = inlined_fun;
-					result.unit = std::move(res.unit);
-				} else
-					fatal_error(Mobius_Error::internal, "Unhandled function type.");
-			}
 		} break;
 		
 		case Math_Expr_Type::unary_operator : {
@@ -1251,26 +1196,31 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 			if(op == '|' || op == '&') {
 				new_binary->exprs[0] = make_cast(new_binary->exprs[0], Value_Type::boolean);
 				new_binary->exprs[1] = make_cast(new_binary->exprs[1], Value_Type::boolean);
-				
 				new_binary->value_type = Value_Type::boolean;
+			} else if (op == '/') {
+				new_binary->exprs[0] = make_cast(new_binary->exprs[0], Value_Type::real);
+				new_binary->exprs[1] = make_cast(new_binary->exprs[1], Value_Type::real);
+				new_binary->value_type = Value_Type::real;
 			} else if (op == '^') {
 				//Note: we could implement pow for lhs of type int too, but llvm does not have an intrinsic for it, and there is unlikely to be any use case.
 				new_binary->value_type = Value_Type::real;
 				new_binary->exprs[0]   = make_cast(new_binary->exprs[0], Value_Type::real);
 				if(new_binary->exprs[1]->value_type == Value_Type::boolean) new_binary->exprs[1] = make_cast(new_binary->exprs[1], Value_Type::integer);
-			} else if (op == '%') {
+			} else if (op == '%' || binary->oper == Token_Type::div_int) {
 				if(new_binary->exprs[0]->value_type == Value_Type::real || new_binary->exprs[1]->value_type == Value_Type::real) {
 					binary->source_loc.print_error_header();
-					error_print("Operator % can only take integer arguments.\n");
+					error_print("The operator ", name(binary->oper), " can only take integer arguments.\n");
 					fatal_error_trace(scope);
 				}
+				if(binary->oper == Token_Type::div_int)
+					new_binary->oper = (Token_Type)'/';  // It is more convenient to treat real and int division as the same operator type in later code.
 				new_binary->exprs[0] = make_cast(new_binary->exprs[0], Value_Type::integer);
 				new_binary->exprs[1] = make_cast(new_binary->exprs[1], Value_Type::integer);
 				new_binary->value_type = Value_Type::integer;
 			} else {
 				make_casts_for_binary_expr(&new_binary->exprs[0], &new_binary->exprs[1]);
 				
-				if(op == '+' || op == '-' || op == '*' || op == '/')
+				if(op == '+' || op == '-' || op == '*')
 					new_binary->value_type = new_binary->exprs[0]->value_type;
 				else
 					new_binary->value_type = Value_Type::boolean;
@@ -1321,6 +1271,11 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 			
 			auto local = static_cast<Local_Var_AST *>(ast);
 			std::string local_name = local->name.string_value;
+			
+			if(is_reserved(local_name)) {
+				local->name.print_error_header();
+				fatal_error("The identifier '", local_name, "' is reserved.");
+			}
 			
 			if(!local->is_reassignment) { // It is a declaration
 			
@@ -1417,9 +1372,18 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 			if(conv->auto_convert) {
 				to_unit = data->expected_unit;
 			} else {
-				Unit_Data conv_unit;
-				conv_unit.set_data(conv->unit);
-				to_unit = std::move(conv_unit.standard_form);
+				if(conv->by_identifier) {
+					auto reg = decl_scope[conv->unit_identifier.string_value];
+					if(!reg || reg->id.reg_type != Reg_Type::unit) {
+						conv->unit_identifier.print_error_header();
+						error_print("The identifier '", conv->unit_identifier.string_value, "' does not refer to a unit.");
+					}
+					to_unit = model->units[reg->id]->data.standard_form;
+				} else {
+					Unit_Data conv_unit;
+					conv_unit.set_data(conv->unit);
+					to_unit = std::move(conv_unit.standard_form);
+				}
 			}
 			
 			bool offset = false;
@@ -1469,19 +1433,14 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 }
 
 void
-register_dependencies(Math_Expr_FT *expr, Dependency_Set *depends) {
+register_dependencies(Math_Expr_FT *expr, std::set<Identifier_Data> *depends) {
 	for(auto arg : expr->exprs) register_dependencies(arg, depends);
 	
 	if(expr->expr_type != Math_Expr_Type::identifier) return;
 	auto ident = static_cast<Identifier_FT *>(expr);
 
-	if(ident->variable_type == Variable_Type::parameter)
-		depends->on_parameter.insert(*ident);
-	else if(ident->variable_type == Variable_Type::state_var)
-		depends->on_state_var.insert(*ident);
-	else if(ident->variable_type == Variable_Type::series)
-		depends->on_series.insert(*ident);
-	
+	if(ident->variable_type == Variable_Type::parameter || ident->variable_type == Variable_Type::series || ident->variable_type == Variable_Type::is_at)
+		depends->insert(*ident);
 }
 
 template<typename Expr_Type> Math_Expr_FT *
@@ -1527,8 +1486,8 @@ copy(Math_Expr_FT *source) {
 			result = copy_one<Local_Var_FT>(source);
 		} break;
 		
-		case Math_Expr_Type::special_computation : {
-			result = copy_one<Special_Computation_FT>(source);
+		case Math_Expr_Type::external_computation : {
+			result = copy_one<External_Computation_FT>(source);
 		} break;
 		
 		case Math_Expr_Type::state_var_assignment :
@@ -1613,8 +1572,16 @@ print_var_symbol(Print_Tree_Context *context, Var_Id var_id) {
 		os << "aggregate(";
 		print_var_symbol(context, var2->agg_of);
 		os << ")";
+	} else if(var->type == State_Var::Type::dissolved_conc) {
+		auto var2 = as<State_Var::Type::dissolved_conc>(var);
+		os << "conc(";
+		print_var_symbol(context, var2->conc_of);
+		os << ", ";
+		print_var_symbol(context, var2->conc_in);
+		os << ")";
 	} else {
-		// TODO
+		// TODO: Could do symbol-like printing for some of these too!
+		os << var->name;
 	}
 }
 
@@ -1634,7 +1601,7 @@ print_tree_helper(Math_Expr_FT *expr, Print_Tree_Context *context, Print_Scope *
 	}
 	
 	if(expr->visited)
-		os << "\n___DUPLICATE___(", name(expr->expr_type), ")\n";
+		os << "\n___DUPLICATE___(" << name(expr->expr_type) << ")\n";
 	expr->visited = true;
 	
 	switch(expr->expr_type) {
@@ -1692,7 +1659,7 @@ print_tree_helper(Math_Expr_FT *expr, Print_Tree_Context *context, Print_Scope *
 				os << "par[" << model->get_symbol(ident->par_id) << "]";
 			else {
 				os << name(ident->variable_type);
-				if(ident->variable_type == Variable_Type::state_var || ident->variable_type == Variable_Type::series) {
+				if(ident->variable_type == Variable_Type::series) {
 					os << "[";
 					print_var_symbol(context, ident->var_id);
 					os << "]";
@@ -1711,7 +1678,7 @@ print_tree_helper(Math_Expr_FT *expr, Print_Tree_Context *context, Print_Scope *
 			auto literal = static_cast<Literal_FT *>(expr);
 			if(literal->value_type == Value_Type::real)    os << literal->value.val_real;
 			if(literal->value_type == Value_Type::integer) os << literal->value.val_integer;
-			if(literal->value_type == Value_Type::boolean) os << literal->value.val_boolean ? "true": "false";
+			if(literal->value_type == Value_Type::boolean) os << (literal->value.val_boolean ? "true": "false");
 		} break;
 		
 		case Math_Expr_Type::function_call : {
@@ -1808,26 +1775,25 @@ print_tree_helper(Math_Expr_FT *expr, Print_Tree_Context *context, Print_Scope *
 			print_tree_helper(expr->exprs[1], context, scope, block_tabs);
 		} break;
 		
-		case Math_Expr_Type::special_computation : {
-			auto special = static_cast<Special_Computation_FT *>(expr);
-			os << "special_computation(\"" << special->function_name << "\", ";
-			//int n_args = special->arguments.size() + 1;
+		case Math_Expr_Type::external_computation : {
+			auto external = static_cast<External_Computation_FT *>(expr);
+			os << "external_computation(\"" << external->function_name << "\", ";
 			int idx = 0;
-			for(auto arg : special->exprs) {
+			for(auto arg : external->exprs) {
 				print_tree_helper(arg, context, scope, block_tabs);
-				if (idx++ != special->exprs.size()-1) os << ", ";
+				if (idx++ != external->exprs.size()-1) os << ", ";
 			}
 			os << ")";
 		} break;
 		
 		case Math_Expr_Type::iterate : {
 			auto iter = static_cast<Iterate_FT *>(expr);
-			try {
+			//try {
 				auto iter_scope = find_scope(scope, iter->scope_id);
 				os << "iterate " << iter_scope->scope_value;
-			} catch(int) {
-				os << "iterate " << "(missing)";
-			}
+			//} catch(int) {
+			//	os << "iterate " << "(missing)";
+			//}
 		} break;
 		
 		case Math_Expr_Type::no_op : {
@@ -1843,10 +1809,6 @@ print_tree_helper(Math_Expr_FT *expr, Print_Tree_Context *context, Print_Scope *
 void
 print_tree(Model_Application *app, Math_Expr_FT *expr, std::ostream &os) {//, const std::string &function_name) {
 	
-	// TODO: Could do something like this (and modify the printout to be valid C++) to be able to generate permanently compilable code.
-	//    that could then be compiled to a .dll or .so on a target machine like a web server if we don't want to set up llvm there.
-	
-	//os << "void " << function_name << "(Parameter_Value *parameter, double *series, double *state_var, double *solver_workspace, Expanded_Date_Time *time)\n";
 	Print_Tree_Context context;
 	context.app = app;
 	context.os = &os;

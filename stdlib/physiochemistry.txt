@@ -1,32 +1,43 @@
 
 
 library("Basic constants") {
+"""
+Some common physical constants.
+"""
 	grav : constant("Earth surface gravity", [m, s-2], 9.81)
 }
 
 
 library("Thermodynamics") {
+"""
+Some common thermodynamic constants and functions.
+"""
 	
 	ideal_gas        : constant("Ideal gas constant",        [J, K -1, mol -1], 8.31446261815324)
 	boltzmann        : constant("Boltzmann constant",        [J, K -1],         1.380649e-23)
 	stefan_boltzmann : constant("Stefan-Boltzmann constant", [W, m -2, K -4],   5.670373e-8)
 	
-	black_body_radiation : function(T_kelvin) {   stefan_boltzmann * T_kelvin^4   }
+	black_body_radiation : function(T : [K]) {   stefan_boltzmann * T^4   }
 	
 	enthalpy_adjust_log10 : function(log10ref : [], ref_T : [K], T : [K], dU : [k J, mol-1]) {
 		du := dU->[J, mol-1],
 		log10ref - (du/(ideal_gas*ln(10))) * (1/T - 1/ref_T)
 	}
-	
 }
 
 library("Water utils") {
+"""
+These are simplified functions for computing properties of freshwater at surface pressure. See the Seawater library for functions that work better in more general cases.
 
-	#load(library("Thermodynamics"))
-	#load("basic_math.txt", library("Response"))
+References to be inserted.
+"""
 	
 	rho_water  : constant("Water density",                   [k g, m-3],     999.98)
 	C_water    : constant("Specific heat capacity of water", [J, k g-1, K-1], 4186)
+	k_water    : constant("Thermal conductivity of water",   [W, m-1, K-1], 0.6)
+	
+	refraction_index_water : constant("Refraction index of water", [], 1.33)
+	refraction_index_ice   : constant("Refraction index of ice", [], 1.31)
 	
 	water_temp_to_heat : function(V : [m 3], T : [deg_c]) {  # We don't want to use dynamic water density here because of the use case.
 		V*(T->[K])*rho_water*C_water
@@ -36,30 +47,81 @@ library("Water utils") {
 		heat / (V*rho_water*C_water) -> [deg_c]
 	}
 	
-	# This is a very simplified density function. For one that also depends on salinity see the SeaWater module.
+	# The below are very simplified functions. For ones that also depends on salinity see the SeaWater module.
 	water_density : function(T : [deg_c]) {
+		# Freshwater at surface pressure
 		dtemp := (T->[K] - 277.13[K]),  # Difference between temp and reference temp.
 		rho_water*(1 - 0.5*1.6509e-5[K-2]*dtemp^2)
 	}
+	
+	dynamic_viscosity_water : function(T : [K]) {
+		# Freshwater at surface pressure
+		2646.8[g, m-1, s-1]*exp(-0.0268*T=>[])
+	}
+	
+	kinematic_viscosity_water : function(T : [K]) {
+		# Freshwater at surface pressure
+		0.00285[m 2, s-1]*exp(-0.027*T=>[])
+	}
 }
+
+library("Diffusivity") {
+"""
+This library contains functions for computing diffusivities of compounds in water and air.
+
+Reference: Schwarzengack, Gschwend, Imboden, "Environmental organic chemistry" 2nd ed [https://doi.org/10.1002/0471649643](https://doi.org/10.1002/0471649643).
+"""
+	
+	molvol_air : constant("Molecular volume of air at surface pressure", [c m 3, mol-1], 20.1)
+	molmass_air : constant("Molecular mass of air", [g, mol-1], 28.97)
+	molvol_h2o : constant("Molecular volume of H2O vapour at surface pressure", [c m 3, mol-1], 22.41)
+	molmass_h2o : constant("Molecular mass of H2O", [g, mol-1], 18.0)
+
+	
+	molecular_diffusivity_of_compound_in_air : function(mol_vol : [c m 3, mol-1], mol_mass : [g, mol-1], T : [K]) {
+		TT := T=>[],
+		c0 := cbrt(molvol_air=>[]) + cbrt(mol_vol=>[]),
+		c := sqrt(1.0/(molmass_air=>[]) + 1.0/(mol_mass=>[])) / (c0^2),
+		1e-7*c*TT^1.75 => [m 2, s-1]
+	}
+	
+	molecular_diffusivity_of_compound_in_water : function(mol_vol : [c m 3, mol-1], dynamic_viscosity : [g, m-1, s-1]) {
+		# Hayduk and Laudie relationship.
+		dynv := dynamic_viscosity=>[],
+		13.26e-9[m 2, s-1] / ((dynv^1.14)*((mol_vol=>[])^0.589))
+	}
+	
+	diffusion_velocity_of_vapour_in_air : function(wind : [m, s-1]) {
+		0.002*wind + 0.003[m, s-1]
+	}
+	
+	transfer_velocity_of_CO2_in_water_20C : function(wind : [m, s-1]) {
+		w := wind => [],
+		{
+			0.65e-3                if w <= 4.2,
+			(0.79*w - 2.68)*1e-3   if w <= 13.0,
+			(1.64*w - 13.69)*1e-3  otherwise
+		} => [c m, s-1]
+	}
+}
+
 
 library("Chemistry") {
-
-	# TODO etc.
-
-	avogadro         : constant("Avogadro constant", [mol -1], 6.02214076e23)
+"""
+This library contains some commonly used molar masses and functions to convert molar ratios to mass ratios.
+"""
 	
-}
-
-library("Ions") {
+	o2_mol_mass  : constant("O₂ molar mass",    [g, mol-1], 31.998)
+	c_mol_mass   : constant("C molar mass",     [g, mol-1], 12)
+	n_mol_mass   : constant("N molar mass",     [g, mol-1], 14.01)
+	p_mol_mass   : constant("P molar mass",     [g, mol-1], 30.97)
+	no3_mol_mass : constant("NO₃ molar mass",   [g, mol-1], 62)
+	po4_mol_mass : constant("PO₄ molar mass",   [g, mol-1], 94.9714)
+	ca_mol_mass  : constant("Ca molar mass",    [g, mol-1], 40.078)
 	
-	ca_mol_wt        : constant("Ca molecular weight", [g, mol-1], 40.078)
-	ca_valency       : constant("Ca valency", [eq, mol-1], 2)
+	nc_molar_to_mass_ratio : function(nc_molar : []) {   nc_molar * n_mol_mass / c_mol_mass   }
+	pc_molar_to_mass_ratio : function(pc_molar : []) {   pc_molar * p_mol_mass / c_mol_mass   }
 	
-	# TODO etc.
-	
-	
-	mass_to_eq : function(mass, mol_wt, valency) {
-		mass * valency / mol_wt
-	}
+	cn_molar_to_mass_ratio : function(cn_molar : []) {   cn_molar * c_mol_mass / n_mol_mass   }
+	cp_molar_to_mass_ratio : function(cp_molar : []) {   cp_molar * c_mol_mass / p_mol_mass   }
 }

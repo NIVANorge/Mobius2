@@ -1,8 +1,9 @@
 
 
-#TODO: maybe make an intrinsic operator for safe_divide. Like "//".  Could also have an operator for enforced floating point division to avoid accidental integer divisions? "/."
-
 library("Basic") {
+"""
+This library provides some very common math functions.
+"""
 
 	safe_divide : function(a, b) {
 		r := a/b,
@@ -17,10 +18,29 @@ library("Basic") {
 	clamp : function(a, mn, mx) {
 		min(max(a, mn), mx)
 	}
+	
+	radians : function(a : [deg]) {
+		a * pi / 180[deg]
+	}
 }
 
 
 library("Response") {
+"""
+This library provides functions that let some state respond to another state. For instance,
+
+`q10_adjust` creates a [Q10](https://en.wikipedia.org/wiki/Q10_(temperature_coefficient)) response of a reference rate to a temperature.
+
+`s_response` is a general function that is constant with values y0 and y1 below and above the thresholds x0 and x1 respectively, and smoothly interpolates the values between them.
+"""
+	
+	hl_to_rate : function(hl)   {   ln(2) / hl   }
+	
+	rate_to_hl : function(rate) {   ln(2) / rate   }
+	
+	q10_adjust : function(ref_rate, ref_temp : [deg_c], temp : [deg_c], q10 : []) {
+		ref_rate*q10^((temp - ref_temp)/10[deg_c])
+	}
 	
 	lerp            : function(x, x0, x1, y0, y1) {
 		t := (x - x0) / (x1 - x0),
@@ -31,6 +51,10 @@ library("Response") {
 		t  := (x - x0) / (x1 - x0),
 		tt := (3 - 2*t)*t^2,
 		(1 - tt)*y0 + tt*y1
+	}
+	
+	tanh_curve     : function(x, th) {
+		0.5*(1 + tanh(x - th))
 	}
 	
 	linear_response : function(x, x0, x1, y0, y1) {
@@ -45,6 +69,12 @@ library("Response") {
 		s_curve(x, x0, x1, y0, y1) otherwise
 	}
 	
+	step_response   : function(x, x0, x1, y0, y1, y2) {
+		y0                      if x <= x0,
+		y1                      if x <= x1,
+		y2                      otherwise
+	}
+	
 	wedge_response  : function(x, x0, x1, x2, y0, y1, y2) {
 		y0                      if x <= x0,
 		y2                      if x >= x2,
@@ -57,18 +87,5 @@ library("Response") {
 		y2                         if x >= x2,
 		s_curve(x, x0, x1, y0, y1) if x <= x1,
 		s_curve(x, x1, x2, y1, y2) otherwise
-	}
-	
-}
-
-library("Rates") {
-	
-	hl_to_rate : function(hl)   {   ln(2) / hl   }
-	
-	rate_to_hl : function(rate) {   ln(2) / rate   }
-	
-	q10_adjust : function(ref_rate, ref_temp : [deg_c], temp : [deg_c], q10 : []) {
-		ref_rate*q10^((temp - ref_temp)/10[deg_c])
-	}
-	
+	}	
 }

@@ -17,7 +17,7 @@ typedef int32_t s32;
 typedef int16_t s16;
 typedef int8_t  s8;
 
-
+extern bool mobius_developer_mode;
 
 enum class
 Mobius_Error {
@@ -41,6 +41,11 @@ error_print() {}
 
 inline void
 log_print() {}
+
+enum class Log_Mode {
+	regular,
+	dev
+};
 
 #if defined(MOBIUS_ERROR_STREAMS)
 #include <sstream>
@@ -68,6 +73,7 @@ mobius_error_exit() {
 
 #else
 
+
 template<typename T, typename... V> inline void
 error_print(T value, V... tail) {
 	std::cerr << value;
@@ -87,6 +93,12 @@ mobius_error_exit() {
 	// TODO: For internal errors we should provide a stack trace here (if that is feasible).
 }
 #endif
+
+template<typename... V> inline void
+log_print(Log_Mode mode, V... tail) {
+	if(mode == Log_Mode::regular || mobius_developer_mode)
+		log_print(tail...);
+}
 
 inline void
 begin_error(Mobius_Error type) {

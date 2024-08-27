@@ -6,7 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unordered_map>
-
+#include <vector>
 #include "mobius_common.h"
 
 template<typename T> T*
@@ -81,7 +81,6 @@ struct String_View : Array_View<char> {
 	}
 
 	String_View substring(size_t start, size_t count) const {
-		//TODO: Should this do error handling?
 		String_View result;
 		result.data  = data + start;
 		result.count = count;
@@ -96,13 +95,8 @@ struct String_View : Array_View<char> {
 		return !(*this == c_string);
 	}
 	
-	operator std::string() { return std::move(std::string(data, data+count)); }
+	operator std::string() const { return std::move(std::string(data, data+count)); }
 };
-/*
-bool operator==(const String_View &a, const std::string &b) {
-	return a == b.data();
-}
-*/
 
 inline std::ostream&
 operator<<(std::ostream& stream, const String_View& str) {

@@ -1,0 +1,63 @@
+
+
+preamble("Organic CNP land", version(0, 0, 0)) {
+	
+	par_group("Organic nutrient ratios land") {
+		om_cn : par_real("OM molar C/N ratio", [], 6.625, 0.1, 100, "The default value is the Redfield ratio")
+		om_cp : par_real("OM molar C/P ratio", [], 106, 1, 300, "The default value is the Redfield ratio")
+	}
+	
+}
+
+
+module("Simple organic NP", version(0, 0, 0),
+	river : compartment,
+	water : quantity,
+	oc : quantity,
+	sed : quantity,
+	on : quantity,
+	op : quantity,
+	tn : property,
+	tp : property,
+	tdp : property,
+	om_cnp : preamble
+) {
+	load("stdlib/physiochemistry.txt", library("Chemistry"))
+
+	
+	
+	var(river.water.op, [k g], [m g, l-1], "River DOP")
+	var(river.water.sed.op, [k g], "River POP")
+	
+	var(river.water.on, [k g], [m g, l-1], "River DON")
+	var(river.water.sed.on, [k g], "River PON")
+
+	flux(out, river.water.on, [k g, day-1], "DON mobilization") {
+		in_flux(oc) / cn_molar_to_mass_ratio(om_cn) ->>
+	}
+	
+	flux(out, river.water.sed.on, [k g, day-1], "PON mobilization") {
+		in_flux(sed.oc) / cn_molar_to_mass_ratio(om_cn) ->>
+	}
+	
+	flux(out, river.water.op, [k g, day-1], "DOP mobilization") {
+		in_flux(oc) / cn_molar_to_mass_ratio(om_cp) ->>
+	}
+	
+	flux(out, river.water.sed.op, [k g, day-1], "POP mobilization") {
+		in_flux(sed.oc) / cp_molar_to_mass_ratio(om_cp) ->>
+	}
+	
+	
+	var(river.water.tp, [m g, l-1]) @add_to_existing {
+		conc(op) + conc(sed)*conc(sed.op)
+	}
+	
+	var(river.water.tdp, [m g, l-1]) @add_to_existing {
+		conc(op)
+	}
+	
+	var(river.water.tn, [m g, l-1]) @add_to_existing {
+		conc(on) + conc(sed)*conc(sed.on)
+	}
+}

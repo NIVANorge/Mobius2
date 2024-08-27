@@ -6,6 +6,9 @@
 void
 compute_time_series_stats(Time_Series_Stats *stats, Statistics_Settings *settings, Data_Storage<double, Var_Id> *data, s64 offset, s64 ts_begin, s64 len) {
 	
+	*stats = {};
+	if(!data->time_steps) return;
+	
 	constexpr double nan = std::numeric_limits<double>::quiet_NaN();
 	double sum = 0.0;
 	double sum_abs_diff = 0.0;

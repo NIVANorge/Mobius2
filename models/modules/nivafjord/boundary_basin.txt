@@ -1,107 +1,68 @@
 
-module("NIFAFjord boundary", version(0, 0, 1),
-	bnd       : compartment,
+module("NIVAFjord boundary", version(0, 0, 1),
+	bnd_basin : compartment,
 	bnd_layer : compartment,
 	water     : quantity,
 	heat      : quantity,
 	salt      : quantity,
 	temp      : property,
 	salinity  : property,
-	z         : property,
+	dz        : property,
+	h         : property,
+	rho       : property,
+	pressure  : property,
+	vert      : connection,
+	dims      : preamble
 ) {
 
-	#TODO: A lot of this should be done differently.
-	# Boundary profiles should be given as series instead.
+	load("stdlib/physiochemistry.txt", library("Water utils"), library("Basic constants"))
+	load("stdlib/seawater.txt", library("Seawater"))
 	
-	z1       : property("Epilimnion thickness")
-	z2diff   : property("log10(Metalimnion thickness)")
-	temp_top : property("Temperature top")
-	temp_bot : property("Temperature bottom")
-	sal_top  : property("Salinity top")
-	sal_bot  : property("Salinity bottom")
-	trac_top : property("Tracer top")
-	trac_bot : property("Tracer bot")
+	# It doesn't matter what we set as the surface area here since we are only interested in concs and not mass balance.
+	var(bnd_layer.water, [m 3], "Boundary layer water") @override { dz * 1[m 2] }
+
+	 # Input series:
+	var(bnd_layer.water.temp,     [deg_c], "Boundary layer temperature")
+	var(bnd_layer.water.salinity, [],      "Boundary layer salinity")
 	
-	var(bnd.z1, [m])
-	var(bnd.z2diff, [])
-	var(bnd.temp_top, [deg_c])
-	var(bnd.temp_bot, [deg_c])
-	var(bnd.sal_top, [])
-	var(bnd.sal_bot, [])
+	#TODO: The code for this one could be put on the property directly
+	var(bnd_layer.water.rho, [k g, m-3], "Potential density") {
+		seawater_pot_dens(temp, salinity)
+	} @no_store
 	
-	var(bnd.trac_top, [])
-	var(bnd.trac_bot, [])
+	# These are needed for automatic transport with fluxes going from the boundary into a basin.
+	var(bnd_layer.water.heat, [J], "Boundary layer thermal energy")     @override_conc { C_water * (temp -> [K]) * rho_water } #See note in basin.txt about maybe having salinity dependence of C_water
+	var(bnd_layer.water.salt, [k g], [k g, m-3], "Boundary layer salt") @override_conc { 1e-3*salinity*rho_water }
 	
-	var(bnd_layer.z, [m]) {
-		z[bnd_vert.above] + dz
-	}
-	
-	prof : property("Boundary profile")
-	
-	var(bnd_layer.prof, []) {
-		z1 := bnd.z1,
-		z2 := (10^bnd.z2diff)=>[m] + z1,
-		a := {
-			((z2-z)/(z2-z1))^2   if z < z2,
-			0                    otherwise
-		},
-		b := {
-			0                    if z < z1,
-			((z-z1)/z1)^1.5      otherwise
-		},
-		g := a / (z/z1 + a^4)^(1/4.),
-		h := b / sqrt(1 + b^2),
-		(1 - g + h)/2
-	}
-	
-	var(bnd_layer.water, [k g], "Boundary layer water") @override { 1[k g] }   # This is just so that it can have a concentration of various things, for automatic flux generation to work.
-	
-	var(bnd_layer.water.temp, [deg_c], "Boundary layer temperature") {  lerp(prof, 0, 1, bnd.temp_top, bnd.temp_bot)  }
-	
-	var(bnd_layer.water.salinity, [], "Boundary layer salinity") {  lerp(prof, 0, 1, bnd.sal_top, bnd.sal_bot)  }
-	
-	var(bnd_layer.water.heat, [J], "Boundary layer heat") @override_conc {
-		(temp->[K]) * C_water
-	}
-	
-	var(bnd_layer.water.salt, [k g], [g, k g-1], "Boundary layer salt") @override_conc {
-		salinity =>> #TODO: proper conversion from PSU
-	}
-	
-	var(bnd_layer.water.dens, [k g, m-3], "Boundary layer density")
-	
-	var(bnd_layer.water.pressure, [Pa]) {
-		pressure[bnd_vert.above] + dens*grav*dz
-	}
-	
-	/*
-	barocline_bnd_u : property("Barocline boundary flux")
-	
-	var(layer.water.barocline_bnd_u, [k g, s-1]) {
-		dP := accum_pressure[vert.below] - bnd_layer.water.pressure[vert.below],
-		
-		u := copysign(sqrt(2*alpha_u*abs(dP)/rho_water), dP),
-		u * w_bnd * dz * rho_water
-	}
-	
-	sealevel_component : function(amp : [c m], phase : [deg], per : [hr], t : [hr]) {
+	sea_level_component : function(amp : [c m], phase : [deg], per : [hr], t : [hr]) {
 		amp * cos( (pi/180[deg])*(t*360[deg]/per - phase) )
 	}
 	
-	sealevel : function(t : [hr]) {
-		# TODO: Parametrize. This in particular is for Oscarsborg.
-		  sealevel_component(11.2[c m], 282[deg], 365.24*24[hr], t)
-		+ sealevel_component(13.4[c m], 152[deg], 12.42[hr], t)
-		+ sealevel_component( 3.4[c m], 101[deg], 12.00[hr], t)
-		+ sealevel_component( 3.3[c m], 101[deg], 12.66[hr], t)
-		+ sealevel_component( 0.9[c m],  76[deg], 11.97[hr], t)
-		+ sealevel_component( 0.5[c m], 172[deg], 23.93[hr], t)
-		+ sealevel_component( 2.1[c m], 299[deg], 15.82[hr], t)
+	sea_level : function(t : [hr]) {
+		# TODO: Parametrize and put in a library. This one in particular is for Oscarsborg.
+		  sea_level_component(11.2[c m], 282[deg], 365.24*24[hr], t)
+		+ sea_level_component(13.4[c m], 152[deg], 12.42[hr], t)
+		+ sea_level_component( 3.4[c m], 101[deg], 12.00[hr], t)
+		+ sea_level_component( 3.3[c m], 101[deg], 12.66[hr], t)
+		+ sea_level_component( 0.9[c m],  76[deg], 11.97[hr], t)
+		+ sea_level_component( 0.5[c m], 172[deg], 23.93[hr], t)
+		+ sea_level_component( 2.1[c m], 299[deg], 15.82[hr], t)
 	}
 	
-	var(bnd.h, [m]) @override {
-		sec := time.second_of_day + time.step_length_in_seconds * time.fractional_step,
-		sealevel(sec->[hr])->[m]              
+	var(bnd_basin.h, [m], "Boundary basin sea level") {
+		#TODO: Check that it is correct to use the hour of year rather than the hour of day. Maybe it needs to use absolute hour (relative to a start date)?
+		
+		hour := (time.second_of_day + time.step_length_in_seconds * time.fractional_step)->[hr] + time.day_of_year->[hr],
+		sea_level(hour)->[m]
+		#0[m]
 	}
-	*/
+	
+	var(bnd_layer.dz, [m], "Boundary layer thickness") {
+		dz0 + bnd_basin.h  if is_at[vert.top],
+		dz0                otherwise
+	} @no_store
+	
+	var(bnd_layer.water.pressure, [Pa]) {
+		pressure[vert.above] + rho*grav*dz
+	}
 }

@@ -1,46 +1,80 @@
 
-module("NIVAFjord basin", version(0, 0, 1),
+preamble("NIVAFjord dimensions", version(0, 0, 0),
+	all_basins : index_set,
+	layer_idx  : index_set,
+	layer      : compartment
+) {
+
+	par_group("Layer thickness") {
+		dz0    : par_real("Stable layer thickness", [m], 1, 0.1, 5)
+	} @index_with(all_basins, layer_idx)
+	
+	par_group("Layer area", layer) {
+		A      : par_real("Layer area", [m 2], 10000, 0, 1e6)
+	}
+}
+
+
+module("NIVAFjord basin", version(0, 0, 3),
 	air       : compartment,
 	basin     : compartment,
 	layer     : compartment,
-	sed       : compartment,
 	water     : quantity,
 	salt      : quantity,
 	heat      : quantity,
 	temp      : property,
 	salinity  : property,
-	precip    : property,
 	pressure  : property,
 	wind      : property,
 	g_rad     : property,
 	rho       : property,
 	attn      : property,
+	z         : property,
 	dz        : property,
+	h         : property,
+	area      : property,
 	freeze_temp : property,
+	sw        : property,
 	vert      : connection,
 	sw_vert   : connection,
-	A         : par_real
+	sw_sed    : loc,
+	dims      : preamble
 ) {
+"""
+This is the physics component for a single basin of the NIVAFjord model.
+
+The model is loosely based on the model [Eutrofimodell for Indre Oslofjord (Norwegian only)](https://niva.brage.unit.no/niva-xmlui/handle/11250/207887).
+
+Each basin is divided into a set of (assumed horizontally mixed) layers of potentially varying thickness.
+
+Turbulent vertical mixing is computed assuming constant turbulent energy (per layer), which implies a fixed dependency of the mixing rate on the [Brunt-Väisälä frequency](https://en.wikipedia.org/wiki/Brunt%E2%80%93V%C3%A4is%C3%A4l%C3%A4_frequency) proportional to
+
+$$
+r_0(N/N_0)^\alpha
+$$
+
+where $$N$$ is the Brunt-Väisälä frequency, $$N_0$$ a reference frequency, $$r_0$$ the mixing rate at the reference frequency and $$\alpha \sim 1.4$$ an exponential dependency. The reference rate $$r_0$$ can be set separately per layer.
+
+Wind-driven mixing and mixing from ship traffic is added on top.
+
+The basin model is also similar to MyLake.
+
+MyLake—A multi-year lake simulation model code suitable for uncertainty and sensitivity analysis simulations, Tuomo M. Saloranta and Tom Andersen 2007, Ecological Modelling 207(1), 45-60, [https://doi.org/10.1016/j.ecolmodel.2007.03.018](https://doi.org/10.1016/j.ecolmodel.2007.03.018)
+
+Authors: Magnus D. Norling
+"""
 
 	load("stdlib/basic_math.txt", library("Basic"))
 	load("stdlib/physiochemistry.txt", library("Water utils"), library("Basic constants"))
 	load("stdlib/seawater.txt", library("Seawater"))
 
 	var(air.temp,  [deg_c], "Air temperature")
-	var(air.precip, [m m, day-1])      # TODO: Use this for something.
 	var(air.wind,  [m, s-1])
 	var(air.g_rad, [W, m-2])
-	
-	par_group("Fjord global parameters") {
-		dz0     : par_real("Stable layer thickness", [m], 1, 0.1, 5)
-	}
 
-	par_group("Mixing parameters", basin) {
-		attn0  : par_real("Diffuse attenuation coefficent (clear water)", [m -1], 0.2, 0.01, 1)
-		
+	par_group("Mixing parameters", basin) {	
 		N0     : par_real("Brunt-Väisälä frequency reference", [s-1], 0.8e-2)
 		Nmin   : par_real("Minimum B-V frequency", [s-1], 1e-4, 1e-10, 0.1)
-		K0     : par_real("Mixing factor reference", [m 2, s-1], 0.5e-4, "Mixing factor at the B-V frequency reference")
 		alpha  : par_real("Mixing non-linear coefficient", [], 1.4)
 		
 		# TODO: Find correct defaults:
@@ -49,59 +83,70 @@ module("NIVAFjord basin", version(0, 0, 1),
 		hsfact : par_real("Diminishing rate of additional mixing energy", [m], 4)
 	}
 	
-	# TODO: There should be a sediment compartment per layer instead..
-	par_group("Sediment parameters", sed) {
-		T_sed  : par_real("Deep sediment temperature", [deg_c], 4)
-		dz_sed : par_real("Depth of thermally active sediment layer", [m], 10)
-		k_sed  : par_real("Sediment thermal conductivity", [W, m-1, K-1], 1.3)
-		C_sed  : par_real("Sediment specific heat capacity", [J, k g-1, K-1], 4000)
-		rho_sed : par_real("Sediment density", [k g, m-3], 2600)
-		#TODO: porosity
+	par_group("Layer specific mixing", layer) {
+		K0     : par_real("Mixing factor reference", [m 2, s-1], 0.5e-4, "Mixing factor when the B-V frequency is equal to the reference")
+	}
+	
+	par_group("Initial layer physical", layer) {
+		init_t : par_real("Initial layer temperature", [deg_c], 2.5)
+		init_s : par_real("Initial layer salinity", [], 20)
 	}
 	
 	var(basin.freeze_temp, [deg_c]) { ice_formation_temperature(layer.water.salinity[vert.top])	}
 	
 	var(layer.dz, [m], "Layer thickness") {
-		water / (A*rho_water)
+		# NOTE: This is a bit simplified since if the level changes, A would in reality also change.
+		Aavg := 0.5*(A + A[vert.below]),
+		#Aavg := A,
+		water / Aavg
 	} @initial {    dz0   }
-	
-	z : property("Depth")
 	
 	var(layer.z, [m], "Depth (to bottom of layer)") {
 		z[vert.above] + dz[vert.above]
+	} @no_store
+	
+	var(basin.h, [m], "Basin sea level") {
+		aggregate(layer.dz) - aggregate(dz0)
 	}
 	
-	var(layer.water, [k g], "Layer water") @initial { A*dz0*rho_water }
+	var(basin.area, [m 2], "Basin area") {
+		A[vert.top]
+	} @no_store
 	
-	var(layer.water.salt, [k g], [g, k g-1], "Layer salt")
-		#TODO: Initial conc
-		@initial_conc { 25=>> }
+	var(layer.water, [m 3], "Layer water") @initial {
+		Aavg := 0.5*(A + A[vert.below]),
+		#Aavg := A,
+		Aavg*dz0
+	}
+	
+	var(layer.water.salt, [k g], [k g, m-3], "Layer salt")
+		@initial_conc { salinity*1e-3*rho_water }
 	
 	var(layer.water.heat, [J], "Layer thermal energy") 
 		#TODO: C_water should at least be salinity dependent
-		@initial_conc { C_water * (temp -> [K]) }
+		@initial_conc { C_water * (temp -> [K]) * rho_water }
 
 	var(layer.water.temp, [deg_c], "Layer temperature") {
-		heat / (water*C_water) -> [deg_c]      #TODO: C_water should at least be salinity dependent
+		heat / (water*C_water*rho_water) -> [deg_c]      #TODO: C_water should at least be salinity dependent
 	} @initial {
-		#TODO: Initial temp
-		5=>>
+		init_t
 	}
 	
 	var(layer.water.salinity, [], "Layer salinity") {
-		conc(salt)=>[] # TODO: Convert salinity to PSU
+		1e3*(conc(salt)/rho_water)
+	} @initial {
+		init_s
 	}
 	
 	var(layer.water.rho, [k g, m-3], "Potential density") {
 		seawater_pot_dens(temp, salinity)
-	}
+	} @no_store
 	
-	ddens          : property("d(dens)")
-	Nfreq          : property("Brunt-Väisälä frequency")
-	Kt             : property("Tide wave mixing coefficient")
-	Ks             : property("Additional mixing coefficient")
-	Kw             : property("Wind mixing coefficient")
-	wmix           : property("Water mixing")
+	ddens           : property("d(dens)")
+	Nfreq           : property("Brunt-Väisälä frequency")
+	v_t             : property("Turbulent mixing")
+	v_s             : property("Additional mixing")
+	v_w             : property("Wind mixing")
 	
 	var(layer.water.pressure, [Pa]) {
 		pressure[vert.above] + rho*grav*dz
@@ -109,27 +154,12 @@ module("NIVAFjord basin", version(0, 0, 1),
 	
 	var(layer.water.ddens, [k g, m-3]) {
 		(rho[vert.below]-rho)
-	}
+	} @no_store
 	
 	var(layer.water.Nfreq, [s-1]) {
 		mdz := 0.5*(dz + dz[vert.below]),
 		N2 := grav * ddens / (mdz*rho),
-		sqrt(max(Nmin^2, N2))
-	}
-	
-	var(layer.water.Kt, [m 2, s-1]) {
-		safe_divide(K0, (Nfreq/N0)^alpha)
-	}
-	
-	var(layer.water.Ks, [m 2, s-1]) {
-		eta := exp(-(z - zshalf)/hsfact),
-		Es  := Es0*eta/(1+eta),
-		Es / Nfreq^2
-	}
-	
-	var(layer.water.wmix, [k g, day-1]) {
-		K := Kt + Ks + Kw,#+Kd,              # Maybe make the sum of the mixing coefficients a separate state variable.
-		rho * A * K / dz ->>
+		sqrt(max(Nmin^2, N2))   # NOTE: ddens, hence N2, could be < 0, so we can't do max(Nmin, sqrt(N2))
 	}
 	
 	stress         : property("Wind stress")
@@ -138,72 +168,73 @@ module("NIVAFjord basin", version(0, 0, 1),
 	potmix         : property("Potential energy needed for wind mixing")
 	summix         : property("Sum used wind mixing energy")
 	
-	# TODO: wind stress could be moved to airsea module.
+	# TODO: wind stress could be moved to airsea module and maybe use GOTM version.
+	# TODO: Should be stability corrected.
 	var(basin.stress, [N, m-2]) {
 		u := air.wind,
 		c_stress := 1e-3*(0.8 + 0.9*u^8/(u^8 + 1e8[m 8, s-8])),
 		air.rho*c_stress*u^2
 	}
 	
-	#TODO: need to take into account of B_s in the fjord model document (?)
+	#TODO: Make wind mixing instead dependent on the B-V frequency also? One issue is to determine how much energy gets "used" in each layer.
 	var(basin.emix, [J], "Total wind mixing energy") {
 		A[vert.top]*sqrt(stress^3/layer.water.rho[vert.top])*time.step_length_in_seconds
 	}
 	
 	var(layer.water.sumV, [m 3]) {
-		sumV[vert.above] + A[vert.above]*dz[vert.above]
-	}
+		sumV[vert.above] + water[vert.above]
+	} @no_store
 	
 	var(layer.water.potmix, [J]) {
-		max(0, grav*ddens*(sumV*A*dz/(sumV + A*dz))*((z+0.5*dz)/2))
-	}
+		max(0, grav*ddens*(sumV*water/(sumV + water))*((z+0.5*dz)/2))
+	} @no_store
 	
 	var(layer.water.emix, [J]) {
 		rem := max(0, basin.emix - summix),
 		min(rem, potmix)
-	}
+	} @no_store
 	
 	var(layer.water.summix, [J]) {
 		emix[vert.above] + summix[vert.above]
+	} @no_store
+	
+	var(layer.water.v_w, [m, s-1]) {
+		rem := max(0, basin.emix - summix[vert.below]),
+		mixspeed := 1[m]/time.step_length_in_seconds,
+		
+		0=>> if is_at[vert.bottom],
+		mixspeed->>                                                    if rem > 1e-30[J] & potmix[vert.below] < 1e-30[J],
+		mixspeed*safe_divide(emix[vert.below], potmix[vert.below])->>  otherwise
 	}
 	
-	var(layer.water.Kw, [m 2, s-1]) {
-		
-		rem := max(0, basin.emix - summix),
-		# This one is a bit iffy..
-		mixspeed := 1[m, day-1],
-		
-		mixspeed*dz->>                                                    if rem > 0 & potmix < 1e-20[J],
-		mixspeed*dz*safe_divide(emix[vert.below], potmix[vert.below])->>  otherwise
-		#mixspeed*dz->>                                                    otherwise
+	var(layer.water.v_t, [m, s-1]) {
+		dz_ := 0.5*(dz + dz[vert.below]),
+		safe_divide(K0, dz_*(Nfreq/N0)^alpha)
 	}
 	
-	flux(layer.water, vert, [k g, day-1], "Water mixing down") { wmix }
-	flux(layer.water, vert, [k g, day-1], "Water mixing up")   { -wmix }
+	var(layer.water.v_s, [m, s-1]) {
+		dz_ := 0.5*(dz + dz[vert.below]),
+		eta := exp(-(z - zshalf)/hsfact),
+		Es  := Es0*eta/(1+eta),
+		Es / (dz_*Nfreq^2)
+	}
 	
-	var(layer.water.attn, []) {
-		coeff := attn0,  #TODO: Correct for chl-a or things like that. Probably needs to be in separate module.
-		1-exp(-coeff*dz)
+	flux(layer.water, vert, [m 3, day-1], "Layer mixing down") {
+		(v_t + v_s + v_w)*A[vert.below]->>
+	} @mixing
+	
+	var(layer.water.sw, [W, m-2], "Layer shortwave radiation") {
+		# TODO: Since this variable is for use by biochemistry, 
+		# it should instead be an average through the layer.
+		# Now it is how much enters at the top.
+		in_flux(sw_vert, layer.water.heat)/A ->>
 	}
 	
 	flux(layer.water.heat, sw_vert, [J, day-1], "Shortwave shine-through") {
-		(in_flux(sw_vert, layer.water.heat)->[J, day-1]) * (1-attn) * A[vert.below] / A
+		(in_flux(sw_vert, layer.water.heat)->>)*(1 - attn) * A[vert.below]/A
 	}
 	
-	var(sed.heat, [J], "Sediment heat") @initial {
-		mass := A[vert.bottom]*dz_sed*rho_sed,
-		C_sed * mass * (T_sed->[K])
-	}
-	
-	var(sed.temp, [deg_c], "Sediment surface temperature") {
-		mass := A[vert.bottom]*dz_sed*rho_sed,
-		1*(2*heat / (mass*C_sed) - T_sed->[K]) -> [deg_c]
-	}
-	
-	# Water-Sediment heat transfer
-	
-	flux(layer.water.heat[vert.bottom], sed.heat, [J, day-1], "Water-sediment heat transfer") {
-		dz := dz_sed*0.2,  # Just the scaling factor for the transfer TODO: get a better estimate
-		A[bottom]*(temp[bottom]->[K] - sed.temp->[K])*k_sed/dz ->>
+	flux(layer.water.heat, sw_sed, [J, day-1], "Shortwave to sediments") {
+		(in_flux(sw_vert, layer.water.heat)->>)*(1 - attn) * (A - A[vert.below])/A
 	}
 }

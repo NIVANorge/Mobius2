@@ -4,7 +4,7 @@ model("SimplySed") {
 
 	extend("simplyq_model.txt")
 	
-	sed    : quantity("Sediments")
+	sed    : quantity("Particles")
 	e_fact : property("Erosion factor")
 	
 	load("modules/simplysed.txt", module("SimplySed", soil, river, water, sed, e_fact, a_catch))

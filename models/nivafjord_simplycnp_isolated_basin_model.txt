@@ -1,0 +1,128 @@
+
+
+model("NIVAFjord-SimplyCNP-IsolatedBasin") {
+	
+	basin_idx     : index_set("Basin index")
+	layer_idx     : index_set("Layer index") @sub(basin_idx)
+
+	air       : compartment("Atmosphere")
+	basin     : compartment("Basin",          basin_idx)
+	layer     : compartment("Fjord layer",    basin_idx, layer_idx)
+	sediment  : compartment("Fjord sediment", basin_idx, layer_idx)
+	
+	water : quantity("Water")
+	ice   : quantity("Ice")
+	salt  : quantity("Salt")
+	heat  : quantity("Heat energy")
+	
+	sed : quantity("Sediments")
+	oc : quantity("Organic carbon")
+	on : quantity("Organic nitrogen")
+	op : quantity("Organic phosphorous")
+	din : quantity("Nitrate")
+	phos : quantity("Phosphate")
+	
+	temp     : property("Temperature")
+	salinity : property("Salinity")
+	precip   : property("Precipitation")
+	wind     : property("Wind speed")
+	g_rad    : property("Global radiation")
+	pressure : property("Pressure")
+	a_hum    : property("Actual specific humidity")
+	rho      : property("Density")
+	lwd      : property("Downwelling longwave radiation")
+	sw       : property("Shortwave radiation")
+	cos_z    : property("Cosine of the solar zenith angle") 
+	attn     : property("Attenuation")
+	freeze_t : property("Ice formation temperature")
+	indicator : property("Ice indicator")
+	a_vap    : property("Actual vapor pressure")
+	s_vap    : property("Saturation vapor pressure")
+	
+	z    : property("Depth")
+	dz   : property("Thickness")
+	h    : property("Sea level")
+	evap : property("Evaporation")
+	area : property("Area")
+	
+	vert    : connection("Fjord vertical") @grid1d(layer, layer_idx)
+	sw_vert : connection("Shortwave vertical") @grid1d(layer, layer_idx)
+	
+	par_group("Solver step") {
+		solver_h    : par_real("Initial solver step", [hr], 1)
+		solver_hmin : par_real("Solver relative min step", [], 0.01)
+	}
+	
+	load("modules/atmospheric.txt",
+		module("Atmospheric", air, temp, wind, g_rad, pressure, a_hum, rho, lwd, cos_z, a_vap, s_vap))
+	
+	
+	#TODO: Replace with the one that has FPV covering.
+	load("modules/airsea.txt",
+		module("AirSea", "AirSea Fjord", air, basin, ice, heat, temp, precip, wind, g_rad, pressure, rho, a_hum, lwd, sw, attn, indicator,
+							evap, cos_z, loc(basin.freeze_t), loc(basin.area), loc(layer.water[vert.top]), loc(layer.water.heat[sw_vert.top])))
+	
+	load("modules/nivafjord/basin.txt",
+		dims : preamble("NIVAFjord dimensions", basin_idx, layer_idx, layer),
+		module("NIVAFjord basin", air, basin, layer, water, salt, heat, temp, salinity, pressure, wind, g_rad, rho, attn, z, dz, h, area, freeze_t, sw, vert, sw_vert, loc(sediment.heat), dims))
+		
+	sol : solver("NIVAFjord solver", inca_dascru, solver_h, solver_hmin)
+	solve(sol, layer.water, basin.ice)
+	
+	fjord_phyt : quantity("Fjord phytoplankton")
+	zoo        : quantity("Zooplankton")
+	o2         : quantity("O₂")
+	chl_a      : property("Chlorophyll-a")
+	
+	load("modules/nivafjord/fjordchem.txt",
+		chem_par : preamble("NIVAFjord chemistry rates", fjord_phyt),
+		module("NIVAFjord chemistry", air, basin, layer, sediment, water, o2, ice, oc, din, on, phos, op, sed, fjord_phyt, zoo, chl_a, temp, salinity, wind, z, dz, indicator, attn, precip, area, cos_z, sw, vert, chem_par, dims))
+	
+	load("modules/nivafjord/sediment.txt",
+		module("NIVAFjord sediments", layer, sediment, water, o2, sed, oc, din, on, phos, op, heat, area, temp, dz, vert, chem_par, dims))
+		
+	solve(sol, sediment.sed, sediment.heat)
+	solve(sol, air.cos_z, air.g_rad)
+	
+	module("Basin inflow", version(0, 0, 0)) {
+		
+		var(air.precip, [m m, day-1], "Precipitation")
+		var(air.temp, [deg_c], "Air temperature")
+		
+		
+		load("stdlib/seawater.txt", library("Sea oxygen"))
+		load("stdlib/physiochemistry.txt", library("Chemistry"), library("Water utils"))
+		
+		# Water
+		
+		flow : property("Basin inflow")
+		var(basin.flow, [m 3, s-1]) # Input series
+		
+		# Just directing the catchment runoff to the top layer instead of doing the density check.
+		flux(out, layer.water[vert.top], [m 3, s-1], "Discharge from land to basin") { basin.flow->> }
+		
+		# O2
+		
+		par_group("Inflow oxygen") {
+			f_o2sat    : par_real("Inflow O₂ saturation fraction", [], 0.9, 0, 1)
+		}
+
+		flux(out, layer.water.o2[vert.top], [k g, day-1], "Oxygen from land") {
+			inflow_t := air.temp, # Assume inflow temperature = air temperature (see also below)
+			land_conc := f_o2sat*o2_saturation(inflow_t, 0) * o2_mol_mass,
+			basin.flow*land_conc->>
+		}
+		
+		# Heat / temperature
+		
+		flux(out, layer.water.heat[vert.top], [J, day-1], "Heat from land") {
+			inflow_t := air.temp, # Assume inflow temperature = air temperature (see also above)
+			(water_temp_to_heat(basin.flow => [m 3], inflow_t) => [J, s-1]) ->>
+		}
+		
+		# TODO: Add other substances that may be washed in.
+		
+		# TODO: Also outflow?
+	}
+}
+

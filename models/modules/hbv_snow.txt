@@ -15,6 +15,8 @@ This is an adaption of the snow module from HBV-Nordic (Sælthun 1995)
 [NVE home page](https://www.nve.no/vann-og-vassdrag/vannets-kretslop/analysemetoder-og-modeller/hbv-modellen/)
 
 [Model description](https://www.uio.no/studier/emner/matnat/geofag/nedlagte-emner/GEO4430/v06/undervisningsmateriale/HBVMOD.PDF)
+
+Authors: Magnus D. Norling
 """
 
 	par_group("Snow", snow_box) {

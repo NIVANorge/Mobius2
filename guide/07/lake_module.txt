@@ -1,0 +1,122 @@
+
+module("Simple layered lake", version(0, 0, 1),
+	air : compartment,
+	lake : compartment,
+	layer : compartment,
+	water : quantity,
+	heat : quantity,
+	ice  : quantity,
+	temp : property,
+	rho  : property,
+	area : property,
+	sw   : property,
+	attn : property,
+	ind  : property,
+	cos_z : property,
+	vert : connection,
+	sw_vert : connection
+) {
+	load("stdlib/physiochemistry.txt",
+		library("Basic constants"),
+		library("Water utils"))
+	load("stdlib/basic_math.txt",
+		library("Basic"))
+	load("stdlib/atmospheric.txt",
+		library("Radiation"))  #TODO: Only for 'refract', but that function should probably be moved.
+
+	par_group("Layer parameters", layer) {
+		dz : par_real("Thickness", [m], 1, 0.1, 5)
+		A  : par_real("Cross-section area", [m 2], 10000, 1, 371e9)
+		init_t : par_real("Initial temperature", [deg_c], 10, 0, 50)
+	}
+	
+	par_group("Mixing parameters") {
+		K0      : par_real("Mixing factor reference", [m 2, day-1], 0.00706)
+		K0_ice  : par_real("Mixing factor during ice", [m 2, day-1], 0.000898)
+	}
+	
+	par_group("Light") {
+		att_c   : par_real("Light extinction coefficient", [m-1], 0.5)
+	}
+	
+	var(lake.area, [m 2], "Lake surface area") {
+		A[vert.top]
+	}
+	
+	var(layer.water, [m 3], "Lake layer water") @initial {
+		aavg*dz
+	}
+	
+	var(layer.water.heat, [J], "Lake layer heat") @initial {
+		water_temp_to_heat(water, temp)
+	}
+	
+	var(layer.water.temp, [deg_c], "Lake layer temperature") {
+		water_heat_to_temp(water, heat)
+	} @initial { init_t }
+	
+	var(layer.water.rho, [k g, m-3], "Layer potential density") {
+		water_density(temp)
+	}
+	
+	# We need this separate property because we can't use the 'below' access inside "Layer discharge" for implementation reasons. Can maybe be fixed later
+	# Note that since it is @initial and @no_store without a main code block, it will only be computed once at the start of the model run.
+	aavg : property("Area average")
+	var(layer.aavg, [m 2], "Layer average area") @initial {
+		0.5*(A + A[vert.below])
+	} @no_store
+	
+	flux(layer.water[vert.top], out, [m 3, s-1], "Lake discharge") {
+		dz_est := water[vert.top] / aavg[vert.top],
+		
+		excess := max(0, dz_est - dz[vert.top]),
+		rate_c := 1[m 2, s-1],
+		rate_c*excess
+	}
+	
+	N2freq : property("Square Brunt-Väisälä frequency")
+	K      : property("Turbulent mixing coefficient")
+
+	N2min  : constant("Minimum square B-V frequency", [s-2], 7e-8)
+	alpha  : constant("Mixing non-linear coefficient", [], -0.43)
+	
+	var(layer.water.N2freq, [s-2]) {
+		mdz := 0.5*(dz + dz[vert.below]),
+		drho_dz := (rho[vert.below]-rho)/mdz,
+		N2  := (grav/rho) * drho_dz,
+		max(N2min, N2)
+	} @no_store
+	
+	var(layer.water.K, [m 2, day-1]) {
+		# TODO: Is the parametrization by surface area any good?
+		a := (lake.area->[k m 2])=>[],
+		K_ref := {
+			K0*a^0.56   if !lake.ice.ind,
+			K0_ice      otherwise
+		},
+		K_ref*(N2freq=>[])^alpha
+	}
+	
+	flux(layer.water, vert, [m 3, day-1], "Layer mixing down") { 
+		mdz := 0.5*(dz + dz[vert.below]),
+		K*A[vert.below]/mdz->>
+	} @mixing
+	
+	var(layer.sw, [W, m-2], "Layer shortwave radiation") {
+		in_flux(sw_vert, water.heat)/A ->>
+	}
+	
+	flux(layer.water.heat, sw_vert, [J, day-1], "Shortwave shine-through") {
+		sw*(1 - attn) * A[vert.below] ->>
+	}
+	
+	flux(layer.water.heat, out, [J, day-1], "Shortwave to sediments") {
+		sw*(1 - attn) * (A - A[vert.below]) ->>
+	}
+	
+	var(layer.water.attn, []) {
+		cz := max(0.01, refract(air.cos_z, refraction_index_water)),
+		th := dz / cz, # Length traveled through the layer by a sun beam taking zenith angle into account.
+		1 - exp(-att_c*th)
+	}
+}

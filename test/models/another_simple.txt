@@ -2,25 +2,57 @@
 
 model("Another simple") {
 
-	a : compartment("A")
+	a : compartment("A", i)
+	q : quantity("Q")
+
 	
-	qf : property("Q!")
-	r : property("R")
+	p : property("P")
+	
+	i : index_set("I")
+	c : connection("C") @grid1d(a, i)
 	
 	module("So simple", version(2, 0, 0)) {
-
-		par_group("The Q") {
-			q : par_int("Q", [], 4)
+	
+		par_group("Pars", a) {
+			t : par_real("T", [m m], 0)
+			f : par_real("F", [m m], 0)
 		}
+		/*
+		var(a.q, [m m], "A Q") @initial { t }
 		
-		var(a.qf, [], "Q!") {
-			i := 0,
-			r := 1,
-			p:{
-				i <- i+1,
-				{ r <- r*i, iterate p }  if i <= q,
-				r                        otherwise
-			}
+		flux(out, a.q, [m m, day-1], "flux") { f }
+		
+		var(a.p, [], "A P") {
+			in_flux(a.q[c.below]) =>>
+		}
+		*/
+		
+		test : property("Test")
+		
+		freeze_temp : constant("Ice formation temperature", [deg_c], 0)
+		
+		temp : property("Temperature")
+		var(a.temp, [deg_c], "Top temperature") {
+			5[deg_c]
+		}
+		ice : property("Ice")
+		var(a.ice, [m]) { 0.08[m] }
+		
+		var(a.test, [W, m-2]) {
+			z_surf := 1[m],  
+			K_ice := 200[W, m-3, deg_c-1],  
+			#e := (freeze_temp - top_water.temp)*z_surf*K_ice,
+			
+			e := (freeze_temp - a.temp)*z_surf*K_ice,
+			#e := -a.temp*z_surf*K_ice,
+		
+			e          if (ice < 1e-6[m]) & (e < 0),
+			0  otherwise
+			
+			
+			#0[W, m-2]   if (ice < 1e-6[m]) & (e < 0),    # No melting when there is no ice
+			#e           otherwise
+			
 		}
 	}
 }

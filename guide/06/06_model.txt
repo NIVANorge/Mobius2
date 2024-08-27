@@ -1,0 +1,53 @@
+
+model("Hydrology model") {
+
+
+	lu : index_set("Landscape units")
+	sc : index_set("Subcatchment")
+
+	soil   : compartment("Soil", sc, lu)
+	gw     : compartment("Groundwater", sc)
+	river  : compartment("River", sc)
+	air    : compartment("Atmosphere")
+
+	temp   : property("Temperature")
+	precip : property("Precipitation")
+
+	water : quantity("Water")
+	
+	downstream : connection("Downstream") @directed_graph {
+		# Don't worry too much about this "regex" for now, it is experimental
+		# functionality. It says that any maximal path in the graph must be one or
+		# more river sections followed by an 'out'.
+		river+ out
+	} @no_cycles
+	# '@no_cycles' just declares that instances of this connection should not contain circles.
+	
+	load("../05/hydro_modules.txt",
+		module("Soil hydrology", air, soil, gw, river, water, temp, precip),
+		module("River hydrology", river, water, loc(downstream)))
+	
+	in : quantity("Dissolved inorganic Nitrogen")
+	
+	load("../05/din_module.txt",
+		module("DIN processes", air, soil, gw, river, water, in, temp))
+	
+	par_group("Land use", soil) {
+		f_lu : par_real("Land use fraction", [], 0, 0, 1)
+	}
+
+	aggregation_weight(soil, gw) { f_lu	}
+	aggregation_weight(soil, river) { f_lu }
+	
+	par_group("Subcatchment data", river) {
+		A_c : par_real("Subcatchment area", [k m 2], 20)
+	}
+	
+	unit_conversion(soil.water, river.water) { A_c }
+	unit_conversion(gw.water,   river.water) { A_c }
+	
+	sol : solver("Hydrology solver", inca_dascru, [2, hr], 1e-2)
+	
+	solve(sol, soil.water, gw.water, river.water)
+
+}

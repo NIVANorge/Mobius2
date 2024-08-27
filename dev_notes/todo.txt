@@ -2,348 +2,447 @@
 
 	*** High pri ***
 
-
-		Finish the new formulation of special_computation
-			Maybe we should specify the index sets directly rather than doing it in the roundabout way we do now (specifying the compartment) (?)
-			
-			Make in_flux and out_flux be allowed as inputs to it.
-			
-			See the note in
-				nivafjord/horizontal_fluxes.txt "Place river horizontal fluxes"
-				
-				Problem with how one should identify what the source compartment of the lookup layer.water.rho[horz.below] is
-				Right now we default it to the compartment of the result(), but that is very error prone.
-			
-			Rename to 'external_computation' ?
-			
-
-		Dependency system for connection aggregations is very error prone and complicated. Esp. wrt. 'top' and 'bottom'.
-			(in terms of how it is computed, not in terms of user-facing functionality)
-			Ideally the entire system should be re-thought or restructured.
+		Add forums on github page? (github Discussions)
+		
+		Would like to be able to use in_flux in initial code (for e.g. setting initial steady states easily), but then we also need to be able to compute initial values for fluxes. With in_flux_connection it could be tricky to determine what initial fluxes must be computed (?).
+		
+		Made it possible to add properties to solvers manually, but it could be error prone.
+			Fix errors if they appear.
 
 		Specific models
-			Finish NIVAFjord!!
-				horizontal fluxes -> where do they push water out to?
-				Also the restriction of vertical fluxes to the layers that 'participate' in the edge of that connection.
-				
-			Finish the simple hydraulics model.
-			
-			EasyLake-CNP
-
 		
+			Keep better track of what elevation different models want wind speed. Maybe convert between different elevations if necessary.
+			
+			Maybe factor out common phyto module for EasyChem and FjordChem.
+			
+			NIVAFjord!
+				
+				Finish biochemistry.
+					Do we need separate NH4? Do we need Si?
+					Sulfate reduction?
+					Zooplankton?
+					
+					Experiment with different phytoplankton formulation.
+					
+				Go over wind mixing again, it seems a bit broken.
+					Issue is that in our model the upper well-mixed layers don't stay entirely well-mixed, so the wind mixing is just spent there.
+				It would eventually be better to formulate mixing in terms of turbulent energy that gets transported (and spent). Then wind is just an input to that, and so is other sources.
+					
+				Should really solve the advection/diffusion equation with Crank-Nicholson.
+					A bit difficult to integrate it into the existing framework.
+				
+			EasyChem + SimplyCNP
+			
+				Figure out how to do effluents.
+							
+				Shading effect on phyto light availability (light should be more like an average in the epilimnion taking into account attenuation).
+					But that would also be problematic since it is quite uneven but the resulting phyto conc isn't.
+			
 		Finish connection system
 		
-			in_flux(connection, something) will some times depend on the indexes being ordered in the same way as in the connection graph.
-				Happens if a flux along the connection (in)directly depends on the in_flux(connection, something).
-				This is not solvable without remapping the indexes (or asking the user to reorder them).
-				Could detect if this happens and give an error, but that alone is a bit of work.
-					But that is needed if it happens in a graph with cycles.
+			Properly test the flux restriction refactoring.  (e.g. having [.below] in source etc. )
+				Maybe broken if we have grid1d of the same connection in both source and target (?)
+			
+			Dependency system for connection aggregations is very error prone and complicated. Esp. wrt. 'top' and 'bottom'.
+				(in terms of how it is handled internally, not in terms of user-facing functionality)
+				Ideally the entire system should be re-thought or restructured.
 		
-			Component index sets should probably be declared in the connection declaration in the model. It is too integral to how to model works to leave it to data set.
-			
 			Have to figure out what something like
-					flux(blabla, something[vert.below], ...)				
-			means. Right now the location 'something' is not used.
+				flux(blabla, something[vert.below], ...)				
+			means. Right now the location 'something' is not used, and we only need to declare it to allow [.top] or [.specific] etc on the secondary restriction.
 				Need this for NIVAFjord
-			Maybe just make the syntax
-					flux(blabla, any[vert.below]
-			and disallow having specific location there. And this is what we do for all 'below' connection targets.
-				Could later extend it to have different code depending on the target (for graph and directed_tree).
+			Could later extend it to have different code depending on the target (for graph).
 			
-			Make 'pair' connection (?).
-				Allows avoiding things like having an outlet index set for river->fjord   or e.g.  sewage->river.
-					Could just use a directed tree for this though..
-			
-			graph and tree
-				One should need to explicitly allow isolated nodes using something like    a | (....)
+			Check if it is valid to look up a value along a connection.
+				Done except for parameters.
 			
 			graph connections
 				
-				For [below] accesses in flux, we probably need to pre-process them to check that the units are the same in all instances etc. and that "indexing below" is correct.
-					Alternatively do unit conversions, but how?
-					May have to be done inside resolve_function_tree, so we need to access the connection data there.
-
-			all_to_all:
-				
-				Maybe signal that something can be a matrix parameter by having a double dependency on that compartment in the par group?
-
-			grid1d:	
-				allow 'top' to be the source of a flux (?) (and 'bottom' be a target).
-				
+				Regex
+					Finish regex check in the general case (cycles case)
 					
-			Specific target:
-				Properly process the @specific function tree, incl. flags
-				Check valid dependencies for the tree.
-					Have to think about what types of variables it is allowed to reference.
-				Tridiagonal distribution.
-				Clamp the index within allowed bounds or zero out the flux if the index is out of bounds (?).
-					This is actually the only feature currently where a user error could lead to unsafe memory accesses. Unless we add the constraints.
+					Regex checking of fjord_horizontal regex is bugged for nivafjord_moss
+						if the regex is switched to
+						river | (river? layer+ bnd_layer?)
+						it fails, so the | operator is not symmetric somehow.
+					also it doesn't fail if there is an ->out on the downstream data even though that should not be allowed by the regex.
+				
+				For [below] accesses in code, we probably need to pre-process them to check that the units are the same in all instances etc.
+					Is currently done in codegen (put_var_lookup_indexes).
+					May have to be done inside resolve_function_tree, in that case need to access the connection data there.
+					
+				When it accesses [below] across an index set that has a sub-index set, it should check that the sub index set is not out of bounds (if the variable depends on it).
+					Probably put in make_restriction_condition().
+					Right now it doesn't break because the data is allocated and has value 0, but that may not be the case eventually.
+						Moreover it would be wrong if it was a flux with that target and not set to 0 for some other reason.
+				
+				Make it work with quantities as the node component.
+					And allow aggregation weight for quantities (can for instance be used for degradation chains of isotopes or POPs where some of the mass goes away as side products).
+						Although that could just be done with an additional ->out branch.
+
+			grid1d
 			
-			Dissolved fluxes -
-				make dissolvedes of negatives work for other types (graph (maybe) regular fluxes (maybe), but probably not directed tree).
+				When the context location of code is e.g. [vert.top], it should be implicit that all variables are accessed with that index.
+					In that case it should also be possible to look up [vert.below] inside this code (which then resolves to index 1).
+
+				The way we go around not having a source_aggregate for these when we have something going from [below] (and maybe from [top] if that works now) is not clean and could cause problems if people want to use the in_flux aggregate in the code.
+				However it also seems like a waste to make a out_flux aggregate when it is only needed for one of the indexes.
+					Unless we make a special system for it not to have an index set dependency on the grid index in this case. That seems like a lot of work for this special case though.
+					- It is actually not that much of a waste since they are now usually @no_store.
+				Alternatively, in the ODE codegen, directly make a subtraction of the flux (on condition of correct index).
+					This is maybe the easiest, but is still a bit of work for this special case.
+					
+				Actually in grid1d the connection aggregate is always unnecessary unless it is referenced. Would be better to remove it as a default and only generate it if it is referenced by in_flux(connection).
 			
+			
+			.specific target:
+				Maybe the @specific code AST should be tied to the var loc instead of the variable, like var_ident[conn_ident.{ ..code }]
+					Could then also allow .specific access inside main code, not just in flux source/targets
+						Also makes it easier to do random access indexing in general in case people really want it.
+						Creates a bit of a dependency nightmare?? Must maybe assume that it creates same dependency as 'above', otherwise would need to analyze the code..
+				Only issue is then that copying around Specific_Var_Location can then incur a tree copy of that code.
+					Although maybe not necessary if we make an external owner of it? Then we could just copy the pointer.
+					
+				Tridiagonal distribution of flux target as in original NIVAFjord (?).
+			
+		Bidirectional
+			Should check that target unit is the same a source unit always (and not allow unit conversions (except time-related ones))
+				Both for main and dissolved fluxes.
+				And maybe not allow unit_conversions and aggregation_weights (or otherwise multiply by the inverse when necessary).
+				
+			Have an optional test to see if non-bidirectional non-mixing fluxes (with dissolvedes) were negative after or during a run.
+			
+			Need to check that a bidirectional flux wasn't discrete.
+		Note: unit_conversion seems to work fine for @mixing, but we should test it properly. Also, it probably depends on the computed concentration in that expression being the same for dissolved ones (just not the mass variable). That is maybe also the case for @bidirectional.
+	
 	
 	*** Intermediate-pri ***
 	
-		Ignore certain log_print if not in "developer mode" (should be configured in config.txt)
+		Merge unit_conversion and aggregation_weight to just "weight" (?)
 	
-		In NIVAFjord we get too many index sets for MobiView2 to handle.
-			Either organize edge index sets differently.
-			Or rethink the entire system
-				Hide index sets that are not active, for instance (and place the other selectors nicely).
-			Or make a few more, but will not solve problem long term (?)
-			Or select edge by selecting what it is pointing at (?) - doesn't work if it is pointing at something indexed the same way (in that case would need something like the all_to_all).
-			Do the same as all_to_all. - Just plot all of them. (Doesn't solve for parameter selection).
-			Make a different way to organize sub-indexed index sets (could also solve other problems).
+		Would be very useful to be able to turn on an option to store out what variables are causing error control to reduce step size.
+		Also, get the average step size through the time step, not just the last one.	
+			Requires a lot of extra infrastructure for this to be possible though.
+			
+			
 	
+		Make it possible to directly overload a concentration through an input series, not requiring it to be a separate 'property' declaration.
+			Turned out to be very difficult due to how things are organized, and caused a totally unrelated series to become NaN.
+			May have messed up indexing of series values?
 	
-		Some system for specifying state variables that should not be stored (properties only).
-			Quite complicated. In practice, need a separate storage for them that is only 1 deep. Also must disallow last() on them etc.
-			First iteration could be to just not display them, but still have them stored in the same place as everything else
-		Also a system for specifying different display variants (along with the code in MobiView2 to make use of that, which is the hard part).
-		
-		Consider just adding connection fluxes to derivatives as they are computed instead of having so many aggregates (except when these are actually needed, which would be much less often).
-			This would be a major change, but could create some speedup.
-			Alternatively, have them be non-stored as a default. (Requires less drastic changes, but has almost the same benefits of less memory usage).
-		
-		Make an (optional) validator that validates the order of instructions in the final structure according to (various types of) dependencies!
-			Useful for catching errors, which we some times have but are slow to detect.
-		
-		override {}  declaration.
-			E.g. to change the connection regex of a connection in an extending model.
-			How to do it for no_carry?
-				The way we now do no_carry is in general maybe not that good after all.
-				May eventually need to specify no_carry outside the module the flux was already declared in, but let's wait and see.
+		Multiple return values from functions (tuples).
+			Only annoying thing is that we then have to introduce 'tuple(N)' to the type system and check against it everywhere it is not allowed.
+	
+		Position_Map
+			There can be problems if the max depth doesn't exactly match a boundary of two widths.
+				See for instance Breiangen in nivafjord_moss
+		The way positioned indexes are named in get_index_names is not going to work for serialization.
+			May need to separate between serialization name and display name for these.
+				Actually, right now indexes are serialized by number and not name any way, so it is not a problem?
 
-		Clean up the Vansjø input data (merge sheets). Maybe re-download some of it.
 	
+		MobiView
+		
+			Circumstantial bugs, not repeated yet:
+				Calibration stats and observed stats bugging out in fjord layers.
+				2d plot doesn't work when only certain layers are selected. For instance the 2-3 first layers.
+			
+			2d plot: The plot won't make sense at all unless the selected indexes is one single contiguous interval (that ideally starts at 0).
+				Make MobiView print an error if it isn't?
+				
+			Make model reloads work better wrt 'quick select'.
+				If the quick_select tab is open, it should choose the right thing back.
+								
+			Seasonal aggregation.
+				I.e. the mean for jan, feb, ... across multiple years.
+				Maybe with box plot.
+				
+			Make it so that editing map based parameters works when the last index is not position based (?)
+			
+			plot is strange for all-negative series.
+	
+		
+		For sub-indexed index sets, don't allocate the entire max size for each instance (for data blocks).
+			Complicates indexing computations somewhat.
+		For additional_series data it is very wasteful that it allocates the max vector even though most of it is going to be nan. Esp. for fjord data.
+			Could make an entire separate system for how these are stored, but a lot of work, esp. taking into account that it has to fit into how MobiView works.
+			
+			
+		Ideally we should always (automatically) check if an entity we reference has_been_processed (unless we expect it not to be as during the construction step).
+	
+		If several loc() refer to one another in the wrong order, that is probably broken since they are resolved in order of declaration?
+			Very unlikely that it would happen in practice.
+			It is now detected with an error at least. But hard for users to understand.
+	
+		process_series_data	
+					
+			Allow averaging input values that are assigned to the same time step (makes it easier to work with different step sizes.)
+				Have to be more careful that we don't do double assignments during interpolation in that case.
+				Is there a way to do it without double allocation during setup?
+				
+				What we really want this for is just when indexes of the same series are provided multiple times.
+				
+				
+			Keep track of max and min dates for given model input series separately and test against that when starting model run (only need to test against intersection of the intervals)
+				A bit tricky if they are interpolated (?). In fact it is difficult to determine the intersection interval if any model inputs are interpolated.
+				
+				It is only really relevant for some series. In some cases it is ok if provided data doesn't cover the entire interval.
+			Clear model input series to NaN outside the individual interval.
+				What to do if an input is interpolated and not 'inside'?
+	
+		Should have better processing of docstrings.
+			Right now they must be tabbed entirely to the left or otherwise the tabs inside the string is recorded.
+				Should be easy since we can do it when they are copied over to std::string.
+	
+	
+		Data_Set
+			Need a reindex() function on the Data_Set or something like that, which updates all data based on new indexes for the index sets.
+				Must go through everything that is indexed and delete items that are attached to removed indexes.
+					parameters, connections, input series.
+						anything else?
+			
+			Make it possible to make a data file that is referring to another one, but with a subset of the indexes.
+				Just uses reshape after loading the Data_Set in the one referred to.
+			e.g.
+				data_set @subset("other_file_name.dat") {
+					index_set() ....
+				}
+				Have to decide what to do with broken connection arrows.
+			
+			Make it possible to have a data file extend another one.
+				The problem is how the 'save' functionality will work for that...
+				Also may want @except on this too. (For instance for connections that could be different in the extending file).
+			
+		Allow index sets to be empty (needed for above to work).
+			Invalidate state variables that are dependent on empty index sets.
+			e.g. allows you to run EasyLake-SimplyCNP without lakes, which can be useful if you are working with a data set subset.
+		
+		
+		@no_store :
+				
+			May need a more granular system for specifying what series to store (for non-declared series).
+				Like have a store() declaration in the Data_Set.
+			
+			Make @no_store available for @override quantities even on solvers.
+				I.e. for all declared variables that are not is_mass_balance_quantity().
+			
+			Determine variables that are going to be run-time constant and just compute them in the initial step, not the rest. (Also goes for stored variables).
+				Not allowed for 'quantity' unless it is @override.
+					Due to difficulty of determining what it will look like before the code generation step (the way it is set up now).
+				A bit annoying if the @initial code for it is different from the main code..
+				
+				Could also be done for variables that are not @no_store in the outset. They could be promoted as no_store.
+		
+	
+		Right now you get warning if you load a library that loads another library, but you don't use all the functions of the first library so that the second library is not referenced in active code.
+			Maybe just don't give intra-library warnings, or instead process all the functions somehow, but that is tricky.
+
+		
+		
+		What to do with discrete fluxes when varying step size.
+			They are currently not step size independent.
+			Should they be re-scaled somehow if the step size is different from the one that is declared in the flux?
+				That would only be correct if the flux is of the form dx/dt = -b*x
+			
+		What to do about things like (computed) global radiation that should really have an hourly variation with low step sizes but should be averaged with higher?
+		
+		Union index sets.   Update: this probably is correct now??
+			say     a : index_set("A") @union(b, c)
+			We probably have to disallow dependency on a if you have dependency on both b and c, or it is ambiguous.
+				Already fixed for direct dependencies (parameters, index sets)
+				On what level do we check this? Must be during the resolution loop?
+			A Var_Location should not be able to both depend on a union and a member of that union
+				This is currently checked per component basis, but not combined. Should be done in model_composition
+			Declaring a union index set before one of its members may break index processing.
+		
 		Clean up the prune_tree system.
 			Could get rid of using Function_Scope in prune_helper?
 				Tried it, but it has a bug.
 			Easy to have leaks when moving and deleting nodes the way it is done now.
 
 		Normalized file paths can be different depending on how they were loaded using relative paths. This causes it some times to try to load the same library twice, which causes a name clash.
-			Need a fully standardized normalized path (?)
+			Need a fully standardized normalized path.
 
-		It could probably be better if you *only* declare the time unit for the flux
-			Alternatively need some way to construct units, like
-				combine_unit(soil.water.oc.tox, [day-1])
-			This has to do with module reusability, could apply the module to quantities with different units.
 				
 		error_print_location
-			We could pass a scope to it, and only let it fall back on get_symbol when necessary.
-				(it can be necessary if the location was passed as a loc() to the scope where it is being used).
 			Make it print the bracket if needed.
+			To make it completely correct we would need to store the scope_id in every Var_Location. Consider it?
+				May be needed anyway if we put .specific code AST directly in the Var_Location.
 
 		More on module loading and the declaration format:
 				
 			Dynamic module choice (based on data set)
-				
-			Whether or not something is formatted as a var_location could be checked already in the match_declaration stage (e.g. Not just pass it as Token_Type::identifier).
 			
-			For properties, maybe always just put the unit on the property (but not on quantities obviously).
 			
-			Make it easier to load a sub-model of a larger model with a data set that was declared for the larger model.
-				Needs for instance to handle additional input series that are indexed over index sets that don't appear in the sub-model.
-		
-			Check for conflicting declarations of variables (unit, name).
-			
-			To fix some issues, we should probably scan a decl body for declarations, *then* process them. E.g. to make sure inline decls are also processed out of order.
-			This could also allow us to have static if expressions. Would just have to resolve outer consts and parameters first, but that should be ok.
-				(see more in doodle)
-				
-		
-		The system of automatic solvers unnecessarily puts soil TDP on a solver in SimplyP. Should be a way to specify it not to. Or maybe even for it to detect that it is not necessary.
-			Actually, this should be detected. It should be omitted because the value is an override, and none of the dependencies are on solvers. Instead of having auto-solver with an override, let the solver propagate as for properties.
-			
-		More cleanup of State_Var system
-			the way we handle regular_aggregates of fluxes is not necessarily that nice.
-			organize unit_conversion_tree differently.
-				and clean up how it is applied.
-		Maybe have a separate lookup structure for fluxes and have the common flux things stored there.
-			(in many cases we just loop over all fluxes and try to find common things for them)
-			loc1, loc2, unit_conv, connection, etc.
-				
-		Let '/' always be a real division, and maybe have a separate operator // (or similar) to force integer division.
-		
-		Finish sub-indexed index sets
-			May need to zero out fluxes across (as in connections) the super index set if they also index over the sub index set. (mostly relevant for all_to_all, grid1d (and graph)).
-			Sub-indexed series data.
-			
-			Make MobiView2 display if a selected series was not computed.
+		The way we handle regular_aggregates of fluxes is a bit confusing when maintaining the framework.
 			
 		Go over and improve diagnostics in error messages (all over the place).
 		
-		The 'extend' system is just not that good.
-			- There are problems when you want to override something in the earlier model,
-			- There is a problem if two extended models declare the same symbol.
+		external_computation :
+			Lots of things to make less error prone, but...
+			Just do whatever is needed when it is needed
+			It is only used for NIVAFjord for now.
 			
-			It is mainly nice for loading other modules, declaring some parameters, and aggregation_weight / unit_conversion, index set, distribution, solvers
-			The rest (declaring compartment, quantity, property) could easily be redone in the extending model.
-			
-			Maybe we could have an
-				if_main {
-				}
-			block. Things there are only processed if that model is loaded as the main one.
-				This rids us of the necessity to override model extensions.
-					Downside is that the extended model needs to know what things other models want to override....... Hmmm...
-					Also, if e.g. 'downstream' is in an if_main (since easylake or nivafjord may want to override it), then e.g. SimplyP also has to redeclare it...
-			
-			Could have an named_block("Name") { } block, and turn off blocks when extending
-				extend("simplyq_model.txt", "Name") turns off "Name".
-				
-				What about nested extensions in this system, and two models extend the same thing but disagree.
-					...nightmare...
-		Alternative: We just redeclare the entire model structure when that is necessary (which is what we do now).
+		Many times if some code depends on .below, it has a branch per lookup.
+			Could instead detect if the code depends on .below and then do a branch of the code total.
+			Also, could make existing_condition work for graph lookups better I think (?).
 		
+		The clamping of .specific expands the generated code a lot since it is done on every lookup. Maybe instead it should be tracked as a single state variable that is clamped, and just reference it.
+			Not possible for .specific in code (if we allow that), only if it is the target of a flux.
 		
 	*** Low-pri ****
 	
-		Iterate in function scope.
-			Make the iter_tag be referencable as an iterator.
-			Do reassignable local vars with phi nodes later. For now, just use alloca.
-			
+		Version numbers on libraries?
+			Doesn't really have any function unless the model specifies what version it is loading, but that seems a bit too complex.
 	
+		When something is @override_conc we could just drop computing the mass variable whatsoever. It doesn't seem to be interesting to have.
+			It could technically be referenced in code, that is the problem. We would have to detect for that.
+	
+		Multiple solvers:
+			Eventually may want/need to codegen smoothing or means. That is if a solver looks up something from another solver, it should linearly interpolate between last() value and current value using the time.fractional_step
+			May also want to compute (volume-weighted) means.
+		
+		Clean up the sorting algorithm
+			Make it independent of the Mobius framework code (no direct error exits, instead have error codes).
+	
+		Solution of the solver step resolution output issue is not ideal. Not that good to cap try_h to 1 since it changes the dynamics of the solver in subsequent steps.
+	
+		Have a special state variable type that can record solver step resolution.
+			Would only record what it ended at in that step though
+	
+		Datetime algorithms are slow for large dates
+			Low priority since it really only comes into play if the user makes a mistake and zooms the plot in MobiView2 to much. We are normally not working with such large dates.
+	
+		In the tree pruning, try to merge local variables that are identical.
+	
+		'iterate' in function scope.
+			Make the iter_tag be referencable as a value.
+			
+			i:{
+				a <- a*2,
+				a         if i > 10,
+				iterate i otherwise
+			}
+			
 		Maybe implement reverse iteration for grid1d
 			if you have a property depending on the [below] of itself.
+			Tricky since it would imply a complication of the instruction and index set dependency system for a very small special case.
 	
-		Make out_flux (?)
-			out_flux(connection, substance) first.
-			Also out_flux(substance).
-			Could also have out_flux(target, substance) (And also for in_flux).
-				where target is either a connection or a location.
-			Replace things like 'flow' in some places? Maybe doesn't work.
-			
-			Or do we just wait since out_flux could always be computed with a property.
-			
-			
-	
-		Make a Token ole_get_token(VARIANT *var) that can streamline some of the excel reading.
+		
+		Could also have flux(source, target) like in_flux, out_flux, but just summing between these locations.	
 	
 		Give proper error when externally linked function is not found.
 			Currently it just doesn't compile the module functions, and only gives error when trying to look up the module functions saying *they* are not found.
-	
-		Make the data_set declarations match the model declarations better
-			Just let the data_set use the same AST, where a [] block parses as "data", which is just a token list.
-			Should be able to make registries match up better to simplify some things when loading into the Model_Application.
-			
-			Could have a serialization name for entities in the data set and use that to map them over to the model? Then use Entity_Id inside the data_set, but just map these to the model entity_ids.
-		
-			
-			Index sets refereced inside unused modules have still to be declared in the data set.
-				Difficult to get rid of. May need to allow the index sets to be declared even though they are not in the model.
-		
-		
-		More correctness checks and convenience etc. for uses of Indexes.
-			count()
-			Maybe just have an iterator on Indexes that includes mat_col if necessary.
-				Use that in check_for_nans and maybe other places. get_index_names_with_edge_naming, etc.
-		
-	
+			Not sure how to fix it, may have to delve into orcjit.
+
 		Is there any way we could simplify 'aggregation_weight' and 'unit_conversion' so that they don't have to be declared like that?
 		
-		Maybe the decl_type of module template should just be module_template (in the module files).
-		
-		It can sometimes be very difficult to debug what is going on when one forgets to put a quantity on a solver and this inadvertently doesn't give an error.
+		It can sometimes be very difficult to debug what is going on when one forgets to put a quantity on a solver and this doesn't give an error for dependency reasons.
 		
 		Capping of discrete fluxes from override variables not necessary?
 			I.e. don't have to check if a flux with the source in a variable that is 'override' overtaxes its source.
 		
-		
-		Separate var storage that is not temporal
-			Current override system of inputs on properties is not the best. Should be possible on a per-index basis (but that requires something like input_was_provided in Mobius1)
+		Current override system of inputs on properties is not the best. Should be possible on a per-index basis (but that requires something like input_was_provided in Mobius1)
 			Similarly also want to allow inputs to override parameters.
-		
-			Check for constant computability of properties (or constant series or constant state vars) and have them stored in a separate structure that is computed at model startup.
-			Must also handle if there is a constant .override
-				Can use the same storage as for variables that are not stored temporally.
-		
-		Just make the global module in the data set be a module scope in the data set. Simplifies things a bit. Maybe a module {} without a name (?)
-		
+				This is tricky to do implicitly due to how parameter names are scoped. May need a if_input_else_parameter() or something.
 		
 		MobiView:
 		
-			Parameter search & select crashes on 'Start date'
-		
 			Plot
+				
+				More aggregation intervals
+					minute, hour, day. (esp. day).
+				
+				Figure out a way to make 2D plot faster
+					Make it not need to update the data source if plot setup was not changed.
+					Improve the drawing algorithm in ScatterDraw.
+						Looks like the problem is the way TableData finds the index of a point. (For each pixel lookup, it has to iterate through a large portion of the table).
+							Could make binary search, or something else.
+						Also make it allow custom color gradient functions.
+					Maybe:
+						Make a date range for the 2D plot (when the date is the x axis) that defaults to no more than say 1000 steps (?)
+							Plot is just generated for this range.
+				
 				stacked_share has a slow implementation.
 					Should maybe not sum over all the values each time it is extracted, just do it once and store it.
-				Grid line offsets are sometimes strange when you switch to Profile2D then back to regular.
 				Normalized axis needs to be more robust.
 				Flickering axis labels when scrolling.
 				
-				All-NaN line is broken (ScatterDraw bug - report to them!)
-				
 				"Network" plot for connections. Draw the network along with amount (of some quantity(ies)) as bar plot per node. Animate over time.
-					Maybe not just for connection, but for any graph of that quantity?
+					Maybe not just for connection, but for any graph of that quantity (including regular fluxes)?
+					Allow multiple bars for several quantities or instances of quantities.
+					
+				How to do unit of sum of reach flow if the reach flow unit is in m3/s and the sum is over days?
+				Could have both aggregation none and days, and in the later case it also aggregates m3/s -> m3/day .
+					A bit annoying do it from a coding perspective though because you have to work with declared units, not standardized units.
+					
+				Trend line doesn't make sense for some aggregations.
+					For sum, the trend is not the trend of the sum ..
+				Make the residual trend one of the available residual statistics (in terms of optim. it should be minimized in absolute value).
 			
 			Sensitivity & optimization - new features
+				
+				Make the code better so that it is not so easy to have bugs when adding/removing/moving parameters.
 				Combine simple sensitivity into the advanced sensitivity setup.
 					Compute statistics of the target stat like variance etc.
 					Allow for 2 parameters, with a surf plot eventually.
-				GLUE-like sampling?
 				Serialize sensitivity setups using a Mobius format instead of json so that we can load the same setups in mobipy eventually.
 				More customizable target functions.
 				Targets computed from aggregate series (stats of aggregate series).
 				
 				Optimizer callback doesn't update additional plot view.
 				
-				Matrix parameters don't serialize/deserialize correctly.
-					Probably same with optimization target.
+				Selection of matrix column parameters is incorrect (when you click them).
+					Only when you switch from one col to another in the same row. Can only be completely fixed by moving to using GridCtrl.
 				
-				
+				Implement the MCMC sampler from
+					https://www.econstor.eu/bitstream/10419/268226/1/1830478958.pdf
+				Also maybe other samplers.
+				GLUE-like sampling?
+					Issue then is that parameter distribution is not determined by frequency alone, but by weight. Need to update much of the code for that.
+				GLUE-like likelihood functions?
 				
 			Something where you can plot individual functions / state vars as functions of their inputs.
 			
 			Finish all missing functionality from MobiView1
 				Index set editing (Will now include connection editing).
+					Use Data_Set reshape functionality when that is included
 								
 			tweaks to the state var tree organization
 				The icons in "by quantity" view are currently not that intuitive.
 				Allow order by flux? By module?
 				
-			How to do unit of sum of reach flow if the reach flow unit is in m3/s and the sum is over days?
-				Could have both aggregation none and days, and in the later case it also aggregates m3/s -> m3/day .
-					A bit annoying do it from a coding perspective though because you have to work with declared units, not standardized units.
 			
-			More aggregation intervals
-				minute, hour, day. (esp. day).
-				
-			Trend line doesn't make sense for some aggregations.
-			Make the residual trend one of the available residual statistics (in terms of optim. it should be minimized in absolute value).
+			
 		
 		More mobipy functionality.
+			Multidimensional slices and strides
+			Slices for parameters (setting and getting)
+			Saving to file (incl saving inputs, but that should be a core Mobius2 feature).
+			More python wrapper stuff from Mobius1.
 		
 		Some kind of system for specifying assertion checks on user provided data, such as
 			lu_prop should sum to 1 over landscape units.
-		
-		boundary conditions for other types of connections (not grid1d)
-			For instance, what happens to the flux in a directed tree if it doesn't have a valid target, is it still computed (yes in some cases, maybe no in others)
-			similar for graph when that exists.
-		In grid1d, could have wrap-around boundary (?), or could have special values for the boundary (maybe even dynamic)
+			Some parameter bounds are absolute.
 	
 	
 		Make it possible to free file memory before a model is deleted.
-			Requires ASTs to copy some string data, which is a bit annoying since right now they store Tokens directly.
-		
+			Requires ASTs to copy some string data, which is a bit annoying since right now they store Tokens directly (which contain String_Views to file memory).
+			May need a way to copy String_View values over to a separate buffer for all tokens in ASTs.
+			Or the ASTs just store a new struct that contains much the same as Token, but has std::strings instead.
 		
 		Set units of regular aggregation state variables so that they display correctly if viewed.
 			note that it is a bit tricky for fluxes.
 			
-			
 		aggregate() of series and parameters, or even of arbitrary expressions.
-			Would need a separate instruction type for it.
 			For parameters, ideally it should just be computed once using the constant system described above.
 			For arbitrary expressions, it could be tricky to figure out what compartment it actually aggregates from.
 		
-		
-		Aggregation variables are not always necessary if we could just add things to derivatives directly, but this is not the case always.
-			Would require a big systemic change to model_compilation and model_codegen to implement this.
-		
 		Make discrete fluxes work like other fluxes for aggregation stuff so that everything works the same way for them (including some connection stuff).
 			Reimplement discrete fluxes for connections in some situations.
+				Should always be possible for grid1d.
+				Also for graph if it is no_cycles and we force those to be ordered correctly.
 			This may not go well with the above suggested change though.
-		
 		
 		Would like to get the assembly code for the model, but it is apparently notrivial. Can get the obj by using a dummy object cache that dumps the memory
 			https://github.com/llvm/llvm-project/blob/main/llvm/examples/OrcV2Examples/LLJITWithObjectCache/LLJITWithObjectCache.cpp
@@ -351,22 +450,35 @@
 		
 		Other solver algorithms.
 		
-		Different Var_Restrictions resulting in the same condition on the index, and causing multiple checks of the same condition (in model_codegen).
-		
 		Declaring units with a handle and reusing that handle does not quite work, at least not for parameters.
 		
 		last(something) doesn't automatically cause it to have an initial value computation (if one was not set).
-		
-		Error if you access time.fractional_step outside a solver? Or it just defaults to 0?
 
 		Re-consolidate input loading with the serialization system (In terms of how it looks up ids of names).
 			Tricky...
 			
-		The "loose depends" system is kind of iffy.
-			I think there are no guarantee that something is not placed in a for loop too late initially. Esp. bc of how create_batches works.
-				This in particular may have been fixed now.
-
+		Allow accessing e.g. conc(water.sed.phos, water) in code? Probably unnecessary ( since it is equal to conc(water.sed.phos)*conc(water.sed) )
+		
+		
 	Probably not ?:
+	
+	
+		Error: We can't find a way to convert between the declared concentration unit mg l⁻¹ and the computed concentration unit kg ha⁻² mm⁻¹.
+			It should be able to do that..
+			- I was not able to reproduce this bug...
+	
+	
+	
+		Do reassignable local vars with phi nodes instead of alloca.
+			LLVM optimizer seems to figure this one out, so it is not that important.
+	
+		Consider just adding connection fluxes to derivatives as they are computed instead of having so many aggregates (except when these are actually needed, which would be only when we explicitly look up the in_flux).
+					This would be a major change, but could create some speedup.
+					Maybe not that needed now that they are @no_store by default.
+	
+		System for specifying different display variants (along with the code in MobiView2 to make use of that).
+			E.g. say if a variable should not be displayed in MobiView2 (but have a display all checkbox button that re-enable them)
+			Maybe not really needed, @no_store is probably sufficient.
 	
 		If a dissolved substance can flow somewhere, you don't have to declare that it is there (?)
 			Maybe only if you specify it to disperse.
@@ -378,7 +490,13 @@
 		Selecting profile or profile2d should select all the indexes if only one index set is active and only one index is selected.
 			Maybe not desirable
 	
-	
+		The "loose depends" system is kind of iffy.
+			I think there are no guarantee that something is not placed in a for loop too late initially. Esp. bc of how create_batches works.
+				This in particular may have been fixed now.
+				
+		Load modules from modules (?)
+			Probably difficult wrt. multiple loads of the same base module. Unless we also scope the module names recursively.
+			Doesn't seem to be that necessary.
 	
 	NOTES
 		

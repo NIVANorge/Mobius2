@@ -81,7 +81,7 @@ add_component_node(Agraph_t *g, std::unordered_map<Var_Location, Node_Data, Var_
 
 void
 put_name(std::stringstream &ss, Mobius_Model *model, Entity_Id id, bool show_short_names) {
-	Entity_Registration_Base *reg;
+	Registration_Base *reg;
 	if(id.reg_type == Reg_Type::component)
 		reg = model->components[id];
 	else
@@ -144,7 +144,7 @@ add_flux_edge(Agraph_t *g, std::unordered_map<Var_Location, Node_Data, Var_Locat
 		if(var->has_flag(State_Var::has_aggregate)) return;
 		if(is_located(var->loc1)) loc1 = &var->loc1;
 		if(is_located(var->loc2)) loc2 = &var->loc2;
-		conn_id = var->loc2.connection_id;
+		conn_id = var->loc2.r1.connection_id;
 		name = &var->name;
 	} else if (var->type == State_Var::Type::regular_aggregate) {
 		auto var2 = as<State_Var::Type::regular_aggregate>(var);
@@ -289,13 +289,14 @@ add_index_sets(Agraph_t *g, Agraph_t *sub, Model_Application *app, std::vector<s
 		if(is_valid(set->sub_indexed_to)) {
 			ss << "<tr><td>(variable index count)</td></tr>";
 		} else {
-			auto count = app->get_max_index_count(index_set).index;
+			auto count = app->index_data.get_max_count(index_set).index;
 			if(count > 5)
 				ss << "<tr><td>" << count << " instances</td></tr>";
 			else {
+				Indexes indexes;
 				for(int idx = 0; idx < count; ++idx) {
 					Index_T index = {index_set, idx};
-					ss << "<tr><td>" << app->get_index_name(index) << "</td></tr>";
+					ss << "<tr><td>" << app->index_data.get_index_name(indexes, index) << "</td></tr>"; //TODO: Don't use get_index_name_base
 				}
 			}
 		}

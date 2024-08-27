@@ -3,10 +3,11 @@
 #ifndef MOBIUS_FUNCTION_TREE_H
 #define MOBIUS_FUNCTION_TREE_H
 
-#include <map>
-
 #include "common_types.h"
 #include "model_declaration.h"
+
+#include <map>
+#include <memory>
 
 struct
 Math_Expr_FT {
@@ -42,9 +43,10 @@ Identifier_Data {
 		none        = 0x0,
 		last_result = 0x1,
 		in_flux     = 0x2,
-		aggregate   = 0x4,
-		conc        = 0x8,
-		result      = 0x16,
+		out_flux    = 0x4,
+		aggregate   = 0x8,
+		conc        = 0x10,
+		result      = 0x20,
 	}                            flags;
 	Var_Loc_Restriction          restriction;
 	Entity_Id                    other_connection;
@@ -55,17 +57,26 @@ Identifier_Data {
 	
 	void set_flag(Flags flag)   { flags = (Flags)(flags | flag); }
 	void remove_flag(Flags flag) { flags = (Flags)(flags & ~flag); }
-	bool has_flag(Flags flag)   { return flags & flag; }
+	bool has_flag(Flags flag) const { return flags & flag; }
+	
+	bool is_computed_series() const { return (variable_type == Variable_Type::series) && ((var_id.type == Var_Id::Type::state_var) || (var_id.type == Var_Id::Type::temp_var)); }
+	bool is_stored_computed_series() const { return (variable_type == Variable_Type::series) && (var_id.type == Var_Id::Type::state_var); }
+	bool is_input_series() const { return (variable_type == Variable_Type::series) && (var_id.type == Var_Id::Type::series); }
 	
 	Identifier_Data() : flags(Flags::none), other_connection(invalid_entity_id) { };
 };
 
 inline bool operator<(const Identifier_Data &a, const Identifier_Data &b) {
-	// NOTE: The current use case for this is such that they have the same variable type
 	// NOTE: We should not have to care about other_connection here, since it is just a
 	// placeholder used until the identifier is fully resolved.
+	if(a.variable_type != b.variable_type)
+		return a.variable_type < b.variable_type;
 	if(a.variable_type == Variable_Type::parameter) {
-		if(a.par_id == b.par_id) return a.flags < b.flags;
+		if(a.par_id == b.par_id) {
+			if(a.flags == b.flags)
+				return a.restriction < b.restriction;
+			return a.flags < b.flags;
+		}
 		return a.par_id.id < b.par_id.id;
 	}
 	if(a.var_id == b.var_id) {
@@ -128,12 +139,14 @@ Local_Var_FT : Math_Expr_FT {
 };
 
 struct
-Special_Computation_FT : Math_Expr_FT {
+External_Computation_FT : Math_Expr_FT {
 	std::string                  function_name;
 	
 	std::vector<Identifier_Data> arguments;
+	Entity_Id                    connection_component = invalid_entity_id;
+	Entity_Id                    connection           = invalid_entity_id;
 	
-	Special_Computation_FT() : Math_Expr_FT(Math_Expr_Type::special_computation) { }
+	External_Computation_FT() : Math_Expr_FT(Math_Expr_Type::external_computation) { }
 };
 
 struct
@@ -152,13 +165,6 @@ Iterate_FT : Math_Expr_FT {
 	Iterate_FT() : Math_Expr_FT(Math_Expr_Type::iterate) {}
 };
 
-struct
-Dependency_Set {
-	std::set<Identifier_Data>  on_parameter;
-	std::set<Identifier_Data>  on_series;
-	std::set<Identifier_Data>  on_state_var;
-};
-
 
 typedef std::unique_ptr<Math_Expr_FT> owns_code;
 
@@ -174,14 +180,12 @@ Function_Resolve_Data {
 	Standardized_Unit            expected_unit;
 	Entity_Id                    connection = invalid_entity_id;
 	
+	bool                         allow_last          = true;
 	bool                         restrictive_lookups = false;
 	bool                         allow_in_flux       = true;
 	bool                         allow_no_override   = false;
-	bool                         allow_result        = false;
-	
-	// For unit_conversion and aggregation_weight :
-	Entity_Id                    source_compartment = invalid_entity_id;
-	Entity_Id                    target_compartment = invalid_entity_id;
+	bool                         allow_result        = false; // Allow result() . Used for external_computation
+	bool                         value_last_only     = true; // Only last statement in a block can be a value.
 	
 	// The simplified option is if we are resolving a simple expression of provided symbols, not for main code, but e.g. for parameter exprs in an optimizer run.
 	bool                         simplified = false;
@@ -209,7 +213,7 @@ Function_Resolve_Result
 resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_Scope *scope = nullptr);
 
 void
-register_dependencies(Math_Expr_FT *expr, Dependency_Set *depends);
+register_dependencies(Math_Expr_FT *expr, std::set<Identifier_Data> *depends);
 
 Math_Expr_FT *
 make_cast(Math_Expr_FT *expr, Value_Type cast_to);
@@ -225,6 +229,9 @@ make_literal(bool val_bool);
 
 Math_Expr_FT *
 make_state_var_identifier(Var_Id state_var);
+
+Math_Expr_FT *
+make_parameter_identifier(Mobius_Model *model, Entity_Id par_id);
 
 Math_Expr_FT *
 add_local_var(Math_Block_FT *scope, Math_Expr_FT *val);
@@ -260,6 +267,9 @@ make_for_loop();
 
 Math_Expr_FT *
 make_safe_divide(Math_Expr_FT *lhs, Math_Expr_FT *rhs);
+
+Math_Expr_FT *
+make_clamp(Math_Expr_FT *var, Math_Expr_FT *low, Math_Expr_FT *high);
 
 Math_Expr_FT *
 prune_tree(Math_Expr_FT *expr);

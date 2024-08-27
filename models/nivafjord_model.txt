@@ -1,22 +1,23 @@
 
 model("NIVAFjord") {
+
+	basin_idx     : index_set("Basin index")
+	bnd_basin_idx : index_set("Boundary basin index")
+	all_basins    : index_set("All basins") @union(basin_idx, bnd_basin_idx)
+	e_idx         : index_set("Fjord connection index") @sub(basin_idx) # Ideally this should not be declared in this model, but then it sometimes is declared out of order.
+	layer_idx     : index_set("Layer index") @sub(all_basins)
 	
-	
-	air   : compartment("Atmosphere")
-	basin : compartment("Basin")
-	layer : compartment("Fjord layer")
-	sed   : compartment("Fjord sediment")
-	#bnd   : compartment("Boundary ocean")
-	#bnd_layer : compartment("Boundary layer")
+	air       : compartment("Atmosphere")
+	basin     : compartment("Basin",          basin_idx)
+	layer     : compartment("Fjord layer",    basin_idx, layer_idx)
+	sediment  : compartment("Fjord sediment", basin_idx, layer_idx)
+	bnd_basin : compartment("Boundary basin", bnd_basin_idx)
+	bnd_layer : compartment("Boundary layer", bnd_basin_idx, layer_idx)
 	
 	water : quantity("Water")
 	ice   : quantity("Ice")
 	salt  : quantity("Salt")
 	heat  : quantity("Heat energy")
-	h     : quantity("Sea level")
-	
-	
-	evap_mm : property("Evaporation per area")
 	
 	temp     : property("Temperature")
 	salinity : property("Salinity")
@@ -28,37 +29,42 @@ model("NIVAFjord") {
 	rho      : property("Density")
 	lwd      : property("Downwelling longwave radiation")
 	sw       : property("Shortwave radiation")
-	attn     : property("Attenuation coefficient")
-	freeze_temp : property("Ice formation temperature")
+	cos_z    : property("Cosine of the solar zenith angle") 
+	attn     : property("Attenuation")
+	freeze_t : property("Ice formation temperature")
+	indicator : property("Ice indicator")
+	a_vap    : property("Actual vapor pressure")
+	s_vap    : property("Saturation vapor pressure")
 	
-	dz : property("Thickness")
+	z    : property("Depth")
+	dz   : property("Thickness")
+	h    : property("Sea level")
+	evap : property("Evaporation")
+	area : property("Area")
 	
-	vert    : connection("Fjord vertical", grid1d) { layer[layer_idx] }
-	sw_vert : connection("Shortwave vertical", grid1d) { layer[layer_idx] }
-	#bnd_vert : connection("Boundary vertical", grid1d) { bnd_layer[layer_idx] }
+	vert    : connection("Fjord vertical") @grid1d(layer, layer_idx)
+	sw_vert : connection("Shortwave vertical") @grid1d(layer, layer_idx)
 	
-	par_group("Layer parameters", layer) {
-		A      : par_real("Layer area", [m 2], 10000, 0, 1e6)
+	par_group("Solver step") {
+		solver_h    : par_real("Initial solver step", [hr], 1)
+		solver_hmin : par_real("Solver relative min step", [], 0.01)
 	}
 	
-	load("modules/atmospheric.txt", module("Atmospheric", air, temp, wind, g_rad, pressure, a_hum, rho, lwd))
+	load("modules/atmospheric.txt",
+		module("Atmospheric", air, temp, wind, g_rad, pressure, a_hum, rho, lwd, cos_z, a_vap, s_vap))
 	
-	load("modules/airsea.txt",      module("AirSea", "AirSea Fjord", air, basin, ice, evap_mm, temp, precip, wind, g_rad, pressure, rho, a_hum, lwd, sw, attn, freeze_temp,
-											loc(A[vert.top]), loc(layer.water.heat[vert.top]), loc(layer.water.heat[sw_vert.top]), loc(layer.water.temp[vert.top])))
+	load("modules/airsea.txt",
+		module("AirSea", "AirSea Fjord", air, basin, ice, heat, temp, precip, wind, g_rad, pressure, rho, a_hum, lwd, sw, attn, indicator,
+							evap, cos_z, loc(basin.freeze_t), loc(basin.area), loc(layer.water[vert.top]), loc(layer.water.heat[sw_vert.top])))
 	
-	load("modules/nivafjord/basin.txt",   module("NIVAFjord basin", air, basin, layer, sed, water, salt, heat, temp, salinity, precip, pressure, wind, g_rad, rho, attn, dz, freeze_temp, vert, sw_vert, A))
+	load("modules/nivafjord/basin.txt",
+		dims : preamble("NIVAFjord dimensions", all_basins, layer_idx, layer),
+		module("NIVAFjord basin", air, basin, layer, water, salt, heat, temp, salinity, pressure, wind, g_rad, rho, attn, z, dz, h, area, freeze_t, sw, vert, sw_vert, loc(sediment.heat), dims))
 	
-	basin_idx : index_set("Basin index") {
-		layer_idx : index_set("Layer index")
-		e_idx     : index_set("Fjord connection index")
-	}
+	load("modules/nivafjord/boundary_basin.txt",
+		module("NIVAFjord boundary", bnd_basin, bnd_layer, water, heat, salt, temp, salinity, dz, h, rho, pressure, vert, dims))
 	
-	distribute(basin, basin_idx)
-	distribute(layer, basin_idx, layer_idx)
-	distribute(sed, basin_idx)
-	#distribute(bnd_layer, layer_idx)
-	
-	sol : solver("Simply solver", "INCADascru", 0.1)
-	
-	solve(sol, layer.water, sed.heat, basin.ice)
+	sol : solver("NIVAFjord solver", inca_dascru, solver_h, solver_hmin)
+	solve(sol, layer.water, basin.ice)
+	solve(sol, bnd_basin.h)
 }

@@ -1,0 +1,18 @@
+
+model("All the libraries") {
+"""
+This is a just a model that loads all the standard libraries, which makes it convenient to autogenerate documentation.
+"""
+	a : compartment("A")
+	p : property("P")
+
+	module("The module", version(1, 2, 3)) {
+	
+		var(a.p, []) { 0 }
+	}
+	
+	load("stdlib/atmospheric.txt", library("Meteorology"), library("Radiation"))
+	load("stdlib/basic_math.txt", library("Basic"), library("Response"))
+	load("stdlib/physiochemistry.txt", library("Basic constants"), library("Thermodynamics"), library("Water utils"), library("Diffusivity"), library("Chemistry"))
+	load("stdlib/seawater.txt", library("Air-sea"), library("Seawater"), library("Sea oxygen"))
+}

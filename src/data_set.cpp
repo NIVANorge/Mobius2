@@ -1,792 +1,1031 @@
 
-#include <set>
+#include <algorithm>
+#include <sstream>
+#include <numeric>
+#include <cstdarg>
 
 #include "data_set.h"
-#include "ole_wrapper.h"
 
-int
-Index_Set_Info::get_index(Token *idx_name, int index_of_super) {
-	int super = (sub_indexed_to >= 0) ? index_of_super : 0;
-	if(idx_name->type == Token_Type::quoted_string) {
-		return indexes[super].indexes.expect_exists_idx(idx_name, "index");
-	} else if (idx_name->type == Token_Type::integer) {
-		int idx = idx_name->val_int;
-		if(!check_index(idx, super)) {
-			idx_name->print_error_header();
-			fatal_error("Index is out of bounds for this index set.");
-		}
-		return idx;
-	} else {
-		idx_name->print_error_header();
-		fatal_error("Only quoted strings and integers can be used to identify indexes.");
+void
+read_series_data_from_csv(Data_Set *data_set, Series_Data *series_data, String_View file_name, String_View text_data);
+
+void
+read_series_data_from_spreadsheet(Data_Set *data_set, Series_Data *series, String_View file_name);
+
+Registry_Base *
+Data_Set::registry(Reg_Type reg_type) {
+	switch(reg_type) {
+		case Reg_Type::par_group :                return &par_groups;
+		case Reg_Type::parameter :                return &parameters;
+		case Reg_Type::series :                   return &series;
+		case Reg_Type::component :                return &components;
+		case Reg_Type::index_set :                return &index_sets;
+		case Reg_Type::connection :               return &connections;
+		case Reg_Type::quick_select :             return &quick_selects;
+		case Reg_Type::position_map :             return &position_maps;
+		case Reg_Type::module :                   return &modules;
+		case Reg_Type::module_template :          return &modules; // NOTE: This is because module is associated to module_template in get_reg_type (for convenience in model_declaration)
 	}
+	
+	fatal_error(Mobius_Error::internal, "Unhandled entity type ", name(reg_type), " in registry().");
+	return nullptr;
 }
 
-int 
-Index_Set_Info::get_index(const char *buf, int index_of_super) {
-	int super = (sub_indexed_to >= 0) ? index_of_super : 0;
-	return indexes[super].indexes.find_idx(buf);
-}
-
-bool
-Index_Set_Info::check_index(int idx, int index_of_super) {
-	int super = (sub_indexed_to >= 0) ? index_of_super : 0;
-	return idx >= 0 && idx < indexes[super].get_count();
+Decl_Scope *
+Data_Set::get_scope(Entity_Id id) {
+	if(!is_valid(id))
+		return &top_scope;
+	else if(id.reg_type == Reg_Type::module)
+		return &modules[id]->scope;
+	else if(id.reg_type == Reg_Type::par_group)
+		return &par_groups[id]->scope;
+	else if(id.reg_type == Reg_Type::connection)
+		return &connections[id]->scope;
+	fatal_error(Mobius_Error::internal, "Tried to look up the scope belonging to an id that is not a module, par_group or connection.");
+	return nullptr;
 }
 
 void
-write_index_set_indexes_to_file(FILE *file, Sub_Indexing_Info *info) {
-	fprintf(file, "[ ");
-	if(info->type == Sub_Indexing_Info::Type::named) {
-		for(auto &index : info->indexes)
-			fprintf(file, "\"%s\" ", index.name.data());
-	} else if (info->type == Sub_Indexing_Info::Type::numeric1)
-		fprintf(file, "%d ", info->n_dim1);
-	else
-		fatal_error(Mobius_Error::internal, "Unhandled index set type in write_index_set_indexes_to_file().");
-	fprintf(file, "]");
+Module_Data::process_declaration(Catalog *catalog) {
+	
+	match_declaration(decl, {{Token_Type::quoted_string, Decl_Type::version}}, false, -1);
+	
+	set_serial_name(catalog, this);
+	
+	auto version_decl = decl->args[1]->decl;
+	match_declaration(version_decl, {{Token_Type::integer, Token_Type::integer, Token_Type::integer}}, false);
+	version.major        = single_arg(version_decl, 0)->val_int;
+	version.minor        = single_arg(version_decl, 1)->val_int;
+	version.revision     = single_arg(version_decl, 2)->val_int;
+	
+	auto parent_scope = catalog->get_scope(scope_id);
+	scope.parent_id = id;
+	scope.import(*parent_scope);
+	
+	auto body = static_cast<Decl_Body_AST *>(decl->body);
+	
+	const std::set<Decl_Type> allowed_decls = {
+		Decl_Type::par_group,
+		Decl_Type::connection,
+	};
+	
+	for(auto child : body->child_decls)
+		catalog->register_decls_recursive(&scope, child, allowed_decls);
+	
+	for(auto id : scope.all_ids)
+		catalog->find_entity(id)->process_declaration(catalog);
 }
 
 void
-write_index_set_to_file(FILE *file, Data_Set *data_set, Index_Set_Info &index_set) {
+Par_Group_Data::process_declaration(Catalog *catalog) {
 	
-	if(index_set.is_edge_index_set) return; // These are not given explicitly, only as arrows in a connection.
+	match_declaration(decl,
+	{
+		{Token_Type::quoted_string},
+		{Token_Type::quoted_string, {Decl_Type::index_set, true}},
+	}, false, -1);
 	
-	if(index_set.sub_indexed_to < 0) {
-		fprintf(file, "index_set(\"%s\") ", index_set.name.data());
-		write_index_set_indexes_to_file(file, &index_set.indexes[0]);
-	} else {
-		auto parent = data_set->index_sets[index_set.sub_indexed_to];
-		fprintf(file, "index_set(\"%s\", \"%s\") [\n", parent->name.data(), index_set.name.data());
+	set_serial_name(catalog, this);
+	auto data_set = static_cast<Data_Set *>(catalog);
+	auto parent_scope = catalog->get_scope(scope_id);
+	scope.parent_id = id;
+	scope.import(*parent_scope); // Needed since some parameter decls may want access to index_set identifiers.
+	
+	for(int argidx = 1; argidx < decl->args.size(); ++argidx) {
+		auto id = parent_scope->resolve_argument(Reg_Type::index_set, decl->args[argidx]);
+		index_sets.push_back(id);
+	}
+	
+	if(!index_sets.empty())
+		data_set->index_data.check_valid_distribution(index_sets, source_loc);
+	
+	auto body = static_cast<Decl_Body_AST *>(decl->body);
+	
+	const std::set<Decl_Type> allowed_decls = {
+		Decl_Type::par_real,
+		Decl_Type::par_int,
+		Decl_Type::par_bool,
+		Decl_Type::par_enum,
+		Decl_Type::par_datetime
+	};
+	
+	for(auto child : body->child_decls)
+		catalog->register_decls_recursive(&scope, child, allowed_decls);
+	
+	for(auto id : scope.all_ids)
+		catalog->find_entity(id)->process_declaration(catalog);
+}
 
-		int count = parent->get_max_count();
-		if(count != index_set.indexes.size())
-			fatal_error(Mobius_Error::internal, "Got a sub-indexed index set without a set for each index of the parent in write_index_set_to_file().");
-		auto &parent_info = parent->indexes[0];
-		for(int idx = 0; idx < count; ++idx) {
-			if(parent_info.type == Sub_Indexing_Info::Type::named)
-				fprintf(file, "\t\"%s\" : ", parent_info.indexes[idx]->name.data());
-			else if (parent_info.type == Sub_Indexing_Info::Type::numeric1)
-				fprintf(file, "\t%d : ", idx);
+
+void
+parse_parameter_map_recursive(Data_Set *data_set, Data_Map_AST *map, std::vector<Entity_Id> &index_sets, std::vector<Token> &index_tokens, std::vector<Parmap_Entry> &push_to, int level) {
+	
+	for(auto &entry : map->entries) {
+		index_tokens[level] = entry.key;
+		if(level == (int)index_sets.size() - 1) {
+			Indexes indexes;
+			data_set->index_data.find_indexes(index_sets, index_tokens, indexes);
+			if(entry.data) {
+				entry.data->source_loc.print_error_header();
+				fatal_error("Expected a single value.");
+			}
+			if(!is_numeric(entry.single_value.type)) {
+				entry.single_value.print_error_header();
+				fatal_error("Expected a numeric value.");
+			}
+			Parmap_Entry entry2;
+			entry2.indexes = indexes;
+			entry2.value = entry.single_value.double_value();
+			if(is_numeric(entry.key.type))
+				entry2.pos = entry.key.double_value();
 			else
-				fatal_error(Mobius_Error::internal, "Unhandled index set type in write_index_set_to_file().");
-			write_index_set_indexes_to_file(file, &index_set.indexes[idx]);
-			fprintf(file, "\n");
-		}
-		fprintf(file, "]");
-	}
-	fprintf(file, "\n\n");
-}
-
-void
-print_tabs(FILE *file, int ntabs) {
-	if(ntabs <= 0) return;
-	if(ntabs == 1) {
-		fprintf(file, "\t");
-		return;
-	}
-	if(ntabs == 2) {
-		fprintf(file, "\t\t");
-		return;
-	}
-	if(ntabs == 3) {
-		fprintf(file, "\t\t\t");
-		return;
-	}
-	if(ntabs == 4) {
-		fprintf(file, "\t\t\t\t");
-		return;
-	}
-}
-
-void
-write_component_info_to_file(FILE *file, Component_Info &component, Data_Set *data_set, int n_tabs) {
-	print_tabs(file, n_tabs+1);
-	if(component.handle.empty())
-		fprintf(file, "%s(\"%s\") [", name(component.decl_type), component.name.data());
-	else
-		fprintf(file, "%s : %s(\"%s\") [", component.handle.data(), name(component.decl_type), component.name.data());
-		
-	for(int idx_set_idx : component.index_sets) {
-		auto index_set = data_set->index_sets[idx_set_idx];
-		fprintf(file, " \"%s\"", index_set->name.data());
-	}
-	fprintf(file, " ]");
-	if(component.edge_index_set >= 0) {
-		auto index_set = data_set->index_sets[component.edge_index_set];
-		fprintf(file, " [ \"%s\" ]", index_set->name.data());
-	}
-	fprintf(file, "\n");
-}
-
-void
-write_indexed_compartment_to_file(FILE *file, Compartment_Ref &ref, Data_Set *data_set, Connection_Info &connection) {
-	if(ref.id < 0) {
-		fprintf(file, "out");
-		return;
-	}
-	auto component = connection.components[ref.id];
-	fprintf(file, "%s[", component->handle.data());
-	for(int loc = 0; loc < ref.indexes.size(); ++loc) {
-		auto index_set = data_set->index_sets[component->index_sets[loc]];
-		int super_idx = 0;
-		if(index_set->sub_indexed_to >= 0) {
-			super_idx = -1;
-			for(int loc2 = 0; loc2 < loc; ++loc2) {
-				if(component->index_sets[loc2] == index_set->sub_indexed_to) {
-					super_idx = ref.indexes[loc2];
-					break;
-				}
+				entry2.pos = (double)indexes.indexes.back().index;
+			push_to.push_back(entry2);
+		} else {
+			if(!entry.data || entry.data->data_type != Data_Type::map) {
+				entry.key.print_error_header();
+				fatal_error("Expected a nested map over the next index set.");
 			}
-			if(super_idx < 0)
-				fatal_error(Mobius_Error::internal, "Parent index set of sub-indexed index set was not set up correctly before write_indexed_compartment_to_file.");
+			parse_parameter_map_recursive(data_set, static_cast<Data_Map_AST *>(entry.data), index_sets, index_tokens, push_to, level + 1);
 		}
-		auto &indexes = index_set->indexes[super_idx];
-		if(indexes.type == Sub_Indexing_Info::Type::named)
-			fprintf(file, " \"%s\"", indexes.indexes[ref.indexes[loc]]->name.data());
-		else if(indexes.type == Sub_Indexing_Info::Type::numeric1)
-			fprintf(file, " %d", ref.indexes[loc]);
-		else
-			fatal_error(Mobius_Error::internal, "Unhandled index type in write_indexed_compartment_to_file().");
 	}
-	fprintf(file, " ]");
+	
 }
 
 void
-write_connection_info_to_file(FILE *file, Connection_Info &connection, Data_Set *data_set, int n_tabs = 0) {
+Parameter_Data::unpack_parameter_map(Data_Set *data_set) {
+	//, std::vector<Entity_Id> &index_sets, std::vector<Parmap_Entry> &data, std::vector<Parameter_Value> &values) {
 	
-	print_tabs(file, n_tabs);
-	fprintf(file, "connection(\"%s\") [\n", connection.name.data());
+	if(decl_type != Decl_Type::par_real)
+		fatal_error(Mobius_Error::internal, "Somehow tried to unpack map data for a non-double parameter.");
 	
-	for(auto &component : connection.components)
-		write_component_info_to_file(file, component, data_set, n_tabs);
+	values.clear();
 	
-	if(connection.type == Connection_Info::Type::graph) {
-		if(connection.arrows.empty()) return;
+	auto group = data_set->par_groups[this->scope_id];
+	
+	std::vector<Entity_Id> index_sets_upper = group->index_sets;
+	Entity_Id interp_set = index_sets_upper.back();
+	index_sets_upper.pop_back(); // The last index set is the one we interpolate over, and so is handled differently.
+	
+	data_set->index_data.for_each(index_sets_upper, [this, data_set, interp_set](Indexes &indexes) {
 		
-		// TODO!
-		//   non-trivial problem to format this the best way possible... :(
-		//   works nicely to print format that was got from previous file, but not if it was edited e.g. in user interface (if that is ever implemented).
-		// Note that the data is always correct, it is just not necessarily the most compact representation of the graph.
+		struct
+		Sorted_Entry {
+			Index_T index_pos;
+			double pos;
+			double val;
+		};
 		
-		Compartment_Ref *prev = nullptr;
-		for(auto &pair : connection.arrows) {
-			if(!prev || !(pair.first == *prev)) {
-				fprintf(file, "\n");
-				print_tabs(file, n_tabs+1);
-				write_indexed_compartment_to_file(file, pair.first, data_set, connection);
+		// This is a bit inefficient, but will probably not matter since these typically should have few entries.
+		std::vector<Sorted_Entry> inner;
+
+		for(auto &entry : parmap_data) {
+
+			if(!entry.indexes.lookup_ordered || !indexes.lookup_ordered)
+				fatal_error(Mobius_Error::internal, "unpack_parameter_map: Implementation dependent on these indexes being lookup-ordered.");
+			
+			//log_print(entry.indexes.indexes.size(), " ", entry.indexes.indexes[0].index, " ", entry.value, "\n");
+			
+			bool match = true;
+			for(int idx = 0; idx < indexes.indexes.size(); ++idx) {
+				if(indexes.indexes[idx] != entry.indexes.indexes[idx])
+					match = false;
 			}
-			fprintf(file, " -> ");
-			write_indexed_compartment_to_file(file, pair.second, data_set, connection);
-			prev = &pair.second;
-		}
-		fprintf(file, "\n");
-	} else if (connection.type == Connection_Info::Type::none) {
-		// Nothing else to write.
-	} else {
-		fatal_error(Mobius_Error::internal, "Unimplemented connection info type in write_to_file.");
-	}
-	print_tabs(file, n_tabs);
-	fprintf(file, "]\n\n");
-}
-
-int
-get_instance_count(Data_Set *data_set, const std::vector<int> &index_sets, Source_Location *error_loc = nullptr){
-	int count = 1;
-	std::vector<u8> already_counted(index_sets.size());
-	
-	for(int level = index_sets.size()-1; level >= 0; --level) {
-		if(already_counted[level]) continue;
-		
-		auto index_set = data_set->index_sets[index_sets[level]];
-		if(index_set->sub_indexed_to >= 0) {
-			bool found = false;
-			for(int level_parent = 0; level_parent < level; ++level_parent) {
-				if(index_sets[level_parent] == index_set->sub_indexed_to) {
-					found = true;
-					already_counted[level_parent] = true;
-					break;
-				}
-			}
-			if(!found) {
-				if(error_loc) error_loc->print_error_header();
-				fatal_error("Got an index set \"", index_set->name, "\" that is sub-indexed to another index set \"",
-					data_set->index_sets[index_set->sub_indexed_to]->name, "\", but in this index sequence, the former doesn't follow the latter.");
-			}
-			int sum = 0;
-			for(auto &idxs : index_set->indexes) sum += idxs.get_count();
-			count *= sum;
-		} else
-			count *= index_set->get_max_count();
-	}
-	return count;
-}
-
-void
-write_parameter_recursive(FILE *file, Data_Set *data_set, Par_Info &par, int level, std::vector<int> &indexes, int *offset, const std::vector<int> &index_sets, int tabs) {
-	
-	int count = 1;
-	if(!index_sets.empty()) {
-		auto index_set = data_set->index_sets[index_sets[level]];
-		if(index_set->sub_indexed_to >= 0) {
-			int parent_idx = -1;
-			for(int l2 = 0; l2 < index_sets.size(); ++l2) {
-				if(index_sets[l2] == index_set->sub_indexed_to) {
-					parent_idx = indexes[l2];
-					break;
-				}
-			}
-			if(parent_idx < 0)
-				fatal_error(Mobius_Error::internal, "Got a sub-indexed index set without the parent index set in write_parameter_recursive.");
-			count = index_set->get_count(parent_idx);
-		} else
-			count = index_set->get_max_count();
-	}
-	
-	if(index_sets.empty() || level == (int)index_sets.size()-1) {
-		if(index_sets.size() > 1)
-			print_tabs(file, tabs);
-		for(int idx = 0; idx < count; ++idx) {
-			int val_idx = (*offset)++;
-			if(par.type == Decl_Type::par_enum) {
-				fprintf(file, "%s ", par.values_enum[val_idx].data());
-			} else {
-				Parameter_Value &val = par.values[val_idx];
-				switch(par.type) {
-					case Decl_Type::par_real : {
-						fprintf(file, "%.15g ", val.val_real);
-					} break;
-					
-					case Decl_Type::par_bool : {
-						fprintf(file, "%s ", val.val_boolean ? "true" : "false");
-					} break;
-					
-					case Decl_Type::par_int : {
-						fprintf(file, "%lld ", (long long)val.val_integer);
-					} break;
-					
-					case Decl_Type::par_datetime : {
-						char buf[64];
-						val.val_datetime.to_string(buf);
-						fprintf(file, "%s ", buf);
-					} break;
-				}
-			}
-		}
-	} else {
-		for(int idx = 0; idx < count; ++idx) {
-			indexes[level] = idx;
-			write_parameter_recursive(file, data_set, par, level+1, indexes, offset, index_sets, tabs);
-			fprintf(file, "\n");
-			if(level < (int)index_sets.size() - 2 && idx != count-1)
-				fprintf(file, "\n");
-		}
-	}
-}
-
-void
-write_parameter_to_file(FILE *file, Data_Set *data_set, Par_Group_Info& par_group, Par_Info &par, int tabs, bool double_newline = true) {
-	
-	int n_dims = std::max(1, (int)par_group.index_sets.size());
-	
-	int expect_count = get_instance_count(data_set, par_group.index_sets);
-	if((par.type == Decl_Type::par_enum && expect_count != par.values_enum.size()) || (par.type != Decl_Type::par_enum && expect_count != par.values.size()))
-		fatal_error(Mobius_Error::internal, "Somehow we have a data set where a parameter \"", par.name, "\" has a value array that is not sized correctly wrt. its index set dependencies.");
-	
-	print_tabs(file, tabs);
-	fprintf(file, "%s(\"%s\")", name(par.type), par.name.data());
-	if(n_dims == 1) {
-		fprintf(file, "\n");
-		print_tabs(file, tabs);
-		fprintf(file, "[ ");
-	} else {
-		fprintf(file, " [\n");
-	}
-	
-	int offset = 0;
-	std::vector<int> indexes(par_group.index_sets.size(), -1);
-	write_parameter_recursive(file, data_set, par, 0, indexes, &offset, par_group.index_sets, tabs+1);
-	
-	if(n_dims != 1)
-		print_tabs(file, tabs);
-	fprintf(file, "]\n");
-	if(double_newline)
-		fprintf(file, "\n");
-}
-
-void
-write_par_group_to_file(FILE *file, Data_Set *data_set, Par_Group_Info &par_group, int tabs, bool double_newline = true) {
-	print_tabs(file, tabs);
-	fprintf(file, "par_group(\"%s\") ", par_group.name.data());
-	if(par_group.index_sets.size() > 0) {
-		fprintf(file, "[ ");
-		int idx = 0;
-		for(int index_set_idx : par_group.index_sets) {
-			auto index_set = data_set->index_sets[index_set_idx];
-			fprintf(file, "\"%s\" ", index_set->name.data());
-		}
-		fprintf(file, "] ");
-	}
-	fprintf(file, "{\n");
-	int idx = 0;
-	for(auto &par : par_group.pars) {
-		if(par.mark_for_deletion) continue;
-		write_parameter_to_file(file, data_set, par_group, par, tabs+1, idx++ != par_group.pars.count()-1);
-	}
-	
-	print_tabs(file, tabs);
-	fprintf(file, "}\n");
-	if(double_newline)
-		fprintf(file, "\n");
-}
-
-void
-write_module_to_file(FILE *file, Data_Set *data_set, Module_Info &module) {
-	fprintf(file, "module(\"%s\", version(%d, %d, %d)) {\n", module.name.data(), module.version.major, module.version.minor, module.version.revision);
-	int idx = 0;
-	for(auto &connection : module.connections)
-		write_connection_info_to_file(file, connection, data_set, 1);
-	for(auto &par_group : module.par_groups)
-		write_par_group_to_file(file, data_set, par_group, 1, idx++ != module.par_groups.count()-1);
-	fprintf(file, "}\n\n");
-}
-
-void
-write_series_to_file(FILE *file, std::string &main_file, Series_Set_Info &series, std::set<std::string> &already_processed) {
-	if(series.file_name == main_file) {
-		fatal_error(Mobius_Error::internal, "Inlining series data in main data file is not yet supported!");
-	}
-	
-	// NOTE: If we read from an excel file, it will produce one Series_Set_Info record per page, but we only want to write out one import of the file.
-	if(already_processed.find(series.file_name) != already_processed.end())
-		return;
-	
-	already_processed.insert(series.file_name);
-	
-	//TODO: What do we do if the file we save to is in a different folder than the original. Should we update all the relative paths of the included files?
-	
-	fprintf(file, "series(\"%s\")\n\n", series.file_name.data());
-}
-
-void
-Data_Set::write_to_file(String_View file_name) {
-	
-	FILE *file = open_file(file_name, "w");
-	
-	bool error = false;
-	try {
-		if(!doc_string.empty()) {
-			fprintf(file, "\"\"\"\n%s\n\"\"\"\n\n", doc_string.data());
+			if(match)
+				inner.push_back({entry.indexes.indexes.back(), entry.pos, entry.value});
+			
 		}
 		
-		if(time_step_was_provided) {
-			std::string unit_str = time_step_unit.to_decl_str();
-			fprintf(file, "time_step(%s)\n\n", unit_str.data());
-		}
+		std::sort(inner.begin(), inner.end(), [](const auto &a, const auto &b) {
+			return a.index_pos < b.index_pos;
+		});
 		
-		for(auto &index_set : index_sets)
-			write_index_set_to_file(file, this, index_set);
+		int count = data_set->index_data.get_index_count(indexes, interp_set).index;
 		
-		for(auto &connection : global_module.connections)
-			write_connection_info_to_file(file, connection, this);
+		std::vector<double> unpacked_values(count);
 		
-		std::set<std::string> already_processed;
-		for(auto &ser : series)
-			write_series_to_file(file, main_file, ser, already_processed);
+		// Fill constant before and after
+		for(int idx = 0; idx < inner[0].index_pos.index; ++idx)
+			unpacked_values[idx] = inner[0].val;
 		
-		for(auto &par_group : global_module.par_groups)
-			write_par_group_to_file(file, this, par_group, 0);
+		for(int idx = inner.back().index_pos.index; idx < count; ++idx)
+			unpacked_values[idx] = inner.back().val;
 		
-		for(auto &module : modules)
-			write_module_to_file(file, this, module);
-		
-	} catch(int) {
-		error = true;
-	}
-	
-	fclose(file);
-	
-	if(error)
-		mobius_error_exit();
-}
-
-void
-read_string_list(Token_Stream *stream, std::vector<Token> &push_to, bool ident = false, bool allow_int = false) {
-	stream->expect_token('[');
-	while(true) {
-		Token token = stream->peek_token();
-		if((char)token.type == ']') {
-			stream->read_token();
-			break;
-		}
-		if(allow_int && token.type == Token_Type::integer)
-			stream->expect_int();
-		else {
-			if(ident)
-				stream->expect_identifier();
-			else
-				stream->expect_quoted_string();
-		}
-		push_to.push_back(token);
-	}
-}
-
-void
-parse_sub_indexes(Sub_Indexing_Info *set, Token_Stream *stream) {
-	//TODO: Error if these indexes were already given (?)
-	auto peek = stream->peek_token(1);
-	if(peek.type == Token_Type::quoted_string) {
-		set->type = Sub_Indexing_Info::Type::named;
-		std::vector<Token> indexes;
-		read_string_list(stream, indexes);
-		for(int idx = 0; idx < indexes.size(); ++idx)
-			set->indexes.create(indexes[idx].string_value, indexes[idx].source_loc);
-	} else if (peek.type == Token_Type::integer) {
-		set->type = Sub_Indexing_Info::Type::numeric1;
-		set->n_dim1 = peek.val_int;
-		if(set->n_dim1 < 1) {
-			peek.print_error_header();
-			fatal_error("You can only have a positive number for a dimension size.");
-		}
-		stream->expect_token('[');
-		stream->expect_int();
-		stream->expect_token(']');
-	} else {
-		peek.print_error_header();
-		fatal_error("Expected a list of quoted strings or a single integer.");
-	}
-}
-
-Index_Set_Info *
-make_sub_indexed_to(Data_Set *data_set, Index_Set_Info *data, Token *parent) {
-	Index_Set_Info *sub_indexed_to = nullptr;
-	
-	data->sub_indexed_to = data_set->index_sets.expect_exists_idx(parent, "index_set");
-	sub_indexed_to = data_set->index_sets[data->sub_indexed_to];
-	if(sub_indexed_to->sub_indexed_to != -1) {
-		parent->source_loc.print_error_header();
-		fatal_error("We currently don't support sub-indexing under an index set that is itself sub-indexed.");
-	}
-	data->indexes.resize(sub_indexed_to->get_max_count()); // NOTE: Should be correct to use max count since what we are sub-indexed to can't itself be sub-indexed.
-	
-	return sub_indexed_to;
-}
-
-void
-parse_index_set_decl(Data_Set *data_set, Token_Stream *stream, Decl_AST *decl) {
-	int which = match_declaration(decl,
-		{
-			{Token_Type::quoted_string},
-			{Token_Type::quoted_string, Token_Type::quoted_string},
-		}, false, false);
+		// Assume linear interpolation for now. We could make more options
+		// Linear interpolate inside
+		for(int at = 0; at < (int)inner.size()-1; ++at) {
+			
+			auto &first = inner[at];
+			auto &last  = inner[at+1];
+			
+			for(Index_T index = first.index_pos; index <= last.index_pos; ++index) {
 				
-	auto name = single_arg(decl, which);
-	auto data = data_set->index_sets.create(name->string_value, name->source_loc);
-	
-	Index_Set_Info *sub_indexed_to = nullptr;
-	if(which == 1) {
-		sub_indexed_to = make_sub_indexed_to(data_set, data, single_arg(decl, 0));
-	}
-	
-	auto peek = stream->peek_token(1);
-	bool found_sub_indexes = false;
-	if(peek.type == Token_Type::quoted_string || peek.type == Token_Type::integer) {
-		peek = stream->peek_token(2);
-		if((char)peek.type == ':') {
-			found_sub_indexes = true;
-			if(!sub_indexed_to) {
-				decl->source_loc.print_error_header();
-				fatal_error("Got sub-indexes for an index set that is not sub-indexed.");
-			}
-			stream->expect_token('[');
-			while(true) {
-				auto token = stream->read_token();
-				int indexed_under = sub_indexed_to->get_index(&token, 0); // NOTE: The super index set is itself not sub-indexed, hence the 0.
-				stream->expect_token(':');
-				parse_sub_indexes(&data->indexes[indexed_under], stream);
-			
-				peek = stream->peek_token();
-				if((char)peek.type == ']') {
-					stream->read_token();
-					break;
-				} else if (peek.type == Token_Type::eof) {
-					peek.print_error_header();
-					fatal_error("End of file before an index_set declaration was closed.");
-				}
+				// We want the position of the beginning of the interval rather than the end.
+				Index_T index2 = index;
+				index2.index--;
+				double pos = 0.0;
+				if(index2.index >= 0)
+					pos = data_set->index_data.get_position(index2);
+				if(pos < first.pos || pos > last.pos) continue;
+				
+				double tt = (pos - first.pos) / (last.pos - first.pos);
+				
+				unpacked_values[index.index] = (1.0 - tt)*first.val + tt*last.val;
 			}
 		}
-	}
-	
-	if (!found_sub_indexes && (data->sub_indexed_to >= 0)) {
-		decl->source_loc.print_error_header();
-		fatal_error("Missing sub-indexes for a sub-indexed index set.");
-	}
-	
-	for(auto &idxs : data->indexes) {
-		if(idxs.get_count() <= 0) {
-			decl->source_loc.print_error_header();
-			if(data->sub_indexed_to >= 0)
-				fatal_error("Did not get an index set for all indexes of the parent index set.");
-			else
-				fatal_error("Empty index set.");
-		}
-	}
-	
-	if(!found_sub_indexes) {
-		data->indexes.resize(1);
-		parse_sub_indexes(&data->indexes[0], stream);
-	}
-}
-
-void
-get_indexes(Data_Set *data_set, std::vector<int> &index_sets, std::vector<Token> &index_names, std::vector<int> &indexes_out) {
-	//TODO: Assertions on counts etc.
-	indexes_out.resize(index_sets.size());
-	for(int pos = 0; pos < index_names.size(); ++pos) {
-		auto index_set = data_set->index_sets[index_sets[pos]];
-		int parent_idx = 0;
-		if(index_set->sub_indexed_to >= 0) {
-			int parent_pos = -1;
-			for(int par_pos = 0; par_pos < pos; ++par_pos) {
-				if(index_sets[par_pos] == index_set->sub_indexed_to) {
-					parent_pos = par_pos;
-					break;
-				}
-			}
-			if(parent_pos < 0) {
-				index_names[pos].print_error_header();
-				// TODO: Should include some names here.
-				fatal_error("This index belongs to an index set that is sub-indexed to another index set, but this index does not appear after an index of the parent index set.");
-			}
-			parent_idx = indexes_out[parent_pos];
-		}
-		indexes_out[pos] = index_set->get_index(&index_names[pos], parent_idx);
-	}
-}
-
-
-void
-read_compartment_identifier(Data_Set *data_set, Token_Stream *stream, Compartment_Ref *read_to, Connection_Info *info) {
-	Token token = stream->peek_token();
-	stream->expect_identifier();
-	
-	if(token.string_value == "out") {
-		read_to->id = -1;
-		return;
-	}
-	auto find = info->component_handle_to_id.find(token.string_value);
-	if(find == info->component_handle_to_id.end()) {
-		token.print_error_header();
-		fatal_error("The handle '", token.string_value, "' does not refer to an already declared component.");
-	}
-	read_to->id = find->second;
-	auto comp_data = info->components[read_to->id];
-	std::vector<Token> index_names;
-	read_string_list(stream, index_names, false, true);
-	if(index_names.size() != comp_data->index_sets.size()) {
-		token.print_error_header();
-		fatal_error("The component '", token.string_value, "' should be indexed with ", comp_data->index_sets.size(), " indexes.");
-	}
-	
-	get_indexes(data_set, comp_data->index_sets, index_names, read_to->indexes);
-}
-
-void
-read_connection_sequence(Data_Set *data_set, Compartment_Ref *first_in, Token_Stream *stream, Connection_Info *info) {
-	
-	std::pair<Compartment_Ref, Compartment_Ref> entry;
-	if(!first_in)
-		read_compartment_identifier(data_set, stream, &entry.first, info);
-	else
-		entry.first = *first_in;
-	
-	if(entry.first.id < 0) {
-		info->source_loc.print_error_header();
-		fatal_error("An 'out' can only be the target of an arrow, not the source.");
-	}
-	
-	stream->expect_token(Token_Type::arr_r);
-	read_compartment_identifier(data_set, stream, &entry.second, info);
-	
-	info->arrows.push_back(entry);
-	{	// Make an edge index for the arrow if necessary.
-		auto first_comp = info->components[entry.first.id];
-		if(first_comp->edge_index_set >= 0) {
-			auto edge_set = data_set->index_sets[first_comp->edge_index_set];
-			int parent_idx = 0;
-			if(!entry.first.indexes.empty())
-				parent_idx = entry.first.indexes[0];
-			edge_set->indexes[parent_idx].n_dim1++; // For now we just have numerical indexes.
-		}
-	}
-	
-	Token token = stream->peek_token();
-	if(token.type == Token_Type::arr_r) {
-		read_connection_sequence(data_set, &entry.second, stream, info);
-	} else if(token.type == Token_Type::identifier) {
-		read_connection_sequence(data_set, nullptr, stream, info);
-	} else if((char)token.type == ']') {
-		stream->read_token();
-		return;
-	} else {
-		token.print_error_header();
-		fatal_error("Expected a ], an -> or a component identifier.");
-	}
-}
-
-void parse_connection_decl(Data_Set *data_set, Module_Info *module, Token_Stream *stream, Decl_AST *decl) {
-	match_declaration(decl, {{Token_Type::quoted_string}}, false, false);
-						
-	auto name = single_arg(decl, 0);
-	auto info = module->connections.create(name->string_value, name->source_loc);
-	
-	stream->expect_token('[');
-	
-	Token token = stream->peek_token();
-	if((char)token.type == ']') {
-		stream->read_token();
-		return;
-	}
-	
-	while(true) {
-		auto token  = stream->peek_token();
-		auto token2 = stream->peek_token(1);
-		if(token.type != Token_Type::identifier || ((char)token2.type != ':' && (char)token2.type != '(')) break;
-			
-		Decl_AST *decl = parse_decl_header(stream);
-		match_declaration(decl, {{Token_Type::quoted_string}});
 		
-		auto name = single_arg(decl, 0);
-		auto data = info->components.create(name->string_value, name->source_loc);
-		int comp_id = info->components.find_idx(name->string_value);
-		data->decl_type = decl->type;
-		data->handle = decl->handle_name.string_value;
-		if(decl->handle_name.string_value.count)
-			info->component_handle_to_id[decl->handle_name.string_value] = comp_id;
-		std::vector<Token> idx_set_list;
-		read_string_list(stream, idx_set_list);
-		//int prev = -1;
-		for(auto &name : idx_set_list) {
-			int ref = data_set->index_sets.expect_exists_idx(&name, "index_set");
-			data->index_sets.push_back(ref);
-			int sub_indexed_to = data_set->index_sets[ref]->sub_indexed_to;
-			if(sub_indexed_to >= 0 ) {
-				bool found = false;
-				for(int prev : data->index_sets) {
-					if(prev == sub_indexed_to) {
-						found = true;
-						break;
-					}
-				}
-				if(!found) {
-					name.print_error_header();
-					fatal_error("The index set \"", name.string_value, "\" is sub-indexed to another index set \"", data_set->index_sets[sub_indexed_to]->name, "\", but it does not appear after it on the index set list for this component declaration.");
-				}
-			}
-			//prev = ref;
+		for(double valr : unpacked_values) {
+			Parameter_Value val;
+			val.val_real = valr;
+			values.push_back(val);
 		}
-		auto next = stream->peek_token();
-		if((char)next.type == '[') {
-			std::vector<Token> edge_list;
-			read_string_list(stream, edge_list);
-			if(edge_list.size() > 1 || data->index_sets.size() > 1) {
-				next.source_loc.print_error_header();
-				fatal_error("A component can have at most one edge index set, and if it does have one it must have at most one main index set.");
-			}
-			auto edge_set_data = data_set->index_sets.create(edge_list[0].string_value, edge_list[0].source_loc);
-			data->edge_index_set = data_set->index_sets.find_idx(edge_list[0].string_value);
-			edge_set_data->is_edge_index_set = true;
-			
-			if(!idx_set_list.empty())
-				make_sub_indexed_to(data_set, edge_set_data, &idx_set_list[0]);
-			// For now at least: May allow naming edges at a later point.
-			for(auto &idxs : edge_set_data->indexes)
-				idxs.type = Sub_Indexing_Info::Type::numeric1;
+	});
+}
+
+
+void
+Parameter_Data::process_declaration(Catalog *catalog) {
+
+	match_data_declaration(decl, {{Token_Type::quoted_string}}, true, 0, true, 1);
+	
+	set_serial_name(catalog, this);
+	
+	auto data_set = static_cast<Data_Set *>(catalog);
+	auto par_group = data_set->par_groups[scope_id];
+	// This is a bit hacky. We want to look in the top scope since that is where the index sets are visible.
+	auto scope = catalog->get_scope(par_group->scope_id);
+	
+	for(auto note : decl->notes) {
+		auto str = note->decl.string_value;
+		if(str == "from_position") {
+			match_declaration_base(note, {{Decl_Type::index_set}}, 0);
+			from_pos = scope->resolve_argument(Reg_Type::index_set, note->args[0]);
+		} else {
+			note->decl.print_error_header();
+			fatal_error("Unrecognized note type '", str, "' for a parameter.");
 		}
-		delete decl;
 	}
 	
-	token = stream->peek_token();
-	if((char)token.type == ']') {
-		stream->read_token();
+	if(is_valid(from_pos)) {
+		if(decl->data) {
+			decl->source_loc.print_error_header();
+			fatal_error("A parameter with 'from_position' should not have a data block.");
+		}
+		if(decl_type != Decl_Type::par_real) {
+			decl->source_loc.print_error_header();
+			fatal_error("A parameter with 'from_position' must be 'par_real'.");
+		}
+		
+		bool found = false;
+		int idx_pos;
+		for(idx_pos = 0; idx_pos < par_group->index_sets.size(); ++idx_pos) {
+			if(par_group->index_sets[idx_pos] == from_pos) {
+				found = true;
+				break;
+			}
+		}
+		if(!found) {
+			decl->source_loc.print_error_header();
+			fatal_error("The parameter does not index over the index set that the 'from_position' was declared with.");
+		}
+		
+		// NOTE: Assuming delta position for now. Could also allow absolute position if desired later.
+		double prev_pos = 0.0;
+		data_set->index_data.for_each(par_group->index_sets, [this, data_set, idx_pos, &prev_pos](Indexes &indexes) {
+			Parameter_Value val;
+			auto index = indexes.indexes[idx_pos];
+			// Ouch, this is a bit hacky.
+			if(index.index == 0)
+				prev_pos = 0.0;
+			double cur_pos = data_set->index_data.get_position(index);
+			val.val_real = (cur_pos - prev_pos);
+			values.push_back(val);
+			prev_pos = cur_pos;
+		});
+		
+	
+	} else if(decl->data->data_type == Data_Type::list) {
+		
+		auto &data = static_cast<Data_List_AST *>(decl->data)->list;
+		
+		if(decl_type == Decl_Type::par_enum) {
+			values_enum.reserve(data.size());
+			for(auto &token : data) {
+				if(token.type != Token_Type::identifier) {
+					token.print_error_header();
+					fatal_error("Expected an identifier.");
+				}
+				values_enum.push_back(token.string_value);
+			}
+		} else if(decl_type == Decl_Type::par_datetime) {
+			// Hmm, this is a bit clumsy now.. Only placing it seems to be an issue though.
+			for(int idx = 0; idx < data.size(); ++idx) {
+				Parameter_Value val;
+				auto &date_token = data[idx];
+				if(date_token.type != Token_Type::date) {
+					date_token.print_error_header();
+					fatal_error("Expected a date value.");
+				}
+				val.val_datetime = date_token.val_date;
+				if(idx+1 < data.size() && data[idx+1].type == Token_Type::time) {
+					val.val_datetime += data[idx+1].val_date;
+					++idx;
+				}
+				values.push_back(val);
+			}
+		} else {
+			values.reserve(data.size());
+			Parameter_Value val;
+			for(auto &token : data) {
+				if(decl_type == Decl_Type::par_real && is_numeric(token.type))
+					val.val_real    = token.double_value();
+				else if(decl_type == Decl_Type::par_int && token.type == Token_Type::integer)
+					val.val_integer = token.val_int;
+				else if(decl_type == Decl_Type::par_bool && token.type == Token_Type::boolean)
+					val.val_boolean = token.val_bool;
+				else {
+					token.print_error_header();
+					fatal_error("Expected a parameter value of type ", ::name(get_value_type(decl_type)), ".");
+				}
+				values.push_back(val);
+			}
+		}
+	} else if (decl->data->data_type == Data_Type::map) {
+		
+		if(decl_type != Decl_Type::par_real) {
+			decl->source_loc.print_error_header();
+			fatal_error("Only 'par_real' can have a data block on map form.");
+		}
+		
+		is_on_map_form = true;
+		
+		if(par_group->index_sets.empty()) {
+			decl->source_loc.print_error_header();
+			fatal_error("For parameter data to be on map form, the par_group must index over at least one index set.");
+		}
+		
+		auto map = static_cast<Data_Map_AST *>(decl->data);
+		std::vector<Token> index_tokens(par_group->index_sets.size());
+	
+		
+		parse_parameter_map_recursive(data_set, map, par_group->index_sets, index_tokens, parmap_data, 0);
+		
+		//log_print("Data size here is : ", map_data.size(), "\n");
+		
+		unpack_parameter_map(data_set);
+		
+	} else
+		fatal_error(Mobius_Error::internal, "Invalid data format for parameter.");
+	
+	has_been_processed = true;
+}
+
+int
+Parameter_Data::get_count() {
+	if(decl_type == Decl_Type::par_enum) return values_enum.size();
+	else                                 return values.size();
+}
+
+void
+Series_Data::process_declaration(Catalog *catalog) {
+	
+	match_data_declaration(decl, {{Token_Type::quoted_string}}, false, 0, false, 0);
+					
+	String_View other_file_name = single_arg(decl, 0)->string_value;
+	
+	auto data_set = static_cast<Data_Set *>(catalog);
+	
+	if(data_set->file_handler.is_loaded(other_file_name, data_set->path)) {
+		single_arg(decl, 0)->print_error_header();
+		fatal_error("The file ", other_file_name, " has already been loaded.");
+	}
+	
+	bool success;
+	String_View extension = get_extension(other_file_name, &success);
+	
+	if(success && (extension == ".xlsx" || extension == ".xls")) {
+
+		String_View path = make_path_relative_to(other_file_name, data_set->path);
+		this->file_name = std::string(other_file_name); // This is the path that is saved if the data_set is saved, it must be the same as what is loaded.
+		read_series_data_from_spreadsheet(data_set, this, path);
+		
+	} else {
+		String_View text_data = data_set->file_handler.load_file(other_file_name, single_arg(decl, 0)->source_loc, data_set->path);
+		read_series_data_from_csv(data_set, this, other_file_name, text_data);
+	}
+	
+	has_been_processed = true;
+}
+
+void
+process_index_data(Data_Set *data_set, Decl_Scope *scope, Entity_Id index_set_id) {
+	
+	auto index_set = data_set->index_sets[index_set_id];
+	auto decl = index_set->decl;
+	
+	match_data_declaration(decl, {{Token_Type::quoted_string}}, true, 0, true, 1);
+	
+	index_set->process_main_decl(data_set);
+	
+	if(!index_set->union_of.empty()) {
+		if(decl->data) {
+			decl->source_loc.print_error_header();
+			fatal_error("A union index set should not be provided with index data.");
+		}
+		data_set->index_data.initialize_union(index_set_id, decl->source_loc);
+		index_set->has_been_processed = true;
 		return;
 	}
-	if(token.type != Token_Type::identifier) {
-		token.print_error_header();
-		fatal_error("Expected a ] or the start of an component identifier.");
+	
+	if(!decl->data) {
+		if(!is_valid(index_set->sub_indexed_to)) {
+			index_set->source_loc.print_error_header();
+			//TODO: Better message?
+			//TODO: Maybe not impose this restriction here, and instead do it in Model_Application (if at all).
+			fatal_error("Only union index sets or sub-indexed index sets can be declared without data.");
+		}
+		index_set->has_been_processed = true;
+		return;
 	}
 	
-	auto token2 = stream->peek_token(1);
-	if((char)token2.type == '[') {
-		info->type = Connection_Info::Type::graph;
-		read_connection_sequence(data_set, nullptr, stream, info);
-	} else if ((char)token2.type != ']') {
-		token.print_error_header();
-		fatal_error("Unrecognized connection data format.");
+	if(is_valid(index_set->sub_indexed_to)) {
+		
+		if(decl->data->data_type != Data_Type::map) {
+			decl->data->source_loc.print_error_header();
+			fatal_error("Expected a map mapping parent indexes to index lists sice this index set is sub-indexed.");
+		}
+		
+		auto data = static_cast<Data_Map_AST *>(decl->data);
+		
+		for(auto &entry : data->entries) {
+			auto parent_idx = data_set->index_data.find_index(index_set->sub_indexed_to, &entry.key);
+			
+			if(!entry.data || entry.data->data_type != Data_Type::list) {
+				entry.data->source_loc.print_error_header();
+				fatal_error("Expected a simple list of indexes or an integer size.");
+			}
+			auto list = static_cast<Data_List_AST *>(entry.data);
+			
+			if(!list->list.empty())
+				data_set->index_data.set_indexes(index_set_id, list->list, parent_idx);
+		}
+		
+	} else {
+		
+		//log_print("Data type is ", (int)decl->data->data_type, "\n");
+		
+		if(decl->data->data_type != Data_Type::list) {
+			decl->data->source_loc.print_error_header();
+			fatal_error("Expected a simple list of indexes or an integer size for this index set since it is not sub-indexed.");
+		}
+		auto data = static_cast<Data_List_AST *>(decl->data);
+		
+		if(!data->list.empty())
+			data_set->index_data.set_indexes(index_set_id, data->list);
+	}
+	
+	if(!data_set->index_data.are_all_indexes_set(index_set_id)) {
+		// TODO: Maybe we should allow empty index sets later.
+		//    Or at least maybe just do this check in Model_Application.
+		decl->source_loc.print_error_header();
+		fatal_error("The index set \"", index_set->name, "\" was not fully initialized.");
+	}
+	
+	index_set->has_been_processed = true;
+}
+
+void
+process_time_step_decl(Data_Set *data_set, Decl_AST *decl) {
+	
+	if(data_set->time_step_was_provided) {
+		decl->source_loc.print_error_header();
+		fatal_error("Duplicate declaration of 'time_step'.");
+	}
+	match_declaration(decl, {{Decl_Type::unit}}, false);
+	data_set->time_step_unit.set_data(decl->args[0]->decl);
+	data_set->unit_source_loc = decl->source_loc;
+	data_set->time_step_was_provided = true;
+}
+
+void
+process_series_interval_decl(Data_Set *data_set, Decl_AST *decl) {
+	if(data_set->series_interval_was_provided) {
+		decl->source_loc.print_error_header();
+		fatal_error("Duplicate declaration of 'series_interval'.");
+	}
+	match_declaration(decl, {{Token_Type::date, Token_Type::date}}, false);
+	data_set->series_begin = single_arg(decl, 0)->val_date;
+	data_set->series_end   = single_arg(decl, 1)->val_date;
+	data_set->series_interval_was_provided = true;
+	
+	if(data_set->series_end < data_set->series_begin) {
+		single_arg(decl, 0)->print_error_header();
+		fatal_error("The start date can't be later than the end date for the 'series_interval'.");
 	}
 }
 
 void
-read_series_data_block(Data_Set *data_set, Token_Stream *stream, Series_Set_Info *data) {
+Component_Data::process_declaration(Catalog *catalog) {
+
+	match_declaration(decl,
+	{
+		{Token_Type::quoted_string},
+		{Token_Type::quoted_string, {Decl_Type::index_set, true}},
+	}, true);
 	
-	data->has_date_vector = true;
-	Token token = stream->peek_token();
+	set_serial_name(catalog, this);
+	auto data_set = static_cast<Data_Set *>(catalog);
+	auto scope = catalog->get_scope(scope_id);
+	
+	for(int argidx = 1; argidx < decl->args.size(); ++argidx) {
+		auto id = scope->resolve_argument(Reg_Type::index_set, decl->args[argidx]);
+		index_sets.push_back(id);
+	}
+	
+	if(!index_sets.empty())
+		data_set->index_data.check_valid_distribution(index_sets, decl->args[0]->source_loc());
+}
+
+void
+maybe_make_edge_index(Data_Set *data_set, Connection_Data *connection, std::pair<Compartment_Ref, Compartment_Ref> &arrow) {
+	auto first_comp = data_set->components[arrow.first.id];
+
+	if(!is_valid(connection->edge_index_set) || !first_comp->can_have_edge_index_set) return;
+		
+	Index_T parent_idx = Index_T::no_index();
+	auto parent_set = data_set->index_sets[connection->edge_index_set]->sub_indexed_to;
+	if(!is_valid(parent_set))
+		fatal_error(Mobius_Error::internal, "Got an edge index set that was not sub-indexed to the connection component index.");
+	
+	if(first_comp->index_sets.size() != 1)  // TODO: We should allow 0 also.
+		fatal_error(Mobius_Error::internal, "Got an unsupported amount of indexes for a connection component with an indexed edge.");
+	
+	parent_idx = arrow.first.indexes.get_index(data_set->index_data, first_comp->index_sets[0]);
+	if(!is_valid(parent_idx))
+		fatal_error(Mobius_Error::internal, "Something went wrong with looking up the component index.");
+	
+	std::string index_name;
+	if(is_valid(arrow.second.id)) {
+		auto count = arrow.second.indexes.count();
+		if(count == 0) {
+			index_name = data_set->components[arrow.second.id]->name;
+		} else {
+			if(count == 1)
+				index_name = data_set->index_data.get_index_name(arrow.second.indexes, arrow.second.indexes.indexes[0]);
+			else {
+				std::vector<std::string> index_names;
+				data_set->index_data.get_index_names(arrow.second.indexes, index_names);
+				std::stringstream ss;
+				for(int pos = 0; pos < index_names.size(); ++pos) {
+					ss << index_names[pos];
+					if(pos != index_names.size()-1) ss << ';';
+				}
+				index_name = ss.str();
+			}
+		} 
+	} else
+		index_name = "out";
+	
+	// TODO: There could be potential name clashes here.
+	// TODO: Should provide a better source_loc...
+	data_set->index_data.add_edge_index(connection->edge_index_set, index_name, connection->source_loc, parent_idx);
+}
+
+void
+Connection_Data::process_declaration(Catalog *catalog) {
+	
+	match_declaration(decl, {{Token_Type::quoted_string}}, false, -1);
+	
+	set_serial_name(catalog, this);
+	
+	scope.parent_id = id; // This is the scope inside the connection declaration.
+	auto parent_scope = catalog->get_scope(scope_id); // This is the outer scope where the connection is declared.
+	scope.import(*parent_scope); // To make e.g. index sets visible to component declarations.
+	
+	
+	auto body = static_cast<Decl_Body_AST *>(decl->body);
+	
+	const std::set<Decl_Type> allowed_decls = { Decl_Type::compartment };//, Decl_Type::quantity };
+	
+	Decl_AST *graph_decl = nullptr;
+	for(Decl_AST *child : body->child_decls) {
+		if(child->type == Decl_Type::directed_graph) {
+			// Don't make a registration for the directed_graph itself.
+			for(auto arg : child->args) {
+				if(arg->decl) catalog->register_decls_recursive(&scope, arg->decl, allowed_decls);
+			}
+			if(graph_decl) {
+				graph_decl->source_loc.print_error_header();
+				fatal_error("Multiple data declarations for connection.");
+			}
+			graph_decl = child;
+			type = Type::directed_graph; // This is the only type we have data for for now.
+		} else
+			catalog->register_decls_recursive(&scope, child, allowed_decls);
+		
+	}
+	
+	for(auto id : scope.all_ids)
+		catalog->find_entity(id)->process_declaration(catalog);
+	
+	if(!graph_decl) {
+		has_been_processed = true;
+		return;
+	}
+	
+	auto data_set = static_cast<Data_Set *>(catalog);
+	
+	// Process graph data.
+	
+	int which = match_data_declaration(graph_decl, {{}, {Decl_Type::index_set}});
+	
+	if(which == 1) {
+		edge_index_set = scope.resolve_argument(Reg_Type::index_set, graph_decl->args[0]);
+		auto edge_set = catalog->index_sets[edge_index_set];
+		
+		if(is_valid(edge_set->is_edge_of_connection)) {
+			graph_decl->args[0]->source_loc().print_error_header();
+			fatal_error("This index set is already the edge of another connection.");
+		}
+		edge_set->is_edge_of_connection = id;
+		
+		if(!edge_set->union_of.empty()) {
+			edge_set->source_loc.print_error_header();
+			fatal_error("An edge index set can not be a union.");
+		}
+		
+		if(data_set->index_data.are_all_indexes_set(edge_index_set)) {
+			edge_set->source_loc.print_error_header();
+			fatal_error("Edge index sets should not receive index data explicitly.");
+		}
+		
+		data_set->index_data.initialize_edge_index_set(edge_index_set, edge_set->source_loc);
+				
+		for(auto component_id : scope.by_type(Reg_Type::component)) {
+			auto component = data_set->components[component_id];
+			if(component->index_sets.size() == 1) {
+				if(data_set->index_data.can_be_sub_indexed_to(component->index_sets[0], edge_index_set))
+					component->can_have_edge_index_set = true;
+			} else if(component->index_sets.empty())
+				component->can_have_edge_index_set = true;   // TODO: Hmm, wouldn't this only be the case if all the components were not indexed?
+		}
+	}
+	
+	auto graph_data = static_cast<Directed_Graph_AST *>(graph_decl->data);
+	
+	auto process_node = [](Data_Set *data_set, Decl_Scope &scope, Directed_Graph_AST::Node &node, Compartment_Ref &ref) {
+		if(node.identifier.string_value == "out") {
+			ref.id = invalid_entity_id;
+			if(!node.indexes.empty()) {
+				node.identifier.print_error_header();
+				fatal_error("Didn't expect indexes for 'out'.");
+			}
+		} else {
+			ref.id = scope.expect(Reg_Type::component, &node.identifier);
+			auto component = data_set->components[ref.id];
+			data_set->index_data.find_indexes(component->index_sets, node.indexes, ref.indexes);
+		}
+	};
+	
+	for(auto &arrow : graph_data->arrows) {
+		auto &node1 = graph_data->nodes[arrow.first];
+		auto &node2 = graph_data->nodes[arrow.second];
+		// Hmm, we are actually double-storing node data here. Could store it the same way as in the AST instead. Could even de-duplicate at this stage, but maybe not necessary.
+		arrows.emplace_back();
+		auto &arr = arrows.back();
+		process_node(data_set, scope, node1, arr.first);
+		process_node(data_set, scope, node2, arr.second);
+		// If necessary, create an edge index for this arrow in the edge index set of the graph.
+		maybe_make_edge_index(data_set, this, arr);
+	}
+	
+	has_been_processed = true;
+}
+
+void
+Quick_Select_Data::process_declaration(Catalog *catalog) {
+	
+	has_been_processed = true;
+	
+	match_data_declaration(decl, {{Token_Type::quoted_string}});
+	
+	set_serial_name(catalog, this);
+	
+	if(decl->data->data_type != Data_Type::map) {
+		decl->data->source_loc.print_error_header();
+		fatal_error("Expected data in a map format.");
+	}
+	
+	auto map_data = static_cast<Data_Map_AST *>(decl->data);
+	
+	for(auto &entry : map_data->entries) {
+		Quick_Select select;
+		if(entry.key.type != Token_Type::quoted_string) {
+			entry.key.print_error_header();
+			fatal_error("Expected a quoted string name of the entry.");
+		}
+		select.name = entry.key.string_value;
+		if(!entry.data || entry.data->data_type != Data_Type::list) {
+			entry.data->source_loc.print_error_header();
+			fatal_error("Expected a list of series names.");
+		}
+		auto list_data = static_cast<Data_List_AST *>(entry.data);
+		for(auto &item : list_data->list) {
+			if(item.type != Token_Type::quoted_string) {
+				item.print_error_header();
+				fatal_error("Expected a quoted string name of a series.");
+			}
+			select.series_names.push_back(item.string_value);
+		}
+		selects.emplace_back(std::move(select));
+	}
+}
+
+
+void
+Position_Map_Data::process_declaration(Catalog *catalog) {
+	
+	match_data_declaration(decl, {{Decl_Type::index_set}});
+	
+	if(decl->data->data_type != Data_Type::map) {
+		decl->data->source_loc.print_error_header();
+		fatal_error("Expected data in a map format.");
+	}
+	
+	auto data_set = static_cast<Data_Set *>(catalog);
+	auto scope = catalog->get_scope(scope_id);
+	index_set_id = scope->resolve_argument(Reg_Type::index_set, decl->args[0]);
+	
+	if(!data_set->index_data.are_all_indexes_set(index_set_id)) {
+		decl->source_loc.print_error_header();
+		fatal_error("Can not provide a position_map for an index set that has not received dimensions.");
+	}
+	if(data_set->index_data.get_index_type(index_set_id) != Index_Record::Type::numeric1) {
+		decl->source_loc.print_error_header();
+		fatal_error("Can not provide a position_map for an index set that is not numeric.");
+	}
+	
+	auto map_data = static_cast<Data_Map_AST *>(decl->data);
+	
+	for(auto &entry : map_data->entries) {
+		if(!is_numeric(entry.key.type)) {
+			entry.key.print_error_header();
+			fatal_error("Expected an numeric position value as the key.");
+		}
+		if(entry.data || !is_numeric(entry.single_value.type)) {
+			map_data->source_loc.print_error_header();
+			fatal_error("All value entries in the map must be numeric.");
+		}
+		double pos = entry.key.double_value();
+		double value = entry.single_value.double_value();
+		if(value < 0.0 || pos < 0.0) {
+			entry.key.print_error_header();
+			fatal_error("All position map values must be positive numbers.");
+		}
+		pos_vals_raw.push_back(pos);
+		width_vals_raw.push_back(value);
+	}
+	
+	if(pos_vals_raw.empty()) {
+		map_data->source_loc.print_error_header();
+		fatal_error("The position_map data can't be empty.");
+	}
+	
+	// Widths is default for now. Make option for linear_interpolate later instead.
+	/*
+	for(auto note : decl->notes) {
+		auto str = note->decl.string_value;
+		if(str == "widths")
+			raw_is_widths = true;
+		else if(str == "linear_interpolate")
+			linear_interp = true;
+		else {
+			note->decl.print_error_header();
+			fatal_error("Unexpected note '", str, "' for position_map declaration.");
+		}
+	}
+	*/
+	
+	// TODO: This should be factored out, for reuse with parameter values.
+	
+	std::vector<int> order(pos_vals_raw.size());
+	std::iota(order.begin(), order.end(), 0);
+	std::sort(order.begin(), order.end(), [this](int row_a, int row_b) -> bool { return pos_vals_raw[row_a] < pos_vals_raw[row_b]; });
+	
+	// Reinterpret the index set size as a max "depth".
+	double max_width = (double)data_set->index_data.get_max_count(index_set_id).index;
+	
+	std::vector<double> expanded_ys;
+	
+	double at_pos = 0.0;
+	
+	for(int idxidx = 0; idxidx < order.size(); ++idxidx) {
+		int idx = order[idxidx];
+		
+		double width = width_vals_raw[idx];
+		at_pos += width;
+		expanded_ys.push_back(at_pos);
+		
+		bool at_end = true;
+		double pos_next = max_width;
+		if(idxidx < (int)order.size()-1) {
+			int idxp1 = order[idxidx+1];
+			pos_next = pos_vals_raw[idxp1];
+			at_end = false;
+		}
+		
+		while(at_pos < pos_next) {
+			at_pos += width; // TODO: Implement linear interp option later.
+			if(at_end) at_pos = std::min(at_pos, pos_next); // TODO: Do we always do this, or only towards the end like now?
+			expanded_ys.push_back(at_pos);
+		}
+	}
+	
+	data_set->index_data.set_position_map(index_set_id, expanded_ys, decl->source_loc);
+	
+	has_been_processed = true;
+}
+
+
+void
+Data_Set::read_from_file(String_View file_name) {
+	
+	if(path != "")
+		fatal_error(Mobius_Error::api_usage, "Tried make a data set read from a file ", file_name, ", but it already contains data from the file ", path, ".");
+	
+	path = std::string(file_name);
+	
+	auto decl = read_catalog_ast_from_file(Decl_Type::data_set, &file_handler, file_name);
+	match_declaration(decl, {{}}, false, -1);
+	
+	auto body = static_cast<Decl_Body_AST *>(decl->body);
+	if(body->doc_string.string_value.count)
+		doc_string = body->doc_string.string_value;
+	
+	const std::set<Decl_Type> allowed_data_decls = {
+		Decl_Type::index_set,
+		Decl_Type::connection,
+		Decl_Type::module,
+		Decl_Type::preamble,
+		Decl_Type::par_group,
+		Decl_Type::series,
+		Decl_Type::series_interval,
+		Decl_Type::time_step,
+		Decl_Type::quick_select,
+		Decl_Type::position_map
+	};
+	
+	auto scope = &top_scope;
+	
+	// TODO: This could be problematic since it would also register version() declarations.
+	//    Do we skip those here or handle it in another way.
+	for(Decl_AST *child : body->child_decls) {
+		if(child->type == Decl_Type::time_step)
+			process_time_step_decl(this, child);
+		else if(child->type == Decl_Type::series_interval)
+			process_series_interval_decl(this, child);
+		else if(child->type == Decl_Type::module || child->type == Decl_Type::preamble)
+			register_single_decl(scope, child, allowed_data_decls); // Just so that it doesn't try to process the 'version' argument separately
+		else
+			register_decls_recursive(scope, child, allowed_data_decls);
+	}
+	
+	// Almost everything depends on the index sets being correctly set up before the data is processed.
+	for(auto id : scope->by_type(Reg_Type::index_set))
+		process_index_data(this, scope, id); // Can't call process_declaration on index_sets since we can't reuse the same function as in the model.
+	
+	for(auto id : scope->by_type(Reg_Type::position_map))
+		find_entity(id)->process_declaration(this);
+	
+	// Also have to process connections in order to set indexes for edge index sets before anything else is done.
+	for(auto id : scope->by_type(Reg_Type::connection))
+		find_entity(id)->process_declaration(this);
+	
+	for(auto id : scope->all_ids) {
+		auto entity = find_entity(id);
+		if(entity->has_been_processed) continue;
+		entity->process_declaration(this);
+	}
+	
+	file_handler.unload_all();
+	delete main_decl;
+	
+	// TODO: Post-processing.
+		// Check expected value count for parameters. (Although don't we also do that in the model_application?)
+		// I guess it could be good to do it here anyway since we want to be able to have internal consistency for resizing etc.
+}
+
+void
+Data_Set::generate_index_data(const std::string &name, const std::string &sub_indexed_to, const std::vector<std::string> &union_of) {
+	
+	// NOTE: We don't check for correctness of sub-indexing vs. union here since we assume this was done by the Model_Application.
+	auto id = index_sets.create_internal(&top_scope, "", name, Decl_Type::index_set);
+
+	auto set = index_sets[id];
+	
+	auto sub_to = invalid_entity_id;
+	if(!sub_indexed_to.empty()) {
+		sub_to = deserialize(sub_indexed_to, Reg_Type::index_set);
+		if(!is_valid(sub_to))
+			fatal_error(Mobius_Error::internal, "Did not find the parent index set ", sub_indexed_to, " in generate_index_data.");
+		set->sub_indexed_to = sub_to;
+	}
+	
+	Source_Location loc = {};
+		
+	if(!union_of.empty()) {
+		for(auto ui : union_of) {
+			auto ui_id = deserialize(ui, Reg_Type::index_set);
+			if(!is_valid(ui_id))
+				fatal_error(Mobius_Error::internal, "Did not find the union member ", ui, " in generate_index_data.");
+			set->union_of.push_back(ui_id);
+		}
+		
+		index_data.initialize_union(id, loc);
+		return;
+	}
+	
+	s32 instance_count = 1;
+	if(is_valid(sub_to))
+		instance_count = index_data.get_max_count(sub_to).index;
+	
+	Token count;
+	count.source_loc = loc;
+	count.type = Token_Type::integer;
+	count.val_int = 1;
+	
+	for(int par_idx = 0; par_idx < instance_count; ++par_idx) {
+		Index_T parent_idx = Index_T { sub_to, (s16)par_idx };
+		index_data.set_indexes(id, { count }, parent_idx);
+	}
+}
+
+void
+read_series_data_from_csv(Data_Set *data_set, Series_Data *series_data, String_View file_name, String_View text_data) {
+	
+	Token_Stream stream(file_name, text_data);
+	stream.allow_date_time_tokens = true;
+	
+	series_data->series.push_back({});
+	Series_Set &data = series_data->series.back();
+	series_data->file_name = std::string(file_name);
+	
+	data.has_date_vector = true;
+	Token token = stream.peek_token();
 	
 	if(token.type == Token_Type::date) {
 		// If there is a date as the first token, that gives the start date, and there is no separate date for each row.
-		data->start_date = stream->expect_datetime();
-		data->has_date_vector = false;
+		data.start_date = stream.expect_datetime();
+		data.has_date_vector = false;
 	} else if(token.type != Token_Type::quoted_string) {
 		token.print_error_header();
 		fatal_error("Expected either a start date or the name of an input series.");
 	}
 	
 	while(true) {
-		Series_Header_Info header;
+		Series_Header header;
 		header.source_loc = token.source_loc;
-		header.name = std::string(stream->expect_quoted_string());
+		header.name = std::string(stream.expect_quoted_string());
 		while(true) {
-			token = stream->peek_token();
+			token = stream.peek_token();
 			if((char)token.type != '[')
 				break;
-			stream->read_token();
-			token = stream->peek_token();
+			stream.read_token();
+			token = stream.peek_token();
 			if(token.type == Token_Type::quoted_string) {
-				std::vector<int> index_sets;
-				std::vector<Token> index_names;
+				std::vector<Entity_Id> index_sets;
+				std::vector<Token>   index_names;
 				
 				while(true) {
-					stream->read_token();
-					auto index_set_idx = data_set->index_sets.expect_exists_idx(&token, "index_set");
+					stream.read_token();
+					auto index_set_id = data_set->deserialize(token.string_value, Reg_Type::index_set);
 					
-					stream->expect_token(':');
-					token = stream->read_token();
-					index_sets.push_back(index_set_idx);
-					index_names.push_back(token);
+					stream.expect_token(':');
+					auto next = stream.read_token();
+					index_sets.push_back(index_set_id);
+					index_names.push_back(next);
 				
-					token = stream->peek_token();
-					if((char)token.type == ']') {
-						stream->read_token();
+					next = stream.peek_token();
+					if((char)next.type == ']') {
+						stream.read_token();
 						break;
 					}
-					if(token.type != Token_Type::quoted_string) {
-						token.print_error_header();
+					if(next.type != Token_Type::quoted_string) {
+						next.print_error_header();
 						fatal_error("Expected a ] or a new index set name.");
 					}
 				}
-				std::vector<int> indexes_int;
-				get_indexes(data_set, index_sets, index_names, indexes_int); 
 				
-				// TODO: Just maybe organize the data differently so that we don't need to do this zip.
-				std::vector<std::pair<int, int>> indexes(index_sets.size());
-				for(int lev = 0; lev < index_sets.size(); ++lev)
-					indexes[lev] = std::pair<int, int>{index_sets[lev], indexes_int[lev]};
+				data_set->index_data.check_valid_distribution(index_sets, token.source_loc);
+				
+				Indexes indexes;
+				data_set->index_data.find_indexes(index_sets, index_names, indexes);
 				
 				header.indexes.push_back(std::move(indexes));
 			} else if(token.type == Token_Type::identifier || (char)token.type == '[') {
 				while(true) {
 					if((char)token.type == '[') {
-						auto unit_decl = parse_decl_header(stream);
+						auto unit_decl = parse_decl_header(&stream);
 						header.unit.set_data(unit_decl);
 						delete unit_decl;
 					} else {
@@ -796,7 +1035,7 @@ read_series_data_block(Data_Set *data_set, Token_Stream *stream, Series_Set_Info
 							fatal_error("Unrecognized input flag \"", token.string_value, "\".");
 						}
 					}
-					token = stream->read_token();
+					token = stream.read_token();
 					if((char)token.type == ']')
 						break;
 					else if(token.type != Token_Type::identifier && (char)token.type != '[') {
@@ -804,311 +1043,553 @@ read_series_data_block(Data_Set *data_set, Token_Stream *stream, Series_Set_Info
 						fatal_error("Expected a ], another flag identifier or a unit declaration.");
 					}
 				}
-				//TODO: Check for conflicting flags.
+				
 			} else {
 				token.print_error_header();
 				fatal_error("Expected the name of an index set or a flag");
 			}
 		}
-		data->header_data.push_back(std::move(header));
+		data.header_data.push_back(std::move(header));
 		
-		Token token = stream->peek_token();
+		Token token = stream.peek_token();
 		if(token.type != Token_Type::quoted_string)
 			break;
 	}
 	
-	if(data->header_data.empty())
+	if(data.header_data.empty())
 		fatal_error(Mobius_Error::internal, "Empty input data header not properly detected.");
 	
-	int rowlen = data->header_data.size();
+	int rowlen = data.header_data.size();
 	
-	data->raw_values.resize(rowlen);
-	for(auto &vec : data->raw_values)
+	data.raw_values.resize(rowlen);
+	for(auto &vec : data.raw_values)
 		vec.reserve(1024);
 	
-	if(data->has_date_vector) {
+	if(data.has_date_vector) {
 		Date_Time start_date;
 		start_date.seconds_since_epoch = std::numeric_limits<s64>::max();
 		Date_Time end_date;
 		end_date.seconds_since_epoch = std::numeric_limits<s64>::min();
 		
 		while(true) {
-			Date_Time date = stream->expect_datetime();
+			Date_Time date = stream.expect_datetime();
 			if(date < start_date) start_date = date;
 			if(date > end_date)   end_date   = date;
-			data->dates.push_back(date);
+			data.dates.push_back(date);
 			for(int col = 0; col < rowlen; ++col) {
-				double val = stream->expect_real();
-				data->raw_values[col].push_back(val);
+				double val = stream.expect_real();
+				data.raw_values[col].push_back(val);
 			}
-			Token token = stream->peek_token();
+			Token token = stream.peek_token();
 			if(token.type != Token_Type::date)
 				break;
 		}
-		data->start_date = start_date;
-		data->end_date = end_date;
+		data.start_date = start_date;
+		data.end_date = end_date;
 		
 	} else {
-		data->time_steps = 0;
+		data.time_steps = 0;
 		
 		while(true) {
 			for(int col = 0; col < rowlen; ++col) {
-				double val = stream->expect_real();
-				data->raw_values[col].push_back(val);
+				double val = stream.expect_real();
+				data.raw_values[col].push_back(val);
 			}
-			++data->time_steps;
-			Token token = stream->peek_token();
+			++data.time_steps;
+			Token token = stream.peek_token();
 			if(!is_numeric(token.type))
 				break;
 		}
 	}
 }
 
-void
-parse_parameter_decl(Par_Group_Info *par_group, Token_Stream *stream, int expect_count) {
-	auto decl = parse_decl_header(stream);
-	match_declaration(decl, {{Token_Type::quoted_string}}, false, false);
-	Token *arg = single_arg(decl, 0);
-	auto par = par_group->pars.create(arg->string_value, arg->source_loc);
-	par->type = decl->type;
-	if(par->type == Decl_Type::par_enum) {
-		std::vector<Token> list;
-		read_string_list(stream, list, true);
-		for(auto &item : list) par->values_enum.push_back(item.string_value);
-	} else {
-		stream->expect_token('[');
-		for(int idx = 0; idx < expect_count; ++idx) {
-			Token token = stream->peek_token();
-			Parameter_Value val;
-			if(decl->type == Decl_Type::par_real && is_numeric(token.type)) {
-				val.val_real = stream->expect_real();
-				par->values.push_back(val);
-			} else if(decl->type == Decl_Type::par_bool && token.type == Token_Type::boolean) {
-				val.val_boolean = stream->expect_bool();
-				par->values.push_back(val);
-			} else if(decl->type == Decl_Type::par_int && token.type == Token_Type::integer) {
-				val.val_integer = stream->expect_int();
-				par->values.push_back(val);
-			} else if(decl->type == Decl_Type::par_datetime && token.type == Token_Type::date) {
-				val.val_datetime = stream->expect_datetime();
-				par->values.push_back(val);
-			} else if((char)token.type == ']') {
-				token.print_error_header();
-				fatal_error("Expected ", expect_count, " values for parameter, got ", idx, ".");
-			} else {
-				token.print_error_header();
-				fatal_error("Expected a parameter value of type ", name(get_value_type(decl->type)), ", or a ']'.");
-			}
-		}
-		stream->expect_token(']'); //TODO: should give better error message here, along (expected n values for parameter, ...)
-	}
-	delete decl;
-}
-
-void
-parse_par_group_decl(Data_Set *data_set, Module_Info *module, Token_Stream *stream, Decl_AST *decl) {
-	match_declaration(decl, {{Token_Type::quoted_string}}, false, false);
-
-	auto name = single_arg(decl, 0);
-	auto group = module->par_groups.create(name->string_value, name->source_loc);
+struct
+Scope_Writer {
+	FILE *file = nullptr;
+	std::vector<char> scope_stack;
+	bool same_line = false;
 	
-	Token token = stream->peek_token();
-	std::vector<Token> list;
-	if((char)token.type == '[') {
-		read_string_list(stream, list);
-		if(list.size() > 0) {
-			if(module == &data_set->global_module && name->string_value == "System") {
-				list[0].print_error_header();
-				fatal_error("The global \"System\" parameter group should not be indexed by index sets.");
+	int wanted_newlines = 0;
+	bool do_ident = true;
+	
+	void newline(int amount = 1, bool tabs = true) {
+		if(tabs != do_ident) process_newlines();
+		do_ident = tabs;
+		wanted_newlines += amount;
+	}
+	
+	void process_newlines() {
+		while(wanted_newlines > 0) {
+			fprintf(file, "\n");
+			if(do_ident) {
+				for(int idx = 0; idx < scope_stack.size(); ++idx)
+					fprintf(file, "\t");
 			}
-			for(Token &item : list) {
-				int index_set_idx = data_set->index_sets.expect_exists_idx(&item, "index_set");
-				group->index_sets.push_back(index_set_idx);
-			}
+			wanted_newlines--;
 		}
 	}
-	int expect_count = get_instance_count(data_set, group->index_sets, &decl->source_loc);
 	
-	stream->expect_token('{');
-	while(true) {
-		token = stream->peek_token();
-		if(token.type == Token_Type::identifier) {
-			parse_parameter_decl(group, stream, expect_count);
-		} else if((char)token.type == '}') {
-			stream->read_token();
-			break;
+	void open_scope(char type, bool new_line = true) {
+		process_newlines();
+		if(same_line)
+			fatal_error(Mobius_Error::internal, "Tried to open a new scope after a same_line scope.");
+		if(type != '{' && type != '[' && type != '!')
+			fatal_error(Mobius_Error::internal, "Invalid scope type ", type, ".");
+		if(type == '!')
+			fprintf(file, "[");
+		fprintf(file, "%c", type);
+		scope_stack.push_back(type);
+		if(new_line) {
+			same_line = false;
+			newline();
 		} else {
-			token.print_error_header();
-			fatal_error("Expected a } or a parameter declaration.");
+			same_line = true;
+			fprintf(file, " ");
 		}
+	}
+	
+	void close_scope(bool extra_new_line_after = true) {
+		
+		if(scope_stack.empty())
+			fatal_error(Mobius_Error::internal, "Closed too many scopes.");
+		char type = scope_stack.back() == '{' ? '}' : ']';
+		scope_stack.resize(scope_stack.size()-1);
+		if(wanted_newlines > 2)
+			wanted_newlines--;
+		process_newlines();
+		same_line = false;
+		fprintf(file, "%c", type);
+		newline(1 + (int)extra_new_line_after);
+	}
+	
+	void write(const char *fmt, ...) {
+		process_newlines();
+		va_list args;
+		va_start(args, fmt);
+		vfprintf(file, fmt, args);
+		va_end(args);
+	}
+	
+	void open_decl(Data_Set *data_set, Entity_Id id) {
+		process_newlines();
+		auto entity = data_set->find_entity(id);
+		auto sym = data_set->get_symbol(id);
+		if(!sym.empty())
+			write("%s : ", sym.c_str());
+		write("%s(", name(entity->decl_type));
+		if(!entity->name.empty())
+			write("\"%s\"", entity->name.c_str());
+	}
+	
+	void write_identifier_list(Data_Set *data_set, const std::vector<Entity_Id> &idents, bool leading_comma=false) {
+		process_newlines();
+		for(int idx = 0; idx < idents.size(); ++idx) {
+			if(idx != 0 || leading_comma)
+				write(", ");
+			auto sym = data_set->get_symbol(idents[idx]);
+			write("%s", sym.c_str());
+		}
+	}
+};
+
+void
+write_scope_to_file(Data_Set *data_set, Decl_Scope *scope, Scope_Writer *writer, bool leading_newline = true);
+
+void
+write_index_set_to_file(Data_Set *data_set, Scope_Writer *writer, Entity_Id index_set_id) {
+	
+	auto index_set = data_set->index_sets[index_set_id];
+	
+	writer->open_decl(data_set, index_set_id);
+	writer->write(") ");
+	
+	if(is_valid(index_set->sub_indexed_to))
+		writer->write("@sub(%s) ", data_set->get_symbol(index_set->sub_indexed_to).data());
+	if(!index_set->union_of.empty()) {
+		writer->write("@union(");
+		writer->write_identifier_list(data_set, index_set->union_of);
+		writer->write(") ");
+	}
+	
+	if(!index_set->union_of.empty() || is_valid(index_set->is_edge_of_connection)) {
+		// These should not have any data.
+		writer->newline(2);
+		return;
+	}
+	
+	if(is_valid(index_set->sub_indexed_to)) {
+		writer->open_scope('!');
+		s32 count = data_set->index_data.get_max_count(index_set->sub_indexed_to).index;
+		for(int idx = 0; idx < count; ++idx) {
+			Index_T parent_idx = Index_T  { index_set->sub_indexed_to, idx };
+			writer->process_newlines(); // Ouch. A bit hacky that we have to do this.
+			data_set->index_data.write_index_to_file(writer->file, parent_idx);
+			writer->write(" : ");
+			writer->open_scope('[', false);
+			data_set->index_data.write_indexes_to_file(writer->file, index_set_id, parent_idx);
+			writer->close_scope(false);
+		}
+		writer->close_scope();
+	} else {
+		writer->open_scope('[', false);
+		data_set->index_data.write_indexes_to_file(writer->file, index_set_id);
+		writer->close_scope();
 	}
 }
 
-
-
-#if OLE_AVAILABLE
 void
-read_series_data_from_spreadsheet(Data_Set *data_set, OLE_Handles *handles, String_View file_name);
-#endif
+write_component_ref(Data_Set *data_set, Scope_Writer *writer, Compartment_Ref &ref) {
+	
+	if(is_valid(ref.id)) {
+		auto component = data_set->components[ref.id];
+		writer->write("%s[", data_set->get_symbol(ref.id).data());
+		int idx = 0;
+		for(auto index_set_id : component->index_sets) {
+			auto index_set = data_set->index_sets[index_set_id];
+			
+			bool quote;
+			std::string index_name = data_set->index_data.get_index_name(ref.indexes, ref.indexes.indexes[idx], &quote);
+			maybe_quote(index_name, quote);
+			
+			writer->write(" %s", index_name.data());
+			++idx;
+		}
+		writer->write(" ]");
+	} else
+		writer->write("out");
+}
 
 void
-Data_Set::read_from_file(String_View file_name) {
-	if(main_file != "")
-		fatal_error(Mobius_Error::api_usage, "Tried make a data set read from a file ", file_name, ", but it already contains data from the file ", main_file, ".");
+write_component_to_file(Data_Set *data_set, Scope_Writer *writer, Entity_Id component_id) {
 	
-	main_file = std::string(file_name);
+	auto component = data_set->components[component_id];
+	writer->open_decl(data_set, component_id);
+	writer->write_identifier_list(data_set, component->index_sets, true);
+	writer->write(")");
+	writer->newline();
+}
+
+void
+write_connection_to_file(Data_Set *data_set, Scope_Writer *writer, Entity_Id connection_id) {
 	
-	auto file_data = file_handler.load_file(file_name);
+	auto connection = data_set->connections[connection_id];
 	
-	Token_Stream stream(file_name, file_data);
-	stream.allow_date_time_tokens = true;
+	writer->open_decl(data_set, connection_id);
+	writer->write(") ");
+	writer->open_scope('{');
 	
-#if OLE_AVAILABLE
-	OLE_Handles handles = {};
-#endif
+	write_scope_to_file(data_set, &connection->scope, writer); // Writes the component declarations.
+	
+	writer->newline();
+	
+	if(connection->type == Connection_Data::Type::none) {
+		writer->close_scope();
+		return;
+	}
+	if(connection->type != Connection_Data::Type::directed_graph)
+		fatal_error(Mobius_Error::internal, "Unimplemented writing of connection type.");
+	
+	writer->write("directed_graph");
+	if(is_valid(connection->edge_index_set))
+		writer->write("(%s)", data_set->get_symbol(connection->edge_index_set).data());
+	writer->write(" ");
+	writer->open_scope('[', false);
+	Compartment_Ref *last_node = nullptr;
+	for(auto &arr : connection->arrows) {
+		if(!last_node || !(*last_node == arr.first)) {
+			writer->newline();
+			write_component_ref(data_set, writer, arr.first);
+		}
+		writer->write(" -> ");
+		write_component_ref(data_set, writer, arr.second);
+		last_node = &arr.second;
+	}
+	writer->newline();
+	writer->close_scope(false);
+	
+	writer->close_scope();
+}
+
+void
+write_series_to_file(Data_Set *data_set, Scope_Writer *writer, Entity_Id series_id) {
+	
+	// NOTE: This only rewrites the load declaration, it doesn't write the data back to the csv or xlsx files (yet?).
+	auto series_data = data_set->series[series_id];
+	writer->open_decl(data_set, series_id);
+	writer->write("\"%s\")", series_data->file_name.data());
+	writer->newline(2);
+}
+
+void
+write_module_to_file(Data_Set *data_set, Scope_Writer *writer, Entity_Id module_id) {
+	
+	auto module = data_set->modules[module_id];
+	if(module->scope.all_ids.empty()) return; // Don't bother to write out empty modules.
+	
+	writer->open_decl(data_set, module_id);
+	writer->write(", version(%d, %d, %d)) ", module->version.major, module->version.minor, module->version.revision);
+	writer->open_scope('{');
+	
+	write_scope_to_file(data_set, &module->scope, writer);
+	
+	writer->close_scope();
+}
+
+void
+write_par_group_to_file(Data_Set *data_set, Scope_Writer *writer, Entity_Id par_group_id) {
+	
+	auto par_group = data_set->par_groups[par_group_id];
+	if(par_group->error || par_group->mark_for_deletion) return;
+
+	writer->open_decl(data_set, par_group_id);
+	writer->write_identifier_list(data_set, par_group->index_sets, true);
+	writer->write(") ");
+	writer->open_scope('{');
+	
+	write_scope_to_file(data_set, &par_group->scope, writer);
+	
+	writer->close_scope();
+}
+
+void
+write_quick_select_to_file(Data_Set *data_set, Scope_Writer *writer, Entity_Id select_id) {
+	
+	auto quick_select = data_set->quick_selects[select_id];
+	
+	writer->open_decl(data_set, select_id);
+	writer->write(") ");
+	//writer->write("quick_select ");
+	writer->open_scope('!');
+	
+	for(auto &select : quick_select->selects) {
+		writer->write("\"%s\" : ", select.name.c_str());
+		writer->open_scope('[', false);
+		for(auto &series_name : select.series_names)
+			writer->write("\"%s\" ", series_name.c_str());
+		writer->close_scope(false);
+	}
+	
+	writer->close_scope();
+}
+
+void
+write_parameter_to_file(Data_Set *data_set, Scope_Writer *writer, Entity_Id parameter_id) {
+	
+	auto par = data_set->parameters[parameter_id];
+	if(par->mark_for_deletion) return;
+	
+	writer->open_decl(data_set, parameter_id);
+	writer->write(") ");
+	auto par_group = data_set->par_groups[par->scope_id];
+	
+	if(is_valid(par->from_pos)) {
+		writer->write("@from_position(%s)", data_set->get_symbol(par->from_pos).data());
+		writer->newline(2);
+		
+	} else if(!par->is_on_map_form) {
+	
+		int n_dims = std::max(1, (int)par_group->index_sets.size());
+		bool multiline = n_dims > 1;
+		if(!multiline) writer->newline();
+		writer->open_scope('[', multiline);
+		
+		int expect_count = data_set->index_data.get_instance_count(par_group->index_sets);
+		if(expect_count != par->get_count())
+			fatal_error(Mobius_Error::internal, "Somehow we have a data set where a parameter \"", par->name, "\" has a value array that is not sized correctly wrt. its index set dependencies.");
+		
+		int offset = 0;
+		data_set->index_data.for_each(par_group->index_sets,
+			[&](Indexes &indexes) {
+				
+				int val_idx = offset++;
+				if(par->decl_type == Decl_Type::par_enum) {
+					writer->write("%s ", par->values_enum[val_idx].data());
+				} else {
+					Parameter_Value val = par->values[val_idx];
+					char buf[64];
+					switch(par->decl_type) {
+						case Decl_Type::par_real :
+							writer->write("%.15g ", val.val_real);
+							break;
+						
+						case Decl_Type::par_bool :
+							writer->write("%s ", val.val_boolean ? "true" : "false");
+							break;
+						
+						case Decl_Type::par_int :
+							writer->write("%lld ", (long long)val.val_integer);
+							break;
+						
+						case Decl_Type::par_datetime :
+							val.val_datetime.to_string(buf);
+							writer->write("%s ", buf);
+							break;
+					}
+				}
+			},
+			[&](int pos) {
+				if(multiline && (offset > 0) && (pos == n_dims-1))
+					writer->newline();
+			}
+		);
+		if(multiline)
+			writer->newline();
+		writer->close_scope();
+	} else {
+		writer->open_scope('!');
+		
+		int rewind = 0;
+		Parmap_Entry *prev = nullptr;
+		int size;
+		
+		for(auto &entry : par->parmap_data) {
+			
+			size = (int)entry.indexes.indexes.size(); // This should be the same for all entries.
+			
+			rewind = 0;
+			if(prev) {
+				for(; rewind < size; ++rewind) {
+					if(prev->indexes.indexes[rewind] != entry.indexes.indexes[rewind])
+						break;
+				}
+				rewind = std::min(size-1, rewind); // TODO: Why is this necessary???? Compiler bug?
+				for(int p = size-1; p > rewind; --p)
+					writer->close_scope(false);
+			}
+			prev = &entry;
+			
+			for(int p = rewind; p < size; ++p) {
+				auto index = entry.indexes.indexes[p];
+				
+				if(p != size-1) {
+					writer->process_newlines();
+					data_set->index_data.write_index_to_file(writer->file, entry.indexes, index);
+					writer->write(" : ");
+					writer->open_scope('!');
+				} else {
+					// TODO: this is not entirely correct if the inner index was not numeric.
+					writer->write("%.15g : %.15g", entry.pos, entry.value);
+					writer->newline();
+				}
+			}
+		}
+		for(int idx = 0; idx < size-1; ++idx) // TODO: is this correct?
+			writer->close_scope(false);
+		writer->close_scope();
+	}
+}
+
+void
+write_position_map_to_file(Data_Set *data_set, Scope_Writer *writer, Entity_Id map_id) {
+	auto map = data_set->position_maps[map_id];
+	
+	writer->open_decl(data_set, map_id);
+	writer->write("%s) ", data_set->get_symbol(map->index_set_id).c_str());
+	//if(map->raw_is_widths)
+	//	writer->write("@widths ");
+	//if(map->linear_interp)
+	//	writer->write("@linear_interpolate ");
+	writer->open_scope('!');
+	for(int idx = 0; idx < map->pos_vals_raw.size(); ++idx) {
+		writer->write("%.15g : %.15g", map->pos_vals_raw[idx], map->width_vals_raw[idx]);
+		writer->newline();
+	}
+	writer->close_scope();
+}
+
+void
+write_scope_to_file(Data_Set *data_set, Decl_Scope *scope, Scope_Writer *writer, bool leading_newline) {
+	
+	if(leading_newline)
+		writer->newline();
+	
+	for(auto id : scope->by_type(Reg_Type::series))
+		write_series_to_file(data_set, writer, id);
+	
+	for(auto id : scope->by_type(Reg_Type::index_set))
+		write_index_set_to_file(data_set, writer, id);
+	
+	for(auto id : scope->by_type(Reg_Type::position_map))
+		write_position_map_to_file(data_set, writer, id);
+	
+	for(auto id : scope->by_type(Reg_Type::connection))
+		write_connection_to_file(data_set, writer, id);
+	
+	for(auto id : scope->by_type(Reg_Type::component))
+		write_component_to_file(data_set, writer, id);
+	
+	for(auto id : scope->by_type(Reg_Type::quick_select))
+		write_quick_select_to_file(data_set, writer, id);
+	
+	for(auto id : scope->by_type(Reg_Type::par_group))
+		write_par_group_to_file(data_set, writer, id);
+	
+	for(auto id : scope->by_type(Reg_Type::module))
+		write_module_to_file(data_set, writer, id);
+	
+	for(auto id : scope->by_type(Reg_Type::parameter))
+		write_parameter_to_file(data_set, writer, id);
+}
+
+void
+Data_Set::write_to_file(String_View file_name) {
+	
+	FILE *file = nullptr;
 	
 	bool error = false;
 	try {
-		while(true) {
-			Token token = stream.peek_token();
-			if(token.type == Token_Type::eof) break;
-			else if(token.type == Token_Type::quoted_string) {
-				if(!doc_string.empty()) {
-					token.print_error_header();
-					fatal_error("Duplicate doc strings for data set.");
-				}
-				doc_string = std::string(stream.expect_quoted_string());
-				continue;
-			} else if(token.type != Token_Type::identifier) {
-				token.print_error_header();
-				fatal_error("Expected an identifier (index_set, compartment, connection, series, module, par_group, or par_datetime).");
-			}
-			
-			Decl_AST *decl = parse_decl_header(&stream);
-			
-			switch(decl->type) {
-				case Decl_Type::index_set : {
-					parse_index_set_decl(this, &stream, decl);
-				} break;
-				
-				case Decl_Type::connection : {
-					parse_connection_decl(this, &global_module, &stream, decl);
-				} break;
-				
-				case Decl_Type::series : {
-					int which = match_declaration(decl, {{Token_Type::quoted_string}, {}}, false, false);
-					if(which == 0) {
-						String_View other_file_name = single_arg(decl, 0)->string_value;
-						
-						if(file_handler.is_loaded(other_file_name, file_name)) {
-							token.print_error_header();
-							fatal_error("The file ", other_file_name, " has already been loaded.");
-						}
-						
-						bool success;
-						String_View extension = get_extension(other_file_name, &success);
-						if(success && (extension == ".xlsx" || extension == ".xls")) {
-							#if OLE_AVAILABLE
-							String_View relative = make_path_relative_to(other_file_name, file_name);
-							ole_open_spreadsheet(relative, &handles);
-							read_series_data_from_spreadsheet(this, &handles, other_file_name);
-							#else
-							single_arg(decl, 0)->print_error_header();
-							fatal_error("Spreadsheet reading is only available on Windows.");
-							#endif
-						} else {
-							String_View other_data = file_handler.load_file(other_file_name, single_arg(decl, 0)->source_loc, file_name);
-							Token_Stream other_stream(other_file_name, other_data);
-							other_stream.allow_date_time_tokens = true;
-							
-							series.push_back({});
-							Series_Set_Info &data = series.back();
-							data.file_name = std::string(other_file_name);
-							read_series_data_block(this, &other_stream, &data);
-						}
-					} else {
-						stream.expect_token('[');
-						series.push_back({});
-						Series_Set_Info &data = series.back();
-						data.file_name = std::string(file_name);
-						read_series_data_block(this, &stream, &data);
-						stream.expect_token(']');
-					}
-				} break;
-				
-				case Decl_Type::par_group : {
-					parse_par_group_decl(this, &global_module, &stream, decl);
-				} break;
-
-				case Decl_Type::module : {
-					int which = match_declaration(decl, 
-					{
-						{Token_Type::quoted_string, Decl_Type::version},
-						{Token_Type::quoted_string, Token_Type::integer, Token_Type::integer, Token_Type::integer}
-					}, false, false);
-				
-					auto name = single_arg(decl, 0);
-					auto module = modules.create(name->string_value, name->source_loc);
-					if(which == 0) {
-						auto version_decl = decl->args[1]->decl;
-						match_declaration(version_decl, {{Token_Type::integer, Token_Type::integer, Token_Type::integer}}, false, false);
-						module->version.major    = single_arg(version_decl, 0)->val_int;
-						module->version.minor    = single_arg(version_decl, 1)->val_int;
-						module->version.revision = single_arg(version_decl, 2)->val_int;
-					} else {
-						decl->source_loc.print_log_header();
-						log_print("The format module(name, major, minor, revision) is deprecated in favor of module(name, version(major, minor, revision)) (this will be fixed if you save the data again).\n");
-						module->version.major    = single_arg(decl, 1)->val_int;
-						module->version.minor    = single_arg(decl, 2)->val_int;
-						module->version.revision = single_arg(decl, 3)->val_int;
-					}
-					
-					stream.expect_token('{');
-					while(true) {
-						token = stream.peek_token();
-						if(token.type == Token_Type::identifier && token.string_value == "par_group") {
-							Decl_AST *decl2 = parse_decl_header(&stream);
-							parse_par_group_decl(this, module, &stream, decl2);
-							delete decl2;
-						} else if(token.type == Token_Type::identifier && token.string_value == "connection") {
-							Decl_AST *decl2 = parse_decl_header(&stream);
-							parse_connection_decl(this, module, &stream, decl2);
-							delete decl2;
-						} else if((char)token.type == '}') {
-							stream.read_token();
-							break;
-						} else {
-							token.print_error_header();
-							fatal_error("Expected a } or a par_group declaration.");
-						}
-					}
-				} break;
-				
-				case Decl_Type::time_step : {
-					match_declaration(decl, {{Decl_Type::unit}}, false);
-					time_step_unit.set_data(decl->args[0]->decl);
-					unit_source_loc = decl->source_loc;
-					time_step_was_provided = true;
-				} break;
-				
-				default : {
-					decl->source_loc.print_error_header();
-					fatal_error("Did not expect a declaration of type '", name(decl->type), "' in a data set.");
-				} break;
-			}
-			
-			delete decl;
+		
+		file = open_file(file_name, "wb");
+		Scope_Writer writer;
+		writer.file = file;
+		
+		writer.write("data_set ");
+		writer.open_scope('{');
+	
+		if(!doc_string.empty()) {
+			writer.newline(1, false);
+			writer.write("\"\"\"");
+			writer.newline(1, false);
+			writer.write("%s", doc_string.c_str());
+			writer.newline(1, false);
+			writer.write("\"\"\"");
+			writer.newline(2);
 		}
+		
+		if(time_step_was_provided) {
+			std::string unit_str = time_step_unit.to_decl_str();
+			writer.write("time_step(%s)", unit_str.data());
+			writer.newline(2);
+		}
+		
+		if(series_interval_was_provided) {
+			char buf1[64], buf2[64];
+			series_begin.to_string(buf1);
+			series_end.to_string(buf2);
+			writer.write("series_interval(%s, %s)", buf1, buf2);
+			writer.newline(2);
+		}
+		
+		write_scope_to_file(this, &top_scope, &writer, false);
+		
+		writer.close_scope();
+		
 	} catch(int) {
-		// NOTE: Catch it so that we get to properly unload file data below.
 		error = true;
 	}
 	
-#if OLE_AVAILABLE
-	ole_close_app_and_spreadsheet(&handles);
-#endif
-	file_handler.unload_all(); // Free the file data.
+	bool file_was_opened = file;
+	if(file_was_opened)
+		fclose(file);
 	
-	if(error)
-		mobius_error_exit(); // Re-throw.
+	if(error) {
+		error_print("Error occured during data set saving. ");
+		mobius_error_exit();
+	}
 }
+
+
+
+
+
+

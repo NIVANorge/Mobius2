@@ -1,0 +1,62 @@
+data_set {
+	series("../03/tarland_series.xlsx")
+	
+	lu : index_set("Landscape units") [ "Natural" "Agricultural" "Grasslands" ]
+	
+	sc : index_set("Subcatchment") [ "Coull" ]
+	
+	par_group("System") {
+		
+		par_datetime("Start date") 
+		[ 2004-01-01 ]
+		
+		par_datetime("End date") 
+		[ 2005-12-31 ]
+	
+	}
+	
+	par_group("Land use", lu, sc) {
+		
+		par_real("Land use fraction") [
+			0.5 
+			0.2 
+			0.3 
+		]
+	
+	}
+	
+	par_group("Subcatchment data", sc) {
+		
+		par_real("Subcatchment area") 
+		[ 51.7 ]
+	
+	}
+	
+	module("Soil hydrology", version(0, 0, 2)) {
+		
+		par_group("Soil hydrology", lu) {
+			
+			par_real("Field capacity") 
+			[ 50 50 50 ]
+			
+			par_real("Soil water time constant") 
+			[ 6 2 4 ]
+			
+			par_real("Baseflow index") 
+			[ 0.6 0.8 0.7 ]
+			
+			par_real("Degree-day factor for potential evapotranspiration") 
+			[ 0.12 0.12 0.12 ]
+		
+		}
+		
+		par_group("Groundwater hydrology") {
+			
+			par_real("Groundwater time constant") 
+			[ 20 ]
+		
+		}
+	
+	}
+
+}

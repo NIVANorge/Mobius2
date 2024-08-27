@@ -10,18 +10,17 @@ model("Simple hydraulics test") {
 	H : quantity("Hydraulic head")
 	Q : quantity("Flow")
 	
-	ni : index_set("Node index") {
-		e : index_set("Conduit index")
-	}
+	ni : index_set("Node index")
+	e : index_set("Conduit index") @sub(ni)
 	
 	distribute(node, ni)
 	distribute(conduit, ni, e)
 	
-	graph : connection("Connection graph", directed_graph) {
-		node[e]
+	graph : connection("Connection graph") @directed_graph(e) {
+		node+
 	}
 	
-	sol : solver("Solver", "INCADascru", 0.1, 1e-3)
+	sol : solver("Solver", inca_dascru, [1/10, s], 1e-3)
 	solve(sol, node.H, conduit.Q)
 	
 	module("Hydraulics", version(0, 0, 1)) {
