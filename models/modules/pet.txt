@@ -20,7 +20,7 @@ Authors: Magnus D. Norling
 }
 
 
-module("Penman-Monteith PET", version(1, 0, 0),
+module("Penman-Monteith PET daily", version(1, 0, 0),
 	air      : compartment,
 	soil     : compartment,
 	snow_box : compartment,
@@ -71,12 +71,15 @@ Authors: Magnus D. Norling
 
 	var(soil.lwu, [W, m-2]) {
 		emissivity := 0.9, #TODO: Could maybe be made more granular e.g. for snow
-		black_body_radiation(temp->[K])
+		emissivity*black_body_radiation(temp->[K])
 	}
+	
+	# TODO: A potential improvement is to compute mean s_vap using min and max temperatures (if available). See the main reference above.
+	# TODO: If an hourly version were to be made of this, one would need to compute the air-soil heat exchange and add it to the radiation term.
 	
 	var(soil.pet, [m m, day-1]) {
 		
-		#NOTE: we could factor some of these out as properties, which can be interesting to some for debugging
+		# NOTE: we could factor some of these out as properties, which can be interesting to some for debugging
 		lvap    := latent_heat_of_vaporization(air.temp),
 		psy     := psychrometric_constant(air.pressure->[k Pa], lvap),
 		slope   := slope_of_saturation_pressure_curve(air.temp, air.s_vap->[k Pa]),
@@ -100,8 +103,6 @@ Authors: Magnus D. Norling
 			1            otherwise
 		},
 	
-		# TODO: This is really for wind at 2m (while wind at 10 m is more often used for air-sea interactions, so we should distinguish between them)
-		# And one should use daily min and max temperatures to compute some means of some of the values (see reference above)
 		et := alpha * (slope*net_rad + psy*pressure_term) / (slope + psy_corr),
 		
 		max(0, et/(lvap*rho_water))->>

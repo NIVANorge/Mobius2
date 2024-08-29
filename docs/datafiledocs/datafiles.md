@@ -88,7 +88,7 @@ Both series formats allow you to specify flags. A flag is either a [unit declara
 	- `step_interpolate`. Fills missing values with the last valid value before it.
 	- `linear_interpolate`. Uses linear interpolation to fill missing values between valid values.
 	- `spline_interpolate`. Uses [cubic spline interpolation](https://en.wikipedia.org/wiki/Spline_interpolation) to fill missing values between valid values. This is the smoothest option.
-	- `inside`. If this flag is provided, any interpolation will only fill in values between missing values. If the flag is not present, interpolation will also fill expand the first and last valid values to fill the entire *series interval*.
+	- `inside`. If this flag is provided, any interpolation will only fill in values between missing values. If the flag is not present, interpolation will also expand the first and last valid values to fill the entire *series interval*.
 - `repeat_yearly`. In this case the first year of the time series is repeated yearly to fill the entire *series interval*.
 
 To put multiple flags they can be listed after one another separated by spaces.

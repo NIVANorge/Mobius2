@@ -32,6 +32,8 @@ Authors: Magnus D. Norling
 	}
 	
 	par_group("Radiation") {
+		crs       : par_real("Cloud absorption scaling factor", [], 0.75, 0, 1, "Used if 'Daily average global radiation' is not provided as a series. Scaling factor for shortwave absorption by clouds")
+		crp       : par_real("Cloud absorption power factor", [], 3.4, 2, 5, "Used if 'Daily average global radiation' is not provided as a series. Power factor for shortwave absorption by clouds")
 		subdaily  : par_bool("Use sub-daily precision", false, "Compute hourly averages of solar radiation. Only works correctly if the model sampling step is [hr] or lower.")
 	}
 	
@@ -52,16 +54,13 @@ Authors: Magnus D. Norling
 		clear_sky_shortwave(ext, elev)
 	}
 	
-	#TODO: Should maybe parametrize the cloud cover - radiation relationship
 	var(air.g_rad_day, [W, m-2]) {
-		(1 - 0.75*cloud^3.4) * g_rad_cloud_free
+		(1 - crs*cloud^crp) * g_rad_cloud_free
 	}
 	
 	var(air.g_rad,  [W, m-2]) {
 		{
-			# TODO: The problem is that this will not always be put on the solver, so fractional_step will not be valid..
-			#   should have an error when that happens, and it should be possible to put it on the solver in the model construction.
-			# Also, the interpolated amount of seconds should be directly accessible from the framework.
+			# TODO: the interpolated amount of seconds should be directly accessible from the framework.
 			hour := floor((time.second_of_day + time.fractional_step*time.step_length_in_seconds) -> [hr]),
 			hour_a := hour_angle(time.day_of_year, time_zone, hour, longitude),
 			hourly_average_radiation(g_rad_day, time.day_of_year, latitude, hour_a)
@@ -71,7 +70,6 @@ Authors: Magnus D. Norling
 	
 	var(air.cos_z, []) {
 		hour_a := {
-			# TODO: Same concern as for air.g_rad
 			hour := (time.second_of_day + time.fractional_step*time.step_length_in_seconds) -> [hr],
 			hour_angle(time.day_of_year, time_zone, hour, longitude) if subdaily,
 			0   otherwise # This gives zenith angle of sun in solar noon. Should maybe have something that is more representative of the average?

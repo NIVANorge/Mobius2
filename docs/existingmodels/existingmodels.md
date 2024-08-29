@@ -23,6 +23,9 @@ In addition to these, Mobius2 comes with modules for other processes that are co
 - [Evapotranspiration](autogen/auxiliary.html#degree-day-pet) (Penman-Monteith and Priestley-Taylor are also available, but not documented yet)
 - [Atmospheric variables](autogen/auxiliary.html#atmospheric) (radiation, humidity...)
 - [Air-sea heat exchange](autogen/auxiliary.html#airsea-lake) (including ice growth)
+
+Other models include
 - Air-sea exchange in presence of a partial cover with floating solar panels.
+- EasyReservoir - a version of EasyLake for regulated reservoirs.
 
 We expect to eventually port over other models from Mobius1 such as SedFlex and the plastic models.

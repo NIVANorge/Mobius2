@@ -47,7 +47,7 @@ model("SimplyQ") {
 		module("Atmospheric", air, temp, wind, g_rad, pressure, a_hum, dens, lwd, cos_z, a_vap, s_vap))
 	
 	load("modules/pet.txt",
-		module("Penman-Monteith PET", air, soil, snow_box, snow, temp, pet, pressure, lwd, g_rad, wind, s_vap, a_vap))
+		module("Penman-Monteith PET daily", air, soil, snow_box, snow, temp, pet, pressure, lwd, g_rad, wind, s_vap, a_vap))
 	
 	load("modules/hbv_snow.txt",
 		module("HBVSnow", air, snow_box, snow, water, temp, precip, loc(soil.water)))
@@ -76,7 +76,7 @@ model("SimplyQ") {
 	sol : solver("Simply solver", inca_dascru, [2, hr], 1e-2)
 	#sol : solver("Simply solver", euler, solver_h, solver_hmin)
 	
-	solve(sol, soil.water, gw.water, river.water)
+	solve(sol, soil.water, gw.water, river.water, air.cos_z)
 	
 }
 
