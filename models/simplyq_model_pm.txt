@@ -1,5 +1,5 @@
 
-model("SimplyQ") {
+model("SimplyQ with Penman-Monteith") {
 
 	sc       : index_set("Subcatchment")
 	lu       : index_set("Landscape units")
@@ -68,13 +68,7 @@ model("SimplyQ") {
 		
 	###### Set ODE solvers
 	
-	#par_group("Solver configuration") {
-	#	solver_h : par_real("Solver fractional step", [hr], 2)
-	#	solver_hmin : par_real("Solver relative minimal step", [], 0.01)
-	#}
-	#sol : solver("Simply solver", inca_dascru, solver_h, solver_hmin)
 	sol : solver("Simply solver", inca_dascru, [2, hr], 1e-2)
-	#sol : solver("Simply solver", euler, solver_h, solver_hmin)
 	
 	solve(sol, soil.water, gw.water, river.water, air.cos_z)
 	

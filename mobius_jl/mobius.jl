@@ -105,7 +105,7 @@ end
 
 function setup_model(model_file::String, data_file::String, ; store_transport_fluxes::Bool = false, store_all_series::Bool = false, dev_mode::Bool = false)::Model_Data
 	#mobius_path = string(dirname(dirname(Base.source_path())), "\\") # Doesn't work in IJulia
-	mobius_path = string(dirname(dirname(@__FILE__)), "\\")
+	mobius_path = string(dirname(dirname(@__FILE__)), Base.Filesystem.path_separator)
 	
 	cfg = Mobius_Base_Config(store_transport_fluxes, store_all_series, dev_mode)
 	cfgptr = Ref(cfg)

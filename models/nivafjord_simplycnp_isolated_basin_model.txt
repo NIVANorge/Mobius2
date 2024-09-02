@@ -1,6 +1,9 @@
 
 
 model("NIVAFjord-SimplyCNP-IsolatedBasin") {
+
+	# TODO: FPV cover does not dynamically affect wind mixing (not sure to how large a degree that would happen).
+
 	
 	basin_idx     : index_set("Basin index")
 	layer_idx     : index_set("Layer index") @sub(basin_idx)
@@ -9,6 +12,8 @@ model("NIVAFjord-SimplyCNP-IsolatedBasin") {
 	basin     : compartment("Basin",          basin_idx)
 	layer     : compartment("Fjord layer",    basin_idx, layer_idx)
 	sediment  : compartment("Fjord sediment", basin_idx, layer_idx)
+	
+	fpv       : compartment("FPV", basin_idx)
 	
 	water : quantity("Water")
 	ice   : quantity("Ice")
@@ -58,9 +63,9 @@ model("NIVAFjord-SimplyCNP-IsolatedBasin") {
 	
 	
 	#TODO: Replace with the one that has FPV covering.
-	load("modules/airsea.txt",
-		module("AirSea", "AirSea Fjord", air, basin, ice, heat, temp, precip, wind, g_rad, pressure, rho, a_hum, lwd, sw, attn, indicator,
-							evap, cos_z, loc(basin.freeze_t), loc(basin.area), loc(layer.water[vert.top]), loc(layer.water.heat[sw_vert.top])))
+	load("modules/airsea_fpv.txt",
+		module("AirSea FPV", air, basin, fpv, ice, heat, temp, precip, wind, g_rad, pressure, rho, a_hum, lwd, sw, attn, indicator,
+			evap, cos_z, loc(basin.freeze_t), loc(basin.area), loc(layer.water[vert.top]), loc(layer.water.heat[sw_vert.top])))
 	
 	load("modules/nivafjord/basin.txt",
 		dims : preamble("NIVAFjord dimensions", basin_idx, layer_idx, layer),

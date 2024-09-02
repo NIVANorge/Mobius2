@@ -1,5 +1,5 @@
 
-module("AirSea", version(0, 1, 1),
+module("AirSea FPV", version(0, 1, 1),
 	air       : compartment,
 	surf      : compartment,
 	fpv       : compartment,
@@ -32,7 +32,7 @@ This is a modification to the AirSea module where you can cover a basin with flo
 Authors: Francois Clayer, Magnus D. Norling
 """
 	
-	load("stdlib/seawater.txt", library("Air-sea"))
+	load("stdlib/seawater.txt", library("Air-sea"), library("Seawater"))
 	load("stdlib/atmospheric.txt", library("Meteorology"), library("Radiation"))
 	load("stdlib/physiochemistry.txt", library("Thermodynamics"), library("Water utils"))
 	
@@ -98,9 +98,15 @@ Authors: Francois Clayer, Magnus D. Norling
 	
 	flux(out, top_water_heat_sw, [J, day-1], "Net shortwave") {  A_surf * (1 - cov) * surf.sw ->>  }
 	
-	flux(out, top_water.heat,    [J, day-1], "Net longwave") {
+	flux(out, top_water.heat,    [J, day-1], "Net longwave (water)") {
 		net_rad := (1 - surf.albedo)*air.lwd - surf.lwu,    # W/m2       # TODO: Should really albedo be detracted from longwave?
 		(!surf.ice.indicator) *	A_surf * (1 - cov) * net_rad ->>
+	}
+	
+	# TODO: Why need latent and sensible heat fluxes on top of that? Doesn't seem correct? Esp. latent..
+	flux(out, top_water.heat,    [J, day-1], "FPV net heat transfer") {
+		dtemp := max(0, fpv.temp->[K] - fpv.T_s_back->[K]),
+		cov * dtemp * A_surf * fpv.A_both ->>
 	}
 	
 	flux(out, top_water.heat, [J, day-1], "Freeze heating") {  A_surf * (1 - cov) * surf.ice.energy ->>  }    # Energy used to melt ice instead of heating the water body (or other way around with freezing)
@@ -172,10 +178,6 @@ Authors: Francois Clayer, Magnus D. Norling
 	}
 	
 	
-	/*
-	
-	# TODO: Make the below work (and add the correct heat budget for the basin?)
-	
 	k_vis    : property("Kinematic viscosity")
 	A_both   : property("FPV heat transfer coef. both side")
 	h_water  : property("FPV heat transfer coef. back side water")
@@ -183,39 +185,39 @@ Authors: Francois Clayer, Magnus D. Norling
 	
 	var(fpv.A_both, [W, m-2, K-1]) {
 		# Name the magic constants!
-		1 / (0.000175[m]/(2*148[W, m-1, K-1])+(0.0004[m]/0.21[W, m-1, K-1])+(0.0025[m]/1.8[W, m-1, K-1])) 
-	}
+		1 / (0.000175[m]/(2*148[W, m-1, K-1]) + (0.0004[m]/0.21[W, m-1, K-1]) + (0.0025[m]/1.8[W, m-1, K-1])) 
+	} @no_store
 	
 	var(surf.k_vis, [m 2, s-1]) {
 		# TODO: Take into account salinity!
 		dynamic_viscosity_fresh_water(top_water.temp) / rho_water
-	}
+	} @no_store
 	
 	var(fpv.h_water, [W, m-2, K-1]) {
-		Nu := 0.664* sqrt(0.1 [m, s-1] * length_FPV / surf.k_vis )* ((dynamic_viscosity_fresh_water(top_water.temp, 0)*C_water / k_water) =>[]^(0.333)),
-		(Nu * k_water / length_FPV) =>>
-	}
+		# TODO: take into account salinity in dynamic_v
+		Nu := 0.664*sqrt(0.1[m, s-1]*length_FPV/surf.k_vis) * ((dynamic_viscosity_fresh_water(top_water.temp)*C_water/k_water=>[])^0.333),
+		(Nu=>[])*k_water/length_FPV
+	} @no_store
 	
 	var(fpv.temp, [deg_c], "FPV cell temperature") {
 		
 		# TODO: Name the magic constants, and/or reference the formula
-		
 		T_air := air.temp->[K],
-		T_sky := (0.0552 * (T_air=>[]^1.5)) => [K],
+		T_sky := (0.0552*((T_air=>[])^1.5)) => [K],
 		T_water := top_water.temp -> [K],
 		h_air := (2.8 + 3*air.wind=>[]) => [W, m-2, K-1],
 		B_back := A_both + h_water,
-		C_back := h_water * T_water,
+		C_back := h_water*T_water,
 		
 		T_front := top_water.temp->[K] + 3[K],
-		eps := 0.001[K]
+		eps := 0.001[K],
 		i:{
-			h_sky := (1/(1/0.88+1/0.80-1)) * 5.67e-8[W, m-2, K-4] * (T_front+T_sky)*(T_front^2 + T_sky^2),	
+			h_sky := (1/(1/0.88 + 1/0.80 - 1)) * 5.67e-8[W, m-2, K-4] * (T_front+T_sky)*(T_front^2 + T_sky^2),	
 			B_front := A_both + h_air + h_sky,
 			C_front := h_air*T_air + h_sky*T_sky,
-			numer :=  B_front*B_back*2*A_both - (A_both^2)*(B_front - B_back),
-			T_cell := (B_front*B_back*(1- FPV_alb)*(1-FPV_eff)*air.g_rad + A_both*(B_back*C_front + B_front*C_back)) / numer -> [deg_c],
-			T_front_update := ((A_both =>[] * (T_cell->[K])=>[]) + C_front=>[]) / B_front=>[K],
+			numer :=  B_front*B_back*2*A_both - (A_both^2)*(B_front + B_back),
+			T_cell := ((B_front*B_back*(1- FPV_alb)*(1-FPV_eff)*air.g_rad + A_both*(B_back*C_front + B_front*C_back)) / numer) -> [deg_c],
+			T_front_update := (A_both*(T_cell->[K]) + C_front) / B_front,
 			
 			T_cell                                if abs(T_front - T_front_update) < eps,
 			{T_front <- T_front_update, iterate i} otherwise	
@@ -223,10 +225,7 @@ Authors: Francois Clayer, Magnus D. Norling
 	}
 	
 	var(fpv.T_s_back, [deg_c]) {
-		A_both*(temp->[K]) + h_water*(top_water.temp->[K]) / (A_both  + h_water)  -> [deg_c]
+		(A_both*(temp->[K]) + h_water*(top_water.temp->[K])) / (A_both + h_water)  ->>
 	}
-	
-	*/
-	
 	
 }
