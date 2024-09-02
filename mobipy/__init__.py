@@ -68,6 +68,13 @@ class Mobius_Entity_Metadata(ctypes.Structure) :
 		("min", Parameter_Value),
 		("max", Parameter_Value)
 	]
+	
+class Mobius_Base_Config(ctypes.Structure) :
+	_fields_ = [
+		("store_transport_fluxes", ctypes.c_bool),
+		("store_all_series", ctypes.c_bool),
+		("developer_mode", ctypes.c_bool),
+	]
 
 def mobius2_path() :
 	#NOTE: We have to add a trailing slash to the path for Mobius2 to understand it.
@@ -106,7 +113,7 @@ def load_dll() :
 	dll.mobius_encountered_log.argtypes = [ctypes.c_char_p, ctypes.c_int64]
 	dll.mobius_encountered_log.restype = ctypes.c_int64
 
-	dll.mobius_build_from_model_and_data_file.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_bool, ctypes.c_bool]
+	dll.mobius_build_from_model_and_data_file.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p, ctypes.POINTER(Mobius_Base_Config)]
 	dll.mobius_build_from_model_and_data_file.restype  = ctypes.c_void_p
 
 	dll.mobius_delete_application.argtypes = [ctypes.c_void_p]
@@ -391,9 +398,20 @@ class Model_Application(Scope) :
 		self.__del__()
 	
 	@classmethod
-	def build_from_model_and_data_file(cls, model_file, data_file, store_all_series=False, dev_mode=False) :
+	def build_from_model_and_data_file(cls, model_file, data_file, 
+		store_all_series=False, dev_mode=False, store_transport_fluxes=False
+	) :
+		
 		base_path = mobius2_path()
-		data_ptr = dll.mobius_build_from_model_and_data_file(_c_str(model_file), _c_str(data_file), _c_str(base_path), store_all_series, dev_mode)
+		
+		# TODO: We could use the args as dict thing here to make this more dynamic.
+		config = Mobius_Base_Config()
+		config.store_all_series = store_all_series
+		config.dev_mode = dev_mode
+		config.store_transport_fluxes = store_transport_fluxes
+		
+		cfgptr = ctypes.POINTER(Mobius_Base_Config)(config)
+		data_ptr = dll.mobius_build_from_model_and_data_file(_c_str(model_file), _c_str(data_file), _c_str(base_path), cfgptr)
 		_check_for_errors()
 		return cls(data_ptr, True)
 	

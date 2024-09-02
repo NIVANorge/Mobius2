@@ -931,7 +931,7 @@ prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
 			sprintf(varname, "carried_flux(%s, %s)", var_name.data(), flux_name.data());
 			
 			// It is just much cleaner in MobiView if this is off, but on the other hand we do want to know some of these fluxes quite often. Make a more granular way to specify which ones to store?
-			bool no_store = true;
+			bool no_store = !model->config.store_transport_fluxes;
 			
 			Var_Id gen_flux_id = register_state_variable<State_Var::Type::dissolved_flux>(app, invalid_entity_id, false, varname, no_store);
 			auto gen_flux = as<State_Var::Type::dissolved_flux>(app->vars[gen_flux_id]);

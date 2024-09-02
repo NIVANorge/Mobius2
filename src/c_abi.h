@@ -62,7 +62,7 @@ DLLEXPORT s64
 mobius_encountered_log(char *msg_out, s64 buf_len);
 
 DLLEXPORT Model_Data *
-mobius_build_from_model_and_data_file(char * model_file, char * data_file, char *base_path, bool store_series, bool dev_mode);
+mobius_build_from_model_and_data_file(char * model_file, char * data_file, char *base_path, Mobius_Base_Config *cfg);
 
 DLLEXPORT void
 mobius_delete_application(Model_Data *data);

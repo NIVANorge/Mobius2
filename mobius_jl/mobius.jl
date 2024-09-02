@@ -66,6 +66,12 @@ struct Entity_Ref
 	entity_id::Entity_Id
 end
 
+struct Mobius_Base_Config
+	store_transport_fluxes::Cint
+	store_all_series::Cint
+	developer_mode::Cint
+end
+
 invalid_entity_id = Entity_Id(-1, -1)
 invalid_var       = Var_Id(-1, -1)
 no_index          = Mobius_Index_Value(C_NULL, 0)
@@ -97,11 +103,15 @@ function check_error()
 	end
 end
 
-function setup_model(model_file::String, data_file::String, store_series::Bool = false, dev_mode::Bool = false)::Model_Data
+function setup_model(model_file::String, data_file::String, ; store_transport_fluxes::Bool = false, store_all_series::Bool = false, dev_mode::Bool = false)::Model_Data
 	#mobius_path = string(dirname(dirname(Base.source_path())), "\\") # Doesn't work in IJulia
 	mobius_path = string(dirname(dirname(@__FILE__)), "\\")
-	result =  ccall(setup_model_h, Ptr{Cvoid}, (Cstring, Cstring, Cstring, Cint, Cint), 
-		model_file, data_file, mobius_path, store_series, dev_mode)
+	
+	cfg = Mobius_Base_Config(store_transport_fluxes, store_all_series, dev_mode)
+	cfgptr = Ref(cfg)
+	
+	result =  ccall(setup_model_h, Ptr{Cvoid}, (Cstring, Cstring, Cstring, Ptr{Mobius_Base_Config}), 
+		model_file, data_file, mobius_path, cfgptr)
 	check_error()
 	return Model_Data(result, true)
 end

@@ -87,7 +87,8 @@ Authors: Magnus D. Norling
 		# Also, the energy balance should take snow melt into account.
 		net_rad := net_sw + air.lwd - lwu,
 		
-		u := max(0.5[m, s-1], air.wind),
+		w := air.wind * 0.75, # Convert from 10m to 2m altitude
+		u := max(0.5[m, s-1], w),
 		# Modified psychrometric constant
 		psy_corr := {
 			psy                             if pt,

@@ -72,8 +72,9 @@ var(layer.water.N2freq, [s-2]) {
 Note how we can reference a value below us along a `grid1d` connection by using a square bracket.
 
 The `@no_store` directive just tells Mobius2 to not store the time series of this variable. This can be useful for a couple of reasons
-	- It saves memory. This is especially important for variables in compartments that are distributed over large index sets.
-	- Too many variables can clutter up the user interface, and not all of them are interesting in themselves.
+
+- It saves memory. This is especially important for variables in compartments that are distributed over large index sets.
+- Too many variables can clutter up the user interface, and not all of them are interesting in themselves.
 
 The mixing coefficient $$K$$ is (as in MyLake) given by
 

@@ -174,8 +174,6 @@ Authors: Francois Clayer, Magnus D. Norling
 	
 	/*
 	
-	# TODO: Separate heat fluxes between FPV-surface (and FPV-air) ?
-	
 	# TODO: Make the below work (and add the correct heat budget for the basin?)
 	
 	k_vis    : property("Kinematic viscosity")
@@ -202,25 +200,26 @@ Authors: Francois Clayer, Magnus D. Norling
 		
 		# TODO: Name the magic constants, and/or reference the formula
 		
-		#T_front_final := air.temp->[K],
-		#need to iterate to updte T_front  (what is the breaking condition?)
-			T_front := top_water.temp->[K],
-			T_air := air.temp->[K],
-			T_sky := (0.0552 * (T_air=>[]^(1.5))) => [K],
-			T_water := top_water.temp -> [K],                 # Why is it the same as T_front?
-			h_air := (2.8 + 3*air.wind=>[]) => [W, m-2, K-1],
-			h_sky := (1/(1/0.88+1/0.80-1)) * 5.67e-8[W, m-2, K-4] * (T_front+T_sky)*(T_front^2 + T_sky^2),
-			B_back := A_both + h_water,
-			C_back := h_water * T_water,
+		T_air := air.temp->[K],
+		T_sky := (0.0552 * (T_air=>[]^1.5)) => [K],
+		T_water := top_water.temp -> [K],
+		h_air := (2.8 + 3*air.wind=>[]) => [W, m-2, K-1],
+		B_back := A_both + h_water,
+		C_back := h_water * T_water,
+		
+		T_front := top_water.temp->[K] + 3[K],
+		eps := 0.001[K]
+		i:{
+			h_sky := (1/(1/0.88+1/0.80-1)) * 5.67e-8[W, m-2, K-4] * (T_front+T_sky)*(T_front^2 + T_sky^2),	
 			B_front := A_both + h_air + h_sky,
 			C_front := h_air*T_air + h_sky*T_sky,
 			numer :=  B_front*B_back*2*A_both - (A_both^2)*(B_front - B_back),
-			T_cell := (B_front*B_back*(1- FPV_alb) * (1-FPV_eff)*air.g_rad + A_both*B_back*C_front + A_both*B_front*C_back) / numer -> [deg_c],
-			#A_both * h_water / (A_both + h_water) + A_both / (A_both + h_air + h_sky)*(h_air + h_sky*(Tc - T_sky)/(Tc - T_air))
-			T_front_final := ((A_both =>[] * (T_cell->[K])=>[]) + C_front=>[]) / B_front=>[],
+			T_cell := (B_front*B_back*(1- FPV_alb)*(1-FPV_eff)*air.g_rad + A_both*(B_back*C_front + B_front*C_back)) / numer -> [deg_c],
+			T_front_update := ((A_both =>[] * (T_cell->[K])=>[]) + C_front=>[]) / B_front=>[K],
 			
-		T_cell
-		
+			T_cell                                if abs(T_front - T_front_update) < eps,
+			{T_front <- T_front_update, iterate i} otherwise	
+		}
 	}
 	
 	var(fpv.T_s_back, [deg_c]) {

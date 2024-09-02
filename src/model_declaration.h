@@ -274,10 +274,18 @@ Solver_Function_Registration : Registration_Base {
 };
 
 struct
-Mobius_Config {
-	std::string mobius_base_path;
+Mobius_Base_Config {
+	bool store_transport_fluxes = false;
 	bool store_all_series = false;
 	bool developer_mode   = false;
+};
+
+struct
+Mobius_Config : Mobius_Base_Config {
+	std::string mobius_base_path;
+	
+	Mobius_Config() = default;
+	Mobius_Config(const Mobius_Base_Config &c) : Mobius_Base_Config(c) {}
 };
 
 struct

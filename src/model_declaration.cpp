@@ -1466,18 +1466,23 @@ load_config(String_View file_name) {
 			match_declaration(decl, {{Token_Type::quoted_string, Token_Type::boolean}}, false);
 			
 			config.developer_mode = single_arg(decl, 1)->val_bool;
-			
-			log_print(Log_Mode::dev, file_name, ": Configured to developer mode.\n");
 		} else if(item == "Just store all the series") {
 			match_declaration(decl, {{Token_Type::quoted_string, Token_Type::boolean}}, false);
 			
 			config.store_all_series = single_arg(decl, 1)->val_bool;
+		} else if(item == "Store transport fluxes") {
+			match_declaration(decl, {{Token_Type::quoted_string, Token_Type::boolean}}, false);
+			
+			config.store_transport_fluxes = single_arg(decl, 1)->val_bool;
 		} else {
 			decl->source_loc.print_error_header();
 			fatal_error("Unknown config option \"", item, "\".");
 		}
 		delete decl;
 	}
+	
+	if(config.developer_mode)
+		log_print(Log_Mode::dev, file_name, ": Configured to developer mode.\n");
 	
 	return std::move(config);
 }

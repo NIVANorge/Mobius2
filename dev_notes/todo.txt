@@ -4,16 +4,15 @@
 
 		Add forums on github page? (github Discussions)
 		
-		Would like to be able to use in_flux in initial code (for e.g. setting initial steady states easily), but then we also need to be able to compute initial values for fluxes. With in_flux_connection it could be tricky to determine what initial fluxes must be computed (?).
+		Would like to be able to use in_flux in initial code (for e.g. setting initial steady states easily), but then we also need to be able to compute initial values for fluxes. With in_flux_connection it could be tricky to determine what initial fluxes must be computed (Not tricky, maybe, but a lot of work.. ?).
 		
 		Made it possible to add properties to solvers manually, but it could be error prone.
 			Fix errors if they appear.
 
 		Specific models
-		
-			Keep better track of what elevation different models want wind speed. Maybe convert between different elevations if necessary.
 			
 			Maybe factor out common phyto module for EasyChem and FjordChem.
+			Also for O2 (found a difficulty with that earlier, but maybe we could resolve it?)
 			
 			NIVAFjord!
 				
@@ -92,7 +91,7 @@
 				Alternatively, in the ODE codegen, directly make a subtraction of the flux (on condition of correct index).
 					This is maybe the easiest, but is still a bit of work for this special case.
 					
-				Actually in grid1d the connection aggregate is always unnecessary unless it is referenced. Would be better to remove it as a default and only generate it if it is referenced by in_flux(connection).
+				Actually in grid1d the connection aggregate is always unnecessary unless it is referenced. Would it be better to remove it as a default and only generate it if it is referenced in code by in_flux(connection)?
 			
 			
 			.specific target:
