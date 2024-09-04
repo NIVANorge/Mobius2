@@ -1,12 +1,16 @@
 
 
 model("NIVAFjord-SimplyCNP-IsolatedBasin") {
+"""
+NIVAFjord in a single basin without open boundary conditions. Also, you can cover basins with FPV (floating photovoltaics).
+
+It is also currently without horizontal exchange between basins, so it only works in a single one (or several isolated ones) for now.
+"""
 
 	# TODO: FPV cover does not dynamically affect wind mixing (not sure to how large a degree that would happen).
 
-	
-	basin_idx     : index_set("Basin index")
-	layer_idx     : index_set("Layer index") @sub(basin_idx)
+	basin_idx : index_set("Basin index")
+	layer_idx : index_set("Layer index") @sub(basin_idx)
 
 	air       : compartment("Atmosphere")
 	basin     : compartment("Basin",          basin_idx)

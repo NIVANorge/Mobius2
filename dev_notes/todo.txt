@@ -291,6 +291,8 @@
 		
 	*** Low-pri ****
 	
+		Add NetCDF4 i/o
+	
 		Version numbers on libraries?
 			Doesn't really have any function unless the model specifies what version it is loading, but that seems a bit too complex.
 	

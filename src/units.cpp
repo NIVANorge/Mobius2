@@ -263,7 +263,7 @@ match(Standardized_Unit *a, Standardized_Unit *b, double *conversion_factor) {
 		if(a->powers[idx] != b->powers[idx]) return false;
 	
 	// NOTE: because of the reduce() operation, two (multiplier, magnitude) pairs should be
-	// identical if they correspond to the same real number. Thus if the conversion_factor will
+	// identical if they correspond to the same real number. Thus the conversion_factor will
 	// be identical to 1.0 if the effective multipliers are the same real number.
 	*conversion_factor = 1.0;
 	if(a->multiplier != b->multiplier)
@@ -450,7 +450,7 @@ Unit_Data::to_decl_str() {
 template<typename T> void
 print_latex_rational(std::stringstream &ss, Rational<T> r) {
 	if(r.denom != 1) {
-		if(r.nom > 0)
+		if(r.nom < 0)
 			ss << "-";
 		ss << "\\frac{" << std::abs(r.nom) << "}{" << r.denom << "}";
 	} else {

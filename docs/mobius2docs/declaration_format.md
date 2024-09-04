@@ -107,11 +107,13 @@ Some declarations can have or require a declaration body. Declaration bodies are
 
 Declaration scope bodies contain a sequence of other declarations. They create a scope so that identifiers declared inside the scope are not visible outside (The exception are parameter groups that export their parameter symbols to the outer scope). However identifiers in the outside scope are visible in the inside one.
 
-A declaration scope body can also contain a single so-called docstring. This can be used by the model creator (or dataset creator) to provide the user with information about how to use this model component. The docstring is a free-floating string literal.
+### Docstrings
+
+A declaration scope body can also contain a single so-called docstring. This can be used by the model creator (or dataset creator) to provide the user with information about how to use this model component. The docstring is a free-floating (typically multiline) string literal. It can contain [Markdown](https://en.wikipedia.org/wiki/Markdown)-formatted text.
 
 ### Math scope bodies
 
-A math body is a \<block\> described by the [Mobius2 math format](math_format.html). The math expression typically computes a single value. Math scope bodies can reference certain types of entities that are visible in the outer scope, but you can not declare entities there, only local variables. Unlike the declaration scope, the math scope also has a strict ordering of expressions.
+A math body is a \<block\> described in the [Mobius2 math format](math_format.html). The math expression typically computes a single value. Math scope bodies can reference certain types of entities that are visible in the outer scope, but you can not declare entities there, only local variables. Unlike the declaration scope, the math scope also has a strict ordering of expressions.
 
 ### Special
 
@@ -126,7 +128,10 @@ module("The superduper hydrology module", version(1, 0, 0),
 	water : quantity
 ) {
 """
-A description of the module
+A description of the module. It does
+* Compute A.
+* Some other things
+* etc.
 """
 
 	par_group("Soil hydrology", soil) {

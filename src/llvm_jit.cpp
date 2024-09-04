@@ -173,6 +173,10 @@ void
 jit_compile_module(LLVM_Module_Data *data, std::string *output_string) {
 	
 	// It seems like forcing vectorization does not improve the speed of most models.
+	// Probably since we could only go 2-4 wide with float64 on most currently common architectures?
+	// Also, it may not be good at vectorizing branches using masks.
+	// There is also the issue that the base ptr of each individual state variable is not necessarily aligned (even if the whole vector is).
+	// So we would need to do a lot of work to make it efficient.
 	//llvm::VectorizerParams::VectorizationFactor = 4;
 	
 
@@ -315,6 +319,7 @@ enum argindex {
 };
 #undef BATCH_FUN_ARG
 
+/*
 llvm::Value *get_zero_value(LLVM_Module_Data *data, Value_Type type) {
 	if(type == Value_Type::real)
 		return llvm::ConstantFP::get(*data->context, llvm::APFloat(0.0));
@@ -323,9 +328,10 @@ llvm::Value *get_zero_value(LLVM_Module_Data *data, Value_Type type) {
 	else if(type == Value_Type::boolean)
 		return llvm::ConstantInt::get(*data->context, llvm::APInt(1, 0));
 	
-	fatal_error(Mobius_Error::internal, "Unrecognized value type for get_dummy_value (LLVM).");
+	fatal_error(Mobius_Error::internal, "Unrecognized value type for get_zero_value (LLVM).");
 	return nullptr;
 }
+*/
 
 llvm::Value *build_unary_ir(llvm::Value *arg, Value_Type type, Token_Type oper, LLVM_Module_Data *data) {
 	llvm::Value *result = nullptr;
@@ -379,7 +385,7 @@ llvm::Value *build_binary_ir(llvm::Value *lhs, Value_Type type1, llvm::Value *rh
 		if(type1 == Value_Type::integer)   result = data->builder->CreateMul(lhs, rhs, "multemp");
 		else if(type1 == Value_Type::real) result = data->builder->CreateFMul(lhs, rhs, "fmultemp");
 	} else if(op == '/') {
-		if(type1 == Value_Type::integer)   result = data->builder->CreateSDiv(lhs, rhs, "divtemp");    //TODO: what is the difference between sdiv and exactsdiv ?
+		if(type1 == Value_Type::integer)   result = data->builder->CreateSDiv(lhs, rhs, "divtemp");
 		else if(type1 == Value_Type::real) result = data->builder->CreateFDiv(lhs, rhs, "fdivtemp");
 	} else if(op == '%') {
 		                                   result = data->builder->CreateSRem(lhs, rhs, "remtemp");
@@ -456,7 +462,7 @@ build_intrinsic_ir(llvm::Value *a, Value_Type type, const std::string &function,
 		// NOTE: This checks if the mantissa bits are not all 1. (If they are it is either an inf or a nan).
 		//   TODO: this could break on Big Endian architectures (unless both the int64 and float64 are swapped the same way.?)
 		//      we are not likely to encounter it, but should probably have an alternative for it just in case.
-		//   - we could maybe also just use libc isfinite instead...
+		//   - would like to use libc isfinite, but it doesn't appear to be accessible as an llvm::LibFunc)...
 		
 		auto mask = llvm::ConstantInt::get(*data->context, llvm::APInt(64, 0x7ff0000000000000));
 		result = data->builder->CreateBitCast(a, llvm::Type::getInt64Ty(*data->context));

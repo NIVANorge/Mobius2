@@ -17,6 +17,7 @@ Units in Mobius2 are roughly [SI-based](https://en.wikipedia.org/wiki/Internatio
 | Second | `s` |
 | Gram | `g` |
 | Mole | `mol` |
+| Equivalent (charge) | `eq` |
 | Degrees Celsius | `deg_c` |
 | Degrees | `deg` |
 | Kelvin | `K` |
@@ -80,7 +81,7 @@ Examples:
 
 ```python
 [m m]         # Millimetres
-[m m, day -1] # Millimetres per day-1
+[m m, day -1] # Millimetres per day
 [2, day]      # 2 days
 [s, m -1/3]   # Seconds per cube root meter
 []            # Dimensionless

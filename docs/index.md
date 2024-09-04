@@ -30,7 +30,7 @@ Figure: Example of a Mobius2 model application at the [Vannsjø-Moss watershed](
 
 ## Support infrastructure
 
-Any model created in Mobius2 can be run from the graphical user interface [MobiView2](mobiviewdocs/mobiview.html), in the [mobipy](mobipydocs/mobipy.html) python package and the [mobius.jl](mobius_jl_docs/mobius_jl.html) Julia package. This allows model creators and users to interact with the models in powerful and user friendly ways. Included are multiple types of plots, and state-of-the-art autocalibration, uncertainty and sensitivity analysis.
+Any model created in Mobius2 can be run from the graphical user interface [MobiView2](mobiviewdocs/mobiview.html), in the [mobipy](mobipydocs/mobipy.html) python package and the [mobius.jl](mobius_jl_doc/mobius_jl.html) Julia package. This allows model creators and users to interact with the models in powerful and user friendly ways. Included are multiple types of plots, and state-of-the-art autocalibration, uncertainty and sensitivity analysis.
 
 ![MobiView2](img/mobiview_front.png)
 

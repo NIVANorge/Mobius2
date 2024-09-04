@@ -106,13 +106,12 @@ magic_core(
 	param.Log10NaAlSelectCoeff = par_log10_na_al->at(0);
 	param.Log10KAlSelectCoeff  = par_log10_k_al->at(0);
 	
-	s64 time_step = 0; //TODO!
-	s64 comp_index = 0; //TODO!
+	// NOTE: time_step and comp_index were only used in an error message, but we had to disable that for now since we can't throw errors from model code anymore.
+	s64 time_step = 0;
+	s64 comp_index = 0;
+	
 	bool is_soil = par_is_soil->bool_at(0);
 	double conv = par_max_diff->at(0);
-	
-	//double h_est = 1.0; 
-	//double ionic_strength = 0.0;
 	
 	double h_est = io_conc_h->at(0);
 	double ionic_strength = io_ionic_strength->at(0);

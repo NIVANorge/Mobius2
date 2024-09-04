@@ -245,30 +245,32 @@ The library path is usually relative to the path of the file the declaration is 
 
 Modules and preambles can only be loaded in the model scope (not inside another module for instance). 
 
-For these you must also pass load arguments if there are any in the [declaration of the module](#module) or [preamble](#preamble) you want to load.
-
-Moreover, you can create different instantiations of the same module or preamble by providing them with a separate load name. Here are some examples:
+In the load declaration you must also pass load arguments if the [declaration of the module](#module) or [preamble](#preamble) you want to load requires any such load arguments.
 
 ```python
 # Here we pass the load arguments a, b, c to the module load.
 load("some_module_path.txt",
 	module("The module declared name", a, b, c))
+```
 
+You can create different instantiations of the same module or preamble by providing them with a separate load name. Here are some examples:
+
+```python
 # Here we load the module using a different name so that one could potentially
-# load a separate instance of it.
+# load several separate instances of it.
 load("some_module_path.txt",
 	module("Another module declared name", "Module load name", e, f, g))
 ```
 
 If a module is loaded twice using the same load name (or without a load name), only the first load that is processed counts, and subsequent ones are ignored. Right now, there is no error if two loads with coinciding names have disagreements about their load arguments, but we plan to introduce a check for that later.
 
-If you load a preamble, you can bind it to an identifier that can be passed into module loads (if they have such a preamble load argument). For instance,
+If you load a preamble, you can bind it to an identifier that can be passed into module loads (if they require a preamble load argument). For instance,
 
 ```python
 s : compartment("S")
 load("the_module_file.txt",
 	r:preamble("A preamble", s),
-	module("A module, r))
+	module("A module", r))
 ```
 
 The module path is usually relative to the file the load declaration is in, but if the first directory in the module path is "modules", the path is relative to "Mobius2/models/modules".
@@ -295,15 +297,15 @@ An `extend` takes all the declarations from another model and puts them in the m
 
 This can for instance be used to build a water quality model on top of a hydrology model.
 
-The `@exclude` note can be used to omit certain declarations in the extended model. For instance,
+The `@exclude` note can be used to omit certain declarations in the model you extend. For instance,
 
 ```python
 extend("some_model.txt") @exclude(a : compartment, b : quantity)
 ```
 
-will omit any declaration of a compartment with identifier `a` and quantity with identifier `b` in the extended model.
+will omit any declaration of a compartment with identifier `a` and quantity with identifier `b` in the `some_model.txt` model.
 
-Since the extended model typically relies on all the entities it declares, this is mostly used if you extend two models that declare the same entites, to avoid conflict. It can also be used to e.g. replace what ODE `solver` is used.
+Since the extended model typically relies on all the entities it declares, this is mostly used if you extend two models that declare the same entites, to avoid conflict. It can also be used to e.g. replace what ODE `solver` is used by the model or change other details like index set distributions of compartments.
 
 ## compartment, property, quantity
 
@@ -322,11 +324,15 @@ property(name:quoted_string)
 property(name:quoted_string) { <math-body> }
 ```
 
-These entities are collectively known as "component".
+The entity types `compartment`, `property` and `quantity` are collectively known as "components".
 
-A distribution can create one copy of all state variables with this component in their *location* (whether or not that happens in practice comes down to several factors - will be documented later). It can also be used to distribute [parameter groups](#par_group).
+A distribution over an index set can potentially distribute all state variables with this component in their [*location*](centra_concepts.html#components-and-locations). It can also be used to distribute [parameter groups](#par_group).
 
-If a property has a math body, that is called the "default code" for that property. If you create a state variable (`var`) with that property as its last location component and the state variable itself doesn't have a math body, the default code will be used instead. Note that the default code will be resolved separately per state variable it is used for, using the state variable location as the [context location](math_format.html#the-context-location). However, the scope it is resolved in is still the scope it is declared in.
+A distribution creates an instance (and separate evaluation/computation) of the value of the variable for each index in the index set (or each tuple of indexes if there are more than one index set).
+
+The distribution given on the component is only the highest theoretical distribution, but an index sets could be ignored if the framework can determine that a given value does not vary over a that index set. This will be documented separately.
+
+If a property has a math body, that is called the "default code" for that property. If you create a state variable ([`var`](#var)) with that property as its last location component and the state variable itself doesn't have a math body, the default code will be used instead. Note that the default code will be resolved separately per state variable it is used for, using the state variable location as the [context location](math_format.html#the-context-location). However, the scope it is resolved in is still the scope it is declared in.
 
 ## par_group
 
@@ -376,13 +382,17 @@ par_enum(name:quoted_string, default:identifier) { <special> }
 par_enum(name:quoted_string, default:identifier, description:quoted_string) { <special> }
 ```
 
-These entities are collectively known as "parameter". Parameters are values that are held constant through each single model run, but unlike `constant`s, can be configured to have different values in e.g. data files or MobiView2. Parameters can also be distributed over index sets (this is determined by the `par_group` they are in).
+These entities are collectively known as "parameters". Parameters are values that are held constant through each single model run, but unlike `constant`s, their values can be configured by the model user in e.g. data files or MobiView2. Parameters can also be distributed over index sets (this is determined by the `par_group` they are in).
 
 - The `default` value is what you get for the parameter value if a specific value is not provided in the data set.
 - The optional `min` and `max` values are guidelines to the user only, and the model will not complain if the user sets a value outside this bound. The bound is also the defaut bound for [sensitivity and optimization](../mobiviewdocs/sensitivity.html) setups.
 - The optional `description` is displayed in MobiView2, and can be used to guide the user how to use this parameter.
 
-The body of a `par_enum` must be a space-separated list of identifiers giving the set of values this parameter can have. This functions as the declaration of these identifiers. The `default` value must be one of these identifiers.
+The body of a `par_enum` must be a space-separated list of identifiers giving the set of values this parameter can have. This functions as the declaration of these identifiers. The `default` value must be one of these identifiers. Example:
+
+```python
+cov_shape : par_enum("Vegetation cover curve shape", flat) [ flat triangular smooth ]
+```
 
 ## constant
 
@@ -433,7 +443,7 @@ very_fun(20, 10)   # Evaluates to 20*10 + 3 = 203
 If the declaration is
 
 ```python
-even_more_fun : function(a : [k m], b : [])
+even_more_fun : function(a : [k m], b : []) { ... }
 ```
 
 the first argument must have unit `[k m]` and the second be dimensionless wherever the function is evaluated.
@@ -574,7 +584,7 @@ This works the same way as a `@no_store` for a [`var`](#var).
 
 ### `@specific`
 
-This is used if the source or target has a specific restriction. Will be documented separately.
+This is used if the source or target has a specific restriction. It will be documented separately.
 
 ### `@bidirectional`
 
@@ -606,9 +616,9 @@ This allows you bind a location, parameter or constant to a new identifier. This
 
 If it is a location, it can also have connection restrictions in the same way the target of a flux can.
 
-Creating `loc` declarations has a couple of use cases, one important one being to pass the target of a flux as a load argument to the module that declares this flux so that the module becomes independent of how discharges from it are connected up.
+Creating `loc` declarations has a couple of use cases, one important one being to pass the target of a flux as a load argument to the module that declares this flux so that the module specification becomes independent of how discharges are connected in the model.
 
-It can also be a way to pass some value to a module without that module having to know if the value is a state variable, parameter or constant.
+It can also be used as a way to pass a value reference to a module without that module needing to know if the value is a state variable, parameter or constant.
 
 ## index_set
 
@@ -712,7 +722,7 @@ The `solver_function` is a separate entity type that you (for now) can't declare
 | Name | Description |
 | ---- | ----------- |
 | `euler` | A solver using [Euler's method](https://en.wikipedia.org/wiki/Euler_method) with fixed step size (non-adaptive). This solver is mostly included for illustration since it is not that precise. |
-| `inca_dascru` | A adaptive Runge-Kutta 4-5 solver based on \[Wambecq78\] and its implementation in the INCA models. This solver creates precise simulations of many systems. |
+| `inca_dascru` | A adaptive Runge-Kutta 4-5 solver based on \[Wambecq78\] and its implementation in the INCA models \[Wade02\]. This solver creates precise simulations of many systems. |
 
 We plan to add more solver algorithms eventually.
 
@@ -720,7 +730,9 @@ The `init_step` is the time unit of the solver integration step, which is typica
 
 If either `init_step` or `rel_min` are given as parameters, they can be adjusted by users of the model (`init_step` must have a unit that is convertible to the sampling step unit of the model, while `rel_min` must be dimensionless.
 
-\[Wambecq78\] Wambecq, A.: Rational Runge–Kutta methods for solving systems of ordinary differential equations, Computing, 20, 333–342, [https://doi.org/10.1007/BF02252381](https://doi.org/10.1007/BF02252381), 1978. 
+\[Wambecq78\] Wambecq, A.: Rational Runge–Kutta methods for solving systems of ordinary differential equations, Computing, 20, 333–342, [https://doi.org/10.1007/BF02252381](https://doi.org/10.1007/BF02252381), 1978.
+
+\[Wade02\] Wade, A.J. et. al.: A nitrogen model for European catchments: INCA, new model structure and equations, Hydr. Earth Sys. Sci. 6(3), 559-582, [https://doi.org/10.5194/hess-6-559-2002](https://doi.org/10.5194/hess-6-559-2002), 2002.
 
 ## solve
 
