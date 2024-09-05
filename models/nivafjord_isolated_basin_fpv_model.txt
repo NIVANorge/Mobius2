@@ -1,0 +1,60 @@
+
+
+model("NIVAFjord Isolated Basin FPV") {
+"""
+NIVAFjord in a single basin without open boundary conditions. Also, you can cover basins with FPV (floating photovoltaics).
+
+It is also currently without horizontal exchange between basins, so it only works in a single one (or several isolated ones) for now.
+"""
+
+	# TODO: FPV cover does not dynamically affect wind mixing (not sure to how large a degree that would happen).
+	extend("nivafjord_lake_model.txt")
+
+	fpv       : compartment("FPV", basin_idx)
+	
+	load("modules/airsea_fpv.txt",
+		module("AirSea FPV", air, basin, fpv, ice, heat, temp, precip, wind, g_rad, pressure, rho, a_hum, lwd, sw, attn, indicator,
+			evap, cos_z, loc(basin.freeze_t), loc(basin.area), loc(layer.water[vert.top]), loc(layer.water.heat[sw_vert.top])))
+	
+	module("Basin inflow", version(0, 0, 0)) {
+		
+		var(air.precip, [m m, day-1], "Precipitation")
+		var(air.temp, [deg_c], "Air temperature")
+		
+		
+		load("stdlib/seawater.txt", library("Sea oxygen"))
+		load("stdlib/physiochemistry.txt", library("Chemistry"), library("Water utils"))
+		
+		# Water
+		
+		flow : property("Basin inflow")
+		var(basin.flow, [m 3, s-1]) # Input series
+		
+		# Just directing the catchment runoff to the top layer instead of doing the density check.
+		flux(out, layer.water[vert.top], [m 3, s-1], "Discharge from land to basin") { basin.flow->> }
+		
+		# O2
+		
+		par_group("Inflow oxygen") {
+			f_o2sat    : par_real("Inflow O₂ saturation fraction", [], 0.9, 0, 1)
+		}
+
+		flux(out, layer.water.o2[vert.top], [k g, day-1], "Oxygen from land") {
+			inflow_t := air.temp, # Assume inflow temperature = air temperature (see also below)
+			land_conc := f_o2sat*o2_saturation(inflow_t, 0) * o2_mol_mass,
+			basin.flow*land_conc->>
+		}
+		
+		# Heat / temperature
+		
+		flux(out, layer.water.heat[vert.top], [J, day-1], "Heat from land") {
+			inflow_t := air.temp, # Assume inflow temperature = air temperature (see also above)
+			(water_temp_to_heat(basin.flow => [m 3], inflow_t) => [J, s-1]) ->>
+		}
+		
+		# TODO: Add other substances that may be washed in.
+		
+		# TODO: Also outflow?
+	}
+}
+

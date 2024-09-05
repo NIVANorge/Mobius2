@@ -35,6 +35,7 @@ module("NIVAFjord basin", version(0, 0, 3),
 	area      : property,
 	freeze_temp : property,
 	sw        : property,
+	ice_ind   : loc,
 	vert      : connection,
 	sw_vert   : connection,
 	sw_sed    : loc,
@@ -85,6 +86,7 @@ Authors: Magnus D. Norling
 	
 	par_group("Layer specific mixing", layer) {
 		K0     : par_real("Mixing factor reference", [m 2, s-1], 0.5e-4, "Mixing factor when the B-V frequency is equal to the reference")
+		K0ice  : par_real("Mixing factor reference under ice", [m 2, s-1], 0.5e-4)
 	}
 	
 	par_group("Initial layer physical", layer) {
@@ -178,7 +180,7 @@ Authors: Magnus D. Norling
 	
 	#TODO: Make wind mixing instead dependent on the B-V frequency also? One issue is to determine how much energy gets "used" in each layer.
 	var(basin.emix, [J], "Total wind mixing energy") {
-		A[vert.top]*sqrt(stress^3/layer.water.rho[vert.top])*time.step_length_in_seconds
+		(!ice_ind)*A[vert.top]*sqrt(stress^3/layer.water.rho[vert.top])*time.step_length_in_seconds
 	}
 	
 	var(layer.water.sumV, [m 3]) {
@@ -208,8 +210,9 @@ Authors: Magnus D. Norling
 	}
 	
 	var(layer.water.v_t, [m, s-1]) {
+		K := { K0ice if ice_ind, K0 otherwise },
 		dz_ := 0.5*(dz + dz[vert.below]),
-		safe_divide(K0, dz_*(Nfreq/N0)^alpha)
+		safe_divide(K, dz_*(Nfreq/N0)^alpha)
 	}
 	
 	var(layer.water.v_s, [m, s-1]) {

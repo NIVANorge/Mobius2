@@ -23,15 +23,15 @@ You can also download a zip archive of the repository from its github front page
 
 ### 2. Get the MobiView2 program.
 
-For now we only support MobiView2 on Windows. It is technically possible to compile it on Linux, so if you need that, please contact us.
+For now we only support MobiView2 on Windows. It is theoretically possible to compile it on Linux, so if you need that, please contact us.
 
 Open ftp://mobiserver.niva.no/Mobius2 in a file explorer (not a web browser), then download the entire MobiView2 folder by copying it over to somewhere on your machine.
 
-In your local copy, edit MobiView2/config.txt so that the "Mobius2 base path" field contains the location where you put Mobius2 repository, e.g. `"C:/Data/Mobius2"`.
+In your local copy, edit MobiView2/config.txt so that the "Mobius2 base path" field contains the location where you put the Mobius2 repository, e.g. `"C:/Data/Mobius2"`.
 
-You can now run MobiView2.exe. Click the ![Open](../img/toolbar/Open.png) open icon in the top left and select e.g. `"Mobius2/models/simplyq.txt"`, then `"Mobius2/models/data/simplyq_simple.dat"`. If the model loaded correctly you can now run it by clicking the ![Run](../img/toolbar/Run.png) runner icon in the MobiView2 toolbar. You can then select series to plot in the result and input series selections in the bottom right.
+You can now run MobiView2.exe. Click the ![Open](../img/toolbar/Open.png) open icon in the top left and select e.g. `"Mobius2/models/simplyq.txt"`, then `"Mobius2/models/data/simplyq_simple.dat"`. If the model loaded correctly you can now run it by clicking the ![Run](../img/toolbar/Run.png) runner icon in the MobiView2 toolbar. You can then select the series to plot in the result and input series selections in the bottom right.
 
-If you chose simplyq.txt, you are running [SimplyQ](../existingmodels/simply.html#simplyq), which is a simple hydrology model for predicting river discharge.
+If you chose `simplyq.txt`, you are running [SimplyQ](../existingmodels/simply.html#simplyq), which is a simple hydrology model for predicting river discharge.
 
 ![MobiView2](../img/mobiview_gettingstarted.png)
 
@@ -74,4 +74,4 @@ The [Guide](../mobius2docs/guide.html) is a good place to start.
 
 ### Involve yourself with feedback to the developer team, or become a developer.
 
-Please use the github issues tracker to report bugs. You can also contact us at `magnus.norling@niva.no`
+Please use the [github issues tracker](https://github.com/NIVANorge/Mobius2/issues) to report bugs. You can also contact us at `magnus.norling@niva.no`

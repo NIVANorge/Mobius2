@@ -90,6 +90,7 @@ module("NIVAFjord chemistry", version(0, 0, 5),
 	chem_par : preamble
 ) {
 	#TODO: Would be nice to unify easychem and fjordchem a bit more, maybe some shared code.
+	# Esp. for surface O2 exchange
 	
 	par_group("Initial chem", layer) {
 		init_O2  : par_real("Initial O₂ saturation", [], 1, 0, 1)
@@ -145,7 +146,7 @@ module("NIVAFjord chemistry", version(0, 0, 5),
 	}
 	
 	var(layer.water.o2satconc, [m g, l-1]) {
-		o2_saturation(temp, salin)*o2_mol_mass -> [m g, l-1]
+		o2_saturation(temp, salin)*o2_mol_mass ->>
 	} #@no_store
 
 	var(layer.water.o2sat, []) {

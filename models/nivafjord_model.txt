@@ -59,7 +59,7 @@ model("NIVAFjord") {
 	
 	load("modules/nivafjord/basin.txt",
 		dims : preamble("NIVAFjord dimensions", all_basins, layer_idx, layer),
-		module("NIVAFjord basin", air, basin, layer, water, salt, heat, temp, salinity, pressure, wind, g_rad, rho, attn, z, dz, h, area, freeze_t, sw, vert, sw_vert, loc(sediment.heat), dims))
+		module("NIVAFjord basin", air, basin, layer, water, salt, heat, temp, salinity, pressure, wind, g_rad, rho, attn, z, dz, h, area, freeze_t, sw, loc(basin.ice.indicator), vert, sw_vert, loc(sediment.heat), dims))
 	
 	load("modules/nivafjord/boundary_basin.txt",
 		module("NIVAFjord boundary", bnd_basin, bnd_layer, water, heat, salt, temp, salinity, dz, h, rho, pressure, vert, dims))

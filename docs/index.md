@@ -44,7 +44,7 @@ Mobius2 also provides special support for transport along directed graphs and gr
 
 ## Authors and acknowledgement
 
-The Mobius2 framework is developed by Magnus Dahler Norling for [The Norwegian Institute for Water Research](https://www.niva.no/en) (NIVA).
+The Mobius2 framework is developed by Magnus Dahler Norling for [the Norwegian Institute for Water Research](https://www.niva.no/en) (NIVA).
 
 Additional contributions:
 Leah Jackson-Blake (Simply models, general testing), François Clayer (EasyLake model, general testing).
