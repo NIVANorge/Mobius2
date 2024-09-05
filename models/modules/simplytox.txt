@@ -17,15 +17,15 @@ Parameters for specifying various physiochemical properties of a contaminant.
 
 	par_group("Physiochemistry", tox) {
 		molmass     : par_real("Contaminant molar mass", [g, mol-1], 50, 0, 1000)
-		molvol      : par_real("Contaminant molar volume", [c m 3, mol-1], 20, 0, 1000)
+		molvol      : par_real("Contaminant molar volume", [c m 3, mol-1], 20, 0, 1000, "At surface pressure")
 		dUaw        : par_real("Enthalpy of phase transfer between air and water", [k J, mol-1], 0, -100, 100)
 		dUow        : par_real("Enthalpy of phase transfer between octanol and water", [k J, mol-1], 0, -100, 100)
 		#dUoa        : par_real("Enthalpy of phase transfer between octanol and air", [k J, mol-1], 0, -100, 100)
 		kH25        : par_real("Henry's constant at 25°C", [Pa, m 3, mol-1], 0, 0, 100)  #TODO: better default?
 		log10Kow25  : par_real("log10 Octanol-water partitioning coefficient at 25°C", [], 0, -10, 10)
 		#log10Koa25  : par_real("log10 Octanol-air partitioning coefficient at 25°C", [], 0, -10, 10)
-		rwoc        : par_real("Water-OC rate coefficient", [day-1],  0.5, 0, 3)
-		rfs         : par_real("Fast-Slow rate coefficient", [day-1], 0.05, 0, 3)
+		rwoc        : par_real("Water-OC rate coefficient", [day-1],  0.5, 0, 3, "Speed to reach partitioning equilibrium between water and organic carbon")
+		rfs         : par_real("Fast-Slow rate coefficient", [day-1], 0.05, 0, 3, "Speed to reach partitioning equilibrium between fast and slow soil organic carbon")
 		raw         : par_real("Water-air rate coefficient", [m, day-1], 0.05, 0, 3, "Inside soil pores only.")
 		raa         : par_real("Soil atmosphere exchange rate", [m, day-1], 0.05, 0, 10, "Between soil pore air and atmosphere")
 		
@@ -233,6 +233,8 @@ Contaminant exchange between a surface water and the atmosphere.
 	vel_air   : property("Contaminant air-side transfer velocity")
 	
 	var(comp.water.tox.moldiff, [m 2, s-1])
+	
+	var(air.wind, [m, s-1]) # In case it is not declared anywhere else.
 	
 	# Maybe put this one in the library also?
 	waterside_vel_low_turbulence : function(T : [K], moldiff : [m 2, s-1], wind : [m, s-1]) {

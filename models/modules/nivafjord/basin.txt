@@ -99,7 +99,6 @@ Authors: Magnus D. Norling
 	var(layer.dz, [m], "Layer thickness") {
 		# NOTE: This is a bit simplified since if the level changes, A would in reality also change.
 		Aavg := 0.5*(A + A[vert.below]),
-		#Aavg := A,
 		water / Aavg
 	} @initial {    dz0   }
 	

@@ -1,0 +1,92 @@
+
+model("NIVAFjord lake") {
+
+"""
+Note, this model is incomplete, it must be extended by one that contains an airsea module.
+
+It is almost possible to unify a lot of this one with nivafjord_model.txt . The only difficulty is the all_basins index set in the other one. We should figure out a way to do it.
+"""
+
+	basin_idx : index_set("Basin index")
+	layer_idx : index_set("Layer index") @sub(basin_idx)
+
+	air       : compartment("Atmosphere")
+	basin     : compartment("Basin",          basin_idx)
+	layer     : compartment("Fjord layer",    basin_idx, layer_idx)
+	sediment  : compartment("Fjord sediment", basin_idx, layer_idx)
+	
+	water : quantity("Water")
+	ice   : quantity("Ice")
+	salt  : quantity("Salt")
+	heat  : quantity("Heat energy")
+	
+	sed : quantity("Sediments")
+	oc : quantity("Organic carbon")
+	on : quantity("Organic nitrogen")
+	op : quantity("Organic phosphorous")
+	din : quantity("Nitrate")
+	phos : quantity("Phosphate")
+	
+	temp     : property("Temperature")
+	salinity : property("Salinity")
+	precip   : property("Precipitation")
+	wind     : property("Wind speed")
+	g_rad    : property("Global radiation")
+	pressure : property("Pressure")
+	a_hum    : property("Actual specific humidity")
+	rho      : property("Density")
+	lwd      : property("Downwelling longwave radiation")
+	sw       : property("Shortwave radiation")
+	cos_z    : property("Cosine of the solar zenith angle") 
+	attn     : property("Attenuation")
+	freeze_t : property("Ice formation temperature")
+	indicator : property("Ice indicator")
+	a_vap    : property("Actual vapor pressure")
+	s_vap    : property("Saturation vapor pressure")
+	
+	z    : property("Depth")
+	dz   : property("Thickness")
+	h    : property("Sea level")
+	evap : property("Evaporation")
+	area : property("Area")
+	
+	vert    : connection("Fjord vertical") @grid1d(layer, layer_idx)
+	sw_vert : connection("Shortwave vertical") @grid1d(layer, layer_idx)
+	
+	load("modules/atmospheric.txt",
+		module("Atmospheric", air, temp, wind, g_rad, pressure, a_hum, rho, lwd, cos_z, a_vap, s_vap))
+	
+	#fpv : compartment("Floating photovoltaics", basin_idx)
+	#load("modules/airsea_fpv.txt",
+	#	module("AirSea FPV", air, basin, fpv, ice, heat, temp, precip, wind, g_rad, pressure, rho, a_hum, lwd, sw, attn, indicator,
+	#		evap, cos_z, loc(basin.freeze_t), loc(basin.area), loc(layer.water[vert.top]), loc(layer.water.heat[sw_vert.top])))
+	
+	load("modules/nivafjord/basin.txt",
+		dims : preamble("NIVAFjord dimensions", basin_idx, layer_idx, layer),
+		module("NIVAFjord basin", air, basin, layer, water, salt, heat, temp, salinity, pressure, wind, g_rad, rho, attn, z, dz, h, area, freeze_t, sw, loc(basin.ice.indicator), vert, sw_vert, loc(sediment.heat), dims))
+	
+	fjord_phyt : quantity("Fjord phytoplankton")
+	zoo        : quantity("Zooplankton")
+	o2         : quantity("O₂")
+	chl_a      : property("Chlorophyll-a")
+	
+	load("modules/nivafjord/fjordchem.txt",
+		chem_par : preamble("NIVAFjord chemistry rates", fjord_phyt),
+		module("NIVAFjord chemistry", air, basin, layer, sediment, water, o2, ice, oc, din, on, phos, op, sed, fjord_phyt, zoo, chl_a, temp, salinity, wind, z, dz, indicator, attn, precip, area, cos_z, sw, vert, chem_par, dims))
+	
+	load("modules/nivafjord/sediment.txt",
+		module("NIVAFjord sediments", layer, sediment, water, o2, sed, oc, din, on, phos, op, heat, area, temp, dz, vert, chem_par, dims))
+	
+	
+	
+	par_group("Solver step") {
+		solver_h    : par_real("Initial solver step", [hr], 1)
+		solver_hmin : par_real("Solver relative min step", [], 0.01)
+	}
+	
+	sol : solver("NIVAFjord solver", inca_dascru, solver_h, solver_hmin)
+	solve(sol, layer.water, basin.ice)
+	
+	solve(sol, sediment.sed, sediment.heat)
+	solve(sol, air.cos_z, air.g_rad)
+}

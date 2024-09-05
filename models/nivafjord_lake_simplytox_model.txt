@@ -1,0 +1,40 @@
+
+
+model("NIVAFjord lake SimplyTox") {
+"""
+TODO: This one is incomplete.
+
+Maaybe we want a simpler biochemistry model for this one, not the entire NIVAFjord biochemistry...
+"""
+
+
+	extend("nivafjord_lake_model.txt")
+	
+	extend("simplytox_model.txt") @exclude(
+		downstream : connection,
+		air : compartment,
+		water : quantity,
+		heat : quantity,
+		sed : quantity,
+		oc : quantity,
+		temp : property,
+		precip : property,
+		wind : property,
+		sol : solver
+	)
+	
+	downstream : connection("Downstream") @directed_graph { river+ } @no_cycles
+	
+	river_lake : connection("River-lake") @directed_graph { river+ layer } @no_cycles
+	
+	load("modules/airsea.txt",
+		module("AirSea", "AirSea Fjord", air, basin, ice, heat, temp, precip, wind, g_rad, pressure, rho, a_hum, lwd, sw, attn, indicator,
+							evap, cos_z, loc(basin.freeze_t), loc(basin.area), loc(layer.water[vert.top]), loc(layer.water.heat[sw_vert.top]))
+	)
+							
+	load("modules/nivafjord/lake_basin.txt",
+		module("NIVAFjord lake", river, basin, layer, water, flow, dz, river_lake, vert, dims)
+	)
+							
+
+}

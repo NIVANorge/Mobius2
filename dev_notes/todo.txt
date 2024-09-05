@@ -1,6 +1,12 @@
 
 
 	*** High pri ***
+	
+	
+		There is a pretty bad order-of-module load error in nivafjord_lake. The model can be wrong or not load if airsea_fpv (or airsea) is loaded in the outer and not the inner model!!!!!
+			The energy loss in the simplytox version seems unrelated. What causes it to happen here and not in the other version though?? Seems unrelated to the river too.
+	
+	
 
 		Add forums on github page? (github Discussions)
 		
