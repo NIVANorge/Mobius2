@@ -21,7 +21,7 @@ Examples of potential model uses include:
 3. Exploring the potential response of the system to future environmental change (e.g. climate, land use and management), including potential storm and low-flow dynamics.
 Providing evidence to support decision-making, e.g. to help set water quality and load reduction goals, and advise on means of achieving those goals.
 
-The Simply models originate from \[JacksonBlake17\], where the first version of SimplyP (including what was later named SimplyQ and SimplySed) was presented as a [python program](https://github.com/LeahJB/SimplyP).
+The Simply models originate from \[JacksonBlake17\], where the first version of SimplyP (including what was later named SimplyQ and SimplySed) was implemented as a [python program](https://github.com/LeahJB/SimplyP).
 
 An early version of SimplyC was developed in \[Norling21\].
 

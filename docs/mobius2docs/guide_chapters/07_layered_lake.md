@@ -80,13 +80,13 @@ The mixing coefficient $$K$$ is (as in MyLake) given by
 
 $$
 K_r = \begin{cases}
-K_0 A^{0.56} & \text{If there lake is ice free}\\
+K_0 A^{0.56} & \text{if the lake is ice free}\\
 K_{0,ice}    & \text{otherwise}
-\end{cases},\\
+\end{cases}\\
 K = K_r N^{2\alpha}
 $$
 
-Here $$A$$ is the lake surface area, $$K_0$$, and $$K_{0,ice}$$ are configurable parameters (but with good default values), and $$\alpha=-0.43$$ is a constant.
+Here $$A$$ is the lake surface area, $$K_0$$, and $$K_{0,ice}$$ are configurable parameters (but the default values in the dataset are based on literature), and $$\alpha=-0.43$$ is a constant.
 
 The mixing rate of a layer $$i$$ with the one below it is then
 
@@ -97,19 +97,32 @@ $$
 This is formulated in Mobius2 as
 
 ```python
+var(layer.water.K, [m 2, day-1]) {
+	# Set a to have a dimensionless unit so that we can raise 
+	# it to a power in the empirical formula below.
+	a := (lake.area->[k m 2])=>[],
+	K_ref := {
+		K0*a^0.56   if !lake.ice.ind,
+		K0_ice      otherwise
+	},
+	K_ref*(N2freq=>[])^(2*alpha)
+}
+
 flux(layer.water, vert, [m 3, day-1], "Layer mixing down") { 
 	mdz := 0.5*(dz + dz[vert.below]),
 	K*A[vert.below]/mdz->>
 } @mixing
 ```
 
-The `@mixing` note tells Mobius2 that this flux happens in both directions so that the net exchange of water between the two layers is zero, but that it should still cause mixing of dissolved substances (this includes heat energy). In practice, the ODE system that is generated from this is mathematically equivalent to the finite element discretization of the diffusion equation described in \[SalorantaAndersen07\].
+The `@mixing` note tells Mobius2 that this flux happens in both directions so that the net exchange of water between the two layers is zero, but that it should still cause mixing of dissolved substances (this includes heat energy, see below). In practice, the ODE system that is generated from this is mathematically equivalent to the finite element discretization of the diffusion equation described in \[SalorantaAndersen07\].
 
 ## Surface fluxes, ice and heat
 
-The exchange of heat energy between the lake surface and the atmosphere is entirely taken care of by the AirSea module. It also takes care of ice growth and melt, and it computes evaporation. We won't go into detail about that here. Just note that we model `layer.water.heat` as a dissolved variable, then compute temperature from the heat density (concentration).
+The exchange of heat energy between the lake surface and the atmosphere is entirely taken care of by the AirSea module. It also takes care of ice growth and melt, and it computes evaporation. We won't go into detail about that here. Just note that we model the water heat energy `layer.water.heat` as a "dissolved variable", then compute temperature from the heat density (concentration).
 
 This module also takes care of the water and heat balance connected to direct precipitation inputs to the lake surface and evaporation.
+
+The particular implementation in that module is based on the [GOTM model](https://github.com/gotm-model) and MyLake. We will not explain it further here.
 
 ## Shortwave radiation
 
@@ -145,7 +158,7 @@ var(layer.water.attn, []) {
 }
 ```
 
-The ligh attenuation uses a constant light extinction coefficient `att_c` (parameter). When we add biochemistry, we can make it depend on particle and DOC density in the lake.
+The ligh attenuation uses a constant light extinction coefficient `att_c` (parameter). When we add biochemistry, we will make it depend on particle and DOC density in the lake.
 
 ## Water balance and discharge
 

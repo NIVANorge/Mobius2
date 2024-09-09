@@ -13,7 +13,7 @@ Since the modules can be dynamically loaded with different arguments, this docum
 
 See the note on [notation](autogen.html#notation).
 
-The file was generated at 2024-08-22 11:08:06.
+The file was generated at 2024-09-09 12:02:42.
 
 ---
 
@@ -72,9 +72,9 @@ File: [modules/hbv_snow.txt](https://github.com/NIVANorge/Mobius2/tree/main/mode
 
 This is an adaption of the snow module from HBV-Nordic (Sælthun 1995)
 
-[NVE home page](https://www.nve.no/vann-og-vassdrag/vannets-kretslop/analysemetoder-og-modeller/hbv-modellen/)
+[NVE home page](https://www.nve.no/vann-og-vassdrag/vannets-kretsloep/analysemetoder-og-modeller/hbv-modellen/)
 
-[Model description](https://www.uio.no/studier/emner/matnat/geofag/nedlagte-emner/GEO4430/v06/undervisningsmateriale/HBVMOD.PDF)
+[Model description](https://publikasjoner.nve.no/publication/1996/publication1996_07.pdf)
 
 Authors: Magnus D. Norling
 
@@ -428,7 +428,9 @@ Authors: Magnus D. Norling
 | GMT zone | **time_zone** | hr | Only used if sub-daily precision is used. |
 | Elevation | **elev** | m | Only used if Daily average radiation is not provided as a series |
 | **Radiation** | | |  |
-| Use sub-daily precision | **subdaily** |  | Compute hourly averages of solar radiation |
+| Cloud absorption scaling factor | **crs** |  | Used if 'Daily average global radiation' is not provided as a series. Scaling factor for shortwave absorption by clouds |
+| Cloud absorption power factor | **crp** |  | Used if 'Daily average global radiation' is not provided as a series. Power factor for shortwave absorption by clouds |
+| Use sub-daily precision | **subdaily** |  | Compute hourly averages of solar radiation. Only works correctly if the model sampling step is [hr] or lower. |
 
 ### State variables
 
@@ -477,7 +479,7 @@ Unit: W m⁻²
 Value:
 
 $$
-\left(1-0.75\cdot \mathrm{cloud}^{3.4}\right)\cdot \mathrm{g\_rad\_cloud\_free}
+\left(1-\mathrm{crs}\cdot \mathrm{cloud}^{\mathrm{crp}}\right)\cdot \mathrm{g\_rad\_cloud\_free}
 $$
 
 #### **Global radiation**

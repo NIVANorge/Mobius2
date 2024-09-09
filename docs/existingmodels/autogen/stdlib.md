@@ -14,7 +14,7 @@ The standard library provides common functions and constants for many models.
 
 See the note on [notation](autogen.html#notation).
 
-The file was generated at 2024-08-22 11:08:06.
+The file was generated at 2024-09-09 12:02:42.
 
 ---
 
@@ -218,7 +218,7 @@ File: [stdlib/physiochemistry.txt](https://github.com/NIVANorge/Mobius2/tree/mai
 
 ### Description
 
-These are simplified functions for computing properties of freshwater at surface pressure. See the SeaWater module for functions that work better in more general cases.
+These are simplified functions for computing properties of freshwater at surface pressure. See the Seawater library for functions that work better in more general cases.
 
 References to be inserted.
 
@@ -524,7 +524,7 @@ File: [stdlib/seawater.txt](https://github.com/NIVANorge/Mobius2/tree/main/stdli
 
 ### Description
 
-This is a library for highly accurate, but more computationally expensive, properties of sea water (taking salinity into account). Se the library "Water utils" for simplified versions of these functions.
+This is a library for highly accurate, but more computationally expensive, properties of sea water (taking salinity into account). Se the library [Water utils](https://nivanorge.github.io/Mobius2/existingmodels/autogen/stdlib.html#water-utils) for simplified freshwater versions of these functions.
 
 The formulas for density are taken from the [Matlab seawater package](http://www.marine.csiro.au/~morgan/seawater).
 
@@ -595,7 +595,7 @@ The implementation is influenced by the one in [SELMA](https://github.com/fabm-m
 **o2_saturation(T : °C, S)** = 
 
 $$
-\mathrm{T\_k} = \left(\left(\mathrm{T}\rightarrow \mathrm{K}\,\right)\Rightarrow 1\right) \\ \left(e^{-135.902+\frac{157570}{\mathrm{T\_k}}-\frac{6.64231\cdot 10^{7}}{\mathrm{T\_k}^{2}}+\frac{1.2438\cdot 10^{10}}{\mathrm{T\_k}^{3}}-\frac{8.62195\cdot 10^{11}}{\mathrm{T\_k}^{4}}-\mathrm{S}\cdot \left(0.017674-\frac{10.754}{\mathrm{T\_k}}+\frac{2140.7}{\mathrm{T\_k}^{2}}\right)}\Rightarrow \mathrm{mmol}\,\mathrm{m}^{-3}\,\right)
+\mathrm{T\_k} = \left(\left(\mathrm{T}\rightarrow \mathrm{K}\,\right)\Rightarrow 1\right) \\ \mathrm{logsat} = -135.902+\frac{157570}{\mathrm{T\_k}}-\frac{6.64231\cdot 10^{7}}{\mathrm{T\_k}^{2}}+\frac{1.2438\cdot 10^{10}}{\mathrm{T\_k}^{3}}-\frac{8.62195\cdot 10^{11}}{\mathrm{T\_k}^{4}}-\mathrm{S}\cdot \left(0.017674-\frac{10.754}{\mathrm{T\_k}}+\frac{2140.7}{\mathrm{T\_k}^{2}}\right) \\ \left(e^{\mathrm{logsat}}\Rightarrow \mathrm{mmol}\,\mathrm{m}^{-3}\,\right)
 $$
 
 **o2_piston_velocity(wind : m s⁻¹, temp : °C)** = 

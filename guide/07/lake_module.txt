@@ -88,13 +88,12 @@ module("Simple layered lake", version(0, 0, 1),
 	} @no_store
 	
 	var(layer.water.K, [m 2, day-1]) {
-		# TODO: Is the parametrization by surface area any good?
 		a := (lake.area->[k m 2])=>[],
 		K_ref := {
 			K0*a^0.56   if !lake.ice.ind,
 			K0_ice      otherwise
 		},
-		K_ref*(N2freq=>[])^alpha
+		K_ref*(N2freq=>[])^(2*alpha)
 	}
 	
 	flux(layer.water, vert, [m 3, day-1], "Layer mixing down") { 

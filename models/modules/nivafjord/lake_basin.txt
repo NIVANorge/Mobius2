@@ -32,7 +32,7 @@ This is a module that can be used if a NIVAFjord basin is to be treated as a lak
 	
 	flux(layer.water[vert.top], out, [m 3, s-1], "Lake outlet discharge") {
 		excess := max(0, dz[vert.top] - dz0[vert.top]),
-		r1 * excess
+		rl * excess
 	}
 
 }

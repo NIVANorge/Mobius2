@@ -46,7 +46,7 @@ The implementation used here is influenced by the implementation in [GOTM](https
 
 library("Seawater") {
 """
-This is a library for highly accurate, but more computationally expensive, properties of sea water (taking salinity into account). Se the library "Water utils" for simplified versions of these functions.
+This is a library for highly accurate, but more computationally expensive, properties of sea water (taking salinity into account). Se the library [Water utils](https://nivanorge.github.io/Mobius2/existingmodels/autogen/stdlib.html#water-utils) for simplified freshwater versions of these functions.
 
 The formulas for density are taken from the [Matlab seawater package](http://www.marine.csiro.au/~morgan/seawater).
 
@@ -190,15 +190,14 @@ The implementation is influenced by the one in [SELMA](https://github.com/fabm-m
 	
 	o2_saturation : function (T : [deg_c], S : []) {
 		# Formula from Weiss 1970 (also in Selma).
-		T_k := (T -> [K]) => [], # 
-		exp(
-			- 135.90205
+		T_k := (T -> [K]) => [],
+		logsat := - 135.90205
 			+ 1.575701e5  / T_k
 			- 6.642308e7  / T_k^2
 			+ 1.243800e10 / T_k^3
 			- 8.621949e11 / T_k^4
-			- S*(0.017674 - 10.754/T_k + 2140.7/T_k^2)
-		) => [m mol, m-3]
+			- S*(0.017674 - 10.754/T_k + 2140.7/T_k^2),
+		exp(logsat) => [m mol, m-3]
 	}
 
 	o2_piston_velocity : function(wind : [m, s-1], temp : [deg_c]) {

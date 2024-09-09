@@ -3,10 +3,16 @@
 	*** High pri ***
 	
 	
-		There is a pretty bad order-of-module load error in nivafjord_lake. The model can be wrong or not load if airsea_fpv (or airsea) is loaded in the outer and not the inner model!!!!!
-			The energy loss in the simplytox version seems unrelated. What causes it to happen here and not in the other version though?? Seems unrelated to the river too.
-	
-	
+		There is a pretty bad order-of-module-load error in nivafjord_lake. The model compilation crashes if airsea_fpv if is loaded in the outer and not the inner model!!!!!
+			It doesn't detect index set dependencies correctly! Sort error? Should still have been detected earlier.
+			It doesn't know that surf.ced needs to index over basin_idx even though it looks up stab, which again depends on top_water.temp.
+			But it depends on when the module was loaded, which it should not at all!
+			
+			
+		Need some form of way to write parameter checks at the start.
+			- Landscape units sum to 1
+			- NIVAFjord areas are decreasing with depth (causes errors all the time when two layers have the same area!)
+			- etc.
 
 		Add forums on github page? (github Discussions)
 		
@@ -20,7 +26,12 @@
 			Maybe factor out common phyto module for EasyChem and FjordChem.
 			Also for O2 (found a difficulty with that earlier, but maybe we could resolve it?)
 			
-			NIVAFjord!
+			NIVAFjord
+				
+				Go to the simpler version from MyLake of parametrizing vertical mixing
+					Mathematically the same, just removes unnecessary parameters
+					Allows us to compare with MyLake setups.
+					See guide chapter 07
 				
 				Finish biochemistry.
 					Do we need separate NH4? Do we need Si?

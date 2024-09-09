@@ -13,7 +13,7 @@ Since the modules can be dynamically loaded with different arguments, this docum
 
 See the note on [notation](autogen.html#notation).
 
-The file was generated at 2024-08-22 11:08:05.
+The file was generated at 2024-09-09 12:02:42.
 
 ---
 
@@ -96,6 +96,7 @@ Authors: Magnus D. Norling
 | Sea level | **h** | property |
 | Area | **area** | property |
 | Shortwave radiation | **sw** | property |
+|  | **ice_ind** | loc |
 | Fjord vertical | **vert** | connection |
 | Shortwave vertical | **sw_vert** | connection |
 
@@ -112,6 +113,7 @@ Authors: Magnus D. Norling
 | Diminishing rate of additional mixing energy | **hsfact** | m |  |
 | **Layer specific mixing** | | | Distributes like: `layer` |
 | Mixing factor reference | **K0** | m² s⁻¹ | Mixing factor when the B-V frequency is equal to the reference |
+| Mixing factor reference under ice | **K0ice** | m² s⁻¹ |  |
 | **Initial layer physical** | | | Distributes like: `layer` |
 | Initial layer temperature | **init_t** | °C |  |
 | Initial layer salinity | **init_s** |  |  |
@@ -351,7 +353,7 @@ Unit: J
 Value:
 
 $$
-\mathrm{A}\lbrack\mathrm{vert}.\mathrm{top}\rbrack\cdot \sqrt{\frac{\mathrm{stress}^{3}}{\mathrm{layer}.\mathrm{water}.\mathrm{rho}\lbrack\mathrm{vert}.\mathrm{top}\rbrack}}\cdot \mathrm{time}.\mathrm{step\_length\_in\_seconds}
+\;\text{not}\;\mathrm{ice\_ind}\cdot \mathrm{A}\lbrack\mathrm{vert}.\mathrm{top}\rbrack\cdot \sqrt{\frac{\mathrm{stress}^{3}}{\mathrm{layer}.\mathrm{water}.\mathrm{rho}\lbrack\mathrm{vert}.\mathrm{top}\rbrack}}\cdot \mathrm{time}.\mathrm{step\_length\_in\_seconds}
 $$
 
 #### **Sum V above**
@@ -423,7 +425,7 @@ Unit: m s⁻¹
 Value:
 
 $$
-\mathrm{dz\_} = 0.5\cdot \left(\mathrm{dz}+\mathrm{dz}\lbrack\mathrm{vert}.\mathrm{below}\rbrack\right) \\ \href{stdlib.html#basic}{\mathrm{safe\_divide}}\left(\mathrm{K0},\, \mathrm{dz\_}\cdot \left(\frac{\mathrm{Nfreq}}{\mathrm{N0}}\right)^{\mathrm{alpha}}\right)
+\mathrm{K} = \begin{cases}\mathrm{K0ice} & \text{if}\;\mathrm{ice\_ind} \\ \mathrm{K0} & \text{otherwise}\end{cases} \\ \mathrm{dz\_} = 0.5\cdot \left(\mathrm{dz}+\mathrm{dz}\lbrack\mathrm{vert}.\mathrm{below}\rbrack\right) \\ \href{stdlib.html#basic}{\mathrm{safe\_divide}}\left(\mathrm{K},\, \mathrm{dz\_}\cdot \left(\frac{\mathrm{Nfreq}}{\mathrm{N0}}\right)^{\mathrm{alpha}}\right)
 $$
 
 #### **Additional mixing**

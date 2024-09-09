@@ -75,7 +75,7 @@ Authors: Magnus D. Norling
 
 	par_group("Mixing parameters", basin) {	
 		N0     : par_real("Brunt-Väisälä frequency reference", [s-1], 0.8e-2)
-		Nmin   : par_real("Minimum B-V frequency", [s-1], 1e-4, 1e-10, 0.1)
+		Nmin   : par_real("Minimum B-V frequency", [s-1], 0.7e-2, 1e-10, 0.1)
 		alpha  : par_real("Mixing non-linear coefficient", [], 1.4)
 		
 		# TODO: Find correct defaults:
