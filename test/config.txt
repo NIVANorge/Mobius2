@@ -1,3 +1,0 @@
-
-config("Mobius2 base path", "C:/Data/Mobius2/")
-config("Just store all the series", true)

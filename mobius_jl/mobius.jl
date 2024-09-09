@@ -189,6 +189,7 @@ end
 
 function copy_str(str::Cstring)::String
 	# This is super weird, there should be an inbuilt function for converting Cstring->String, but I can't find it.
+	# It is a bit hacky that we hijack the internal memory of the String and write to it, but it works I guess.
 	len = @ccall strlen(str::Cstring)::Csize_t
 	result = " "^len
 	@ccall memcpy(Base.unsafe_convert(Cstring, result)::Cstring, str::Cstring, len::Csize_t)::Ptr{Cvoid}
@@ -200,7 +201,9 @@ function get_dates(var_ref::Var_Ref)::Vector{DateTime}
 	start_d = " "^32
 	ccall(get_start_date_h, Cstring, (Ptr{Cvoid}, Cint, Cstring),
 		var_ref.data, var_ref.var_id.type, start_d)
+		
 	#TODO: We have to detect if the string contains timestamp or not
+	
 	start_d_str = first(start_d, 10)
 	start_date = DateTime(Date(start_d_str))
 	
@@ -219,8 +222,11 @@ end
 
 function make_index(index::Any)::Mobius_Index_Value
 	if typeof(index) == String
-		# NOTE: The unsafe_convert is safe since the value only needs to stay in memory until the end of this
-		# function call
+		# NOTE: The unsafe_convert is actually in this case safe.
+		# The value only needs to stay in memory until the end of the
+		# scope that calls make_indexes, and the String will have been
+		# constructed in a higher scope than that. Just don't export
+		# make_indexes for use outside this module, and it will be fine.
 		return Mobius_Index_Value(Base.unsafe_convert(Cstring, index), -1)
 	elseif isinteger(index) 
 		return Mobius_Index_Value(C_NULL, index)
