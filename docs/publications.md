@@ -16,9 +16,11 @@ TBA
 
 ### Main paper
 
-Norling, M.D., Jackson-Blake, L.A., Calidonio, J.-L.G., and Sample, J.E.: *Rapid development of fast and flexible environmental models: the Mobius framework v1.0*, Geosci. Model Dev., 14, 1885–1897, [https://doi.org/10.5194/gmd-14-1885-2021](https://doi.org/10.5194/gmd-14-1885-2021), 2021.
+Norling, M.D., Jackson-Blake, L.A., Calidonio, J.-L.G., and Sample, J.E.: *Rapid development of fast and flexible environmental models: the Mobius framework v1.0*, Geosci. Model Dev., 14, 1885–1897, [https://doi.org/10.5194/gmd-14-1885-2021](https://doi.org/10.5194/gmd-14-1885-2021), 2021
 
 ### Other research papers
+
+De Wit, H., Clayer, F., Kaste, Ø., Norling, M.D. *From anthropogenic toward natural acidification: Effects of future deposition and climate on recovery in a humic catchment in Norway*, Ecological Research, [https://doi.org/10.1111/1440-1703.12524](https://doi.org/10.1111/1440-1703.12524), 2024
 
 Norling, M.D., Kaste, Ø., Wright, R.F. *A biogeochemical model of acidification: MAGIC is alive and well*, Ecological Research, [https://doi.org/10.1111/1440-1703.12487](https://doi.org/10.1111/1440-1703.12487), 2024
 
@@ -34,4 +36,4 @@ Norling, M. D., Clayer, F., Gundersen, C. B.: *Levels of nitramines and nitrosam
 
 Whitehead, P.G., Bussi, G., Hughes, J.M.R., Castro-Castellon, A.T., Norling, M.D., Jeffers, E.S., Rampley, C.P.N., Read, D.S., Horton, A.A.: *Modelling Microplastics in the River Thames: Sources, Sinks and Policy Implications*. Water, 13(6), 861, [https://doi.org/10.3390/w13060861](https://doi.org/10.3390/w13060861), 2021
 
-(5 more papers are under review)
+(4 more papers are under review)

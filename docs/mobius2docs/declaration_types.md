@@ -421,23 +421,23 @@ Signature:
 function(<special>) { <math-body }
 ```
 
-Functions in Mobius2 are meant to be used as simple code snippets that can be reused in many places.
+Functions in Mobius2 are meant to be used for simple computations that can be reused many times.
 
 The arguments to a function declaration declares the signature of how it can be used in a [function evaluation](math_format.html#function-evaluation). It is a comma-separated list of items, where an item is either
 - A plain `identifier`
 - Or an `identifier:unit` pair.
 This identifier does not refer to an existing entity, instead it names that function argument inside the math body. If a unit is given, that argument is required to have that unit at every evaluation site.
 
-For instance,
+For instance, the function
 
 ```python
-very_fun : function(a, b) { a*b + 3 }
+so_much_fun : function(a, b) { a*b + 3 }
 ```
 
-Can in a different math body be evaluated using the syntax
+can in a different math body be evaluated using the syntax
 
 ```python
-very_fun(20, 10)   # Evaluates to 20*10 + 3 = 203
+so_much_fun(20, 10)   # Evaluates to 20*10 + 3 = 203
 ```
 
 If the declaration is
@@ -446,11 +446,11 @@ If the declaration is
 even_more_fun : function(a : [k m], b : []) { ... }
 ```
 
-the first argument must have unit `[k m]` and the second be dimensionless wherever the function is evaluated.
+the first argument must have unit `[k m]` and the second be dimensionless at every evaluation of the function.
 
-Declared functions are always "inlined" at every evaluation site, meaning a separate copy of the function body is resolved and pasted in at that site. This means that you can't have recursive functions (functions that call themselves), but that may be implemented separately later.
+Declared functions are always "inlined" at every evaluation site, meaning a separate copy of the function body is resolved and pasted in at that site. This means that you can't have recursive functions (functions that call themselves or call other functions that call them back). Recursion may be implemented separately later if it is needed.
 
-The body of a `function` is limited in that it can not refer to parameters or state variables directly, instead you must pass their values in as arguments. You can however refer to constants.
+The body of a `function` is limited in that it can't refer to parameters or state variables directly, instead you must pass such values in as arguments. You can however refer to constants.
 
 ## var
 
@@ -584,11 +584,11 @@ This works the same way as a `@no_store` for a [`var`](#var).
 
 ### `@specific`
 
-This is used if the source or target has a specific restriction. It will be documented separately.
+This is used if the source or target has a `specific` restriction. It will be documented separately.
 
 ### `@bidirectional`
 
-It is recommended to put `@bidirectional` on fluxes if you allow it to go in both directions and it can carry dissolved quantities. A flux goes in the opposite direction when its value is negative. In that case, it should be the concentrations of dissolved quantities in the target instead of the source that determines the transport fluxes of these quantities.
+It is recommended to put `@bidirectional` on a flux if you allow it to go in both directions and it can carry dissolved quantities. A flux goes in the opposite direction when its value is negative. In that case, transport fluxes should be determined by the concentrations of dissolved quantities in the target instead of the source, and the framework will only check for that if you specified `@bidirectional`.
 
 The only reason not to put `@bidirectional` on every flux is that it could make transport fluxes a little slower to compute since they have to check the direction of the flux each time.
 
