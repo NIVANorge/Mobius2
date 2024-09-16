@@ -85,6 +85,8 @@ register_state_variable(Model_Application *app, Entity_Id decl_id, bool is_serie
 		id_type = Var_Id::Type::series;
 	else if(!store_series)
 		id_type = Var_Id::Type::temp_var;
+	else if(decl_id.reg_type == Reg_Type::assert)
+		id_type = Var_Id::Type::assertion;
 	
 	Var_Id var_id = app->vars.register_var<type>(loc, name, id_type);
 	auto var = app->vars[var_id];
@@ -95,6 +97,8 @@ register_state_variable(Model_Application *app, Entity_Id decl_id, bool is_serie
 	var->store_series  = store_series;
 
 	if(is_valid(decl_id)) {
+		// This doesn't really need to be done here? It could be moved to the call site.
+		
 		auto var2 = as<State_Var::Type::declared>(var);
 		var2->decl_id = decl_id;
 		
@@ -116,6 +120,9 @@ register_state_variable(Model_Application *app, Entity_Id decl_id, bool is_serie
 			
 			if(is_valid(flux->unit))
 				var->unit = model->units[flux->unit]->data;
+		} else if (decl_id.reg_type == Reg_Type::assert) {
+			auto assertion = model->asserts[decl_id];
+			var->loc1 = assertion->loc;
 		} else
 			fatal_error(Mobius_Error::internal, "Unhandled type in register_state_variable().");
 	}
@@ -843,7 +850,7 @@ prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
 			state_var->allowed_index_sets = get_allowed_index_sets(app, state_var->loc1);
 			
 			if(var->clear_nan) {
-				// TODO: We should check this one for conflicts between overlapping declarations too.
+				// TODO: We should check this one for conflicts between overlapping declarations also.
 				state_var->set_flag(State_Var::clear_series_to_nan);
 			}
 		}
@@ -983,9 +990,20 @@ prelim_compose(Model_Application *app, std::vector<std::string> &input_names) {
 			
 			create_conc_var(app, var_id, dissolved_in_id, var_decl->additional_conc_unit, var_name, &varname[0]);
 			
-			// TODO: Not sure if we should do this:
+			// Note: This hides the main generated conc so that only the user-specified one is stored out.
 			app->vars[gen_conc_id]->store_series = false;
 		}
+	}
+	
+	for(Entity_Id id : model->asserts) {
+		auto assertion = model->asserts[id];
+		
+		auto var_id = register_state_variable<State_Var::Type::declared>(app, id, false, assertion->name);
+		auto var = as<State_Var::Type::declared>(app->vars[var_id]);
+		
+		check_location(app, assertion->source_loc, var->loc1);
+		
+		var->allowed_index_sets = get_allowed_index_sets(app, var->loc1);
 	}
 }
 
@@ -1442,6 +1460,36 @@ process_state_var_code(Model_Application *app, Var_Id var_id, Code_Special_Looku
 }
 
 void
+process_assert_code(Model_Application *app, Var_Id var_id, Code_Special_Lookups *specials) {
+	
+	auto model = app->model;
+	
+	auto var = as<State_Var::Type::declared>(app->vars[var_id]);
+	auto assertion = model->asserts[var->decl_id];
+	
+	auto code_scope = model->get_scope(assertion->scope_id);
+	
+	Standardized_Unit dimensionless;
+	Function_Resolve_Data res_data = { app, code_scope, var->loc1, &app->baked_parameters, dimensionless };
+	res_data.allow_last = false;
+	res_data.allow_in_flux = false;
+	
+	auto res = resolve_function_tree(assertion->check, &res_data);
+	// For implementation reasons it is easier to just use ints here. We also negate it because it is easier to check if an assert triggered that way.
+	auto fun = make_cast(make_unary('!', res.fun), Value_Type::integer);
+	
+	auto from_compartment = var->loc1.first();
+	find_identifier_flags(app, fun, specials, var_id, from_compartment);
+	
+	if(!match_exact(&res.unit, &res_data.expected_unit)) {
+		assertion->check->source_loc.print_error_header();
+		fatal_error("The unit of the result of an 'assert' must be dimensionless.");
+	}
+	
+	var->function_tree = owns_code(fun);
+}
+
+void
 process_external_computation_code(Model_Application *app, Var_Id var_id, bool initial) {
 	
 	auto model = app->model;
@@ -1552,8 +1600,12 @@ Model_Application::compose_and_resolve() {
 		process_state_var_code(this, var_id, &specials);
 	
 	// NOTE: properties that are overridden as series should still have the function trees processed for correctness.
+	// The keep_code argument is set to false, so that it doesn't store the result of the processed code.
 	for(auto var_id : vars.all_series())
 		process_state_var_code(this, var_id, nullptr, false);
+	
+	for(auto var_id : vars.all_asserts())
+		process_assert_code(this, var_id, &specials);
 	
 	for(auto var_id : vars.all_state_vars()) {
 		auto var = vars[var_id];

@@ -86,13 +86,14 @@ prelim_compose(Model_Application *app, std::vector<std::string> &input_names);
 
 Model_Application::Model_Application(Mobius_Model *model) :
 	model(model), parameter_structure(this), series_structure(this), result_structure(this), temp_result_structure(this), connection_structure(this),
-	additional_series_structure(this), index_counts_structure(this), data_set(nullptr), data(this), llvm_data(nullptr), index_data(model) {
+	additional_series_structure(this), assert_structure(this), index_counts_structure(this), data_set(nullptr), data(this), llvm_data(nullptr), index_data(model) {
 	
 	
 	// NOTE: This is only because of how we implement Index_Set_Tuple. That could easily be amended if necessary.
 	if(model->index_sets.count() > 64)
 		fatal_error(Mobius_Error::internal, "There is an implementation restriction so that you can't currently have more than 64 index_sets in the same model.");
 	
+	// The default time step if one is not provided by the user is 1 day.
 	time_step_size.unit       = Time_Step_Size::second;
 	time_step_size.multiplier = 86400;
 	time_step_unit.declared_form.push_back({0, 1, Compound_Unit::day});
@@ -1185,70 +1186,6 @@ make_connection_component_indexing_structure(Model_Application *app, Storage_Str
 	}
 	
 	components_structure->set_up(std::move(structure));
-}
-
-inline size_t
-round_up(int align, size_t size) {
-	int rem = size % align;
-	if(rem == 0) return size;
-	return size + (align - rem);
-}
-
-template<typename Val_T, typename Handle_T> void 
-Data_Storage<Val_T, Handle_T>::allocate(s64 time_steps, Date_Time start_date) {
-	if(!structure->has_been_set_up)
-		fatal_error(Mobius_Error::internal, "Tried to allocate data before structure was set up.");
-	this->start_date = start_date;
-	if(this->time_steps != time_steps || !is_owning) {
-		free_data();
-		this->time_steps = time_steps;
-		size_t sz = alloc_size();
-		if(sz > 0) {
-			data = (Val_T *) malloc(sz);
-			//auto sz2 = round_up(data_alignment, sz);
-			//data = (Val_T *) _aligned_malloc(sz2, data_alignment);  // should be replaced with std::aligned_alloc(data_alignment, sz2) when that is available.
-			if(!data)
-				fatal_error(Mobius_Error::internal, "Failed to allocated data (", sz, " bytes).");
-		} else
-			data = nullptr;
-		is_owning = true;
-	}
-	size_t sz = alloc_size();
-	memset(data, 0, sz);
-}
-
-template<typename Val_T, typename Handle_T> void 
-Data_Storage<Val_T, Handle_T>::free_data() {
-	//if(data && is_owning) _aligned_free(data);
-	if(data && is_owning) free(data); 
-	data = nullptr;
-	time_steps = 0;
-	is_owning = false;
-}
-
-template<typename Val_T, typename Handle_T> void
-Data_Storage<Val_T, Handle_T>::refer_to(Data_Storage<Val_T, Handle_T> *source) {
-	if(structure != source->structure)
-		fatal_error(Mobius_Error::internal, "Tried to make a data storage refer to another one that belongs to a different storage structure.");
-	free_data();
-	data = source->data;
-	time_steps = source->time_steps;
-	start_date = source->start_date;
-	is_owning = false;
-}
-
-template<typename Val_T, typename Handle_T> void
-Data_Storage<Val_T, Handle_T>::copy_from(Data_Storage<Val_T, Handle_T> *source, bool size_only) {
-	if(structure != source->structure)
-		fatal_error(Mobius_Error::internal, "Tried to make a data storage copy from another one that belongs to a different storage structure.");
-	free_data();
-	if(source->time_steps > 0) {
-		allocate(source->time_steps, source->start_date);
-		if(!size_only)
-			memcpy(data, source->data, alloc_size());
-	} else {
-		start_date = source->start_date;
-	}
 }
 
 Date_Time

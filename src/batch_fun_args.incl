@@ -7,6 +7,7 @@ BATCH_FUN_ARG(parameters, double_ptr_ty, double *)   // Since there is no union 
 BATCH_FUN_ARG(series, double_ptr_ty, double *)
 BATCH_FUN_ARG(state_vars, double_ptr_ty, double *)
 BATCH_FUN_ARG(temp_vars, double_ptr_ty, double *)
+BATCH_FUN_ARG(asserts, int_64_ptr_ty, s64 *)
 BATCH_FUN_ARG(solver_workspace, double_ptr_ty, double *)
 BATCH_FUN_ARG(date_time, dt_ptr_ty, Expanded_Date_Time *)
 BATCH_FUN_ARG_LAST(fractional_step, double_ty, double)

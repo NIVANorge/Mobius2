@@ -148,6 +148,7 @@ create_llvm_module() {
 	auto int_64_ty     = llvm::Type::getInt64Ty(*data->context);
 	auto int_32_ty     = llvm::Type::getInt32Ty(*data->context);
 	auto double_ptr_ty = llvm::PointerType::getUnqual(llvm::Type::getDoubleTy(*data->context));
+	auto int_64_ptr_ty = llvm::PointerType::getUnqual(int_64_ty);
 	
 	#define TIME_VALUE(name, nbits) int_##nbits##_ty,
 	std::vector<llvm::Type *> dt_member_types = {
@@ -318,6 +319,16 @@ enum argindex {
 	#include "batch_fun_args.incl"
 };
 #undef BATCH_FUN_ARG
+
+argindex
+get_arg_index(Var_Id::Type type) {
+	if(type == Var_Id::Type::state_var) return state_vars_idx;
+	if(type == Var_Id::Type::temp_var) return temp_vars_idx;
+	if(type == Var_Id::Type::series) return series_idx;
+	if(type == Var_Id::Type::assertion) return asserts_idx;
+	fatal_error(Mobius_Error::internal, "Unexpected Var_Id::Type in get_arg_idx");
+	return (argindex)-1;
+}
 
 /*
 llvm::Value *get_zero_value(LLVM_Module_Data *data, Value_Type type) {
@@ -656,7 +667,7 @@ build_external_computation_ir(Math_Expr_FT *expr, Scope_Data *locals, std::vecto
 		llvm::Value *valptr;
 		auto &ident = external->arguments[idx];
 		if(ident.is_computed_series()) {
-			int argidx = ident.var_id.type == Var_Id::Type::state_var ? state_vars_idx : temp_vars_idx;
+			int argidx = get_arg_index(ident.var_id.type);
 			valptr = data->builder->CreateGEP(double_ty, args[argidx], offset, "state_var_ptr");
 		} else if(ident.variable_type == Variable_Type::parameter)
 			valptr = data->builder->CreateGEP(double_ty, args[parameters_idx], offset, "par_ptr");
@@ -787,15 +798,7 @@ build_expression_ir(Math_Expr_FT *expr, Scope_Data *locals, std::vector<llvm::Va
 				}
 			} else if(ident->variable_type == Variable_Type::series) {
 				
-				int argidx;
-				if(ident->var_id.type == Var_Id::Type::state_var)
-					argidx = state_vars_idx;
-				else if(ident->var_id.type == Var_Id::Type::temp_var)
-					argidx = temp_vars_idx;
-				else if(ident->var_id.type == Var_Id::Type::series)
-					argidx = series_idx;
-				else
-					fatal_error(Mobius_Error::internal, "Unexpected variable type for identifier.");
+				int argidx = get_arg_index(ident->var_id.type);
 				
 				result = data->builder->CreateGEP(double_ty, args[argidx], offset, "var_ptr");
 				result = data->builder->CreateLoad(double_ty, result, "var");
@@ -916,12 +919,18 @@ build_expression_ir(Math_Expr_FT *expr, Scope_Data *locals, std::vector<llvm::Va
 		
 		case Math_Expr_Type::state_var_assignment : {
 			auto assign = static_cast<Assignment_FT *>(expr);
-			int argidx = assign->var_id.type == Var_Id::Type::state_var ? state_vars_idx : temp_vars_idx;
+			int argidx = get_arg_index(assign->var_id.type);
 			
-			auto double_ty = llvm::Type::getDoubleTy(*data->context);
+			// TODO: Could instead determine it dynamically based on the type of expr->exprs[1] (it should already have been cast to the correct type).
+			llvm::Type *var_ty = nullptr;
+			if(assign->var_id.type == Var_Id::Type::assertion)
+				var_ty = llvm::Type::getInt64Ty(*data->context);
+			else
+				var_ty = llvm::Type::getDoubleTy(*data->context);
+			
 			llvm::Value *offset = build_expression_ir(expr->exprs[0], locals, args, data);
 			llvm::Value *value  = build_expression_ir(expr->exprs[1], locals, args, data);
-			auto ptr = data->builder->CreateGEP(double_ty, args[argidx], offset, "var_ptr");
+			auto ptr = data->builder->CreateGEP(var_ty, args[argidx], offset, "var_ptr");
 			data->builder->CreateStore(value, ptr);
 			return nullptr;
 		} break;

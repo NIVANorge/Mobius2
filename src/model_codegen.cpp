@@ -986,7 +986,7 @@ generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instru
 				
 			Math_Expr_FT *result_code = nullptr;
 			
-			if(instr.type == Model_Instruction::Type::compute_state_var) {
+			if(instr.type == Model_Instruction::Type::compute_state_var || instr.type == Model_Instruction::Type::compute_assertion) {
 				/*auto structure = app->get_storage_structure(instr.var_id.type);
 				if(structure.handle_is_in_array.find(instr.var_id) == structure.handle_is_in_array.end()) {
 					begin_error(Mobius_Error::internal);
@@ -1067,6 +1067,10 @@ generate_run_code(Model_Application *app, Batch *batch, std::vector<Model_Instru
 					generate_external_computation_code(app, external, indexes);
 					result_code = external;
 				}
+			} else if (instr.type == Model_Instruction::Type::compute_assertion) {
+				
+				//TODO!!!
+				result_code = make_no_op();
 				
 			} else {
 				fatal_error(Mobius_Error::internal, "Unimplemented instruction type in code generation.");

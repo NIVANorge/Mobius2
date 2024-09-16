@@ -90,7 +90,7 @@ module("NIVAFjord chemistry", version(0, 0, 5),
 	chem_par : preamble
 ) {
 	#TODO: Would be nice to unify easychem and fjordchem a bit more, maybe some shared code.
-	# Esp. for surface O2 exchange
+	# Esp. for surface O2 exchange and maybe microbes and phyto (into separate modules).
 	
 	par_group("Initial chem", layer) {
 		init_O2  : par_real("Initial O₂ saturation", [], 1, 0, 1)

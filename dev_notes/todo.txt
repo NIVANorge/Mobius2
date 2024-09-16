@@ -3,16 +3,21 @@
 	*** High pri ***
 	
 	
-		There is a pretty bad order-of-module-load error in nivafjord_lake. The model compilation crashes if airsea_fpv if is loaded in the outer and not the inner model!!!!!
-			It doesn't detect index set dependencies correctly! Sort error? Should still have been detected earlier.
-			It doesn't know that surf.ced needs to index over basin_idx even though it looks up stab, which again depends on top_water.temp.
-			But it depends on when the module was loaded, which it should not at all!
-			
-			
 		Need some form of way to write parameter checks at the start.
 			- Landscape units sum to 1
 			- NIVAFjord areas are decreasing with depth (causes errors all the time when two layers have the same area!)
 			- etc.
+			Something like:
+				assert("Landscape units must sum to 1 in each subcatchment", river) { # The latter 'river' being the component from which point of view we are doing the check
+					abs(aggregate(lu_prop) - 1) < 1e-6
+				}
+				assert("Layer areas must be strictly decreasing with depth", layer) {
+					A > A[vert.below] + 0.1[m]
+				}
+			A bit of work to implement since it requires a whole new batch creation. Maybe a new type of batch function (or we could maybe reuse the old one actually).
+				Could instead bake it into the 'initial' batch (and then allow non-parameter lookups too).
+				Need separate storage structure and data for assert, hence one more pointer passed to batch_fun, but that should be fine.
+				Then after initial step, just check the assertion data.
 
 		Add forums on github page? (github Discussions)
 		

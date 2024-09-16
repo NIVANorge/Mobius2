@@ -37,11 +37,13 @@ struct Var_Registry {
 	std::vector<std::unique_ptr<State_Var>>                     state_vars;
 	std::vector<std::unique_ptr<State_Var>>                     series;
 	std::vector<std::unique_ptr<State_Var>>                     additional_series;
+	std::vector<std::unique_ptr<State_Var>>                     asserts;
 	
 	std::vector<std::unique_ptr<State_Var>> &get_vec(Var_Id::Type type) {
 		if(type == Var_Id::Type::state_var || type == Var_Id::Type::temp_var) return state_vars;
 		if(type == Var_Id::Type::series)            return series;
 		if(type == Var_Id::Type::additional_series) return additional_series;
+		if(type == Var_Id::Type::assertion)         return asserts;
 		fatal_error(Mobius_Error::internal, "Unhandled Var_Id::Type.");
 	}
 	
@@ -93,6 +95,7 @@ struct Var_Registry {
 			location_to_id[loc] = id;
 		
 		//if(id_type != Var_Id::Type::state_var && id_type != Var_Id::Type::temp_var)
+		if(id_type != Var_Id::Type::assertion)
 			name_to_id[name].insert(id);
 		
 		return id;
@@ -151,6 +154,7 @@ struct Var_Registry {
 	Var_Range all_fluxes()            { return Var_Range(&state_vars, true); }
 	Var_Range all_series()            { return Var_Range(&series); }
 	Var_Range all_additional_series() { return Var_Range(&additional_series); }
+	Var_Range all_asserts()           { return Var_Range(&asserts); }
 };
 
 struct Connection_T {
@@ -421,6 +425,7 @@ Model_Application {
 	Storage_Structure<Var_Id>                                temp_result_structure;
 	Storage_Structure<Var_Id>                                series_structure;
 	Storage_Structure<Var_Id>                                additional_series_structure;
+	Storage_Structure<Var_Id>                                assert_structure;
 	Storage_Structure<Entity_Id>                             index_counts_structure;
 	
 	Storage_Structure<Var_Id> &get_storage_structure(Var_Id::Type type) {
@@ -428,6 +433,7 @@ Model_Application {
 		if(type == Var_Id::Type::temp_var)          return temp_result_structure;
 		if(type == Var_Id::Type::series)            return series_structure;
 		if(type == Var_Id::Type::additional_series) return additional_series_structure;
+		if(type == Var_Id::Type::assertion)         return assert_structure;
 		fatal_error(Mobius_Error::internal, "Unrecognized Var_Id::Type.");
 	}
 	
@@ -624,6 +630,69 @@ Storage_Structure<Handle_T>::for_each(Handle_T handle, const std::function<void(
 	});
 }
 
+inline size_t
+round_up(int align, size_t size) {
+	int rem = size % align;
+	if(rem == 0) return size;
+	return size + (align - rem);
+}
+
+template<typename Val_T, typename Handle_T> void 
+Data_Storage<Val_T, Handle_T>::allocate(s64 time_steps, Date_Time start_date) {
+	if(!structure->has_been_set_up)
+		fatal_error(Mobius_Error::internal, "Tried to allocate data before structure was set up.");
+	this->start_date = start_date;
+	if(this->time_steps != time_steps || !is_owning) {
+		free_data();
+		this->time_steps = time_steps;
+		size_t sz = alloc_size();
+		if(sz > 0) {
+			data = (Val_T *) malloc(sz);
+			//auto sz2 = round_up(data_alignment, sz);
+			//data = (Val_T *) _aligned_malloc(sz2, data_alignment);  // should be replaced with std::aligned_alloc(data_alignment, sz2) when that is available.
+			if(!data)
+				fatal_error(Mobius_Error::internal, "Failed to allocated data (", sz, " bytes).");
+		} else
+			data = nullptr;
+		is_owning = true;
+	}
+	size_t sz = alloc_size();
+	memset(data, 0, sz);
+}
+
+template<typename Val_T, typename Handle_T> void 
+Data_Storage<Val_T, Handle_T>::free_data() {
+	//if(data && is_owning) _aligned_free(data);
+	if(data && is_owning) free(data); 
+	data = nullptr;
+	time_steps = 0;
+	is_owning = false;
+}
+
+template<typename Val_T, typename Handle_T> void
+Data_Storage<Val_T, Handle_T>::refer_to(Data_Storage<Val_T, Handle_T> *source) {
+	if(structure != source->structure)
+		fatal_error(Mobius_Error::internal, "Tried to make a data storage refer to another one that belongs to a different storage structure.");
+	free_data();
+	data = source->data;
+	time_steps = source->time_steps;
+	start_date = source->start_date;
+	is_owning = false;
+}
+
+template<typename Val_T, typename Handle_T> void
+Data_Storage<Val_T, Handle_T>::copy_from(Data_Storage<Val_T, Handle_T> *source, bool size_only) {
+	if(structure != source->structure)
+		fatal_error(Mobius_Error::internal, "Tried to make a data storage copy from another one that belongs to a different storage structure.");
+	free_data();
+	if(source->time_steps > 0) {
+		allocate(source->time_steps, source->start_date);
+		if(!size_only)
+			memcpy(data, source->data, alloc_size());
+	} else {
+		start_date = source->start_date;
+	}
+}
 
 
 #endif // MOBIUS_MODEL_APPLICATION_H

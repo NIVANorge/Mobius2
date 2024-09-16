@@ -73,7 +73,7 @@ inline bool operator<(const Identifier_Data &a, const Identifier_Data &b) {
 		return a.variable_type < b.variable_type;
 	if(a.variable_type == Variable_Type::parameter) {
 		if(a.par_id != b.par_id)
-			return a.par_id.id < b.par_id.id;
+			return a.par_id.id < b.par_id.id; // The par_id.type will be parameter for both.
 		if(a.flags != b.flags)
 			return a.flags < b.flags;
 		return a.restriction < b.restriction;

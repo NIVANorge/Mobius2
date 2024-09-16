@@ -22,6 +22,11 @@ model("SimplyQ") {
 		lu_prop  : par_real("Land use proportions", [], 1, 0, 1)
 	}
 	
+	# NOTE: Asserts are not yet implemented. It parses it, but it doesn't run the check.
+	assert("Land use proportions must sum to 1 in each subcatchment", river.water) {
+		abs(aggregate(lu_prop) - 1) < 1e-8
+	}
+	
 	par_group("Catchment data", river) {
 		a_catch  : par_real("Catchment area", [k m 2], 51.7, 1e-6, 7e6)
 	}
@@ -32,20 +37,16 @@ model("SimplyQ") {
 	
 	###### Import modules
 	load("modules/pet.txt",       module("Degree-day PET", air, soil, pet, temp))
-	#load("modules/pet.txt",      module("Penman-Monteith PET"))
-	
 	load("modules/hbv_snow.txt",  module("HBVSnow", air, snow_box, snow, water, temp, precip, loc(soil.water)))
-	
 	load("modules/simplyq.txt",
 		module("SimplyQ land", soil, gw, river, water, flow, pet, a_catch, loc(river.water), loc(river.water)),
 		module("SimplyQ river", river, water, flow, loc(downstream))
-		#module("SimplyQ river trapezoid", river, water, flow, loc(downstream))
 	)	
 	
 	aggregation_weight(soil, gw)    { lu_prop }
 	aggregation_weight(soil, river) { lu_prop }
 	
-	# Convert mm to m^3. The framework figures out how to use a_catch to do that.
+	# Convert mm to m^3. The framework figures out how to use a_catch to do that based on its unit.
 	unit_conversion(soil.water, river.water) { a_catch }
 	unit_conversion(gw.water, river.water)   { a_catch }
 	

@@ -55,6 +55,23 @@ check_for_nans(Model_Data *data, Model_Run_State *run_state) {
 	return true;
 }
 
+void
+assert_was_triggered(Model_Application *app, Data_Storage<s64, Var_Id> *assert_data) {
+	begin_error(Mobius_Error::model_building); // Better error type for this?
+	error_print("The following model assertions were not satisfied:\n");
+	for(auto var_id : app->vars.all_asserts()) {
+		app->assert_structure.for_each(var_id, [&](Indexes &indexes, s64 offset) {
+			if(assert_data->data[offset]) {
+				error_print("\"", app->vars[var_id]->name, "\"\n");
+				for(auto idx : indexes.indexes) {
+					error_print("\t\"", app->model->index_sets[idx.index_set]->name, "\" : ", app->index_data.get_possibly_quoted_index_name(indexes, idx, true), "\n");
+				}
+			}
+		});
+	}
+	mobius_error_exit();
+}
+
 bool
 run_model(Model_Data *data, s64 ms_timeout, bool check_for_nan, run_callback_type callback, void *callback_data) {
 	
@@ -88,6 +105,11 @@ run_model(Model_Data *data, s64 ms_timeout, bool check_for_nan, run_callback_typ
 	data->results.allocate(time_steps, start_date);
 	data->temp_results.allocate();
 	
+	// Could have this in the Model_Data too, but it is a bit unnecessary?
+	Data_Storage<s64, Var_Id> assert_data(&app->assert_structure);
+	assert_data.allocate();
+	
+	
 	s64 var_count    = app->result_structure.total_count;
 	s64 series_count = app->series_structure.total_count;
 	
@@ -97,6 +119,7 @@ run_model(Model_Data *data, s64 ms_timeout, bool check_for_nan, run_callback_typ
 	run_state.state_vars       = data->results.data;
 	run_state.temp_vars        = data->temp_results.data;
 	run_state.series           = data->series.data + series_count*input_offset;
+	run_state.asserts          = assert_data.data;
 	run_state.connection_info  = data->connections.data;
 	run_state.index_counts     = data->index_counts.data;
 	run_state.solver_workspace = nullptr;
@@ -170,6 +193,16 @@ run_model(Model_Data *data, s64 ms_timeout, bool check_for_nan, run_callback_typ
 
 	// Initial values:
 	call_fun(BATCH_FUNCTION(app->initial_batch), &run_state);
+	
+	
+	// Check if asserts were triggered.
+	// This just checks if any were triggered at all. If they were, it jumps to a function that checks it better.
+	for(s64 idx = 0; idx < app->assert_structure.total_count; ++idx) {
+		if(assert_data.data[idx]) {
+			assert_was_triggered(app, &assert_data);
+		}
+	}
+	
 	
 	s64 callback_interval = time_steps / 10; // TODO: Make this customizable.
 	s64 prev_callback_iter = 0;

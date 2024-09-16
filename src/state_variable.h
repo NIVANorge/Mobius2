@@ -53,6 +53,7 @@ State_Var {
 	
 	bool store_series = true;
 	
+	// It is annoying to have these here, but they need to be available both for declared and generated fluxes.
 	owns_code unit_conversion_tree = nullptr;
 	owns_code specific_target = nullptr;
 	

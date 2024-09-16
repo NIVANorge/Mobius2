@@ -34,6 +34,8 @@ Model_Instruction::debug_string(Model_Application *app) const {
 		ss << "\"" << app->vars[target_id]->name << "\" += \"" << app->vars[var_id]->name << "\" * weight";
 	else if(type == Model_Instruction::Type::external_computation)
 		ss << "external_computation(" << app->vars[var_id]->name << ")";
+	else if(type == Model_Instruction::Type::compute_assertion)
+		ss << "assert(" << app->vars[var_id]->name << ")";
 	else
 		fatal_error(Mobius_Error::internal, "Unimplemented debug_string for model instruction type.");
 	
@@ -650,6 +652,25 @@ make_add_to_par_aggregate_instr(Model_Application *app, std::vector<Model_Instru
 	return add_to_aggr_id;
 }
 
+int
+make_assertion_instruction(Model_Application *app, std::vector<Model_Instruction> &instructions, Var_Id var_id) {
+	
+	auto assert_var = as<State_Var::Type::declared>(app->vars[var_id]);
+	
+	if(assert_var->decl_id.reg_type != Reg_Type::assert)
+		fatal_error(Mobius_Error::internal, "Tried to set a regular variable as an assertion variable?");
+	
+	int instr_id = instructions.size();
+	instructions.emplace_back();
+	
+	auto &instr = instructions[instr_id];
+	instr.var_id = var_id;
+	instr.code = copy(assert_var->function_tree.get());
+	instr.type = Model_Instruction::Type::compute_assertion;
+	
+	return instr_id;
+}
+
 void
 process_grid1d_connection_aggregation(Model_Application *app, std::vector<Model_Instruction> &instructions, Var_Id agg_id, Var_Id flux_id, int clear_id, bool is_first) {
 	
@@ -1223,6 +1244,14 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 	}
 	
 	if(initial) {
+		
+		for(auto var_id : app->vars.all_asserts()) {
+			int instr_id = make_assertion_instruction(app, instructions, var_id);
+			
+			auto &instr = instructions[instr_id];
+			create_initial_vars_for_lookups(app, instr.code, instructions);
+		}
+		
 		for(auto var_id : app->vars.all_state_vars()) {
 			
 			maybe_ensure_initial_vars_for_external_computation_arguments(app, var_id, instructions);
@@ -1645,14 +1674,13 @@ create_batches(Model_Application *app, std::vector<Batch> &batches_out, std::vec
 void
 add_array(
 	std::vector<Multi_Array_Structure<Var_Id>> &result_structure, 
-	std::vector<Multi_Array_Structure<Var_Id>> &temp_result_structure, 
+	std::vector<Multi_Array_Structure<Var_Id>> &temp_result_structure,
 	Batch_Array &array, 
 	std::vector<Model_Instruction> &instructions
 ) {
 	std::vector<Entity_Id> index_sets;
 	for(auto index_set : array.index_sets)
 		index_sets.push_back(index_set);
-	std::vector<Entity_Id> index_sets2 = index_sets;
 	
 	std::vector<Var_Id>    result_handles;
 	std::vector<Var_Id>    temp_result_handles;
@@ -1661,15 +1689,19 @@ add_array(
 		if(instr->type == Model_Instruction::Type::compute_state_var) {
 			if(instr->var_id.type == Var_Id::Type::state_var)
 				result_handles.push_back(instr->var_id);
-			else
+			else if(instr->var_id.type == Var_Id::Type::temp_var)
 				temp_result_handles.push_back(instr->var_id);
+			else
+				fatal_error(Mobius_Error::internal, "Unexpected var type for compute_state_var.");
 		}
 	}
 	if(!result_handles.empty()) {
-		Multi_Array_Structure<Var_Id> arr(std::move(index_sets), std::move(result_handles));
+		std::vector<Entity_Id> index_sets2 = index_sets;
+		Multi_Array_Structure<Var_Id> arr(std::move(index_sets2), std::move(result_handles));
 		result_structure.push_back(std::move(arr));
 	}
 	if(!temp_result_handles.empty()) {
+		std::vector<Entity_Id> index_sets2 = index_sets;
 		Multi_Array_Structure<Var_Id> arr(std::move(index_sets2), std::move(temp_result_handles));
 		temp_result_structure.push_back(std::move(arr));
 	}
@@ -1688,7 +1720,7 @@ set_up_result_structure(Model_Application *app, std::vector<Batch> &batches, std
 	std::vector<Multi_Array_Structure<Var_Id>> temp_result_structure;
 	for(auto &batch : batches) {
 		for(auto &array : batch.arrays)      add_array(result_structure, temp_result_structure, array, instructions);
-		for(auto &array : batch.arrays_ode)  add_array(result_structure, temp_result_structure, array, instructions); // The ODEs will never be added to temp results in reality.
+		for(auto &array : batch.arrays_ode)  add_array(result_structure, temp_result_structure, array, instructions); // The ODEs will never be added to temp results or asserts in reality, but this is easier for code reuse. A bit inefficient though.
 	}
 	
 	{
@@ -1704,6 +1736,25 @@ set_up_result_structure(Model_Application *app, std::vector<Batch> &batches, std
 	
 	app->result_structure.set_up(std::move(result_structure));
 	app->temp_result_structure.set_up(std::move(temp_result_structure));
+}
+
+void
+set_up_assert_structure(Model_Application *app, Batch &initial_batch, std::vector<Model_Instruction> &initial_instructions) {
+	std::vector<Multi_Array_Structure<Var_Id>> assert_structure;
+	for(auto &array : initial_batch.arrays) {
+		std::vector<Entity_Id> index_sets;
+		for(auto index_set : array.index_sets)
+			index_sets.push_back(index_set);
+		std::vector<Var_Id> handles;
+		for(int instr_id : array.instr_ids) {
+			auto instr = &initial_instructions[instr_id];
+			if(instr->type != Model_Instruction::Type::compute_assertion) continue;
+			handles.push_back(instr->var_id);
+		}
+		Multi_Array_Structure<Var_Id> arr(std::move(index_sets), std::move(handles));
+		assert_structure.push_back(std::move(arr));
+	}
+	app->assert_structure.set_up(std::move(assert_structure));
 }
 
 void
@@ -1887,6 +1938,7 @@ Model_Application::compile(bool store_code_strings) {
 	}
 	
 	set_up_result_structure(this, batches, instructions);
+	set_up_assert_structure(this, initial_batch, initial_instructions);
 	
 	LLVM_Constant_Data constants;
 	constants.connection_data        = data.connections.data;

@@ -30,9 +30,10 @@ Mobius_Model::registry(Reg_Type reg_type) {
 		case Reg_Type::loc :                      return &locs;
 		case Reg_Type::discrete_order :           return &discrete_orders;
 		case Reg_Type::external_computation :     return &external_computations;
+		case Reg_Type::assert :                   return &asserts;
 	}
 	
-	fatal_error(Mobius_Error::internal, "Unhandled entity type ", name(reg_type), " in registry().");
+	fatal_error(Mobius_Error::internal, "Unhandled entity type '", name(reg_type), "' in registry().");
 	return nullptr;
 }
 
@@ -85,6 +86,8 @@ register_intrinsics(Mobius_Model *model) {
 	model->constants[pi_id]->unit = dimless_id;
 	
 	auto mod_scope = &model->top_scope;
+	
+	mod_scope->import(*global); // Make global functions available in model top scope too.
 	
 	auto system_id = model->par_groups.create_internal(mod_scope, "system", "System", Decl_Type::par_group);
 	auto system = model->par_groups[system_id];
@@ -906,6 +909,25 @@ Loc_Registration::process_declaration(Catalog *catalog) {
 }
 
 void
+Assert_Registration::process_declaration(Catalog *catalog) {
+	
+	match_declaration(decl,
+	{
+		{Token_Type::quoted_string, Arg_Pattern::loc},
+	}, false, -1);
+	
+	set_serial_name(catalog, this);
+	check = static_cast<Function_Body_AST *>(decl->body)->block;
+	
+	auto scope = catalog->get_scope(scope_id);
+	auto model = static_cast<Mobius_Model *>(catalog);
+	
+	resolve_simple_loc_argument(model, scope, decl->args[1], loc);
+	
+	has_been_processed = true;
+}
+
+void
 process_load_library_declaration(Mobius_Model *model, Decl_AST *decl, Entity_Id to_scope, String_View load_decl_path);
 
 void
@@ -917,7 +939,7 @@ load_library(Mobius_Model *model, Entity_Id to_scope, String_View rel_path, Stri
 	
 	if(!lib->has_been_processed && !lib->is_being_processed) {
 		
-		// @ CATALOG_REFACTOR : This inner part could be put in Registration<Reg_Type::library>::process_declaration maybe, but it is a bit awkward due to pointer invalidation.
+		// TODO: This inner part could be put in Registration<Reg_Type::library>::process_declaration maybe, but it is a bit awkward due to pointer invalidation.
 		
 		// To not go into an infinite loop if we have a recursive load, we have to mark this and then skip future loads of it in the same recursive call.
 		lib->is_being_processed = true;
@@ -1111,6 +1133,7 @@ process_module_load(Mobius_Model *model, Token *load_name, Entity_Id template_id
 		Decl_Type::unit_of,
 		Decl_Type::function,
 		Decl_Type::constant,
+		Decl_Type::assert,
 	} : std::set<Decl_Type> {
 		// Allowed in regular modules.
 		Decl_Type::property,
@@ -1126,6 +1149,7 @@ process_module_load(Mobius_Model *model, Token *load_name, Entity_Id template_id
 		Decl_Type::var,
 		Decl_Type::discrete_order,
 		Decl_Type::external_computation,
+		Decl_Type::assert,
 	};
 	
 	for(Decl_AST *child : body->child_decls) {
@@ -1758,6 +1782,7 @@ load_model(String_View file_name, Mobius_Config *config) {
 		Decl_Type::function,
 		Decl_Type::index_set,
 		Decl_Type::solver,
+		Decl_Type::assert,
 	};
 	
 	std::vector<Decl_AST *>  special_decls;
@@ -1809,7 +1834,7 @@ load_model(String_View file_name, Mobius_Config *config) {
 		model->index_sets[id]->process_declaration(model);
 	
 	for(auto id : scope->all_ids) {
-		if(id.reg_type == Reg_Type::component || id.reg_type == Reg_Type::connection || id.reg_type == Reg_Type::par_group || id.reg_type == Reg_Type::constant || id.reg_type == Reg_Type::unit || id.reg_type == Reg_Type::function) {
+		if(id.reg_type == Reg_Type::component || id.reg_type == Reg_Type::connection || id.reg_type == Reg_Type::par_group || id.reg_type == Reg_Type::constant || id.reg_type == Reg_Type::unit || id.reg_type == Reg_Type::function || id.reg_type == Reg_Type::assert) {
 			auto entity = model->find_entity(id);
 			if(!entity->has_been_processed) // Note: happens if it was internally created.
 				entity->process_declaration(model);

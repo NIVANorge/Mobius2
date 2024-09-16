@@ -76,7 +76,7 @@ inline bool operator<(const Module_Version &a, const Module_Version &b) {
 // TODO: Could probably narrow these to s16 also (though need to reflect in mobipy and mobi_jl)
 struct Var_Id {
 	enum class Type : s32 {
-		none = -1, state_var = 0, temp_var = 1, series = 2, additional_series = 3,
+		none = -1, state_var = 0, temp_var = 1, series = 2, additional_series = 3, assertion = 4,
 	} type;
 	s32 id;
 	

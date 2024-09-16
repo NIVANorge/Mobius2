@@ -267,6 +267,15 @@ Solver_Registration : Registration_Base {
 };
 
 struct
+Assert_Registration : Registration_Base {
+	
+	Var_Location loc;
+	Math_Block_AST *check = nullptr;
+	
+	void process_declaration(Catalog *catalog);
+};
+
+struct
 Solver_Function_Registration : Registration_Base {
 	Solver_Function *solver_fun = nullptr;
 	
@@ -310,6 +319,7 @@ Mobius_Model : Catalog {
 	Registry<Solver_Function_Registration,      Reg_Type::solver_function>      solver_functions;
 	Registry<Connection_Registration,           Reg_Type::connection>           connections;
 	Registry<Loc_Registration,                  Reg_Type::loc>                  locs;
+	Registry<Assert_Registration,               Reg_Type::assert>               asserts;
 	
 	// This is the global scope that is visible everywhere, as opposed to the top_scope of the model, which is not visible inside externally declared modules or libraries.
 	Decl_Scope global_scope;

@@ -20,6 +20,7 @@ Model_Run_State {
 	double             *state_vars;
 	double             *temp_vars;
 	double             *series;
+	s64                *asserts = nullptr;
 	double             *solver_workspace = nullptr;
 	s32                *connection_info;    //NOTE: this is only used if we are in MOBIUS_EMULATE mode... For llvm we bake these in as constants
 	s32                *index_counts;       //NOTE: same as above.
@@ -53,7 +54,8 @@ call_fun(batch_function *fun, Model_Run_State *run_state, double t = 0.0) {
 		reinterpret_cast<double *>(run_state->parameters), 
 		run_state->series, 
 		run_state->state_vars, 
-		run_state->temp_vars, 
+		run_state->temp_vars,
+		run_state->asserts,
 		run_state->solver_workspace, 
 		&run_state->date_time, 
 		run_state->fractional_step

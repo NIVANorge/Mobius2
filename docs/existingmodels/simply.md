@@ -73,11 +73,11 @@ See the [mathematical description](autogen/simplycnp.html#simplyp)
 
 ## SimplyTox
 
-SimplyTox is a set of contaminant modules. They form a [Level IV multimedia fugacity model](https://en.wikipedia.org/wiki/Multimedia_fugacity_model) for soil, groundwater, river and lake. The process formulations are based on the ones for INCA-Contaminants model \[Nizzetto15\], but slightly simplified.
+SimplyTox is a set of contaminant modules. They form a [Level IV multimedia fugacity model](https://en.wikipedia.org/wiki/Multimedia_fugacity_model) for soil, groundwater, river and lake. The process formulations are based on the ones for the INCA-Contaminants model \[Nizzetto15\], but slightly simplified.
 
-Because of the fugacity approach, SimplyTox is suitable for modelling a large range of substances including [POPs](https://en.wikipedia.org/wiki/Persistent_organic_pollutant), or more water-soluble contaminants.
+Because of the fugacity approach, SimplyTox is suitable for modelling a large range of substances including [persistent organic pollutants](https://en.wikipedia.org/wiki/Persistent_organic_pollutant), or more water-soluble contaminants.
 
-In all compartments, contaminants are partitioned between a truly dissolved phase, absorption to dissolved organic carbon and to solid organic carbon. In the soil there are two solid organic carbon boxes consisting of fast-accessible and slowly-accessible carbon. In the river, there is partitioning with both suspended particulate organic carbon and with the sediment box. There is also air-water exchange both in the soil and the river surface.
+In all compartments, contaminants are partitioned between a truly dissolved phase, absorption to dissolved organic carbon and to solid organic carbon. In the soil there are two solid organic carbon boxes consisting of fast-accessible and slowly-accessible carbon. In the river, there is partitioning with both suspended particulate organic carbon and with the sediment layer. There is also air-water exchange both in the soil and the river surface.
 
 A version of the model for deep groundwater with multiple layered reservoirs is also available.
 

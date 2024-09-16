@@ -20,6 +20,7 @@ Model_Instruction {
 		add_to_parameter_aggregate,
 		add_to_connection_aggregate,
 		external_computation,
+		compute_assertion,
 	}                   type = Type::invalid;
 	
 	Var_Id              var_id     = invalid_var;
