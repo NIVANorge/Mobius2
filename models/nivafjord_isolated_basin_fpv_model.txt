@@ -10,11 +10,11 @@ It is also currently without horizontal exchange between basins, so it only work
 	# TODO: FPV cover does not dynamically affect wind mixing (not sure to how large a degree that would happen).
 	extend("nivafjord_lake_model.txt")
 
-	#fpv       : compartment("FPV", basin_idx)
+	fpv       : compartment("FPV", basin_idx)
 	
-	#load("modules/airsea_fpv.txt",
-	#	module("AirSea FPV", air, basin, fpv, ice, heat, temp, precip, wind, g_rad, pressure, rho, a_hum, lwd, sw, attn, indicator,
-	#		evap, cos_z, loc(basin.freeze_t), loc(basin.area), loc(layer.water[vert.top]), loc(layer.water.heat[sw_vert.top])))
+	load("modules/airsea_fpv.txt",
+		module("AirSea FPV", air, basin, fpv, ice, heat, temp, precip, wind, g_rad, pressure, rho, a_hum, lwd, sw, attn, indicator,
+			evap, cos_z, loc(basin.freeze_t), loc(basin.area), loc(layer.water[vert.top]), loc(layer.water.heat[sw_vert.top])))
 	
 	module("Basin inflow", version(0, 0, 0)) {
 		

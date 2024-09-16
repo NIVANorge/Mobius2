@@ -72,19 +72,23 @@ inline bool operator<(const Identifier_Data &a, const Identifier_Data &b) {
 	if(a.variable_type != b.variable_type)
 		return a.variable_type < b.variable_type;
 	if(a.variable_type == Variable_Type::parameter) {
-		if(a.par_id == b.par_id) {
-			if(a.flags == b.flags)
-				return a.restriction < b.restriction;
+		if(a.par_id != b.par_id)
+			return a.par_id.id < b.par_id.id;
+		if(a.flags != b.flags)
 			return a.flags < b.flags;
-		}
-		return a.par_id.id < b.par_id.id;
-	}
-	if(a.var_id == b.var_id) {
-		if(a.flags == b.flags)
-			return a.restriction < b.restriction;
-		return a.flags < b.flags;
-	}
-	return a.var_id.id < b.var_id.id;
+		return a.restriction < b.restriction;
+	} else if (a.variable_type == Variable_Type::series) {
+		if(a.var_id != b.var_id)
+			return a.var_id < b.var_id;
+		if(a.flags != b.flags)
+			return a.flags < b.flags;
+		return a.restriction < b.restriction;
+	} else if (a.variable_type == Variable_Type::is_at) {
+		return a.restriction < b.restriction;
+	} else
+		fatal_error(Mobius_Error::internal, "Got unexpected identifier type to an order comparison.");
+	
+	return false; // unreachable
 }
 
 struct

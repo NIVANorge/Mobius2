@@ -1434,7 +1434,8 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 
 void
 register_dependencies(Math_Expr_FT *expr, std::set<Identifier_Data> *depends) {
-	for(auto arg : expr->exprs) register_dependencies(arg, depends);
+	for(auto arg : expr->exprs)
+		register_dependencies(arg, depends);
 	
 	if(expr->expr_type != Math_Expr_Type::identifier) return;
 	auto ident = static_cast<Identifier_FT *>(expr);

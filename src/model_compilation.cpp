@@ -1879,7 +1879,7 @@ Model_Application::compile(bool store_code_strings) {
 	}
 	
 	//debug_print_batch_array(this, initial_batch.arrays, initial_instructions, global_log_stream, false);
-	//debug_print_batch_structure(this, batches, instructions, global_log_stream, false);
+	//debug_print_batch_structure(this, batches, instructions, global_log_stream, true);
 	
 	if(mobius_developer_mode) {
 		validate_batch_structure(this, { initial_batch }, initial_instructions, true); // This creates a copy of the initial_batch? :(

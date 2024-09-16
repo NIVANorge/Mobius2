@@ -63,7 +63,7 @@ Authors: Francois Clayer, Magnus D. Norling
 	
 	stab   : property("Stability")
 	ced    : property("Transfer coefficient for latent heat flux")
-	chd    : property("Transfer coefficent for sensible heat flux")
+	chd    : property("Transfer coefficient for sensible heat flux")
 	s_hum  : property("Saturation specific humidity")
 	lwu    : property("Emitted longwave radiation")
 	albedo : property("Albedo")

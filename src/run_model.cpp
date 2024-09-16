@@ -88,8 +88,8 @@ run_model(Model_Data *data, s64 ms_timeout, bool check_for_nan, run_callback_typ
 	data->results.allocate(time_steps, start_date);
 	data->temp_results.allocate();
 	
-	int var_count    = app->result_structure.total_count;
-	int series_count = app->series_structure.total_count;
+	s64 var_count    = app->result_structure.total_count;
+	s64 series_count = app->series_structure.total_count;
 	
 	Model_Run_State run_state;
 	
@@ -204,7 +204,7 @@ run_model(Model_Data *data, s64 ms_timeout, bool check_for_nan, run_callback_typ
 			s64 callback_iter = (run_state.date_time.step*10) / time_steps;
 			if(callback_iter > prev_callback_iter) {
 				s64 ms = run_timer.get_milliseconds();
-				if(ms > 500) {
+				if(ms > 500) { // This is to avoid the callback being used for very fast models, as it would slow them down relatively.
 					double percent = 100.0 * ((double)run_state.date_time.step) / ((double)time_steps);
 					callback(callback_data, percent);
 					prev_callback_iter = callback_iter;

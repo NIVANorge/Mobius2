@@ -96,7 +96,11 @@ operator==(const Var_Id &a, const Var_Id &b) { return a.type == b.type && a.id =
 inline bool
 operator!=(const Var_Id &a, const Var_Id &b) { return a.type != b.type || a.id != b.id; }
 inline bool
-operator<(const Var_Id &a, const Var_Id &b) { return a.id < b.id; } // Ideally this only gets called on ids with the same type..
+operator<(const Var_Id &a, const Var_Id &b) {
+	if(a.type != b.type)
+		return a.type < b.type;
+	return a.id < b.id;
+}
 
 
 enum class

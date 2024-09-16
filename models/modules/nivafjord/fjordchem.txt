@@ -6,7 +6,7 @@ preamble("NIVAFjord chemistry rates", version(0, 0, 0),
 	
 	par_group("Oxygen") {
 		bubble         : par_real("Bubble formation coefficient", [day-1], 0, 0, 1)
-		ox_th          : par_real("Oxicity threshold", [m g, l-1], 2, 0, 5)
+		ox_th          : par_real("Oxicity threshold", [m g, l-1], 2, 0, 5) # This should maybe be in "Microbes"
 	}
 	
 	par_group("Microbes") {
