@@ -94,6 +94,10 @@ Authors: Magnus D. Norling
 		init_s : par_real("Initial layer salinity", [], 20)
 	}
 	
+	assert("Layer areas must be strictly decreasing with depth", layer.water) {
+		A > A[vert.below] + 0.1[m 2]
+	}
+	
 	var(basin.freeze_temp, [deg_c]) { ice_formation_temperature(layer.water.salinity[vert.top])	}
 	
 	var(layer.dz, [m], "Layer thickness") {

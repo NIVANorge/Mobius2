@@ -22,7 +22,6 @@ model("SimplyQ") {
 		lu_prop  : par_real("Land use proportions", [], 1, 0, 1)
 	}
 	
-	# NOTE: Asserts are not yet implemented. It parses it, but it doesn't run the check.
 	assert("Land use proportions must sum to 1 in each subcatchment", river.water) {
 		abs(aggregate(lu_prop) - 1) < 1e-8
 	}
