@@ -29,9 +29,7 @@ Open ftp://mobiserver.niva.no/Mobius2 in a file explorer (not a web browser), th
 
 In your local copy, edit MobiView2/config.txt so that the "Mobius2 base path" field contains the location where you put the Mobius2 repository, e.g. `"C:/Data/Mobius2"`.
 
-Try to run MobiView2.exe . If it doesn't open a window, you need to install the Visual Studio redistributables from
-https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist?view=msvc-170
-You should use the installer https://aka.ms/vs/17/release/vc_redist.x64.exe .
+Try to run MobiView2.exe . If it doesn't open a window, you need to install the [Microsoft Visual Studio redistributables](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist?view=msvc-170). You should use the installer `vc_redist.x64.exe`.
 
 You can now run MobiView2.exe. Click the ![Open](../img/toolbar/Open.png) open icon in the top left and select e.g. `"Mobius2/models/simplyq.txt"`, then `"Mobius2/models/data/simplyq_simple.dat"`. If the model loaded correctly you can now run it by clicking the ![Run](../img/toolbar/Run.png) runner icon in the MobiView2 toolbar. You can then select the series to plot in the result and input series selections in the bottom right.
 
