@@ -325,11 +325,11 @@ module("NIVAFjord chemistry", version(0, 0, 5),
 	
 	flux(layer.water.oc, out, [k g, day-1], "DOC mineralization") {
 		oc*min_rat
-	}
+	} @no_carry
 	
 	flux(layer.water.sed.oc, out, [k g, day-1], "POC mineralization") {
 		sed.oc*min_rat
-	}
+	} @no_carry
 	
 	flux(layer.water.on, layer.water.din, [k g, day-1], "DON mineralization and nitrification") {
 		on*min_rat*n_min
@@ -363,11 +363,11 @@ module("NIVAFjord chemistry", version(0, 0, 5),
 	
 	flux(layer.water.oc, out, [k g, day-1], "DOC mineralization by denitrification") {
 		water.oc*denit_rat
-	}
+	} @no_carry
 	
 	flux(layer.water.sed.oc, out, [k g, day-1], "POC mineralization by denitrification") {
 		water.sed.oc*denit_rat
-	}
+	} @no_carry
 	
 	flux(layer.water.din, out, [k g, day-1], "NO3 denitrification consumption") {
 		bo2 := (water.oc + water.sed.oc)*denit_rat*O2toC*o2_mol_mass/c_mol_mass,  # Bacterial O2 demand in nitrification

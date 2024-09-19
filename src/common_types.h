@@ -376,6 +376,7 @@ Index_Set_Tuple {
 	bool empty() { return bits == 0; }
 	
 	bool operator!=(const Index_Set_Tuple &other) const { return bits != other.bits; }
+	bool operator<(const Index_Set_Tuple &other) const { return bits < other.bits; }
 	
 	struct Iterator {
 		int at = 0;

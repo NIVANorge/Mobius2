@@ -194,22 +194,27 @@ check_location(Model_Application *app, Source_Location &source_loc, Specific_Var
 	}
 }
 
+/*
 struct
 Code_Special_Lookups {
 	std::map<std::tuple<Var_Id, Entity_Id, bool>, std::vector<Var_Id>>     in_fluxes;
 	std::map<Var_Id, std::pair<std::set<Entity_Id>, std::vector<Var_Id>>>  aggregates;
-	/* aggregates[agg_of] is a pair ( (to_compartment), (looked_up_by) )
-	  where
-		agg_of is the variable that needs an aggregation variable
-		to_compartment is a set of compartments whose point of view we need an aggregate from
-		looked_up_by   is a list of other variables who need to veiw this aggregate from their function.
-	*/
+	
+	std::map<Entity_Id, std::pair<std::set<Entity_Id>, std::vector<Var_Id>>> par_aggregates;
+};
+*/
+
+struct
+Code_Special_Lookups {
+	std::map<std::tuple<Var_Id, Entity_Id, bool>, std::vector<Var_Id>>     in_fluxes;
+	std::map<Var_Id, std::map<std::pair<Entity_Id, Index_Set_Tuple>, std::vector<Var_Id>>> aggregates;
+	
 	std::map<Entity_Id, std::pair<std::set<Entity_Id>, std::vector<Var_Id>>> par_aggregates;
 };
 
 void
-find_identifier_flags(Model_Application *app, Math_Expr_FT *expr, Code_Special_Lookups *specials, Var_Id looked_up_by, Entity_Id lookup_compartment) {
-	for(auto arg : expr->exprs) find_identifier_flags(app, arg, specials, looked_up_by, lookup_compartment);
+find_identifier_flags(Model_Application *app, Math_Expr_FT *expr, Code_Special_Lookups *specials, Var_Id looked_up_by, Entity_Id lookup_compartment, Index_Set_Tuple lookup_indexes) {
+	for(auto arg : expr->exprs) find_identifier_flags(app, arg, specials, looked_up_by, lookup_compartment, lookup_indexes);
 	
 	if(expr->expr_type == Math_Expr_Type::identifier) {
 		
@@ -233,10 +238,9 @@ find_identifier_flags(Model_Application *app, Math_Expr_FT *expr, Code_Special_L
 					if(is_valid(looked_up_by))
 						agg_data.second.push_back(looked_up_by);
 				} else if (ident->is_computed_series()) {
-					auto &agg_data = specials->aggregates[ident->var_id];
-					agg_data.first.insert(lookup_compartment);
+					auto &agg_data = specials->aggregates[ident->var_id][std::make_pair(lookup_compartment, lookup_indexes)];
 					if(is_valid(looked_up_by))
-						agg_data.second.push_back(looked_up_by);
+						agg_data.push_back(looked_up_by);
 				} else if (ident->is_input_series()) {
 					//TODO: Why did we determine that the state_var way of doing it doesn't work for input series?
 					// TODO: Make it use the above code and debug what happens (fix errors).
@@ -1319,7 +1323,7 @@ process_state_var_code(Model_Application *app, Var_Id var_id, Code_Special_Looku
 	if(ast) {
 		auto res = resolve_function_tree(ast, &res_data);
 		auto fun = make_cast(res.fun, Value_Type::real);
-		find_identifier_flags(app, fun, specials, var_id, from_compartment);
+		find_identifier_flags(app, fun, specials, var_id, from_compartment, var2->allowed_index_sets);
 		
 		if(!match_exact(&res.unit, &res_data.expected_unit)) {
 			ast->source_loc.print_error_header();
@@ -1351,7 +1355,7 @@ process_state_var_code(Model_Application *app, Var_Id var_id, Code_Special_Looku
 		res_data2.scope = model->get_scope(var_decl->scope_id);
 		auto res = resolve_function_tree(var_decl->adds_code_to_existing, &res_data2);
 		auto fun = make_cast(res.fun, Value_Type::real);
-		find_identifier_flags(app, fun, specials, var_id, from_compartment);
+		find_identifier_flags(app, fun, specials, var_id, from_compartment, var2->allowed_index_sets);
 		
 		if(!match_exact(&res.unit, &res_data2.expected_unit)) {
 			var_decl->adds_code_to_existing->source_loc.print_error_header();
@@ -1375,7 +1379,7 @@ process_state_var_code(Model_Application *app, Var_Id var_id, Code_Special_Looku
 		auto res = resolve_function_tree(init_ast, &res_data);
 		auto fun = make_cast(res.fun, Value_Type::real);
 		
-		find_identifier_flags(app, fun, specials, var_id, from_compartment);
+		find_identifier_flags(app, fun, specials, var_id, from_compartment, var2->allowed_index_sets);
 		var2->initial_is_conc = initial_is_conc;
 		
 		if(!match_exact(&res.unit, &res_data.expected_unit)) {
@@ -1422,7 +1426,7 @@ process_state_var_code(Model_Application *app, Var_Id var_id, Code_Special_Looku
 			
 			fun = make_cast(fun, Value_Type::real);
 			
-			find_identifier_flags(app, fun, specials, var_id, from_compartment);
+			find_identifier_flags(app, fun, specials, var_id, from_compartment, var2->allowed_index_sets);
 			var2->override_is_conc = override_is_conc;
 			
 			if(!match_exact(&res.unit, &res_data.expected_unit)) {
@@ -1445,7 +1449,7 @@ process_state_var_code(Model_Application *app, Var_Id var_id, Code_Special_Looku
 		auto res = resolve_function_tree(specific_ast, &res_data);
 		auto fun = make_cast(res.fun, Value_Type::integer);
 		
-		find_identifier_flags(app, fun, specials, var_id, from_compartment);
+		find_identifier_flags(app, fun, specials, var_id, from_compartment, var2->allowed_index_sets);
 		
 		if(!match_exact(&res.unit, &res_data.expected_unit)) {
 			init_ast->source_loc.print_error_header();
@@ -1479,7 +1483,7 @@ process_assert_code(Model_Application *app, Var_Id var_id, Code_Special_Lookups 
 	auto fun = make_cast(make_unary('!', res.fun), Value_Type::integer);
 	
 	auto from_compartment = var->loc1.first();
-	find_identifier_flags(app, fun, specials, var_id, from_compartment);
+	find_identifier_flags(app, fun, specials, var_id, from_compartment, var->allowed_index_sets);
 	
 	if(!match_exact(&res.unit, &res_data.expected_unit)) {
 		assertion->check->source_loc.print_error_header();
@@ -1772,7 +1776,8 @@ Model_Application::compose_and_resolve() {
 			}
 			*/
 			
-			specials.aggregates[var_id].first.insert(var->loc2.first());
+			//specials.aggregates[var_id].first.insert(var->loc2.first());
+			specials.aggregates[var_id][std::make_pair(var->loc2.first(), max_target_indexes)]; //NOTE: This creates an entry
 		}
 	}
 	
@@ -1788,7 +1793,10 @@ Model_Application::compose_and_resolve() {
 			loc1 = vars[var2->conc_of]->loc1;
 		}
 		
-		for(auto to_compartment : need_agg.second.first) {
+		for(auto &to : need_agg.second) {
+			
+			Entity_Id to_compartment = to.first.first;
+			Index_Set_Tuple to_indexes = to.first.second;
 			
 			Math_Expr_FT *agg_weight = get_aggregation_weight(this, loc1, to_compartment);
 			var->set_flag(State_Var::has_aggregate);
@@ -1820,8 +1828,9 @@ Model_Application::compose_and_resolve() {
 			}
 			
 			agg_var->agg_to_compartment = to_compartment;
+			agg_var->agg_to_index_sets = to_indexes;
 			
-			for(auto looked_up_by : need_agg.second.second) {
+			for(auto looked_up_by : to.second) {
 				auto lu = as<State_Var::Type::declared>(vars[looked_up_by]);
 				
 				Entity_Id lu_compartment = lu->loc1.first();

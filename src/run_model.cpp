@@ -66,6 +66,10 @@ assert_was_triggered(Model_Application *app, Data_Storage<s64, Var_Id> *assert_d
 				for(auto idx : indexes.indexes) {
 					error_print("\t\"", app->model->index_sets[idx.index_set]->name, "\" : ", app->index_data.get_possibly_quoted_index_name(indexes, idx, true), "\n");
 				}
+				auto var = as<State_Var::Type::declared>(app->vars[var_id]);
+				auto assertion = app->model->asserts[var->decl_id];
+				error_print("See declaration of assertion in ");
+				assertion->source_loc.print_error();
 			}
 		});
 	}

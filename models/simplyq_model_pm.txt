@@ -32,6 +32,10 @@ model("SimplyQ with Penman-Monteith") {
 		lu_prop  : par_real("Land use proportions", [], 1, 0, 1)
 	}
 	
+	assert("Layer areas must be strictly decreasing with depth", layer.water) {
+		A > A[vert.below] + 0.1[m 2]
+	}
+	
 	par_group("Catchment data", river) {
 		a_catch  : par_real("Catchment area", [k m 2], 51.7, 1e-6, 7e6)
 	}

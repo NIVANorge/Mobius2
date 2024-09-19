@@ -114,6 +114,7 @@ template<> struct
 State_Var_Sub<State_Var::Type::regular_aggregate> : State_Var {
 	Var_Id         agg_of                    = invalid_var;    // The variable this is an aggregate of
 	Entity_Id      agg_to_compartment        = invalid_entity_id;    // From which point of view we are aggregating.
+	Index_Set_Tuple agg_to_index_sets; // Index sets of aggregation variable.
 	owns_code      aggregation_weight_tree   = nullptr;
 	
 	State_Var_Sub() {}

@@ -35,5 +35,9 @@ Maaybe we want a simpler biochemistry model for this one, not the entire NIVAFjo
 		module("NIVAFjord lake", river, basin, layer, water, flow, dz, river_lake, vert, dims)
 	)
 							
-
+	load("modules/simplytox.txt",
+		module("SimplyTox partitioning", "SimplyTox fjord layer", layer, water, oc, tox, temp, loc(layer.water.sed.oc), [n g], constant(true), phys)
+		#module("SimplyTox air-water",    "SimplyTox lake air-water", air, epi, water, tox, temp, wind, loc(epi.area), phys),
+		#module("SimplyTox partitioning", "SimplyTox lake sediments", lake_sed, water, oc, tox, temp, loc(lake_sed.sed.oc), [n g, m-2], constant(false), phys)
+	)
 }

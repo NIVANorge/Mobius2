@@ -185,6 +185,16 @@ insert_dependencies(Model_Application *app, Model_Instruction *instr, const Iden
 }
 
 bool
+insert_dependecies(Model_Application *app, Model_Instruction *instr, Index_Set_Tuple &to_insert) {
+	bool changed = false;
+	for(auto index_set : to_insert) {
+		bool changed2 = insert_dependency(app, instr, index_set);
+		changed = changed || changed2;
+	}
+	return changed;
+}
+
+bool
 insert_dependencies(Model_Application *app, Model_Instruction *instr, Index_Set_Tuple &to_insert, const Identifier_Data &dep) {
 	auto avoid = avoid_index_set_dependency(app, dep.restriction);
 	
@@ -1297,10 +1307,11 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			// TODO: we could generate one per variable that looks it up and prune them later if they have the same index set dependencies (?)
 			// TODO: we could also check if this is necessary at all any more?
 			auto agg_instr = &instructions[var_id.id];
-			auto agg_to_comp = model->components[var2->agg_to_compartment];
+			//auto agg_to_comp = model->components[var2->agg_to_compartment];
 			
-			for(auto index_set : agg_to_comp->index_sets)
-				insert_dependency(app, agg_instr, index_set);
+			//for(auto index_set : agg_to_comp->index_sets)
+			//	insert_dependency(app, agg_instr, index_set);
+			insert_dependecies(app, agg_instr, var2->agg_to_index_sets);
 			
 		} else if(var->type == State_Var::Type::connection_aggregate) {
 			

@@ -368,9 +368,6 @@ River-specific contaminant processes that are not covered by the partitioning mo
 			1             otherwise
 		},
 	*/
-	
-	# Remains to do: River sediment bed (+ exchanges between river bed and water)
-		# rate of exchange tied to exchange of particles (Since SimplySed doesn't quite determine this flux.)
 		
 }
 
