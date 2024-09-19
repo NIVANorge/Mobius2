@@ -59,11 +59,12 @@ Authors: François Clayer, Magnus D. Norling
 		z_outflow : par_real("Water level at which outflow is 0", [m], 10, 0.1, 1642.0)
 		th_epi_w  : par_real("Winter epilimnion thickness", [m], 2, 0.1, 10)
 		th_epi_s  : par_real("Spring epilimnion thickness", [m], 2, 0.1, 10)
-		theta     : par_real("Lake bathymetry factor", [], 0, 0, 1, "The cross-section area of the lake at level z is A_0*(z/z_0)^theta")
+		theta     : par_real("Lake bathymetry factor", [], 0, 0, 5, "The cross-section area of the lake at level z is A_0*(z/z_0)^(theta+1)")
 		dz_epi    : par_real("Epilimnion thickening rate", [m, day-1], 0.01, "How fast the thickness of the epilimnion changes during summer")
 		rate_l    : par_real("Rating function linear component", [m 2, s-1], 10, 0, 1000)
 		t_epi     : par_real("Initial epilimnion temperature", [deg_c], 15, 0, 50)
 		t_bot     : par_real("Bottom temperature", [deg_c], 4, 0, 50)
+		wnd_rate  : par_real("Wind mixing rate", [day-1], 0.1, 0, 10)
 	}
 	
 	# The basin has a horizontal cross-section that is parametrized by A_surf (surface area when outflow is 0), z_outflow (max depth when outflow is 0) and theta (a shape factor)
@@ -172,7 +173,7 @@ Authors: François Clayer, Magnus D. Norling
 	# The magnitude of the rate is pretty arbitrary as long as it is big enough to "quickly" mix the entire lake.
 	mix_down :
 	flux(epi.water, hyp.water, [m 3, day-1], "Mixing") {
-		A_surf * epi.th * epi.ind * 0.1[day-1]
+		A_surf * epi.th * epi.ind * wnd_rate
 	} @mixing @no_carry { heat }
 
 }

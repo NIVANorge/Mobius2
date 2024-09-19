@@ -8,24 +8,23 @@
 		
 		Made it possible to add properties to solvers manually, but it could be error prone.
 			Fix errors if they appear.
-			
+		
+
+		Something is broken with airsea, but only in some cases .... (has something to do with ice or longwave).
+
+		
 		Not including declaration of union index set in data set can create an internal error.
 			wb_index : index_set("Water body") @union(sc, lake)
 			
-			
-		SimplyTox:
-			This variable should depend on contaminant type. Issue is that we aggregate to a "compartment" rather than to a location...
-			"aggregate(carried_flux(Dissolved contaminants, Recharge), Groundwater)"
-			
-			We actually need a new system for this.
-				Could group the needed agg var by the max index sets of the target instead of by the compartment?
-				
 		Get rid of the idea of aggregating to a *compartment*. Instead, only aggregate to the index set tuple.
 			Difficulties:
 				Serialization name depends on compartment (should be easy to change)
 				aggregation_weight depends on compartment. Make it work like unit_conversion instead?
 					See other suggestion about merging unit_conversion and aggregation_weight.
 		Make par_aggregate work the same as regular_aggregate.
+		
+		
+		
 		
 
 		Specific models

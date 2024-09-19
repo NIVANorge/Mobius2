@@ -94,7 +94,12 @@ Authors: Magnus D. Norling
 	
 	flux(out, top_water.heat,    [J, day-1], "Net longwave") {
 		net_rad := (1 - surf.albedo)*air.lwd - surf.lwu,    # W/m2       # TODO: Should really albedo be detracted from longwave?
-		(!surf.ice.indicator) *	A_surf * net_rad ->>
+		
+		#tw := top_water.temp->[K],
+		#ta := air.temp ->[K],
+		#net_rad := -0.98*4*(tw^3)*(tw - ta)*stefan_boltzmann,
+		
+		(!surf.ice.indicator) * A_surf * net_rad ->>
 	}
 	
 	flux(out, top_water.heat, [J, day-1], "Freeze heating") {  A_surf * surf.ice.energy ->>  }    # Energy used to melt ice instead of heating the water body (or other way around with freezing)

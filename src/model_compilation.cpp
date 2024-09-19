@@ -1301,6 +1301,7 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			// TODO: If we are in the initial step, we would not need to clear it.
 			int clear_id = make_clear_instr(instructions, var_id, var_solver);
 			make_add_to_aggregate_instr(app, instructions, var_solver, var_id, agg_of, clear_id);
+
 			
 			// The instruction for the var. It compiles to a no-op, but it is kept in the model structure to indicate the location of when this var has its final value. (also used for result storage structure).
 			// Since we generate one aggregation variable per target compartment, we have to give it the full index set dependencies of that compartment
