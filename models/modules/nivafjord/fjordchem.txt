@@ -64,6 +64,8 @@ module("NIVAFjord chemistry", version(0, 0, 5),
 	sediment : compartment,
 	water : quantity,
 	o2    : quantity,
+	co2   : quantity,
+	ch4   : quantity,
 	ice   : quantity,
 	oc    : quantity,
 	din   : quantity,
@@ -118,6 +120,10 @@ module("NIVAFjord chemistry", version(0, 0, 5),
 	var(layer.water.o2, [k g], [m g, l-1], "Layer O₂") @initial_conc { o2_saturation(temp, salin)*init_O2*o2_mol_mass->> }
 	
 	var(layer.water.oc, [k g], [m g, l-1], "Layer DOC") @initial_conc { init_DOC }
+	
+	var(layer.water.co2, [k g], [m g, l-1], "Layer CO₂")
+	
+	var(layer.water.ch4, [k g], [m g, l-1], "Layer CH4")
 	
 	var(layer.water.din, [k g], [m g, l-1], "Layer DIN")
 	

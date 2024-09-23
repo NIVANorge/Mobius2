@@ -103,10 +103,10 @@ Authors: Francois Clayer, Magnus D. Norling
 		(!surf.ice.indicator) *	A_surf * (1 - cov) * net_rad ->>
 	}
 	
-	# TODO: Why need latent and sensible heat fluxes on top of that? Doesn't seem correct? Esp. latent..
+	# TODO: Why need latent and sensible heat fluxes on top of that? Doesn't seem correct? Esp. latent.. Response: you still need latent and sensible over the parts that are not covered! see parameter "cov"
 	flux(out, top_water.heat,    [J, day-1], "FPV net heat transfer") {
 		dtemp := max(0, fpv.temp->[K] - fpv.T_s_back->[K]),
-		cov * dtemp * A_surf * fpv.A_both ->>
+		cov * dtemp * A_surf * fpv.h_water ->>
 	}
 	
 	flux(out, top_water.heat, [J, day-1], "Freeze heating") {  A_surf * (1 - cov) * surf.ice.energy ->>  }    # Energy used to melt ice instead of heating the water body (or other way around with freezing)

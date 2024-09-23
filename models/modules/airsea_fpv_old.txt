@@ -29,18 +29,11 @@ module("AirSea FPV", version(0, 1, 0),
 	always_cover : par_bool,
 	Area_cov : par_real,
 	area	  : loc,
-	
-<<<<<<< HEAD:models/modules/airseaRes_bis.txt
 	top_water_heat    : loc, # TODO: System for composing locs also? E.g. top_water.heat
 	top_water_heat_sw : loc, # Needed since it could be on a separate connection e.g. in NIVAFjord. This is a bit awkward though..
 	top_water_temp    : loc,
 	top_water_heatf    : loc,
 	top_water_tempf    : loc
-=======
-	top_water_heat    : loc, 
-	top_water_heat_sw : loc,
-	top_water_temp    : loc
->>>>>>> 17aa78c63682102f8b629229bee3a4724472c0d1:models/modules/airsea_fpv_old.txt
 ) {
 """
 This is a modification to the AirSea module where you can cover a basin with floating photovoltaics (solar panels) (FPV).
@@ -56,7 +49,7 @@ This is a modification to the AirSea module where you can cover a basin with flo
 	water_alb  : constant("Water albedo", [], 0.045)  # Could be a module parameter
 	#rho_water  : constant("Water density",                   [k g, m-3],     999.98)
 	#C_water    : constant("Specific heat capacity of water", [J, k g-1, K-1], 4186)
-	k_water    : constant("Thermal conductivity of water", [W, m-1, K-1], 0.6)
+	kk_water    : constant("Thermal conductivity of water", [W, m-1, K-1], 0.6)
 	
 	par_group("Ice", surf) {
 		init_ice  : par_real("Initial ice thickness", [m], 0, 0, 10)
@@ -256,8 +249,8 @@ This is a modification to the AirSea module where you can cover a basin with flo
 	}
 	
 	var(surf.FPV.h_water, [W, m-2, K-1]) {
-			Nu := 0.664* sqrt(0.1 [m, s-1] * length_FPV / surf.FPV.visco )* ((dynamic_viscosity_fresh_water(top_water_temp, 0)*C_water / k_water) =>[]^(0.333)),
-			Nu =>[] * k_water / length_FPV 
+			Nu := 0.664* sqrt(0.1 [m, s-1] * length_FPV / surf.FPV.visco )* ((dynamic_viscosity_fresh_water(top_water_temp)*C_water / kk_water) =>[]^(0.333)),
+			Nu =>[] * kk_water / length_FPV 
 	}
 	
 	
