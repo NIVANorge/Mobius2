@@ -47,7 +47,7 @@ model("Lake model") {
 							evap, cos_z, loc(freeze), loc(lake.area), loc(layer.water[vert.top]), loc(layer.water.heat[sw_vert.top])))
 	
 	
-	sol : solver("Lake solver", inca_dascru, [2, hr], 1e-2)
+	sol : solver("Lake solver", inca_dascru, [2, hr], 1e-3)
 	
 	solve(sol, layer.water, lake.ice)
 	

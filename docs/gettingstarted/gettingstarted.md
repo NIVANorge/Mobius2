@@ -27,7 +27,10 @@ For now we only support MobiView2 on Windows. It is theoretically possible to co
 
 Open ftp://mobiserver.niva.no/Mobius2 in a file explorer (not a web browser), then download the entire MobiView2 folder by copying it over to somewhere on your machine.
 
-In your local copy, edit MobiView2/config.txt so that the "Mobius2 base path" field contains the location where you put the Mobius2 repository, e.g. `"C:/Data/Mobius2"`.
+In your local copy, edit MobiView2/config.txt so that the "Mobius2 base path" field contains the location where you put the Mobius2 repository, e.g.
+```python
+config("Mobius2 base path", "C:/Data/Mobius2/")
+```
 
 Try to run MobiView2.exe . If it doesn't open a window, you need to install the [Microsoft Visual Studio redistributables](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist?view=msvc-170). You should use the installer `vc_redist.x64.exe`.
 

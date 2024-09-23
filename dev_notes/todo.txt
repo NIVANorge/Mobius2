@@ -8,9 +8,13 @@
 		
 		Made it possible to add properties to solvers manually, but it could be error prone.
 			Fix errors if they appear.
+			
+		There is no guard against loading a library twice, instead you get identifier name conflict.
 		
 
 		Something is broken with airsea, but only in some cases .... (has something to do with ice or longwave).
+			In 07_model it looks like a bad interaction with mixing, numerical instability (why was it not an issue before??).
+			EasyTox still broken!
 
 		
 		Not including declaration of union index set in data set can create an internal error.
