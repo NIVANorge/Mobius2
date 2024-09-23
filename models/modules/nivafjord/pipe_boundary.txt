@@ -1,0 +1,112 @@
+module("Basin inflow", version(0, 0, 0),
+	air : compartment,
+	layer : compartment,
+	basin : compartment,
+	bnd : compartment,
+	
+	water : quantity,
+	heat : quantity,
+	o2 : quantity,
+	salt : quantity,
+	
+	precip : property,
+	temp : property,
+	h : property,
+	rho : property,
+	salinity : property,
+	pressure : property,
+	dz : property,
+	
+	vert : connection,
+	
+	dims : preamble
+) {
+
+	load("stdlib/physiochemistry.txt", library("Water utils"), library("Basic constants"), library("Chemistry"))
+	load("stdlib/seawater.txt", library("Seawater"), library("Sea oxygen"))
+
+		
+	var(air.precip, [m m, day-1], "Precipitation")
+	var(air.temp, [deg_c], "Air temperature")
+	
+	############ Groundwater inflow
+	
+	flow : property("Basin inflow")
+	var(basin.flow, [m 3, s-1]) # Input series
+	
+	# Just directing the catchment runoff to the top layer instead of doing the density check.
+	flux(out, layer.water[vert.top], [m 3, s-1], "Discharge from land to basin") { basin.flow->> }
+	
+	par_group("Inflow oxygen") {
+		f_o2sat    : par_real("Inflow O₂ saturation fraction", [], 0.9, 0, 1)
+	}
+
+	flux(out, layer.water.o2[vert.top], [k g, day-1], "Oxygen from land") {
+		inflow_t := air.temp, # Assume inflow temperature = air temperature (see also below)
+		land_conc := f_o2sat*o2_saturation(inflow_t, 0) * o2_mol_mass,
+		basin.flow*land_conc->>
+	}
+
+	flux(out, layer.water.heat[vert.top], [J, day-1], "Heat from land") {
+		inflow_t := air.temp, # Assume inflow temperature = air temperature (see also above)
+		(water_temp_to_heat(basin.flow => [m 3], inflow_t) => [J, s-1]) ->>
+	}
+	
+	
+	############# Boundary exchange through pipes
+	
+	#Input series
+	var(bnd.h, [m], "Boundary water level") # difference from "0" level.
+	var(bnd.salinity, [], "Boundary salinity")
+	var(bnd.temp, [deg_c], "Boundary temperature")
+	# TODO: Add all other substances we care about entering the basin from outside.
+	
+	par_group("Boundary exchange", bnd) {
+		h_pipe : par_real("Pipe level", [m], 1, 0, 100, "Level below reference 0 level. Should be approximated to align with the bottom of a layer for correct pressure consideration.")
+		alpha_u : par_real("Exchange velocity scaling factor", [], 0.1, 0, 1, "Should be quite a bit below 1 due to shearing friction in narrow pipes")
+		align_rate : par_real("Vertical realignment rate", [], 0.1, 0, 1)
+	}
+	
+	par_group("Exchange layer", layer) {
+		a_pipe : par_real("Pipe area", [m 2], 0.98, 0, 100, "Total cross-section area of all pipes")
+	}
+	
+	var(bnd.water, [m 3], "Boundary water") @override { 1=>> } #Doesn't matter what the volume is since only conc will be used
+	
+	var(bnd.water.salt, [k g], [k g, m-3], "Boundary water salt") @override_conc { salinity*1e-3*rho_water }
+	
+	var(bnd.water.heat, [J], "Boundary water heat") @override_conc { C_water * (temp -> [K]) * rho_water }
+	
+	var(bnd.water.o2, [k g], [m g, l-1], "Boundary water O2") @override_conc { o2_saturation(temp, salinity)*o2_mol_mass->> } #NOTE: Assumes it is at saturation near pipes..
+	
+	var(bnd.pressure, [Pa], "Boundary pressure at pipe level") {
+		ht := h + h_pipe,
+		rho := seawater_pot_dens(temp, salinity),
+		rho*grav*ht
+	}
+	
+	/*  # Need to fix some things in the framework to make this work.
+	
+	# Could have determined what layer participates in exchange from other factors, but a bit complicated. Instead, just set a_pipe to 0 for all others.
+	flux(layer.water, bnd.water, [m 3, day-1], "Boundary water exchange") {
+		
+		dP := pressure - bnd.pressure,
+		velocity := copysign(sqrt(2*alpha_u*abs(dP)/rho_water), dP)->[m, day-1],
+		
+		a_pipe*velocity
+			
+	} @bidirectional
+	
+	
+	# NOTE: This is "re-alignment" to keep layers below the top one at constant thickness.
+	align : property("Vertical realignment")
+	var(layer.water.align, [m 3, day-1])
+	external_computation("Layer vertical realignment computation", "nivafjord_vertical_realignment_slow", basin) {
+		result(layer.water.align)
+		layer.dz
+		dz0
+		A
+		align_rate
+	}
+	*/
+}
