@@ -4,6 +4,9 @@ module("NIVAFjord sediments", version(0, 0, 3),
 	sediment : compartment,
 	water    : quantity,
 	o2       : quantity,
+	co2      : quantity,
+	ch4      : quantity,
+	salin    : property,
 	sed      : quantity,
 	oc       : quantity,
 	din      : quantity,
@@ -14,6 +17,7 @@ module("NIVAFjord sediments", version(0, 0, 3),
 	area     : property,
 	temp     : property,
 	dz       : property,
+	z        : property,
 	vert     : connection,
 	dims     : preamble,
 	chem_par : preamble
@@ -23,6 +27,8 @@ module("NIVAFjord sediments", version(0, 0, 3),
 		th       : par_real("Active sediment thickness", [m], 0.1, 0.00001, 1)
 		porosity : par_real("Sediment porosity", [], 0.5, 0, 0.99)
 		resus    : par_real("Resuspension fraction", [], 0.01, 0, 1, "Fraction of settling material that is resuspended")
+		ch4_production_scaler    : par_real("Sediment CH4 production scaler", [], 0.01, 0, 1, "sediment CH4 production relative to sediment CO2 production")
+		bubble_ch4         : par_real("Bubble CH4 formation coefficient", [day-1], 0.5, 0, 1)
 	}
 	
 	par_group("Initial chem", sediment) {
@@ -69,6 +75,8 @@ module("NIVAFjord sediments", version(0, 0, 3),
 	
 	var(sediment.sed.oc, [k g], [g, k g-1], "Sediment organic carbon") @initial_conc { init_c }
 	
+	var(sediment.sed.ch4, [k g], [g, k g-1], "Sediment CH4") 
+	
 	var(sediment.sed.on, [k g], [g, k g-1], "Sediment organic N") @initial_conc { init_c / cn_molar_to_mass_ratio(sed_cn) }
 	
 	var(sediment.sed.phos, [k g], [g, k g-1], "Sediment IP") @initial_conc { init_p }
@@ -112,6 +120,31 @@ module("NIVAFjord sediments", version(0, 0, 3),
 		(sediment.sed.oc)*mr*(o2_mol_mass/c_mol_mass)*O2toC    
 		+ (sediment.sed.on)*mr*n_min*(o2_mol_mass/n_mol_mass)*1.5    # ON -> NH4 -> NO3   #TODO: Should the 1.5 be parametrizable?
 	}
+	
+	## Simple CO2 release from the sediment = O2 sediment demand
+	flux(out, layer.water.co2, [k g, day-1], "CO₂ sediment microbial production") {
+		mr := layer.water.min_rat,
+		(sediment.sed.oc)*mr*O2toC    
+		+ (sediment.sed.on)*mr*n_min*(o2_mol_mass/n_mol_mass)*1.5    
+	}
+	
+	## Simple CH4 release from the sediment = constant + fraction inversely scaled to O2 concentration in water column
+	flux(out, sediment.sed.ch4, [k g, day-1], "CH4 sediment microbial production") {
+		mr := layer.water.min_rat,
+		(sediment.sed.oc)*mr*O2toC * ch4_production_scaler    
+	}
+	
+	ch4satconc : property("CH4 saturation concentration")
+	
+	var(sediment.sed.ch4satconc, [g, k g-1]) {
+		16 [g, mol-1]*((0.00247 [mol, k g-1] - (0.00004033 [mol, k g-1, deg_c-1] * sediment.temp))* (1-(0.2844[]-0.001775[deg_c-1]*sediment.temp) * (layer.water.salin/58.44)))* (1+ 44.6[m-1] * layer.z[vert.above]/490)
+	}
+	
+	## Simple CH4 release from the sediment = constant + fraction inversely scaled to O2 concentration in water column
+	flux(sediment.sed.ch4, out, [k g, day-1], "CH4 sediment bubbling") {
+		max(0, bubble_ch4*(conc(ch4) - ch4satconc)*sediment.sed) ->>
+	}
+	
 	
 	flux(sediment.sed.oc, out, [k g, day-1], "POC mineralization by denitrification") {
 		sediment.sed.oc*layer.water.denit_rat

@@ -40,6 +40,9 @@ model("EasyReservoir-multibasin-EasyChem") {
 	rho      : property("Density")
 	lwd      : property("Downwelling longwave radiation")
 	sw       : property("Shortwave radiation (Light)")
+	cos_z    : property("Cosine of the solar zenith angle")
+	s_vap    : property("Saturation vapour pressure")
+	a_vap    : property("Actual vapour pressure")	
 	sw_heat  : property("SWR as heat")
 	attn     : property("Attenuation coefficient")
 	deg_cov  : property("Degree of coverage")
@@ -87,11 +90,11 @@ model("EasyReservoir-multibasin-EasyChem") {
 	
 	#load("modules/simplysoiltemp.txt", module("Simply soil temperature", air, soil, snow_box, snow, temp))
 	#load("modules/rivertemp.txt",      module("RiverTemperature", air, soil, river, water, heat, temp))
-	load("modules/atmospheric.txt",    module("Atmospheric", air, temp, wind, g_rad, pressure, a_hum, rho, lwd))
-	load("modules/airseaRes_bis.txt",         module("AirSeaRes_bis", air, epi, ice, FPV, evap_mm, temp, precip, wind, g_rad, pressure, rho, a_hum, lwd, sw, sw_heat, attn, deg_cov, sol_elec, depth, saved_water, precip_scalor, evap_scalor, swr_scalor, always_cover, Area_cov,
+	load("modules/atmospheric.txt",    module("Atmospheric", air, temp, wind, g_rad, pressure, a_hum, rho, lwd, cos_z, a_vap, s_vap))
+	load("modules/airsea_fpv_old.txt",         module("AirSea FPV", air, epi, ice, FPV, evap_mm, temp, precip, wind, g_rad, pressure, rho, a_hum, lwd, sw, sw_heat, attn, deg_cov, sol_elec, depth, saved_water, precip_scalor, evap_scalor, swr_scalor, always_cover, Area_cov,
 											loc(epi.area), ht : loc(epi.water.heat), ht, loc(epi.water.temp), loc(epi.water_FPV.heatf), loc(epi.water_FPV.tempf)))
 	load("modules/easyreservoir.txt",       module("EasyReservoir", air, epi, hyp, surf, water, water_FPV, ice, heat, temp, heatf, tempf, precip, z_e, evap_mm, abstrac, ruleCurve, area, sed_area, sw_heat, hydro_elec, depth, saved_water, A_surf, A_total, precip_scalor, always_cover, level, wl_Wsaved, epi_inflow, in_Temp, in_Tempf)) #, loc(downstream), downstream
-	load("modules/easyChem.txt",       module("EasyChem", air, epi, hyp, surf, water, water_FPV, ice, heat, oc, phyt, o2, dic, ch4, nitro , phos, temp,ocf, phytf, o2f, dicf, ch4f, nitrof , phosf, tempf, precip, wind, z_e, evap_mm, abstrac, area, sed_area, sw, epi_inflow, in_Temp, always_cover, resp, respf, horz, horz_hyp, constant_din_flux, constant_tdp_flux, A_surf, A_total, loc(epi.water.temp)))
+	load("modules/easychem_old.txt",       module("EasyChem", air, epi, hyp, surf, water, water_FPV, ice, heat, oc, phyt, o2, dic, ch4, nitro , phos, temp,ocf, phytf, o2f, dicf, ch4f, nitrof , phosf, tempf, precip, wind, z_e, evap_mm, abstrac, area, sed_area, sw, epi_inflow, in_Temp, always_cover, resp, respf, horz, horz_hyp, constant_din_flux, constant_tdp_flux, A_surf, A_total, loc(epi.water.temp)))
 	
 	simply_solver : solver("Simply solver", "INCADascru", 0.1, 1e-3)   # NOTE: The small relative minimal step is needed by SimplyTox.
 	

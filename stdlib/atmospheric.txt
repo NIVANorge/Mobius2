@@ -92,7 +92,7 @@ The formulas are based on [FAO paper 56](https://www.fao.org/3/x0490e/x0490e07.h
 		b                      := 2*pi*(day_of_year - 81[day])/365[day],
 		eot                    := (9.87*sin(2*b) - 7.53*cos(b) - 1.5*sin(b)) =>[hr],          # "Equation of time"
 		lsmt                   := 15[deg, hr-1]*time_zone,                                    # Local standard meridian time
-		ast                    := hour_of_day + eot + 4[min, deg-1]*(lsmt - longitude)->[hr], # Apparent solar time
+		ast                    := hour_of_day + eot + 4[min, deg-1]*(lsmt - longitude)=>[hr], # Apparent solar time
 		radians(15[deg, hr-1]*(ast - 12[hr]))
 	}
 	
