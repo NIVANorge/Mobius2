@@ -4,6 +4,8 @@ module("AirSea FPV Simple", version(0, 1, 1),
 	surf      : compartment,
 	fpv       : compartment,
 	
+	cov       : par_real,
+	
 	ice       : quantity,
 	heat      : quantity,
 	
@@ -55,7 +57,6 @@ Authors: Francois Clayer, Magnus D. Norling
 	}
 	
 	par_group("FPV", fpv) {
-		cov        : par_real("FPV coverage degree", [], 0, 0, 1)
 		FPV_alb    : par_real("FPV albedo", [], 0.2, 0, 1)
 		FPV_eff    : par_real("FPV efficiency", [], 0.18)
 		length_FPV : par_real("Length of FPV module", [m], 0.5)

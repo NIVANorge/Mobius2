@@ -81,6 +81,8 @@ module("NIVAFjord chemistry", version(0, 0, 5),
 	wind  : property,
 	z     : property,
 	dz    : property,
+	cov : par_real,
+	FPV_gas : par_real,
 	indicator : property,
 	attn  : property,
 	precip : property,
@@ -194,13 +196,13 @@ module("NIVAFjord chemistry", version(0, 0, 5),
 #		(!basin.ice.indicator) * basin.pco2_vel*(conc(co2[vert.top]) - co2satconc[vert.top])*A[vert.top] ->>
 #	}
 	
-	flux(layer.water.ch4, out, [k g, day-1], "CH4 gas exchange at surface") {
-		Kh := exp((-365.183+18103.7[deg_c]/(layer.water.temp+273.15[deg_c])+49.7554*ln(layer.water.temp=>[]+273.15)-0.000285033*(layer.water.temp=>[]+273.15))/1.9872[])/55.556[],
+	flux(layer.water.ch4[vert.top], out, [k g, day-1], "CH4 gas exchange at surface") {
+		top_t := layer.water.temp[vert.top],
+		Kh := exp((-365.183+18103.7[deg_c]/(top_t+273.15[deg_c])+49.7554*ln(top_t=>[]+273.15)-0.000285033*(top_t=>[]+273.15))/1.9872[])/55.556[],
 
 		ch4_eq := 2.3[] / 1000000 * Kh, ## pch4 in ppm : 2.3 ppm, ch4_eq in M
 			
-		(!basin.ice.indicator) * 0.01[m, c m-1]* 24[hr, day-1] * basin.pch4_vel * (1 - FPV_gas) * (conc(layer.water.ch4) - (ch4_eq * 16000[m g, l-1])) * area / 1000000[m g, k g-1] * 1000[l, m-3]	if epi.FPV_indicator2, ### 0.012 mg/L is because it is moles of CH4 not CO2.
-		(!basin.ice.indicator) * 0.01[m, c m-1]* 24[hr, day-1] * basin.pch4_vel * (conc(layer.water.ch4) -(ch4_eq * 16000[m g, l-1])) * area / 1000000[m g, k g-1]	* 1000[l, m-3]					otherwise
+		(!basin.ice.indicator) * 0.01[m, c m-1]* 24[hr, day-1] * basin.pch4_vel * (1 - FPV_gas) * (conc(layer.water.ch4[vert.top]) - (ch4_eq * 16000[m g, l-1])) *A[vert.top] / 1000000[m g, k g-1] * 1000[l, m-3]
 	}
 	
 	flux(layer.water.o2, out, [k g, day-1], "O₂ bubble formation") {
