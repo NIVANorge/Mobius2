@@ -81,7 +81,7 @@ module("Basin inflow", version(0, 0, 0),
 	
 	var(bnd.water, [m 3], "Boundary water") @override { 1=>> } #Doesn't matter what the volume is since only conc will be used
 	
-	var(bnd.water.salt, [k g], [k g, m-3], "Boundary water salt") @override_conc { salinity*1e-3*rho_water }
+	var(bnd.water.salt, [k g], [k g, m-3], "Boundary water salt") @override_conc { bnd.salinity*1e-3*rho_water }
 	
 	var(bnd.water.heat, [J], "Boundary water heat") @override_conc { C_water * (temp -> [K]) * rho_water }
 	
@@ -112,7 +112,7 @@ module("Basin inflow", version(0, 0, 0),
 		0=>> otherwise
 	}
 	
-	# TODO: Ideally we should just be able to set this one as @bidirectional.
+	# TODO: Ideally we should just be able to set this one as @bidirectional, but something is broken with it.
 	flux(bnd.water, layer.water[vert.specific], [m 3, day-1], "Water from boundary") {
 		# this is a bit stupid... It's because we can't look up values at specific indexes (yet)
 		v := aggregate(layer.water.flow_vel), 
@@ -120,7 +120,7 @@ module("Basin inflow", version(0, 0, 0),
 		
 		-a*v->>   if v < 0,
 		0=>>      otherwise
-	} @specific { 1 } @bidirectional   # "1" is the layer where the exchange happens.
+	} @specific { 1 }  # "1" is the layer where the exchange happens.
 	
 	# NOTE: This is "re-alignment" to keep layers below the top one at constant thickness.
 	align : property("Vertical realignment")

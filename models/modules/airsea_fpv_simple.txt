@@ -57,9 +57,9 @@ Authors: Francois Clayer, Magnus D. Norling
 	}
 	
 	par_group("FPV", fpv) {
-		FPV_alb    : par_real("FPV albedo", [], 0.2, 0, 1)
-		FPV_eff    : par_real("FPV efficiency", [], 0.18)
-		length_FPV : par_real("Length of FPV module", [m], 0.5)
+		#FPV_alb    : par_real("FPV albedo", [], 0.2, 0, 1)
+		#FPV_eff    : par_real("FPV efficiency", [], 0.18)
+		#length_FPV : par_real("Length of FPV module", [m], 0.5)
 		swr_reduc  : par_real("Reduction in SWR by FPV", [], 0.45, 0, 1) ## rest of SWR is reaching the water surface as heat
 		lwr_reduc  : par_real("Reduction in LW back radiation by FPV", [], 0.55, 0, 1)
 	}

@@ -66,10 +66,11 @@ It is almost possible to unify a lot of this one with nivafjord_model.txt . The 
 	co2        : quantity("CO₂")
 	ch4        : quantity("CH4")
 	chl_a      : property("Chlorophyll-a")
+	o2satconc  : property("O₂ saturation concentration")
 	
 	load("modules/nivafjord/fjordchem.txt",
 		chem_par : preamble("NIVAFjord chemistry rates", fjord_phyt),
-		module("NIVAFjord chemistry", air, basin, layer, sediment, water, o2, co2, ch4, ice, oc, din, on, phos, op, sed, fjord_phyt, zoo, chl_a, temp, salinity, wind, z, dz, indicator, attn, precip, area, cos_z, sw, vert, chem_par, dims))
+		module("NIVAFjord chemistry", air, basin, layer, sediment, water, o2, co2, ch4, ice, oc, din, on, phos, op, sed, fjord_phyt, zoo, chl_a, temp, salinity, wind, z, dz, indicator, attn, precip, area, cos_z, sw, o2satconc, vert, chem_par, dims))
 	
 	load("modules/nivafjord/sediment.txt",
 		module("NIVAFjord sediments", layer, sediment, water, o2, co2, ch4, salinity, sed, oc, din, on, phos, op, heat, area, temp, dz, z, vert, chem_par, dims))
