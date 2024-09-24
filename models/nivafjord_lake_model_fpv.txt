@@ -55,11 +55,16 @@ It is almost possible to unify a lot of this one with nivafjord_model.txt . The 
 	
 	load("modules/atmospheric.txt",
 		module("Atmospheric", air, temp, wind, g_rad, pressure, a_hum, rho, lwd, cos_z, a_vap, s_vap))
+		
+	par_group("FPV general", fpv) {
+		cov        : par_real("FPV coverage degree", [], 0, 0, 1)
+		FPV_gas	   : par_real("Reduction in gas exchange due to FPV", [], 0.5, 0, 1)
+	}
 	
 	#fpv : compartment("Floating photovoltaics", basin_idx)
-	#load("modules/airsea_fpv.txt",
-	#	module("AirSea FPV", air, basin, fpv, ice, heat, temp, precip, wind, g_rad, pressure, rho, a_hum, lwd, sw, attn, indicator,
-	#		evap, cos_z, loc(basin.freeze_t), loc(basin.area), loc(layer.water[vert.top]), loc(layer.water.heat[sw_vert.top])))
+	load("modules/airsea_fpv_simple.txt",
+		module("AirSea FPV Simple", air, basin, fpv, cov, ice, heat, temp, precip, wind, g_rad, pressure, rho, a_hum, lwd, sw, attn, indicator,
+			evap, cos_z, loc(basin.freeze_t), loc(basin.area), loc(layer.water[vert.top]), loc(layer.water.heat[sw_vert.top])))
 	
 	load("modules/nivafjord/basin.txt",
 		dims : preamble("NIVAFjord dimensions", basin_idx, layer_idx, layer),
@@ -74,7 +79,7 @@ It is almost possible to unify a lot of this one with nivafjord_model.txt . The 
 	
 	load("modules/nivafjord/fjordchem_fpv.txt",
 		chem_par : preamble("NIVAFjord chemistry rates", fjord_phyt),
-		module("NIVAFjord chemistry", air, basin, layer, sediment, water, o2, co2, ch4, ice, oc, din, on, phos, op, sed, fjord_phyt, zoo, chl_a, temp, salinity, wind, z, dz, indicator, attn, precip, area, cos_z, sw, vert, chem_par, dims))
+		module("NIVAFjord chemistry", air, basin, layer, sediment, water, o2, co2, ch4, ice, oc, din, on, phos, op, sed, fjord_phyt, zoo, chl_a, temp, salinity, wind, z, dz, cov, FPV_gas, indicator, attn, precip, area, cos_z, sw, vert, chem_par, dims))
 	
 	load("modules/nivafjord/sediment.txt",
 		module("NIVAFjord sediments", layer, sediment, water, o2, co2, ch4, salinity, sed, oc, din, on, phos, op, heat, area, temp, dz, z, vert, chem_par, dims))
