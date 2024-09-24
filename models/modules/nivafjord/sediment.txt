@@ -124,13 +124,14 @@ module("NIVAFjord sediments", version(0, 0, 3),
 	## Simple CO2 release from the sediment = O2 sediment demand
 	flux(out, layer.water.co2, [k g, day-1], "CO₂ sediment microbial production") {
 		mr := layer.water.min_rat,
-		(sediment.sed.oc)*mr*O2toC    
+		dr := layer.water.denit_rat,
+		(sediment.sed.oc)*(mr + dr)    
 	}
 	
 	## Simple CH4 production in the sediment: fraction scaled to CO2 production
 	flux(out, sediment.sed.ch4, [k g, day-1], "CH4 sediment microbial production") {
 		mr := layer.water.min_rat,
-		(sediment.sed.oc)*mr*O2toC * ch4_production_scaler    
+		(sediment.sed.oc) * mr * ch4_production_scaler    
 	}
 	
 	ch4satconc : property("CH4 saturation concentration")

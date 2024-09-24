@@ -26,10 +26,6 @@ module("Basin inflow", version(0, 0, 0),
 
 	load("stdlib/physiochemistry.txt", library("Water utils"), library("Basic constants"), library("Chemistry"))
 	load("stdlib/seawater.txt", library("Seawater"), library("Sea oxygen"))
-
-		
-	var(air.precip, [m m, day-1], "Precipitation")
-	var(air.temp, [deg_c], "Air temperature")
 	
 	############ Groundwater inflow
 	
@@ -120,7 +116,7 @@ module("Basin inflow", version(0, 0, 0),
 		
 		-a*v->>   if v < 0,
 		0=>>      otherwise
-	} @specific { 1 }  # "1" is the layer where the exchange happens.
+	} @specific { 1 }  # "1" is the layer where the exchange happens. A bit hardcoded right now.
 	
 	# NOTE: This is "re-alignment" to keep layers below the top one at constant thickness.
 	align : property("Vertical realignment")

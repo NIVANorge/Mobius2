@@ -23,6 +23,9 @@ Parameters for specifying various physiochemical properties of a contaminant.
 		#dUoa        : par_real("Enthalpy of phase transfer between octanol and air", [k J, mol-1], 0, -100, 100)
 		kH25        : par_real("Henry's constant at 25°C", [Pa, m 3, mol-1], 0, 0, 100)  #TODO: better default?
 		log10Kow25  : par_real("log10 Octanol-water partitioning coefficient at 25°C", [], 0, -10, 10)
+		compute_koc : par_bool("Compute Koc and Kdoc from Kow. If not, Kow is not used", true)
+		log10Koc    : par_real("log10(m3/kg) SOC-water partitioning coefficient", [], 0, -10, 10)
+		log10Kdoc   : par_real("log10(m3/kg) DOC-water partitioning coefficient", [], 0, -10, 10)
 		#log10Koa25  : par_real("log10 Octanol-air partitioning coefficient at 25°C", [], 0, -10, 10)
 		rwoc        : par_real("Water-OC rate coefficient", [day-1],  0.5, 0, 3, "Speed to reach partitioning equilibrium between water and organic carbon")
 		rfs         : par_real("Fast-Slow rate coefficient", [day-1], 0.05, 0, 3, "Speed to reach partitioning equilibrium between fast and slow soil organic carbon")
@@ -42,14 +45,20 @@ Parameters for specifying various physiochemical properties of a contaminant.
 	}
 	
 	Koc   : property("SOC-water partitioning coefficient") {
-		rhoSOC := 1900.0[k g, m-3],
-		rOC    := 0.41,   # Empirical constant.
-		Kow * rOC / rhoSOC
+		{
+			rhoSOC := 1900.0[k g, m-3],
+			rOC    := 0.41,   # Empirical constant.
+			Kow * rOC / rhoSOC
+		}                           if compute_koc,
+		(10^log10Koc=>[m 3, k g-1]) otherwise
 	}
 	
 	Kdoc  : property("DOC-water partitioning coefficient") {
-		rhoDOC := 1100.0[k g, m-3],
-		10.0^(-0.45)*Kow^0.93 / rhoDOC
+		{
+			rhoDOC := 1100.0[k g, m-3],
+			10.0^(-0.45)*Kow^0.93 / rhoDOC
+		}                            if compute_koc,
+		(10^log10Kdoc=>[m 3, k g-1]) otherwise
 	}
 	
 	Kh    : property("Henry's constant") {
@@ -275,9 +284,7 @@ Contaminant exchange between a surface water and the atmosphere.
 		1.0 / inv
 	}
 	
-	flux(out, comp.water.tox, [n g, day-1], "Contaminant direct deposition") {
-		air.tox.dep*A_surf ->>
-	}
+	
 }
 
 module("SimplyTox river", version(0, 0, 1),
@@ -319,6 +326,11 @@ River-specific contaminant processes that are not covered by the partitioning mo
 	flux(river.water.tox, out, [n g, day-1], "River water-atmosphere contaminant exchange") {
 		A_surf * vel_air_water * (conc(water.tox)->[n g, m-3] - air.tox.atmconc/Kaw) ->>
 	}
+	
+	flux(out, river.water.tox, [n g, day-1], "Contaminant direct deposition") {
+		air.tox.dep*A_surf ->>
+	}
+	
 	
 	sed_dens : constant("Sediment density", [k g, m-3], 2600)
 	

@@ -316,11 +316,11 @@ module("NIVAFjord chemistry", version(0, 0, 5),
 	
 	flux(layer.water.oc, out, [k g, day-1], "DOC mineralization") {
 		oc*min_rat
-	} @no_carry
+	} @no_carry # In case we use the tox module, the mineralization should not destroy the contaminant.
 	
 	flux(layer.water.sed.oc, out, [k g, day-1], "POC mineralization") {
 		sed.oc*min_rat
-	} @no_carry
+	} @no_carry # In case we use the tox module, the mineralization should not destroy the contaminant.
 	
 	flux(layer.water.on, layer.water.din, [k g, day-1], "DON mineralization and nitrification") {
 		on*min_rat*n_min
@@ -345,6 +345,10 @@ module("NIVAFjord chemistry", version(0, 0, 5),
 		+ (on + sed.on)*min_rat*n_min*(o2_mol_mass/n_mol_mass)*1.5    # ON -> NH4 -> NO3   #TODO: Should the 1.5 be parametrizable?
 	}
 	
+	flux(out, layer.water.co2, [k g, day-1], "Microbial CO2 production") {
+		(oc + sed.oc)*(min_rat+denit_rat) # NOTE: CO2 is in kg(C)
+	}
+	
 	var(layer.water.denit_rat, [day-1], "Denitrification rate") {
 		wd := 0.5,
 		n_fac := s_response(conc(din)/n_denit_th, (1-wd), (1+wd), 0, 1),
@@ -362,7 +366,7 @@ module("NIVAFjord chemistry", version(0, 0, 5),
 	
 	flux(layer.water.din, out, [k g, day-1], "NO3 denitrification consumption") {
 		bo2 := (water.oc + water.sed.oc)*denit_rat*O2toC*o2_mol_mass/c_mol_mass,  # Bacterial O2 demand in nitrification
-		bo2*(3./2.)*n_mol_mass/o2_mol_mass
+		bo2*1.5*n_mol_mass/o2_mol_mass
 	}
 	
 	flux(layer.water.phos, layer.water.sed.phos, [k g, day-1], "PO4 adsorption / desorption to particles") {

@@ -54,4 +54,8 @@ module("EasyTox", version(0, 0, 0),
 		hyp.water.tox.diff_sed * area * (conc(hyp.water.oc.tox)*conc(hyp.water.oc) - conc(lake_sed.water.oc.tox)*conc(lake_sed.water.oc)) / dz ->>
 	}
 	
+	flux(out, river.water.tox, [n g, day-1], "Contaminant direct deposition") {
+		air.tox.dep*A_surf ->>
+	}
+	
 }

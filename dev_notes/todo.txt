@@ -1,6 +1,20 @@
 
 
 	*** High pri ***
+	
+	
+		Not possible to scope into a preamble from model scope. Should do this in a good way. Can't always export the preamble to model scope.
+			Maybe we should always scope into preambles using the . syntax? (Also when they are passed to modules?).
+		
+		Want to be able to declare something like
+			basin.tox.vel_air
+		to get tox_index dependency for the variable without basin.tox being a variable.
+			For now, could make it a variable with @override {1[k g]}, but it is a bit annoying.
+			
+			
+		If a discrete flux goes from something that is @override, it should not be clamped to the value of what it is carrying.
+	
+	
 
 		Add forums on github page? (github Discussions)
 		
