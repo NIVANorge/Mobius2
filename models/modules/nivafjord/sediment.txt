@@ -125,7 +125,6 @@ module("NIVAFjord sediments", version(0, 0, 3),
 	flux(out, layer.water.co2, [k g, day-1], "CO₂ sediment microbial production") {
 		mr := layer.water.min_rat,
 		(sediment.sed.oc)*mr*O2toC    
-		+ (sediment.sed.on)*mr*n_min*(o2_mol_mass/n_mol_mass)*1.5    
 	}
 	
 	## Simple CH4 production in the sediment: fraction scaled to CO2 production
