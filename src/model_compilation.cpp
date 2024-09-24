@@ -136,7 +136,7 @@ insert_dependency_base(Model_Application *app, Model_Instruction *instr, Entity_
 	}
 	
 	if(allowed_index_sets && !allowed_index_sets->has(to_insert))
-		fatal_error(Mobius_Error::internal, "Inserting a banned index set dependency ", model->index_sets[to_insert]->name, " for ", instr->debug_string(app), "\n");
+		fatal_error(Mobius_Error::internal, "Inserting a banned index set dependency \"", model->index_sets[to_insert]->name, "\" for ", instr->debug_string(app), "\n");
 
 	// TODO: If any of the existing index sets in dependencies is a union and we try to insert a union member, that should overwrite the union?
 	//   Hmm, however, this should not really happen as a Var_Location should not be able to have such a double dependency in the first place.
@@ -746,7 +746,9 @@ process_grid1d_connection_aggregation(Model_Application *app, std::vector<Model_
 		auto parent = model->index_sets[index_set]->sub_indexed_to;
 		if(is_valid(parent))
 			insert_dependency(app, add_to_aggr_instr, parent);
-		
+	
+	} else if (type == Restriction::specific) {
+		// Do nothing
 	} else {
 		fatal_error(Mobius_Error::internal, "Should not have got this type of restriction for a grid1d flux, ", app->vars[flux_id]->name, ".");
 	}

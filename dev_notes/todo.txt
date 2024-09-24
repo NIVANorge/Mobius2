@@ -4,18 +4,21 @@
 
 		Add forums on github page? (github Discussions)
 		
-		Would like to be able to use in_flux in initial code (for e.g. setting initial steady states easily), but then we also need to be able to compute initial values for fluxes. With in_flux_connection it could be tricky to determine what initial fluxes must be computed (Not tricky, maybe, but a lot of work.. ?).
+		
 		
 		Made it possible to add properties to solvers manually, but it could be error prone.
 			Fix errors if they appear.
 			
 		There is no guard against loading a library twice, instead you get identifier name conflict.
 		
+		
+		@index_with for par_group causes problems if you want to reuse the module without one of the index sets..
+			Why did we introduce it? Probably to force distribution over those index sets. Could be declared differently, like @fully_distribute or something.
+		
 
 		Something is broken with airsea, but only in some cases .... (has something to do with ice or longwave).
 			In 07_model it looks like a bad interaction with mixing, numerical instability (why was it not an issue before??).
-			EasyTox still broken!
-
+			EasyTox still broken.
 		
 		Not including declaration of union index set in data set can create an internal error.
 			wb_index : index_set("Water body") @union(sc, lake)
@@ -119,6 +122,11 @@
 					This is maybe the easiest, but is still a bit of work for this special case.
 					
 				Actually in grid1d the connection aggregate is always unnecessary unless it is referenced. Would it be better to remove it as a default and only generate it if it is referenced in code by in_flux(connection)?
+				
+				Need a guard for when you have flux
+					flux(a.something, b.something[conn.top])  (or bottom or specific)
+					or similar if the node index set for conn has a parent index set that a does not depend on.
+					This should either not be allowed or there should be a mitigation (currently internal error)
 			
 			
 			.specific target:
@@ -143,6 +151,8 @@
 	
 	
 	*** Intermediate-pri ***
+	
+		Would like to be able to use in_flux in initial code (for e.g. setting initial steady states easily), but then we also need to be able to compute initial values for fluxes. With in_flux_connection it could be tricky to determine what initial fluxes must be computed (Not tricky, maybe, but a lot of work.. ?).
 	
 		Merge unit_conversion and aggregation_weight to just "weight" (?)
 	

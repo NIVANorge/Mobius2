@@ -8,6 +8,8 @@ module("Basin inflow", version(0, 0, 0),
 	heat : quantity,
 	o2 : quantity,
 	salt : quantity,
+	co2 : quantity,
+	ch4 : quantity,
 	
 	precip : property,
 	temp : property,
@@ -58,7 +60,13 @@ module("Basin inflow", version(0, 0, 0),
 	#Input series
 	var(bnd.h, [m], "Boundary water level") # difference from "0" level.
 	var(bnd.salinity, [], "Boundary salinity")
-	var(bnd.temp, [deg_c], "Boundary temperature")
+	
+	
+	
+	var(bnd.temp, [deg_c], "Boundary temperature") {
+		layer.water.temp[vert.top] #Ideally the layer below that, but we can
+	}
+	
 	# TODO: Add all other substances we care about entering the basin from outside.
 	
 	par_group("Boundary exchange", bnd) {
@@ -68,7 +76,7 @@ module("Basin inflow", version(0, 0, 0),
 	}
 	
 	par_group("Exchange layer", layer) {
-		a_pipe : par_real("Pipe area", [m 2], 0.98, 0, 100, "Total cross-section area of all pipes")
+		a_pipe : par_real("Pipe area", [m 2], 0.98, 0, 100, "Total cross-section area of all pipes. Can only be nonzero on one level right now.")
 	}
 	
 	var(bnd.water, [m 3], "Boundary water") @override { 1=>> } #Doesn't matter what the volume is since only conc will be used
@@ -79,24 +87,40 @@ module("Basin inflow", version(0, 0, 0),
 	
 	var(bnd.water.o2, [k g], [m g, l-1], "Boundary water O2") @override_conc { o2_saturation(temp, salinity)*o2_mol_mass->> } #NOTE: Assumes it is at saturation near pipes..
 	
+	var(bnd.water.co2, [k g], [m g, l-1]) @override_conc { conc(layer.water.co2[vert.top]) }
+	
+	var(bnd.water.ch4, [k g], [m g, l-1]) @override_conc { conc(layer.water.ch4[vert.top]) }
+	
 	var(bnd.pressure, [Pa], "Boundary pressure at pipe level") {
 		ht := h + h_pipe,
 		rho := seawater_pot_dens(temp, salinity),
 		rho*grav*ht
 	}
 	
-	/*  # Need to fix some things in the framework to make this work.
+	  # Need to fix some things in the framework to make this work.
+	# Could also split it into two separate ones depending on direction, and make the outgoing one 'out'
 	
-	# Could have determined what layer participates in exchange from other factors, but a bit complicated. Instead, just set a_pipe to 0 for all others.
-	flux(layer.water, bnd.water, [m 3, day-1], "Boundary water exchange") {
-		
+	flow_vel : property("Horizontal flow velocity")
+	var(layer.water.flow_vel, [m, s-1], "Pipe flow velocity") {
 		dP := pressure - bnd.pressure,
-		velocity := copysign(sqrt(2*alpha_u*abs(dP)/rho_water), dP)->[m, day-1],
-		
-		a_pipe*velocity
-			
-	} @bidirectional
+		(a_pipe > 0)*copysign(sqrt(2*alpha_u*abs(dP)/rho_water), dP)->>
+	}
 	
+	
+	flux(layer.water, out, [m 3, day-1], "Water to boundary") {
+		a_pipe*flow_vel->> if flow_vel > 0,
+		0=>> otherwise
+	}
+	
+	# TODO: Ideally we should just be able to set this one as @bidirectional.
+	flux(bnd.water, layer.water[vert.specific], [m 3, day-1], "Water from boundary") {
+		# this is a bit stupid... It's because we can't look up values at specific indexes (yet)
+		v := aggregate(layer.water.flow_vel), 
+		a := aggregate(a_pipe),
+		
+		-a*v->>   if v < 0,
+		0=>>      otherwise
+	} @specific { 1 } @bidirectional   # "1" is the layer where the exchange happens.
 	
 	# NOTE: This is "re-alignment" to keep layers below the top one at constant thickness.
 	align : property("Vertical realignment")
@@ -108,5 +132,7 @@ module("Basin inflow", version(0, 0, 0),
 		A
 		align_rate
 	}
-	*/
+	flux(layer.water, vert, [m 3, day-1], "Vertical realignment flux") {
+		align
+	} @bidirectional
 }
