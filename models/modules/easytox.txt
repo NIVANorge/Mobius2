@@ -29,6 +29,10 @@ module("EasyTox", version(0, 0, 0),
 		(!ice.indicator)*vel_air_water * (conc(water.tox)->[n g, m-3] - air.tox.atmconc/Kaw)* A_surf ->>
 	}
 	
+	flux(out, epi.water.tox, [n g, day-1], "Contaminant direct deposition") {
+		air.tox.dep*A_surf ->>
+	}
+	
 	# TODO: Why does this slow down the model so much?
 	flux(epi.water.tox, out, [n g, day-1], "Lake contaminant photo-degradation") {
 		# TODO: What about attenuation of sw in the epilimnion?
@@ -54,8 +58,5 @@ module("EasyTox", version(0, 0, 0),
 		hyp.water.tox.diff_sed * area * (conc(hyp.water.oc.tox)*conc(hyp.water.oc) - conc(lake_sed.water.oc.tox)*conc(lake_sed.water.oc)) / dz ->>
 	}
 	
-	flux(out, river.water.tox, [n g, day-1], "Contaminant direct deposition") {
-		air.tox.dep*A_surf ->>
-	}
 	
 }

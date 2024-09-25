@@ -31,13 +31,13 @@ It is also currently without horizontal exchange between basins, so it only work
 		module("AirSeaGas FPV", air, layer, basin, water, ice, o2, co2, ch4, temp, wind, precip, o2satconc, loc(basin.ice.indicator), vert, cov, FPV_gas, dims)) 
 	
 	load("modules/nivafjord/pipe_boundary.txt", 
-		module("Basin inflow", air, layer, basin, bnd, water, heat, o2, salt, co2, ch4, tox, precip, temp, h, rho, salinity, pressure, dz, vert, dims))
+		module("Basin inflow", air, layer, basin, bnd, water, heat, o2, salt, sed, oc, co2, ch4, tox, precip, temp, h, rho, salinity, pressure, dz, vert, dims))
 		
-	#load("modules/simplytox.txt",
-	#	phys : preamble("SimplyTox physiochemical", tox, temp),
+	load("modules/simplytox.txt",
+		phys : preamble("SimplyTox physiochemical", tox, temp),
 	#	module("SimplyTox air-water",    "SimplyTox lake air-water", air, basin, water, tox, temp, wind, loc(basin.area), phys),
-	#	module("SimplyTox partitioning", "SimplyTox fjord layer", layer, water, oc, tox, temp, loc(layer.water.sed.oc), [n g], constant(true), phys)
-	#)
+		module("SimplyTox partitioning", "SimplyTox fjord layer", layer, water, oc, tox, temp, loc(layer.water.sed.oc), [n g], constant(true), phys)
+	)
 	
 	#load("modules/nivafjord/tox.txt",
 	#	module("NIVAFjord tox air-water", basin, layer, air, water, tox, temp, area, vert, loc(basin.ice.indicator), dims, phys)
@@ -55,7 +55,7 @@ It is also currently without horizontal exchange between basins, so it only work
 		var(air.temp, [deg_c], "Air temperature")
 		
 		
-		var(layer.water.tox, [n g], [n g, l-1], "Layer contaminants")
+		#var(layer.water.tox, [n g], [n g, l-1], "Layer contaminants")
 		
 		
 		sed_tox : property("Sediment diffuse contaminants")

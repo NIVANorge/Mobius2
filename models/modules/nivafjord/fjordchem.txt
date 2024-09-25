@@ -98,6 +98,8 @@ module("NIVAFjord chemistry", version(0, 0, 5),
 	par_group("Initial chem", layer) {
 		init_O2  : par_real("Initial O₂ saturation", [], 1, 0, 1)
 		init_DOC : par_real("Initial DOC concentration", [m g, l-1], 0, 0, 100)
+		init_ss  : par_real("Initial suspended sediment concentration", [m g, l-1], 0, 0, 100)
+		init_foc : par_real("Initial particle organic carbon content", [g, k g-1], 0, 0, 1000)
 		#init_zoo : par_real("Initial zooplankton concentration", [m g, l-1], 0.0001, 0, 0.1)
 	}
 	
@@ -134,9 +136,9 @@ module("NIVAFjord chemistry", version(0, 0, 5),
 	
 	var(layer.water.op, [k g], [m g, l-1], "Layer DOP")
 	
-	var(layer.water.sed, [k g], [m g, l-1], "Layer suspended sediments")
+	var(layer.water.sed, [k g], [m g, l-1], "Layer suspended sediments") @initial_conc { init_ss }
 	
-	var(layer.water.sed.oc, [k g], [g, k g-1], "Layer POC") @show_conc(layer.water, [m g, l-1])
+	var(layer.water.sed.oc, [k g], [g, k g-1], "Layer POC") @show_conc(layer.water, [m g, l-1]) @ initial_conc { init_foc }
 	
 	var(layer.water.sed.phos, [k g], [g, k g-1], "Layer PIP") @show_conc(layer.water, [m g, l-1])
 	

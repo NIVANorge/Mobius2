@@ -8,6 +8,8 @@ module("Basin inflow", version(0, 0, 0),
 	heat : quantity,
 	o2 : quantity,
 	salt : quantity,
+	sed : quantity,
+	oc  : quantity,
 	co2 : quantity,
 	ch4 : quantity,
 	tox : quantity,
@@ -56,7 +58,6 @@ module("Basin inflow", version(0, 0, 0),
 	
 	#Input series
 	var(bnd.h, [m], "Boundary water level") # difference from "0" level.
-	var(bnd.salinity, [], "Boundary salinity")
 	
 	tox_conc : property("Contaminant concentration")
 	var(bnd.water.tox.tox_conc, [n g, l-1], "Boundary contaminant conc")
@@ -79,13 +80,22 @@ module("Basin inflow", version(0, 0, 0),
 		a_pipe : par_real("Pipe area", [m 2], 0.98, 0, 100, "Total cross-section area of all pipes. Can only be nonzero on one level right now.")
 	}
 	
+	par_group("Boundary concentrations", bnd) {
+		bnd_doc : par_real("DOC concentration", [m g, l-1], 4, 0, 100)
+		bnd_salin : par_real("Boundary salinity", [], 7, 0, 100)
+		bnd_ss : par_real("Boundary suspended sediment concentration", [m g, l-1], 1, 0, 100)
+		bnd_foc : par_real("Boundary suspended sediment oc fraction", [g, k g-1], 20, 0, 100)
+	}
+	
 	var(bnd.water, [m 3], "Boundary water") @override { 1=>> } # This is just formal, it doesn't matter what the volume is.
 	
-	var(bnd.water.salt, [k g], [k g, m-3], "Boundary water salt") @override_conc { bnd.salinity*1e-3*rho_water }
+	var(bnd.water.salt, [k g], [k g, m-3], "Boundary water salt") @override_conc { bnd_salin*1e-3*rho_water }
 	
 	var(bnd.water.heat, [J], "Boundary water heat") @override_conc { C_water * (temp -> [K]) * rho_water }
 	
-	var(bnd.water.o2, [k g], [m g, l-1], "Boundary water O2") @override_conc { o2_saturation(temp, salinity)*o2_mol_mass->> } #NOTE: Assumes it is at saturation near pipes..
+	var(bnd.water.oc, [k g], [m g, l-1], "Boundary water DOC") @override_conc { bnd_doc }
+	
+	var(bnd.water.o2, [k g], [m g, l-1], "Boundary water O2") @override_conc { o2_saturation(temp, bnd_salin)*o2_mol_mass->> } #NOTE: Assumes it is at saturation near pipes..
 	
 	var(bnd.water.co2, [k g], [m g, l-1]) @override_conc { conc(layer.water.co2[vert.top]) }
 	
@@ -93,9 +103,13 @@ module("Basin inflow", version(0, 0, 0),
 	
 	var(bnd.water.tox, [n g], [n g, l-1]) @override_conc { tox_conc }
 	
+	var(bnd.water.sed, [k g], [m g, l-1]) @override_conc { bnd_ss }
+	
+	var(bnd.water.sed.oc, [k g], [g, k g-1]) @override_conc { bnd_foc }
+	
 	var(bnd.pressure, [Pa], "Boundary pressure at pipe level") {
 		ht := h + h_pipe,
-		rho := seawater_pot_dens(temp, salinity),
+		rho := seawater_pot_dens(temp, bnd_salin),
 		rho*grav*ht
 	}
 	

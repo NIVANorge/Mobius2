@@ -8,6 +8,7 @@ module("NIVAFjord tox air-water", version(0, 0, 1),
 	tox : quantity,
 	temp : property,
 	area : property,
+	sw   : property,
 	vert : connection,
 	ice_ind : loc,
 	
@@ -26,15 +27,25 @@ TODO: photodegradation (for use with nitrosamines).
 	var(basin.water.tox, [k g], "Basin contaminant dummy. This is not used") @override { 1[k g] }
 	var(basin.water.temp, [deg_c], "Basin surface temperature") { layer.water.temp[vert.top] }
 	
-	#TODO: FPV impact?
+	par_group("Photo-degradation", tox) {
+		opt_c : par_real("Absorption cross-section", [m 2, mol-1], 2, "Absorption cross-section of contaminant")
+		qy    : par_real("Quantum yield", [], 0.45, 0, 10, "Degraded contaminant mol per mol photons")
+		f_par : par_real("Fraction of photo-active", [], 0.06, 0, 1, "Fraction of incoming shortwave radiation that contributes to degradation of this contaminant")
+		e_par : par_real("Energy of photo-active", [J, mol-1], 351843, 0, 1000000, "Average energy per mol photons")
+	}
 	
-	/*
 	flux(layer.water.tox[vert.top], out, [n g, day-1], "Basin water-atmosphere contaminant exchange") {
 		kaw := basin.water.tox.Kaw,
 		vaw := basin.water.tox.vel_air_water,
 	
-		(!ice_ind) * vaw * (conc(layer.water.tox[vert.top])->[n g, m-3] - air.tox.atmconc/kaw)*basin.area ->>
+		(!ice_ind) * vaw * (conc(tox[vert.top])->[n g, m-3] - air.tox.atmconc/kaw)*basin.area ->>
 	}
-	*/
 	
+	flux(layer.water.tox[vert.top], out, [n g, day-1], "Lake contaminant photo-degradation") {
+		opt_c * qy * (f_par / e_par) * sw[vert.top] * tox[vert.top] ->>
+	}
+	
+	flux(out, layer.water.tox[vert.top], [n g, day-1], "Contaminant direct deposition") {
+		air.tox.dep*basin.area ->>
+	}
 }
