@@ -31,11 +31,11 @@ It is also currently without horizontal exchange between basins, so it only work
 		module("AirSeaGas FPV", air, layer, basin, water, ice, o2, co2, ch4, temp, wind, precip, o2satconc, loc(basin.ice.indicator), vert, cov, FPV_gas, dims)) 
 	
 	load("modules/nivafjord/pipe_boundary.txt", 
-		module("Basin inflow", air, layer, basin, bnd, water, heat, o2, salt, co2, ch4, precip, temp, h, rho, salinity, pressure, dz, vert, dims))
+		module("Basin inflow", air, layer, basin, bnd, water, heat, o2, salt, co2, ch4, tox, precip, temp, h, rho, salinity, pressure, dz, vert, dims))
 		
 	load("modules/simplytox.txt",
 		phys : preamble("SimplyTox physiochemical", tox, temp),
-		#module("SimplyTox air-water",    "SimplyTox lake air-water", air, layer, water, tox, temp, wind, loc(A), phys),
+		module("SimplyTox air-water",    "SimplyTox lake air-water", air, basin, water, tox, temp, wind, loc(basin.area), phys),
 		module("SimplyTox partitioning", "SimplyTox fjord layer", layer, water, oc, tox, temp, loc(layer.water.sed.oc), [n g], constant(true), phys)
 	)
 		
@@ -56,6 +56,16 @@ It is also currently without horizontal exchange between basins, so it only work
 		flux(out, layer.water.tox, [n g, day-1], "Diffuse contaminant leeching from sediments") {
 			sed_tox
 		}
+		# TODO: Should some leeching be tied to particles? Otherwise it is strange since these are hydrophobic contaminants
+		
+		
+		# A bit stupid that we need these: It is to be able to reuse the simplytox air-water thing without redeclaring the module.
+		# We could factor the module differently maybe.
+		var(basin.water, [k g], "This is not used either") @override { 1[k g] }
+		var(basin.water.tox, [k g], "This is not used") @override { 1[k g] }
+		var(basin.water.temp, [deg_c]) { layer.water.temp[vert.top] }
+		
+		
 	}
 }
 

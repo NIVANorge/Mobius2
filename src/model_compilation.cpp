@@ -749,6 +749,7 @@ process_grid1d_connection_aggregation(Model_Application *app, std::vector<Model_
 	
 	} else if (type == Restriction::specific) {
 		// Do nothing
+		
 	} else {
 		fatal_error(Mobius_Error::internal, "Should not have got this type of restriction for a grid1d flux, ", app->vars[flux_id]->name, ".");
 	}

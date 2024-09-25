@@ -23,9 +23,10 @@ Parameters for specifying various physiochemical properties of a contaminant.
 		#dUoa        : par_real("Enthalpy of phase transfer between octanol and air", [k J, mol-1], 0, -100, 100)
 		kH25        : par_real("Henry's constant at 25°C", [Pa, m 3, mol-1], 0, 0, 100)  #TODO: better default?
 		log10Kow25  : par_real("log10 Octanol-water partitioning coefficient at 25°C", [], 0, -10, 10)
-		compute_koc : par_bool("Compute Koc and Kdoc from Kow. If not, Kow is not used", true)
 		log10Koc    : par_real("log10(m3/kg) SOC-water partitioning coefficient", [], 0, -10, 10)
 		log10Kdoc   : par_real("log10(m3/kg) DOC-water partitioning coefficient", [], 0, -10, 10)
+		compute_koc : par_bool("Compute Koc and Kdoc from Kow. If not, Kow is not used", true)
+		is_gas      : par_bool("Has a gas phase", true)
 		#log10Koa25  : par_real("log10 Octanol-air partitioning coefficient at 25°C", [], 0, -10, 10)
 		rwoc        : par_real("Water-OC rate coefficient", [day-1],  0.5, 0, 3, "Speed to reach partitioning equilibrium between water and organic carbon")
 		rfs         : par_real("Fast-Slow rate coefficient", [day-1], 0.05, 0, 3, "Speed to reach partitioning equilibrium between fast and slow soil organic carbon")
@@ -200,8 +201,11 @@ Soil-specific contaminant processes that are not covered by the partitioning mod
 	var(soilair.tox.Ceq, [n g, m-3], "Soil air contaminant equilibrium concentration") { soil.water.tox.Ceq * soil.water.tox.Kaw ->> }
 	
 	flux(soil.water.tox, soilair.tox, [n g, m-2, day-1], "Water-air contaminant exchange") {
-		concair := soilair.tox/Vsa -> [n g, m-3],
-		raw*(soilair.tox.Ceq - concair)
+		{
+			concair := soilair.tox/Vsa -> [n g, m-3],
+			raw*(soilair.tox.Ceq - concair)
+		}    if is_gas,
+		0=>> otherwise
 	}
 	
 	flux(soilair.tox, out, [n g, m-2, day-1], "Soil atmosphere contaminant exchange") {
@@ -280,8 +284,11 @@ Contaminant exchange between a surface water and the atmosphere.
 	}
 	
 	var(comp.water.tox.vel_air_water, [m, s-1], "Air-water contaminant transfer velocity") {
-		inv := (1.0/vel_water + 1.0/(vel_air*Kaw)),
-		1.0 / inv
+		{
+			inv := (1.0/vel_water + 1.0/(vel_air*Kaw)),
+			1.0 / inv
+		}    if is_gas,
+		0=>> otherwise
 	}
 	
 	
@@ -324,7 +331,7 @@ River-specific contaminant processes that are not covered by the partitioning mo
 	
 	# Unfortunately we can't have this one in the air-water module, because the lake version of that must be limited by ice, so we have to specify it separately for lakes and rivers.
 	flux(river.water.tox, out, [n g, day-1], "River water-atmosphere contaminant exchange") {
-		A_surf * vel_air_water * (conc(water.tox)->[n g, m-3] - air.tox.atmconc/Kaw) ->>
+		is_gas * A_surf * vel_air_water * (conc(water.tox)->[n g, m-3] - air.tox.atmconc/Kaw) ->>
 	}
 	
 	flux(out, river.water.tox, [n g, day-1], "Contaminant direct deposition") {
