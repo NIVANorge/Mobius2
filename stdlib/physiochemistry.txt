@@ -27,7 +27,7 @@ Some common thermodynamic constants and functions.
 
 library("Water utils") {
 """
-These are simplified functions for computing properties of freshwater at surface pressure. See the Seawater library for functions that work better in more general cases.
+These are simplified functions for computing properties of freshwater at surface pressure. See the Seawater library for functions that take into account salinity and other factors.
 
 References to be inserted.
 """
@@ -102,6 +102,26 @@ Reference: Schwarzengack, Gschwend, Imboden, "Environmental organic chemistry" 2
 			(0.79*w - 2.68)*1e-3   if w <= 13.0,
 			(1.64*w - 13.69)*1e-3  otherwise
 		} => [c m, s-1]
+	}
+	
+	
+	load(library("Water utils"))
+	
+	waterside_vel_low_turbulence : function(T : [K], moldiff : [m 2, s-1], wind : [m, s-1]) {
+		# This one is for freshwater only.
+		# Deacon (TODO: full reference)
+
+		kinvis := kinematic_viscosity_water(T),   #Hmm, we may want a salinity-dependent version of this.
+		
+		schmidt := kinvis / moldiff, # Schmidt number
+		
+		asc := {
+			0.67 if wind < 4.2[m, s-1],
+			0.5  otherwise
+		},
+		vCO2 := transfer_velocity_of_CO2_in_water_20C(wind),
+		
+		((schmidt/600)^(-asc))*vCO2 -> [m, s-1]
 	}
 }
 

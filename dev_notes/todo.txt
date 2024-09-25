@@ -10,8 +10,8 @@
 			Use cases are
 				Use preamble in global module
 					We should allow passing a preamble argument to the module declaration.
-						Tried, but there is a bug...
-				Pass a parameter from a preamble to a module without passing the module.
+						Tried, but it was a bit tricky to get it to work. Redo when more time.
+				Pass a parameter from a preamble to a module without passing the full preamble.
 					Can be taken care of by wrapping it in a property (not ideal)
 			
 		Got an error in the following case
@@ -21,6 +21,9 @@
 			layer.water.tox was distributed over tox_index with the actual dependency.
 			Caused problem when the dissolved flux were to be added to the connection aggregate (lack of index set).
 				Probably also a problem for vert.top etc.
+				
+				It is a bit tricky for the framework to predetermine this.. But there is maybe something like this for graph aggregates
+					It should get 
 		
 		
 		Want to be able to declare something like

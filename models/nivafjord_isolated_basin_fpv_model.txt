@@ -38,7 +38,11 @@ It is also currently without horizontal exchange between basins, so it only work
 		module("SimplyTox air-water",    "SimplyTox lake air-water", air, basin, water, tox, temp, wind, loc(basin.area), phys),
 		module("SimplyTox partitioning", "SimplyTox fjord layer", layer, water, oc, tox, temp, loc(layer.water.sed.oc), [n g], constant(true), phys)
 	)
-		
+	
+	load("modules/nivafjord/tox.txt",
+		module("NIVAFjord tox air-water", basin, layer, air, water, tox, temp, area, vert, loc(basin.ice.indicator), dims, phys)
+	)
+	
 	solve(sol, bnd.water)
 	
 	
@@ -57,14 +61,6 @@ It is also currently without horizontal exchange between basins, so it only work
 			sed_tox
 		}
 		# TODO: Should some leeching be tied to particles? Otherwise it is strange since these are hydrophobic contaminants
-		
-		
-		# A bit stupid that we need these: It is to be able to reuse the simplytox air-water thing without redeclaring the module.
-		# We could factor the module differently maybe.
-		var(basin.water, [k g], "This is not used either") @override { 1[k g] }
-		var(basin.water.tox, [k g], "This is not used") @override { 1[k g] }
-		var(basin.water.temp, [deg_c]) { layer.water.temp[vert.top] }
-		
 		
 	}
 }

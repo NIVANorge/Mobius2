@@ -1,0 +1,40 @@
+
+
+module("NIVAFjord tox air-water", version(0, 0, 1),
+	basin : compartment,
+	layer : compartment,
+	air : compartment,
+	water : quantity,
+	tox : quantity,
+	temp : property,
+	area : property,
+	vert : connection,
+	ice_ind : loc,
+	
+	dims : preamble,
+	phys : preamble
+) {
+"""
+TODO: We should be able to unify this with EasyTox.
+TODO: photodegradation (for use with nitrosamines).
+"""
+	var(air.tox.atmconc, [n g, m-3]) # Input series. In case it isn't declared anywhere else
+	
+	# A bit stupid that we need these: It is to be able to declare things like basin.water.tox.moldiff
+	# and get the correct index set dependency on 'tox'. Ideally we should be able to declare basin.water.tox.moldiff even if basin.water.tox doesn't exist as long as moldiff is a property?
+	var(basin.water, [k g], "Basin water dummy. This is not used either") @override { 1[k g] }
+	var(basin.water.tox, [k g], "Basin contaminant dummy. This is not used") @override { 1[k g] }
+	var(basin.water.temp, [deg_c], "Basin surface temperature") { layer.water.temp[vert.top] }
+	
+	#TODO: FPV impact?
+	
+	/*
+	flux(layer.water.tox[vert.top], out, [n g, day-1], "Basin water-atmosphere contaminant exchange") {
+		kaw := basin.water.tox.Kaw,
+		vaw := basin.water.tox.vel_air_water,
+	
+		(!ice_ind) * vaw * (conc(layer.water.tox[vert.top])->[n g, m-3] - air.tox.atmconc/kaw)*basin.area ->>
+	}
+	*/
+	
+}
