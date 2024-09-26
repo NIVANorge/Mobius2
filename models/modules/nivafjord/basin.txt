@@ -240,7 +240,9 @@ Authors: Magnus D. Norling
 		(in_flux(sw_vert, layer.water.heat)->>)*(1 - attn) * A[vert.below]/A
 	}
 	
+	sed_alb : constant("Sediment albedo", [], 0.3)
+	
 	flux(layer.water.heat, sw_sed, [J, day-1], "Shortwave to sediments") {
-		(in_flux(sw_vert, layer.water.heat)->>)*(1 - attn) * (A - A[vert.below])/A
+		(in_flux(sw_vert, layer.water.heat)->>)*(1 - attn)*(1 - sed_alb) * (A - A[vert.below])/A
 	}
 }
