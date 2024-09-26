@@ -13,6 +13,7 @@
 						Tried, but it was a bit tricky to get it to work. Redo when more time.
 				Pass a parameter from a preamble to a module without passing the full preamble.
 					Can be taken care of by wrapping it in a property (not ideal)
+				unit_conversion and aggregation_weight refering to parameters in preambles.
 			
 		Got an error in the following case
 			flux(bnd.water, layer.water[vert.specific]) ...

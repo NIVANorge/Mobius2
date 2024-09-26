@@ -42,7 +42,7 @@ module("NIVAFjord sediments", version(0, 0, 3),
 	# Set these as parameters: ?
 	sed_rho : constant("Sediment density", [k g, m-3], 2600)
 	sed_C   : constant("Sediment specific heat capacity", [J, k g-1, K-1], 4000) #TODO: Find a good value
-	sed_k   : constant("Sediment heat conductivity coefficient", [W, m-1, K-1], 2) #TODO: This is 10 times too high, but otherwise heat just builds up...
+	sed_k   : constant("Sediment heat conductivity coefficient", [W, m-1, K-1], 2.2) 
 	
 	par_group("Sediment temperature") {
 		dzh : par_real("Thickness of thermally active sediment layer", [m], 0.5)
@@ -60,7 +60,7 @@ module("NIVAFjord sediments", version(0, 0, 3),
 		T_avg := heat / (sed_C*sed_rho*area*dzh) -> [deg_c],
 		2*T_avg - T_bot
 		#(T_avg - T_bot/4)*(4/3)
-	} @initial { layer.water.temp } # Or T_bot?
+	} @initial { T_bot } #layer.water.temp } # Or T_bot?
 	
 	flux(layer.water.heat, sediment.heat, [J, day-1], "Water-sediment heat conduction") {
 		dz_ := 0.5[m],#layer.dz,#0.5*(layer.dz + dzh),

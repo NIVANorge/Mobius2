@@ -43,6 +43,9 @@ It is also currently without horizontal exchange between basins, so it only work
 	#	module("NIVAFjord tox air-water", basin, layer, air, water, tox, temp, area, vert, loc(basin.ice.indicator), dims, phys)
 	#)
 	
+	load("modules/nivafjord/horizontal_fluxes.txt",
+		module("NIVAFjord simple realignment", basin, layer, water, dz, vert, dims))
+	
 	solve(sol, bnd.water)
 	
 	

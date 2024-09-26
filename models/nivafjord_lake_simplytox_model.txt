@@ -46,4 +46,18 @@ Maaybe we want a simpler biochemistry model for this one, not the entire NIVAFjo
 		module("NIVAFjord tox air-water", basin, layer, air, water, tox, temp, area, sw, vert, loc(basin.ice.indicator), dims, phys),
 		module("NIVAFjord tox sediment-water", sediment, layer, water, oc, tox, area, dz, phys)
 	)
+	
+	load("modules/nivafjord/horizontal_fluxes.txt",
+		module("NIVAFjord simple realignment", basin, layer, water, dz, vert, dims))
+	
+	module("NIVAFjord extraction", version(0, 0, 1)) {
+
+		par_group("Extraction", layer) {
+			ext : par_real("Extraction rate", [m 3, day-1], 0, 0, 10000)
+		}
+		
+		flux(layer.water, out, [m 3, day-1], "Layer extraction") {
+			ext
+		}
+	}
 }

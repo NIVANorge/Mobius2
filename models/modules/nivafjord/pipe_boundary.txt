@@ -1,4 +1,4 @@
-module("Basin inflow", version(0, 0, 0),
+module("Basin inflow", version(0, 0, 1),
 	air : compartment,
 	layer : compartment,
 	basin : compartment,
@@ -73,7 +73,7 @@ module("Basin inflow", version(0, 0, 0),
 	par_group("Boundary exchange", bnd) {
 		h_pipe : par_real("Pipe level", [m], 1, 0, 100, "Level below reference 0 level. Should be approximated to align with the bottom of a layer for correct pressure consideration.")
 		alpha_u : par_real("Exchange velocity scaling factor", [], 0.1, 0, 1, "Should be quite a bit below 1 due to shearing friction in narrow pipes")
-		align_rate : par_real("Vertical realignment rate", [], 0.1, 0, 1)
+		#align_rate : par_real("Vertical realignment rate", [], 0.1, 0, 1)
 	}
 	
 	par_group("Exchange layer", layer) {
@@ -137,18 +137,4 @@ module("Basin inflow", version(0, 0, 0),
 		-a*v->>   if v < 0,
 		0=>>      otherwise
 	} @specific { 1 }  # "1" is the layer where the exchange happens. A bit hardcoded right now.
-	
-	# NOTE: This is "re-alignment" to keep layers below the top one at constant thickness.
-	align : property("Vertical realignment")
-	var(layer.water.align, [m 3, day-1])
-	external_computation("Layer vertical realignment computation", "nivafjord_vertical_realignment_slow", basin) {
-		result(layer.water.align)
-		layer.dz
-		dz0
-		A
-		align_rate
-	}
-	flux(layer.water, vert, [m 3, day-1], "Vertical realignment flux") {
-		align
-	} @bidirectional
 }

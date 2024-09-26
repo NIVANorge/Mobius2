@@ -20,7 +20,9 @@ model("NIVAFjord-SimplyCNP") {
 	edge_layer : compartment("Basin edge layer", basin_idx, e_idx, layer_idx)
 	
 	load("modules/nivafjord/horizontal_fluxes.txt",
-		module("NIVAFjord horizontal fluxes", basin, bnd_basin, layer, bnd_layer, river, edge, edge_layer, water, salt, temp, salinity, flow, rho, pressure, dz, h, horz, vert, dims))
+		module("NIVAFjord horizontal fluxes", basin, bnd_basin, layer, bnd_layer, river, edge, edge_layer, water, salt, temp, salinity, flow, rho, pressure, dz, h, horz, vert, dims),
+		module("NIVAFjord simple realignment", basin, layer, water, dz, vert, dims)
+	)
 	
 	# Called 'fjord_phyt' to distinguish from freshwater in the version of the model that also has EasyLake
 	fjord_phyt : quantity("Fjord phytoplankton")#, phyt_type)

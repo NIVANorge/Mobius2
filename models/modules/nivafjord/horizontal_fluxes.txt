@@ -1,5 +1,5 @@
 
-module("NIVAFjord horizontal fluxes", version(0, 0, 1),
+module("NIVAFjord horizontal fluxes", version(0, 0, 2),
 	basin  : compartment,
 	bnd_basin : compartment,
 	layer  : compartment,
@@ -21,6 +21,9 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 	vert   : connection,
 	dims   : preamble
 ) {
+"""
+This one is for if there is a boundary compartment and river inputs
+"""
 
 	load("stdlib/seawater.txt", library("Seawater"))
 	load("stdlib/physiochemistry.txt", library("Water utils"))
@@ -29,7 +32,7 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 	par_group("Horizontal exchange") {
 		alpha_u : par_real("Pressure difference flow coefficient", [], 0.5, 0.1, 1)
 		
-		align_rate : par_real("Vertical realignment rate", [], 0.1, 0, 1)
+		#align_rate : par_real("Vertical realignment rate", [], 0.1, 0, 1)
 	}
 	
 	par_group("Fjord horizontal boundary", edge_layer) {
@@ -117,9 +120,6 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 		edge_layer.vert_target
 	} @bidirectional
 	
-	align : property("Vertical realignment")
-	var(layer.water.align, [m 3, day-1])
-	
 	# NOTE: Needs to be external computation since it would otherwise require reverse iteration (could be implemented later maybe)
 	
 	/*
@@ -129,6 +129,29 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 	}
 	*/
 	
+	
+	
+	horz_flow_frac : property("Horizontal balance fraction")
+	var(layer.horz_flow_frac, [day-1]) {
+		(out_flux(horz, water) - in_flux(horz, water)) / water ->>
+	}
+}
+
+module("NIVAFjord simple realignment", version(0, 0, 1),
+	basin : compartment,
+	layer : compartment,
+	water : quantity,
+	dz : property,
+	vert : connection,
+	dims : preamble
+) {
+"""
+This module realigns layers so that they stay at the same thickness, and only the top one varies.
+"""
+	par_group("Layer realignment") {
+		align_rate : par_real("Vertical realignment rate", [], 1, 0, 1)
+	}
+
 	external_computation("Layer vertical realignment computation", "nivafjord_vertical_realignment_slow", basin) {
 		result(layer.water.align)
 		layer.dz
@@ -136,6 +159,9 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 		A
 		align_rate
 	}
+	
+	align : property("Vertical realignment")
+	var(layer.water.align, [m 3, day-1]) @no_store
 	
 	flux(layer.water, vert, [m 3, day-1], "Vertical realignment flux") {
 		align
@@ -145,9 +171,5 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 1),
 	var(layer.align_frac, [day-1]) {
 		water.align/water
 	}
-	
-	horz_flow_frac : property("Horizontal balance fraction")
-	var(layer.horz_flow_frac, [day-1]) {
-		(out_flux(horz, water) - in_flux(horz, water)) / water ->>
-	}
 }
+
