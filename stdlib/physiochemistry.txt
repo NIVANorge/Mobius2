@@ -138,6 +138,7 @@ This library contains some commonly used molar masses and functions to convert m
 	no3_mol_mass : constant("NO₃ molar mass",   [g, mol-1], 62)
 	po4_mol_mass : constant("PO₄ molar mass",   [g, mol-1], 94.9714)
 	ca_mol_mass  : constant("Ca molar mass",    [g, mol-1], 40.078)
+	ch4_mol_mass : constant("CH₄ molar mass",   [g, mol-1], 16.04)
 	
 	nc_molar_to_mass_ratio : function(nc_molar : []) {   nc_molar * n_mol_mass / c_mol_mass   }
 	pc_molar_to_mass_ratio : function(pc_molar : []) {   pc_molar * p_mol_mass / c_mol_mass   }

@@ -85,6 +85,6 @@ It is almost possible to unify a lot of this one with nivafjord_model.txt . The 
 	sol : solver("NIVAFjord solver", inca_dascru, solver_h, solver_hmin)
 	solve(sol, layer.water, basin.ice)
 	
-	solve(sol, sediment.sed, sediment.heat)
+	solve(sol, sediment.sed, sediment.heat, sediment.water)
 	solve(sol, air.cos_z, air.g_rad)
 }

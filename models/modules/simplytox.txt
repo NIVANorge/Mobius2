@@ -107,6 +107,7 @@ A module for partitioning a contaminant between solid organic carbon, dissolved 
 	water_unit : unit_of(comp.water)
 	flux_unit  : compose_unit(mass_unit, [day-1])
 	
+	# Hmm, this is not ideal for the soil phase, wher you would like to have separate for the solids probably.
 	par_group("Initial contaminants", comp, tox) {
 		init_tox : par_real("Initial contaminant total concentration", [n g, l-1], 0, 0, 100, "Total contaminant over dissolved and absorbed, divided by water volume")
 	}
