@@ -67,7 +67,7 @@ It is also currently without horizontal exchange between basins, so it only work
 		var(layer.water.tox.sed_tox, [n g, day-1])
 		
 		flux(out, layer.water.tox, [n g, day-1], "Diffuse contaminant leeching from sediments") {
-			sed_tox
+			sed_tox*sediment.area/70000[m, m]
 		}
 		# TODO: Should some leeching be tied to particles? Otherwise it is strange since these are hydrophobic contaminants
 		
