@@ -137,4 +137,11 @@ module("Basin inflow", version(0, 0, 1),
 		-a*v->>   if v < 0,
 		0=>>      otherwise
 	} @specific { 1 }  # "1" is the layer where the exchange happens. A bit hardcoded right now.
+	
+	sed_tox : property("Sediment diffuse contaminants")
+		var(layer.water.tox.sed_tox, [n g, day-1])
+		
+		flux(out, layer.water.tox, [n g, day-1], "Diffuse contaminant leeching from sediments") {
+			sed_tox*(A-A[vert.below])/A[vert.top]
+		}
 }

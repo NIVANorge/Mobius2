@@ -63,12 +63,6 @@ It is also currently without horizontal exchange between basins, so it only work
 		# This is needed to make the water.oc.tox go to the sediments with settling (even though we don't track the value there)
 		var(sediment.sed.oc.tox, [n g], "Sediment tox (not used)") @override { 1[n g] }
 		
-		sed_tox : property("Sediment diffuse contaminants")
-		var(layer.water.tox.sed_tox, [n g, day-1])
-		
-		flux(out, layer.water.tox, [n g, day-1], "Diffuse contaminant leeching from sediments") {
-			sed_tox*sediment.area/70000[m, m]
-		}
 		# TODO: Should some leeching be tied to particles? Otherwise it is strange since these are hydrophobic contaminants
 		
 	}
