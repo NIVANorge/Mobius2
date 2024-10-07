@@ -8,12 +8,10 @@
 				Doesn't quite work since you can declare properties which should be possible to compose with others.
 				In that case would require different syntax for scoping into preamble.
 			Use cases are
-				Use preamble in global module
-					We should allow passing a preamble argument to the module declaration.
-						Tried, but it was a bit tricky to get it to work. Redo when more time.
-				Pass a parameter from a preamble to a module without passing the full preamble.
+				Pass a parameter from a preamble to a module without passing the full preamble. (Typically when it is passed as a loc() and the module doesn't care what type it is)
 					Can be taken care of by wrapping it in a property (not ideal)
 				unit_conversion and aggregation_weight refering to parameters in preambles.
+					Allow declaring these in (global) modules?
 			
 		Got an error in the following case
 			flux(bnd.water, layer.water[vert.specific]) ...
@@ -24,7 +22,6 @@
 				Probably also a problem for vert.top etc.
 				
 				It is a bit tricky for the framework to predetermine this.. But there is maybe something like this for graph aggregates
-					It should get 
 		
 		
 		Want to be able to declare something like

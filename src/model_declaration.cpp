@@ -1069,10 +1069,12 @@ process_module_load(Mobius_Model *model, Token *load_name, Entity_Id template_id
 	if(inline_declared)
 		module->scope.import(*model_scope, &load_loc, true);  // The 'true' is to signify that we also import parameters (that would otherwise be a double import since they come from a par_group scope)
 	
+	/*
 	if(inline_declared && decl->args.size() > 2) {
 		decl->source_loc.print_error_header();
 		fatal_error("Inlined module declarations should not have load arguments.\n");
 	}
+	*/
 	
 	int required_args = decl->args.size() - 2;
 	if(load_args.size() != required_args) {
@@ -1086,39 +1088,49 @@ process_module_load(Mobius_Model *model, Token *load_name, Entity_Id template_id
 		
 		Entity_Id load_id = load_args[idx];
 		
-		auto arg = decl->args[idx + 2];
-		if(!arg->decl || !is_valid(&arg->decl->identifier)) {
-			arg->chain[0].print_error_header();
-			fatal_error("Load arguments to a module must be of the form  identifier : decl_type.");
-		}
-		match_declaration(arg->decl, {{}}, true, false); // TODO: Not sure if we should allow passing a name to enforce name match.
-		
-		bool arg_is_preamble = arg->decl->type == Decl_Type::preamble;
-		
-		if(is_preamble && arg_is_preamble) {
-			arg->source_loc().print_error_header();
-			fatal_error("A preamble can't load another preamble.");
-		}
-		
-		std::string identifier = arg->decl->identifier.string_value;
 		auto *entity = model->find_entity(load_id);
-		if(arg->decl->type != entity->decl_type) {
-			load_loc.print_error_header();
-			error_print("Load argument ", idx, " to the module ", mod_temp->name, " should have type '", name(arg->decl->type), "'. A '", name(entity->decl_type), "' was passed instead. See declaration at\n");
-			decl->source_loc.print_error();
-			mobius_error_exit();
+		bool arg_is_preamble = entity->decl_type == Decl_Type::preamble;
+		
+		auto arg = decl->args[idx + 2];
+		
+		if(inline_declared) {
+			if(!arg_is_preamble) {
+				arg->source_loc().print_error_header();
+				fatal_error("An inline module can only take preambles as load arguments.");
+			}
+			if(arg->decl) {
+				arg->source_loc().print_error_header();
+				fatal_error("A load argument to an inline module must be just a preamble identifier.");
+			}
+		} else {
+			if(!arg->decl || !is_valid(&arg->decl->identifier)) {
+				arg->source_loc().print_error_header();
+				fatal_error("Load arguments to a module must be of the form  identifier : decl_type.");
+			}
+			match_declaration(arg->decl, {{}}, true, false); // TODO: Not sure if we should allow passing a name to enforce name match.
+			
+			if(is_preamble && arg_is_preamble) {
+				arg->source_loc().print_error_header();
+				fatal_error("A preamble can't load another preamble.");
+			}
+			
+			if(arg->decl->type != entity->decl_type) {
+				load_loc.print_error_header();
+				error_print("Load argument ", idx, " to the module ", mod_temp->name, " should have type '", name(arg->decl->type), "'. A '", name(entity->decl_type), "' was passed instead. See declaration at\n");
+				decl->source_loc.print_error();
+				mobius_error_exit();
+			}
 		}
 		
 		if(!arg_is_preamble) {
+			std::string identifier = arg->decl->identifier.string_value;
 			// For a regular argument, associate the identifier with the id of the passed argument inside this scope.
 			auto reg = module->scope.add_local(identifier, arg->decl->source_loc, load_id, false);
 			reg->is_load_arg = true;
-		} else {
+		} else { // If it is a handle to a preamble, instead load the scope of the preamble into this scope.
 			// TODO: What do we do with the identifier of the load argument in this case?
-			
-			// If it is a handle to a preamble, instead load the scope of the preamble into this scope.
 			auto preamble = model->modules[load_id];
-			module->scope.import(preamble->scope, &arg->decl->source_loc, true);
+			module->scope.import(preamble->scope, &arg->source_loc(), true);
 			// The 'true' signifies that we allow imports of parameters (they are not local to the preamble scope since they are in a nested par_group scope.
 			// TODO: It is a bit problematic that this will also import parameters that were passed as load arguments to the preamble, which we don't really want.
 		}
@@ -1693,7 +1705,11 @@ process_module_load_outer(Mobius_Model *model, Module_Load &load) {
 		mod_temp->normalized_path = load.loaded_from;
 		auto load_loc = module_spec->source_loc;
 		
-		std::vector<Entity_Id> load_args; // Inline modules don't have load arguments, so this should be left empty.
+		// You can pass preambles as arguments to inline modules.
+		std::vector<Entity_Id> load_args;
+		for(int argidx = 2; argidx < module_spec->args.size(); ++argidx)
+			load_args.push_back(scope->resolve_argument(Reg_Type::module, module_spec->args[argidx]));
+		
 		process_module_load(model, nullptr, template_id, load_loc, load_args, true, module_spec->identifier.string_value);
 	} else {
 		
