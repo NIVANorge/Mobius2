@@ -1,0 +1,70 @@
+
+module("Microplastic soil column", version(0, 0, 0),
+	air   : compartment,
+	layer : compartment,
+	water : quantity,
+	vert : connection
+) {
+"""
+This is a module for transport of microplastic in a single *experimentally controlled* soil column. It can't be directly upscaled, but will be used for informing construction of upscaled models.
+"""
+	
+	par_group("Layer properties", layer) {
+		dz     : par_real("Thickness", [m m], 10, 0, 100)
+		theta0 : par_real("Initial porosity", [], 0.5, 0, 1)
+		temp : par_real("Layer temperature", [deg_c], 20, 10, 30)
+		
+		sph : par_real("Soil grain sphericity", [], 1, 0, 1)
+		dp  : par_real("Soil grain diameter", [m m], 0.5, 0.001, 10)
+		grad : par_real("Hydraulic gradient", [], 0.05, 0, 1, "When the box is full")
+	}
+	
+	load("stdlib/physiochemistry.txt", library("Water utils"), library("Basic constants"))
+	load("stdlib/basic_math.txt", library("Response"))
+	
+	precip : property("Precipitation")
+	theta  : property("Porosity")
+	perm   : property("Soil permeability")
+	cond   : property("Soil hydraulic conductivity")
+	
+	var(air.precip, [m m, day-1], "Precipitation")
+	
+	var(layer.theta, [], "Layer porosity") { theta0 } # Eventually allow change over time
+	
+	var(layer.perm, [m m 2], "Layer permeability") {
+		# Kozeny-Carman equation
+		sph^2 * (theta*dp)^2 / (180*(1-theta)^2)
+	}
+	
+	var(layer.cond, [m, s-1], "Layer hydraulic conductivity") {
+		kinvis := kinematic_viscosity_water(temp->[K]),
+		grav * perm / kinvis ->>
+	}
+	
+	side : property("Lateral flow")
+	perc : property("Percolation")
+	
+	var(layer.water.side, [m m, day-1]) {
+		agrad := grad*(water/(dz*theta)), # Should also depend on water in boxes above..
+		agrad*cond->>
+	}
+	
+	var(layer.water.perc, [m m, day-1]) {
+		maxcap := dz * theta,
+		maxcap_b := dz[vert.below] * theta[vert.below],
+		
+		# TODO: This is just a test: Find a real formula
+		maxperc := s_response(water, 0, 0.1*maxcap, 0, 60[m m, day-1]),
+		s_response(water[vert.below], 0.8*maxcap_b, maxcap_b, maxperc, 0)
+	}
+	
+	
+	var(layer.water, [m m], "Soil layer pore water") @initial { dz * theta } # Assume it is full.
+	
+	flux(out, layer.water[vert.top], [m m, day-1], "Precipitation to soil") {  air.precip  }
+	
+	flux(layer.water, out, [m m, day-1], "Layer water lateral flow") { side }
+	
+	flux(layer.water, vert, [m m, day-1], "Layer water percolation") { perc }
+	
+}

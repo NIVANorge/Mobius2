@@ -1,19 +1,31 @@
 
 
 	*** High pri ***
-	
-	
-		Not possible to scope into a preamble from model scope. Should do this in a good way. Can't always export the preamble to model scope.
-			Maybe we should always scope into preambles using the . syntax? (Also when they are passed to modules?).
-				Doesn't quite work since you can declare properties which should be possible to compose with others.
-				In that case would require different syntax for scoping into preamble.
-			Use cases are
-				Pass a parameter from a preamble to a module without passing the full preamble. (Typically when it is passed as a loc() and the module doesn't care what type it is)
-					Can be taken care of by wrapping it in a property (not ideal)
-				unit_conversion and aggregation_weight refering to parameters in preambles.
-					Allow declaring these in (global) modules?
+		
+		
+		NIVAFjord:
 			
-		Got an error in the following case
+			Need a complete rethink of horizontal fluxes. They cause too much numerical instability when there is large in/outflow for small layers.
+			
+			There should really be an error if there is an opening to a neighboring basin on a depth below the max depth of that basin.
+		
+			In Varna setup, can merge channel into beloslav to mitigate this a bit?
+				Probably necessary!
+		
+		
+		MobiView
+			If the plot x axis was set to nonsense since the first selected series was entirely NaN, it won't be fixed by selecting a non-NaN series.
+				Should not be considered as was_auto_resized in this case.
+			If the parameter search is already selected, it doesn't react to clicks.
+		
+		
+		Dataset no longer checks correctly if the correct amount of parameter values were provided?
+			May be intentional, but then it breaks when saving it again.
+			I think this only happens for a parameter group that is not used by the model.
+		Dataset doesn't generate identifier for generated index set.
+			Default to use same as in the model?
+		
+		Got an (internal) error in the following case
 			flux(bnd.water, layer.water[vert.specific]) ...
 			
 			bnd.water.tox can be distributed over tox_index, but that dependency was ruled out due to lack of differing parametrization
@@ -28,6 +40,8 @@
 			basin.tox.vel_air
 		to get tox_index dependency for the variable without basin.tox being a variable.
 			For now, could make it a variable with @override {1[k g]}, but it is a bit annoying.
+			
+			Didn't we already make this possible? Test it!
 			
 			
 		If a discrete flux goes from something that is @override, it should not be clamped to the value of what it is carrying.
@@ -45,7 +59,9 @@
 		
 		
 		@index_with for par_group causes problems if you want to reuse the module without one of the index sets..
-			Why did we introduce it? Probably to force distribution over those index sets. Could be declared differently, like @fully_distribute or something.
+			Was introduced to force distribution over those index sets.
+				Because in external_computation it needs to know distribution at framework compile time, not model compile time.
+			That info could be declared differently, like a @fully_distribute note or something.
 		
 
 		Something is broken with airsea, but only in some cases .... (has something to do with ice or longwave).
@@ -183,6 +199,32 @@
 	
 	
 	*** Intermediate-pri ***
+	
+		Make something like
+		
+			computation("A computation", soil) {
+				soil.conc_so4 <- something, # Possible to assign to (property) state variables here. Takes responsibility for that state variable just like a result() in an external_computation
+			}
+			This way we could port all of MAGIC to Mobius2 and not call out to a C++ external_computation for it.
+				Although it would be annoying to do the equilibrium constants without array syntax..
+				And we would want multiple return values from functions for this.
+	
+		Not possible to scope into a preamble from model scope. Should do this in a good way. Can't always export the preamble to model scope.
+			Maybe we should always scope into preambles using the . syntax? (Also when they are passed to modules?).
+				Doesn't quite work since you can declare properties which should be possible to compose with others.
+				In that case would require different syntax for scoping into preamble.
+			Use cases are
+				Pass a parameter from a preamble to a module without passing the full preamble. (Typically when it is passed as a loc() and the module doesn't care what type it is)
+					Can be taken care of by wrapping it in a property (not ideal)
+				unit_conversion and aggregation_weight refering to parameters in preambles.
+					Allow declaring these in (global) modules?
+			What about having a note for extracting symbols from preambles?
+				p : load("preamble something") @use(a, b, c) #Passes a,b,c into the loading scope.
+					Has the problem of potentially causing naming conflicts in the loading scope, but that is a problem with preambles in general. Do we want to fix that?
+					We could do something like
+						@use(a, b2=b, c) ... # (requires new syntax type for the AST, but would also be nice to have for passing load arguments to modules).
+					and also require that when a module takes a preamble as an argument. So that the module can control what the symbols are called in its own scope (and also what symbols it expects to get from what preamble).
+	
 	
 		Would like to be able to use in_flux in initial code (for e.g. setting initial steady states easily), but then we also need to be able to compute initial values for fluxes. With in_flux_connection it could be tricky to determine what initial fluxes must be computed (Not tricky, maybe, but a lot of work.. ?).
 	

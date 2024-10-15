@@ -134,6 +134,8 @@ load_top_decl_from_file(Mobius_Model *model, Source_Location from, String_View p
 	bool is_preamble = (type == Decl_Type::preamble);
 	bool is_module_like = is_preamble || (type == Decl_Type::module);
 	
+	//log_print("Path: ", path, " is stdlib: ", bottom_directory_is(path, "stdlib"), "\n");
+	
 	// TODO: Should really check if the model-relative path exists before changing the relative path.
 	std::string models_path = model->config.mobius_base_path + "models/"; // Note: since relative_to is a string view, this one must exist in the outer scope.
 	if(!model->config.mobius_base_path.empty()) {

@@ -1,0 +1,26 @@
+
+model("Microlastic soil column") {
+
+"""
+This is a model for simulating microplastic movement in a single experimentally controlled soil column
+"""
+
+	layer_index : index_set("Layer index")
+	
+	air   : compartment("Atmosphere")
+	layer : compartment("Soil layer", layer_index)
+	
+	water : quantity("Water")
+	mp    : quantity("Microplastic")
+	
+	vert : connection("Layer vertical") @grid1d(layer, layer_index)
+	
+	
+	load("modules/microplastic/mp_soil_column.txt", 
+		module("Microplastic soil column", air, layer, water, vert)
+	)
+	
+	sol : solver("Soil solver", inca_dascru, [2, hr], 1e-2)
+	
+	solve(sol, layer.water)
+}

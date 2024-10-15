@@ -120,6 +120,11 @@ This one is for if there is a boundary compartment and river inputs
 		edge_layer.vert_target
 	} @bidirectional
 	
+	#flux(layer.water, layer.water[horz.below], [m 3, day-1], "Layer horizontal outflow flux") {
+	#	w := 0.5*(w_bnd + w_bnd[vert.below]),
+	#	edge_layer.horz_flow_vel*w*layer.dz->>
+	#}
+	
 	# NOTE: Needs to be external computation since it would otherwise require reverse iteration (could be implemented later maybe)
 	
 	/*
