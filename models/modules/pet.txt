@@ -83,7 +83,7 @@ Authors: Magnus D. Norling
 		lvap    := latent_heat_of_vaporization(air.temp),
 		psy     := psychrometric_constant(air.pressure->[k Pa], lvap),
 		slope   := slope_of_saturation_pressure_curve(air.temp, air.s_vap->[k Pa]),
-		# May need to substitute  with the net longwave here: https://www.fao.org/3/x0490e/x0490e07.htm because this doesn't seem to give good results.
+		# May need to substitute  with the net longwave here: https://www.fao.org/3/x0490e/x0490e07.htm because this doesn't seem to give good results always.
 		# Also, the energy balance should take snow melt into account.
 		net_rad := net_sw + air.lwd - lwu,
 		

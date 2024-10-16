@@ -108,7 +108,8 @@ Multi_Array_Structure<Handle_T>::get_special_offset_stride_code(Handle_T handle,
 		if(index) {
 			result.offset = make_binop('+', result.offset, index);
 			
-			if(!undetermined_found)
+			//if(!undetermined_found)
+			if(undetermined_found)
 				stride *= app->index_data.get_max_count(actual_index_set).index;
 			
 		} else {
