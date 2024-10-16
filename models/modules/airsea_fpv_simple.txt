@@ -103,7 +103,7 @@ Authors: Francois Clayer, Magnus D. Norling
 	# Rapid simplification: Long-wave back radiation under the FPV is also reduced by lwr_reduc, relevant for potoon type FPV
 	flux(out, top_water.heat,    [J, day-1], "Net longwave (water)") {
 		net_rad := (1 - surf.albedo)*air.lwd - surf.lwu,    # W/m2       # TODO: Should really albedo be detracted from longwave?
-		(!surf.ice.indicator) *	A_surf * (1 - (cov * (1 - lwr_reduc))) * net_rad ->>
+		(!surf.ice.indicator) *	A_surf * (1 - (cov * lwr_reduc)) * net_rad ->>
 	}
 	
 	# Rapid simplification for potoon type FPV, FPV net heat transfer is SWR reduced by swr_reduc
@@ -115,11 +115,11 @@ Authors: Francois Clayer, Magnus D. Norling
 	
 	flux(out, top_water.heat, [J, day-1], "Latent heat flux") {
 		l_vap := latent_heat_of_vaporization(top_water.temp),
-		(!surf.ice.indicator) * A_surf * (1 - cov) * (surf.ced * l_vap * air.rho * air.wind * (air.a_hum - surf.s_hum)) ->>
+		(!surf.ice.indicator) * A_surf * (1 - cov* lwr_reduc) * (surf.ced * l_vap * air.rho * air.wind * (air.a_hum - surf.s_hum)) ->>
 	}
 	
 	flux(out, top_water.heat, [J, day-1], "Sensible heat flux") {
-		(!surf.ice.indicator) * A_surf * (1 - cov) * (surf.chd * C_air * air.rho * air.wind * (air.temp->[K] - top_water.temp->[K])) ->>
+		(!surf.ice.indicator) * A_surf * (1 - cov* lwr_reduc) * (surf.chd * C_air * air.rho * air.wind * (air.temp->[K] - top_water.temp->[K])) ->>
 	}
 	
 	var(surf.evap, [m m, day-1]) {

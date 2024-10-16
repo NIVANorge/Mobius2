@@ -317,11 +317,11 @@ module("NIVAFjord chemistry", version(0, 0, 5),
 	} @no_store
 	
 	flux(layer.water.oc, out, [k g, day-1], "DOC mineralization") {
-		oc*min_rat
+		oc*min_rat*0.05
 	} @no_carry # In case we use the tox module, the mineralization should not destroy the contaminant.
 	
 	flux(layer.water.sed.oc, out, [k g, day-1], "POC mineralization") {
-		sed.oc*min_rat
+		sed.oc*min_rat*0.05
 	} @no_carry # In case we use the tox module, the mineralization should not destroy the contaminant.
 	
 	flux(layer.water.on, layer.water.din, [k g, day-1], "DON mineralization and nitrification") {
@@ -343,12 +343,12 @@ module("NIVAFjord chemistry", version(0, 0, 5),
 
 	# How take into account existing oxygen content of DOM?
 	flux(layer.water.o2, out, [k g, day-1], "O₂ microbial consumption") {
-		  (oc + sed.oc)*min_rat*(o2_mol_mass/c_mol_mass)*O2toC    
+		  (oc + sed.oc)*min_rat*(o2_mol_mass/c_mol_mass)*O2toC *0.05   
 		+ (on + sed.on)*min_rat*n_min*(o2_mol_mass/n_mol_mass)*1.5    # ON -> NH4 -> NO3   #TODO: Should the 1.5 be parametrizable?
 	}
 	
 	flux(out, layer.water.co2, [k g, day-1], "Microbial CO2 production") {
-		(oc + sed.oc)*(min_rat+denit_rat) # NOTE: CO2 is in kg(C)
+		(oc + sed.oc)*(min_rat+denit_rat)*0.05 # NOTE: CO2 is in kg(C)
 	}
 	
 	var(layer.water.denit_rat, [day-1], "Denitrification rate") {
@@ -359,11 +359,11 @@ module("NIVAFjord chemistry", version(0, 0, 5),
 
 	
 	flux(layer.water.oc, out, [k g, day-1], "DOC mineralization by denitrification") {
-		water.oc*denit_rat
+		water.oc*denit_rat*0.05
 	} @no_carry
 	
 	flux(layer.water.sed.oc, out, [k g, day-1], "POC mineralization by denitrification") {
-		water.sed.oc*denit_rat
+		water.sed.oc*denit_rat*0.05
 	} @no_carry
 	
 	flux(layer.water.din, out, [k g, day-1], "NO3 denitrification consumption") {

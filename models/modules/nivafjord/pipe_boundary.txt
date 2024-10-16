@@ -36,16 +36,21 @@ module("Basin inflow", version(0, 0, 1),
 	var(basin.flow, [m 3, s-1]) # Input series
 	
 	# Just directing the catchment runoff to the top layer instead of doing the density check.
-	flux(out, layer.water[vert.top], [m 3, s-1], "Discharge from land to basin") { basin.flow->> }
+	flux(out, layer.water[vert.top], [m 3, s-1], "Discharge from groundwater to basin") { basin.flow->> }
 	
 	par_group("Inflow oxygen") {
 		f_o2sat    : par_real("Inflow O₂ saturation fraction", [], 0.9, 0, 1)
+		gw_salinity: par_real("Inflow salinity",[], 1, 0, 36)
 	}
 
 	flux(out, layer.water.o2[vert.top], [k g, day-1], "Oxygen from land") {
 		inflow_t := air.temp, # Assume inflow temperature = air temperature (see also below)
 		land_conc := f_o2sat*o2_saturation(inflow_t, 0) * o2_mol_mass,
 		basin.flow*land_conc->>
+	}
+	
+	flux(out, layer.water.salt[vert.top], [k g, day-1], "Salt from groundwater") {
+		basin.flow*gw_salinity*rho_water/1000->>
 	}
 
 	flux(out, layer.water.heat[vert.top], [J, day-1], "Heat from land") {
