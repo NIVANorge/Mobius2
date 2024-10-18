@@ -74,3 +74,4 @@ Date indexing:
 2005-01-04	-0.57	4.72
 ```
 
+Note that if you plan to run the model at a different sampling step from the one in the input file, you must use date indexing and specify an interpolation method for each series.

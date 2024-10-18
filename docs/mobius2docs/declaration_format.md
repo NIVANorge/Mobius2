@@ -15,7 +15,7 @@ Although this specification is important to have for reference, it can be easier
 
 Each Mobius2 file is a sequence of *declarations* that can again contain nested declarations in various ways.
 
-A Mobius2 file must always be [UTF-8](https://en.wikipedia.org/wiki/UTF-8). Except inside string literals, every character must be from the ascii subset of UTF-8. We recommend editing them with a plain text editor such as notepad++.
+A Mobius2 file must always be [UTF-8](https://en.wikipedia.org/wiki/UTF-8). Except inside string literals, every character must be from the ascii (one-byte) subset of UTF-8. We recommend editing them with a plain text editor such as notepad++.
 
 Files in the Mobius2 declaration format are whitespace agnostic, that is any number of whitespace, tabulars or newlines count as a single whitespace for the parser. Use of newlines and tabulars are therefore entirely for human readability reasons only.
 

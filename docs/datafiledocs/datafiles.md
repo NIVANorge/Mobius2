@@ -93,3 +93,5 @@ Both series formats allow you to specify flags. A flag is either a [unit declara
 
 To put multiple flags they can be listed after one another separated by spaces.
 
+It is especially important to specify an interpolation method for every model forcing in the data set if you plan to run the model on a sampling step that is shorter than the sampling step in the data file, otherwise you will get missing values in the forcings.
+
