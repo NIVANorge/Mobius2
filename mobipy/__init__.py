@@ -190,7 +190,12 @@ def load_dll() :
 	dll.mobius_entity_count.restype = ctypes.c_int64
 	
 	dll.mobius_list_all_entities.argtypes = [ctypes.c_void_p, Entity_Id, ctypes.c_int16, ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(ctypes.c_char_p)]
-
+	
+	dll.mobius_index_count.argtypes = [ctypes.c_void_p, Entity_Id]
+	dll.mobius_index_count.restype = ctypes.c_int64
+	
+	dll.mobius_index_names.argtypes = [ctypes.c_void_p, Entity_Id, ctypes.POINTER(Mobius_Index_Value)]
+	
 	return dll
 
 dll = load_dll()
@@ -504,8 +509,6 @@ class Entity(Scope) :
 	# TODO (for parameters):
 	# default(self) :
 	# index_sets(self)
-	# (for index sets) :
-	# indexes()   # This one is a bit tricky for some index set types.. Need optional parent index?
 		
 	def description(self) :
 		if self.entity_id.reg_type != PARAMETER_TYPE :
@@ -520,6 +523,30 @@ class Entity(Scope) :
 		data = dll.mobius_get_entity_metadata(self.data_ptr, self.entity_id)
 		_check_for_errors()
 		return data.unit.decode('utf-8')
+		
+	def index_count(self) :
+		if self.entity_id.reg_type != INDEX_SET_TYPE :
+			raise ValueError("This entity is not an index set.")
+		
+		count = dll.mobius_index_count(self.data_ptr, self.entity_id)
+		_check_for_errors()
+		return count
+	
+	def indexes(self) :
+		if self.entity_id.reg_type != INDEX_SET_TYPE :
+			raise ValueError("This entity is not an index set.")
+		
+		count = self.index_count()
+		indexes = (Mobius_Index_Value * count)()
+		dll.mobius_index_names(self.data_ptr, self.entity_id, indexes)
+		_check_for_errors()
+		
+		# TODO: Not sure what to do for position-based indexes.
+		if len(indexes[0].name) > 0:
+			return [index.name.decode('utf-8') for index in indexes]
+		else:
+			return range(count)
+		
 
 class State_Var :
 	

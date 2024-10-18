@@ -6,21 +6,22 @@ This is a model for simulating microplastic movement in a single experimentally 
 """
 
 	layer_index : index_set("Layer index")
+	mp_type     : index_set("Microplastic type")
 	
 	air   : compartment("Atmosphere")
 	layer : compartment("Soil layer", layer_index)
 	
 	water : quantity("Water")
-	mp    : quantity("Microplastic")
+	mp    : quantity("Microplastic", mp_type)
 	
 	vert : connection("Layer vertical") @grid1d(layer, layer_index)
 	
 	
 	load("modules/microplastic/mp_soil_column.txt", 
-		module("Microplastic soil column", air, layer, water, vert)
+		module("Microplastic soil column", air, layer, water, mp, vert)
 	)
 	
-	sol : solver("Soil solver", inca_dascru, [2, hr], 1e-2)
+	sol : solver("Soil solver", inca_dascru, [10, min], 1e-2)
 	
-	solve(sol, layer.water)
+	solve(sol, layer.water, layer.mp)
 }

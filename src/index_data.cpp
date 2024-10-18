@@ -670,6 +670,14 @@ Index_Data::get_index_names(Indexes &indexes, std::vector<std::string> &names_ou
 	}
 }
 
+std::string & Index_Data::unsafe_get_index_name_reference(Index_T index) {
+	auto &data = index_data[index.index_set.id];
+	auto &names = data.index_names[0];
+	if(index.index >= names.size())
+		fatal_error(Mobius_Error::internal, "Trying to extract non-existing index name");
+	return names[index.index];
+}
+
 bool
 Index_Data::are_all_indexes_set(Entity_Id index_set_id) {
 	

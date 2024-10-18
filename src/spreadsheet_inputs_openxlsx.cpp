@@ -10,9 +10,10 @@ close_due_to_error(OpenXLSX::XLDocument &doc, int tab, u32 row, u16 col) {
 	char buf[32];
 	col_row_to_cell(col, row, &buf[0]); // TODO: Could probably use XLCellReference instead.
 	
-	auto sheet = doc.workbook().sheet(tab);
+	auto sheetname = doc.workbook().sheet(tab).get<XLWorksheet>().name();
 	begin_error(Mobius_Error::spreadsheet);
-	error_print("In file \"", doc.name(), "\", tab \"", sheet.name(), "\", cell ", buf, "\n");
+	
+	error_print("In file \"", doc.name(), "\", tab ", tab, " (\"", sheetname, "\"), cell ", buf, "\n");
 	doc.close();
 }
 
@@ -345,17 +346,30 @@ read_series_data_from_spreadsheet(Data_Set *data_set, Series_Data *series, Strin
 				auto &val = cell.value();
 				
 				double result;
-				if(val.type() == XLValueType::Float)
+				auto t = val.type();
+				if(t == XLValueType::Float)
 					result = val.get<double>();
-				else if(val.type() == XLValueType::Integer)
+				else if(t == XLValueType::Integer)
 					result = (double)val.get<s64>();
-				else if(val.type() == XLValueType::Empty)
+				else if(t == XLValueType::Empty)
 					result = std::numeric_limits<double>::quiet_NaN();
+				else if(t == XLValueType::String) {
+					auto str = val.get<std::string>();
+					if(str.empty())
+						result = std::numeric_limits<double>::quiet_NaN();
+					else {
+						// TODO: we could try to parse a number from the string.
+						close_due_to_error(doc, tab, row, col);
+						fatal_error("Cells of String type are not supported as number fields.");
+					}
+						
+				}
 				else {
+					const char *typenames[] = {"Empty", "Boolean", "Integer", "Float", "Error", "String"}; //TODO: Can we do better. This breaks if openxlsx changes.
 					// TODO: Should we attempt to parse strings as numbers?
 					// Should we default to NaN instead of having error? (Probably not, better to alert the user).
 					close_due_to_error(doc, tab, row, col);
-					fatal_error("This is not a valid number representation.");
+					fatal_error("This is not a valid number representation. (The type is ", typenames[(int)t], ").");
 				}
 				
 				data.raw_values[hidx][idx] = result;

@@ -559,3 +559,45 @@ mobius_list_all_entities(Model_Data *data, Entity_Id scope_id, Reg_Type type, co
 		}
 	} catch(int) {}
 }
+
+DLLEXPORT s64
+mobius_index_count(Model_Data *data, Entity_Id index_set_id) {
+	
+	try {
+		auto app = data->app;
+		auto set = app->model->index_sets[index_set_id];
+		if(is_valid(set->sub_indexed_to))
+			fatal_error(Mobius_Error::api_usage, "For now we don't support extracting the count of a sub-indexed index set.");
+		
+		return app->index_data.get_max_count(index_set_id).index;
+	} catch(int) {}
+	return -1;
+}
+
+DLLEXPORT void
+mobius_index_names(Model_Data *data, Entity_Id index_set_id, Mobius_Index_Value *indexes_out) {
+	try {
+		auto app = data->app;
+		auto set = app->model->index_sets[index_set_id];
+		if(is_valid(set->sub_indexed_to))
+			fatal_error(Mobius_Error::api_usage, "For now we don't support extracting the count of a sub-indexed index set.");
+		
+		Index_T count = app->index_data.get_max_count(index_set_id);
+		auto type = app->index_data.get_index_type(index_set_id);
+		if(type == Index_Record::Type::numeric1) {
+			// Could we have a more robust way to signal this?
+			for(s64 i = 0; i < count.index; ++i) {
+				indexes_out[i].name = "";
+				indexes_out[i].value = i;
+			}
+		} else if (type == Index_Record::Type::named) {
+			for(Index_T index = Index_T { index_set_id, 0 }; index < count; ++index) {
+				// Unsafe conversion, but we won't modify the contents in actual use case.
+				indexes_out[index.index].name = (char *)app->index_data.unsafe_get_index_name_reference(index).c_str();
+				indexes_out[index.index].value = index.index;
+			}
+		} else
+			fatal_error(Mobius_Error::internal, "Unsupported index data type in mobius_index_names.");
+		
+	} catch(int) {}
+}

@@ -110,7 +110,10 @@ Index_Data {
 	std::string get_index_name(Indexes &indexes, Index_T index, bool *is_quotable = nullptr);
 	std::string get_possibly_quoted_index_name(Indexes &indexes, Index_T index, bool quote = true);
 	void get_index_names(Indexes &indexes, std::vector<std::string> &names_out, bool quote = false);
-
+	
+	// This one is really only used for mobipy since we don't want it to allocate temporary strings that are then lost.
+	// Please don't use it for anything else, use the above functions instead!
+	std::string &unsafe_get_index_name_reference(Index_T index);
 
 	void initialize_edge_index_set(Entity_Id index_set_id, Source_Location source_loc);
 	void add_edge_index(Entity_Id index_set_id, const std::string &index_name, Source_Location source_loc, Index_T parent_idx);

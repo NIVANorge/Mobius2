@@ -1,8 +1,9 @@
 
-module("Microplastic soil column", version(0, 0, 0),
+module("Microplastic soil column", version(0, 0, 1),
 	air   : compartment,
 	layer : compartment,
 	water : quantity,
+	mp : quantity,
 	vert : connection
 ) {
 """
@@ -16,11 +17,27 @@ This is a module for transport of microplastic in a single *experimentally contr
 		
 		sph : par_real("Soil grain sphericity", [], 1, 0, 1)
 		dp  : par_real("Soil grain diameter", [m m], 0.5, 0.001, 10)
+		
 		grad : par_real("Hydraulic gradient", [], 0.05, 0, 1, "When the box is full")
 	}
 	
+	par_group("General transport") {
+		
+		transp_f_base : par_real("Base transport factor", [], 1e-5, 0, 1)
+		bio_down : par_real("Bioturbation down rate", [day-1], 0.01, 0, 1)
+		bio_up   : par_real("Bioturbation up rate", [day-1], 0.001, 0, 1)
+	}
+	
+	par_group("MP characteristics", mp) {
+		eff_diam : par_real("Effective diameter", [mu m], 1, 0.0001, 10)
+	}
+	
+	par_group("Initial MP", layer, mp) {
+		init_mp : par_real("Initial mp amount", [m g], 0, 0, 1000)
+	}
+	
 	load("stdlib/physiochemistry.txt", library("Water utils"), library("Basic constants"))
-	load("stdlib/basic_math.txt", library("Response"))
+	load("stdlib/basic_math.txt", library("Response"), library("Basic"))
 	
 	precip : property("Precipitation")
 	theta  : property("Porosity")
@@ -44,8 +61,14 @@ This is a module for transport of microplastic in a single *experimentally contr
 	side : property("Lateral flow")
 	perc : property("Percolation")
 	
+	# Hmm this is done a bit awkward..
+	water_tot : property("Water above")
+	var(layer.water_tot, [m m]) { water + water_tot[vert.above] } @no_store
+	z : property("Effective depth")
+	var(layer.z, [m m]) { dz*theta + z[vert.above] } @no_store
+	
 	var(layer.water.side, [m m, day-1]) {
-		agrad := grad*(water/(dz*theta)), # Should also depend on water in boxes above..
+		agrad := grad*(water_tot/z),
 		agrad*cond->>
 	}
 	
@@ -53,18 +76,45 @@ This is a module for transport of microplastic in a single *experimentally contr
 		maxcap := dz * theta,
 		maxcap_b := dz[vert.below] * theta[vert.below],
 		
-		# TODO: This is just a test: Find a real formula
-		maxperc := s_response(water, 0, 0.1*maxcap, 0, 60[m m, day-1]),
+		maxrate := cond->>,
+		
+		# TODO: This is just a test.
+		maxperc := s_response(water, 0, 0.1*maxcap, 0, maxrate),
 		s_response(water[vert.below], 0.8*maxcap_b, maxcap_b, maxperc, 0)
 	}
 	
-	
-	var(layer.water, [m m], "Soil layer pore water") @initial { dz * theta } # Assume it is full.
+	var(layer.water, [m m], "Soil layer pore water") @initial { 0[m m] } # Assume it is dry.
 	
 	flux(out, layer.water[vert.top], [m m, day-1], "Precipitation to soil") {  air.precip  }
 	
 	flux(layer.water, out, [m m, day-1], "Layer water lateral flow") { side }
 	
 	flux(layer.water, vert, [m m, day-1], "Layer water percolation") { perc }
+	
+	
+	
+	transp_f : property("Transport size factor")
+	var(layer.mp.transp_f, []) {
+		transp_f_base #TODO: Some formula depending on size (and pore size?)
+	}
+	
+	bio_f : property("Bioturbation size factor")
+	var(layer.mp.bio_f, []) {
+		1 #TODO: Some formula depending on size (could be same as transport_f?)
+	}
+	
+	var(layer.mp, [m g], "Layer microplastics") @initial { init_mp }
+	
+	flux(layer.mp, out, [m g, day-1], "MP lateral transport") {
+		safe_divide(water.side, water)*mp*transp_f
+	}
+	
+	flux(layer.mp, vert, [m g, day-1], "MP percolation") {
+		safe_divide(water.perc, water)*mp*transp_f
+	}
+	
+	flux(layer.mp, vert, [m g, day-1], "Bioturbation net transport") {
+		mp*bio_down*bio_f - mp[vert.below]*bio_up[vert.below]*bio_f[vert.below]
+	}
 	
 }

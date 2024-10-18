@@ -694,7 +694,7 @@ put_var_lookup_indexes(Math_Expr_FT *expr, Model_Application *app, Index_Exprs &
 					auto target_id = app->get_connection_target_variable(loc0, target_comp, is_conc);
 					if(!is_valid(target_id)) {
 						ident->source_loc.print_log_header(Log_Mode::dev);
-						log_print(Log_Mode::dev, "The variable \"", app->vars[ident->var_id]->name, "\"does not exist for the compartment \"", app->model->components[target_comp]->name, "\", and so can't be referenced along every edge starting in this node.\n");
+						log_print(Log_Mode::dev, "The variable \"", app->vars[ident->var_id]->name, "\" does not exist for the compartment \"", app->model->components[target_comp]->name, "\", and so can't be referenced along every edge starting in this node.\n");
 						continue;
 					}
 					
