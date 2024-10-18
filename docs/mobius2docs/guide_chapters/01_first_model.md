@@ -17,6 +17,7 @@ You must also declare at least one [state variable](central_concepts.html) for t
 
 We suggest you use [MobiView2](../mobiviewdocs/mobiview.html) to load and run your model.
 
+We highly recommend to use a better editor than notepad to edit the text files, for instance use [notepad++](https://notepad-plus-plus.org/) or something else of your choice.
 
 ```python
 model("The first model") {
