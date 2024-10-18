@@ -57,19 +57,22 @@ module("AirSeaGas", version(0, 0, 0),
 	}
 	
 	
-	#	flux(layer.water.co2[vert.top], out,  [k g, day-1], "CO₂ gas exchange at surface") {
-	#		(!basin.ice.indicator) * basin.pco2_vel*(conc(co2[vert.top]) - co2satconc[vert.top])*A[vert.top] ->>
-	#	}
+	flux(layer.water.co2[vert.top], out, [k g, day-1], "CO₂ gas exchange at surface") {
+		top_t := (layer.water.temp[vert.top]->[K]) =>[],
+		lKh := 108.3865 + 0.01985076 * top_t -6919.53 / top_t-40.45154 * log10(top_t)+669365 /(top_t^2), ## Weyhenmeyer et al., 2012
+		Kh := 10 ^ (lKh=>[]),
+
+		co2_eq := 0.012[m g, l-1] *450 * (Kh * 1.013[] * 0.987[]), ## pco2 in ppm : 450 ppm, co2_eq in mgC/L
+		
+		(!ice_ind) *  basin.pco2_vel * (conc(layer.water.co2[vert.top]) - co2_eq ) *A[vert.top] ->>	
+	}
 	
 	flux(layer.water.ch4[vert.top], out, [k g, day-1], "CH4 gas exchange at surface") {
 		top_t := (layer.water.temp[vert.top]->[K]) =>[],
 		
 		Kh := exp( (-365.183 + 18103.7/top_t + 49.7554*ln(top_t) - 0.000285033*top_t)/1.9872)/55.556,
 
-		#ch4_eq := 2.3 / 1000000 * Kh, ## pch4 in ppm : 2.3 ppm, ch4_eq in M	
-		#(!ice_ind) * 0.01[m, c m-1]* 24[hr, day-1] * basin.pch4_vel * (conc(layer.water.ch4[vert.top]) - (ch4_eq * 16000[m g, l-1])) *A[vert.top] / 1000000[m g, k g-1] * 1000[l, m-3]
-		
-		ch4_eq := 16000[m g, l-1] * Kh * 2.3 / 1000000,
+		ch4_eq := 0.016[m g, l-1] * Kh * 2.3, ### ch4_eq in mgCH4/L, 2.3 being in ppm
 		(!ice_ind) * basin.pch4_vel * (conc(layer.water.ch4[vert.top]) - ch4_eq) * A[vert.top] ->>
 	}
 }
@@ -130,23 +133,34 @@ module("AirSeaGas FPV", version(0, 0, 0),
 	}
 	
 	flux(layer.water.o2[vert.top], out,  [k g, day-1], "O₂ gas exchange at surface") {
-		(!ice_ind) * basin.p_vel*(conc(o2[vert.top]) - o2satconc[vert.top])*A[vert.top] ->>
+		(!ice_ind) * (1 - (cov * FPV_gas)) * basin.p_vel*(conc(o2[vert.top]) - o2satconc[vert.top])*A[vert.top] ->>
 	}
 	
 	
-	#	flux(layer.water.co2[vert.top], out,  [k g, day-1], "CO₂ gas exchange at surface") {
-	#		(!basin.ice.indicator) * basin.pco2_vel*(conc(co2[vert.top]) - co2satconc[vert.top])*A[vert.top] ->>
-	#	}
+	flux(layer.water.co2[vert.top], out, [k g, day-1], "CO₂ gas exchange at surface") {
+		top_t := (layer.water.temp[vert.top]->[K]) =>[],
+		lKh := 108.3865 + 0.01985076 * top_t -6919.53 / top_t-40.45154 * log10(top_t)+669365 /(top_t^2), ## Weyhenmeyer et al., 2012
+		Kh := 10 ^ (lKh=>[]),
+
+		co2_eq := 0.012[m g, l-1] *450 * (Kh * 1.013[] * 0.987[]), ## pco2 in ppm : 450 ppm, co2_eq in mgC/L
+		
+		(!ice_ind) * (1 - (cov * FPV_gas))  * basin.pco2_vel * (conc(layer.water.co2[vert.top]) - co2_eq ) *A[vert.top] ->>	
+	}
+	
+	flux(layer.water.co2[vert.top], out, [k g, day-1], "CO₂ gas loss under FPV") {
+		(!ice_ind) * (cov * FPV_gas/(4*86400[s])) * layer.water.co2[vert.top] ->>	
+	}
 	
 	flux(layer.water.ch4[vert.top], out, [k g, day-1], "CH4 gas exchange at surface") {
 		top_t := (layer.water.temp[vert.top]->[K]) =>[],
 		
 		Kh := exp( (-365.183 + 18103.7/top_t + 49.7554*ln(top_t) - 0.000285033*top_t)/1.9872)/55.556,
 
-		#ch4_eq := 2.3 / 1000000 * Kh, ## pch4 in ppm : 2.3 ppm, ch4_eq in M	
-		#(!ice_ind) * 0.01[m, c m-1]* 24[hr, day-1] * basin.pch4_vel * (conc(layer.water.ch4[vert.top]) - (ch4_eq * 16000[m g, l-1])) *A[vert.top] / 1000000[m g, k g-1] * 1000[l, m-3]
-		
-		ch4_eq := 16000[m g, l-1] * Kh * 2.3 / 1000000,
-		(!ice_ind) * (1 - FPV_gas) * basin.pch4_vel * (conc(layer.water.ch4[vert.top]) - ch4_eq) * A[vert.top] ->>
+		ch4_eq := 0.016[m g, l-1] * Kh * 2.3 , ### ch4_eq in mgCH4/L, 2.3 being in ppm
+		(!ice_ind) * (1 - (cov * FPV_gas)) * basin.pch4_vel * (conc(layer.water.ch4[vert.top]) - ch4_eq) * A[vert.top] ->>
+	}
+	
+	flux(layer.water.ch4[vert.top], out, [k g, day-1], "CH4 gas loss under FPV") {
+		(!ice_ind) * (cov * FPV_gas/(4*86400[s])) * layer.water.ch4[vert.top] ->>	
 	}
 }

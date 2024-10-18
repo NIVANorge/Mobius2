@@ -142,7 +142,7 @@ module("NIVAFjord sediments", version(0, 0, 3),
 	## Simplified model of CH4 sollubility as a function of water temp, ambient pressure and salinity: Duan and Mao, 2006, https://doi.org/10.1016/j.gca.2006.03.018
 	# TODO: Name the magic constants, and probably move to stdlib.
 	var(sediment.sed.ch4satconc, [g, k g-1]) {
-		ch4_mol_mass*((0.00247[mol, k g-1] - (0.00004033[mol, k g-1, deg_c-1] * sediment.temp))* (1-(0.2844-0.001775[deg_c-1]*sediment.temp) * (layer.water.salin/58.44)))* (1 + 44.6[m-1] * layer.z[vert.above]/490)
+		ch4_mol_mass*((0.00247[mol, k g-1] - (0.00004033[mol, k g-1, deg_c-1] * sediment.temp))* (1-(0.2844-0.001775[deg_c-1]*sediment.temp) * (layer.water.salin/58.44)))* (1 + 44.6[m-1] * (layer.z[vert.above])/490)
 	}
 	
 	## Simple CH4 bubble release from the sediment 
