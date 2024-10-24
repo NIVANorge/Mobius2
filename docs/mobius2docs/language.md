@@ -17,6 +17,7 @@ Some goals of the language are to
 	* let the framework take care of most of the heavy lifting, allowing the modeller to focus on model specification.
 	* be self-documenting in the sense that model code reads like a model description.
 	* reduce the effort needed to get unit conversions correct.
+	* have models run as quickly as computationally possible.
 
 This design allows you to quickly write new models and integrate and test new processes with existing models. The user interface MobiView2 allows you to visualize the model results and compute goodness-of-fit statistics during the entire design process and incorporate what you learn from this in a dynamic iterative way.
 

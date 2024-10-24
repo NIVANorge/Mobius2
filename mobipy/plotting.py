@@ -45,7 +45,7 @@ def plot_targets(app, targets, sl, width=10, height_per=5) :
 		
 	return fig, axs
 	
-def chain_plot(result) :
+def chain_plot(result, filename=None) :
 	# For MCMC result
 
 	chain = result.chain
@@ -63,6 +63,8 @@ def chain_plot(result) :
 		axes[idx].set_title(label, fontsize=12) 
 	plt.subplots_adjust(hspace=0.5)   
 	plt.tight_layout()
+	if filename is not None :
+		plt.savefig(filename)
 	
 def corner_plot(result, burn) :
 	# For MCMC result

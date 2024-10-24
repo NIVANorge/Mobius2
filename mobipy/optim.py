@@ -5,6 +5,8 @@ import emcee
 from joblib import Parallel, delayed
 from pyDOE import lhs
 import builtins
+from .plotting import chain_plot
+import datetime
 
 
 # Note: we can't use multiprocessing for this, only multithreading, since a Model_Application object that is allocated from C++ on one process
@@ -17,7 +19,7 @@ import builtins
 #        return Parallel(n_jobs=-1, verbose=0, backend='threading')(builtins.map(delayed(fn), args))
 
 
-def run_mcmc(app, params, set_params, log_likelihood, burn, steps, walkers, run_timeout=-1) :
+def run_mcmc(app, params, set_params, log_likelihood, burn, steps, walkers, run_timeout=-1, report_interval=-1, plot_file='chains.png') :
 
 	def ll_fun(params) :
 		
@@ -42,8 +44,24 @@ def run_mcmc(app, params, set_params, log_likelihood, burn, steps, walkers, run_
 	
 	mcmc = lmfit.Minimizer(ll_fun, params, nan_policy='omit', kws={'moves':emcee.moves.StretchMove()})
 
-	#return mcmc.emcee(params=params, pos=starting_guesses, burn=burn, steps=steps, nwalkers=walkers, workers=Thread_Pool(), float_behavior='posterior')
-	return mcmc.emcee(params=params, pos=starting_guesses, burn=burn, steps=steps, nwalkers=walkers, float_behavior='posterior')
+	#return mcmc.emcee(params=params, pos=starting_guesses, burn=burn, steps=steps, nwalkers=walkers, workers=Thread_Pool(), float_behavior='posterior') #This doesn't work, no idea why.
+	
+	if report_interval < 0 :
+		return mcmc.emcee(params=params, pos=starting_guesses, burn=burn, steps=steps, nwalkers=walkers, float_behavior='posterior')
+	else :
+		steps_left = steps
+		use_steps = min(steps_left, report_interval)
+		reuse_sampler = False #Initially it must create a new one.
+		while steps_left > 0 :
+			ts = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+			print('%s : Running MCMC, %d steps left.' % (ts, steps_left))
+			result = mcmc.emcee(params=params, pos=starting_guesses, burn=burn, steps=use_steps, nwalkers=walkers, float_behavior='posterior', reuse_sampler=reuse_sampler)
+			reuse_sampler=True
+			steps_left -= use_steps
+			use_steps = min(steps_left, report_interval)
+			chain_plot(result, filename=plot_file)
+		return result
+			
 	
 def update_mcmc_results(result, nburn, thin=1):
     """ The summary statistics contained in the LMFit result object do not account for
