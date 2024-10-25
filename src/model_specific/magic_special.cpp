@@ -1,6 +1,6 @@
 
 #include "../external_computations.h"
-#include "MAGIC_Core.h"
+#include "MAGIC_core.h"
 
 extern "C" DLLEXPORT void
 magic_core(

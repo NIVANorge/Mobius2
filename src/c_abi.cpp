@@ -587,7 +587,7 @@ mobius_index_names(Model_Data *data, Entity_Id index_set_id, Mobius_Index_Value 
 		if(type == Index_Record::Type::numeric1) {
 			// Could we have a more robust way to signal this?
 			for(s64 i = 0; i < count.index; ++i) {
-				indexes_out[i].name = "";
+				indexes_out[i].name = (char *)"";
 				indexes_out[i].value = i;
 			}
 		} else if (type == Index_Record::Type::named) {

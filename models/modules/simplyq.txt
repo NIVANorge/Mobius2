@@ -119,6 +119,8 @@ Alternative version of the SimplyQ river module assuming trapezoid cross-section
 Authors: Magnus D. Norling
 """
 
+	load("stdlib/basic_math.txt", library("Response"))
+
 	par_group("Reach parameters", river) {
 		slope          : par_real("Reach slope", [],                             0.014, 0.00001,        3)
 		sb             : par_real("Reach bank slope", [],                            1, 0.00001,       10)
