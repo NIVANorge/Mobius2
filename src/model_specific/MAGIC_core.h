@@ -1,4 +1,5 @@
 
+#include <cmath>
 
 /*
 This is a translation from FORTRAN of a program written by Bernard J. Cosby .
@@ -157,26 +158,26 @@ SetEquilibriumConstants(const magic_param &Param, magic_coeff &CoeffOut, bool Is
 	// Calculate values of equilibrium constants
 	
 	// Calculate corrected equilibrium coefficients for dissociation of water (pH, pOH)
-	CoeffOut.K_W = pow(10.0, -4470.99/TempKelvin + 6.0875 - 0.01706*TempKelvin - 2.0*G[1]);
+	CoeffOut.K_W = std::pow(10.0, -4470.99/TempKelvin + 6.0875 - 0.01706*TempKelvin - 2.0*G[1]);
 	
 	// Henry's law constant for CO2 solubility in water
-	CoeffOut.HenrysLawConstant = pow(10.0, 2385.7/TempKelvin - 14.0184 + 0.015264*TempKelvin - G[0]);
+	CoeffOut.HenrysLawConstant = std::pow(10.0, 2385.7/TempKelvin - 14.0184 + 0.015264*TempKelvin - G[0]);
 	
 	// Calculate corrected equilibrium coefficients for trivalent Al solubility (Gibbsite) 
-	CoeffOut.GibbsAlSolubility = pow(10.0, Param.Log10AlOH3EquilibriumConst + Param.HAlOH3Exponent*G[1] - G[3]);
+	CoeffOut.GibbsAlSolubility = std::pow(10.0, Param.Log10AlOH3EquilibriumConst + Param.HAlOH3Exponent*G[1] - G[3]);
 	
 	// Calculate corrected equilibrium coefficients for dissociation of carbonic acid (carbonate, bicarbonate)
-	CoeffOut.K_C[0] = pow(10.0, 14.8435 - 3404.7/TempKelvin - 0.032786*TempKelvin + G[0] - 2.0*G[1]);
-	CoeffOut.K_C[1] = pow(10.0, 6.4980 - 2902.39/TempKelvin - 0.02379*TempKelvin + G[1] - G[1] - G[2]);
+	CoeffOut.K_C[0] = std::pow(10.0, 14.8435 - 3404.7/TempKelvin - 0.032786*TempKelvin + G[0] - 2.0*G[1]);
+	CoeffOut.K_C[1] = std::pow(10.0, 6.4980 - 2902.39/TempKelvin - 0.02379*TempKelvin + G[1] - G[1] - G[2]);
 	
 	// Calculate corrected equilibrium coefficients for dissociation of trivalent organic acids
-	CoeffOut.K_DOC[0] = pow(10.0, -Param.pK1DOC + G[0] - 2.0*G[1]);
-	CoeffOut.K_DOC[1] = pow(10.0, -Param.pK2DOC + G[1] - G[1] - G[2]);
-	CoeffOut.K_DOC[2] = pow(10.0, -Param.pK3DOC + G[2] - G[1] - G[3]);
+	CoeffOut.K_DOC[0] = std::pow(10.0, -Param.pK1DOC + G[0] - 2.0*G[1]);
+	CoeffOut.K_DOC[1] = std::pow(10.0, -Param.pK2DOC + G[1] - G[1] - G[2]);
+	CoeffOut.K_DOC[2] = std::pow(10.0, -Param.pK3DOC + G[2] - G[1] - G[3]);
 	
 	// Calculate corrected equilibrium coefficients for complexation of AL with organic acid anions
-	CoeffOut.K_AlDOC[0] = pow(10.0, -Param.pK1AlDOC   + G[3] + G[3] - G[0]);
-	CoeffOut.K_AlDOC[1] = pow(10.0, -Param.pK2AlDOC   + G[3] + G[3] + G[1] - G[1]);
+	CoeffOut.K_AlDOC[0] = std::pow(10.0, -Param.pK1AlDOC   + G[3] + G[3] - G[0]);
+	CoeffOut.K_AlDOC[1] = std::pow(10.0, -Param.pK2AlDOC   + G[3] + G[3] + G[1] - G[1]);
 	
 	// Set term for departure of temperature from standard Temp/Press (STP) in thermodynamic expression PV=nRT 
 	double Tmtr = (1.0/T0 - 1.0/TempKelvin) / R;
@@ -184,21 +185,21 @@ SetEquilibriumConstants(const magic_param &Param, magic_coeff &CoeffOut, bool Is
 	// Correct equilibrium coeeficients for Al-SO4 complexation using standard coefficient & enthalpy of reactions
 	for(int Idx = 0; Idx < 2; ++Idx)
 	{
-		CoeffOut.K_SO4[Idx] = pow(10.0, StAlSO4[Idx] + dAlSO4[Idx]*Tmtr + G[3] + (double)(Idx+1)*G[2] - G[1]);
+		CoeffOut.K_SO4[Idx] = std::pow(10.0, StAlSO4[Idx] + dAlSO4[Idx]*Tmtr + G[3] + (double)(Idx+1)*G[2] - G[1]);
 	}
 	
 	// Correct equilibrium coeeficients for Al-hydroxide dissociation using standard coefficient & enthalpy of reactions
 	for(int Idx = 0; Idx < 4; ++Idx)
 	{
 		int J = abs(Idx - 2);
-		CoeffOut.K_Al[Idx] = pow(10.0, StAlOH[Idx] + dHAlOH[Idx]*Tmtr + G[3] - G[J] - (double)(Idx+1)*G[1]);
+		CoeffOut.K_Al[Idx] = std::pow(10.0, StAlOH[Idx] + dHAlOH[Idx]*Tmtr + G[3] - G[J] - (double)(Idx+1)*G[1]);
 	}
 	
 	// Correct equilibrium coeeficients for Al-F complexation using standard coefficient & enthalpy of reactions
 	for(int Idx = 0; Idx < 6; ++Idx)
 	{
 		int J = abs(Idx - 2);
-		CoeffOut.K_F[Idx] = pow(10.0, StAlF[Idx] + dAlF[Idx]*Tmtr + G[3] - G[J] + (double)(Idx+1)*G[1]);
+		CoeffOut.K_F[Idx] = std::pow(10.0, StAlF[Idx] + dAlF[Idx]*Tmtr + G[3] - G[J] + (double)(Idx+1)*G[1]);
 	}
 	
 	// Calculate GainesThomas cation exchange coeeficients - from selectivity coefficients (correct mmol to meq)
@@ -224,7 +225,7 @@ SolveQuadratic(double A, double B, double C)
 {
 	//Solve quadratic equation A*X^2 + B*X + C = 0, only caring about the (largest) positive result.
 	
-	return (-B + sqrt(B*B - 4.0*A*C))/(2.0*A);
+	return (-B + std::sqrt(B*B - 4.0*A*C))/(2.0*A);
 }
 
 inline double
@@ -314,11 +315,11 @@ SolveAqueousSO4(const magic_coeff &Coeff, double total_SO4, double conc_Al, doub
 	if(CC >= 0.0)
 	{
 		// Real, posiive value for free SO4 ion concentration (mmol/m3) - calculate and return
-		CC = sqrt(CC);
-		double AA = pow(10.0, log10(abs(-BB2/2.0 + CC)*1e15)/3.0);
+		CC = std::sqrt(CC);
+		double AA = pow(10.0, std::log10(abs(-BB2/2.0 + CC)*1e15)/3.0);
 		AA2 = -BB2/2.0 + CC;
 		AA = Sign(AA, AA2);
-		double BB = pow(10.0, log10(abs(-BB2/2.0 + CC)*1e15)/3.0);
+		double BB = pow(10.0, std::log10(abs(-BB2/2.0 + CC)*1e15)/3.0);
 		BB2 = -BB2/2.0 - CC;
 		BB = Sign(BB, BB2);
 		double xSO4 = AA + BB - PP/3.0;
@@ -328,19 +329,19 @@ SolveAqueousSO4(const magic_coeff &Coeff, double total_SO4, double conc_Al, doub
 	{
 		// Imaginary value, try alternate solutions for free SO4 ion concentration (mmol/m3) - calculate and return
 		
-		double AA = acos(-BB2/(2.0*sqrt(-AA2*AA2*AA2/27.0)));
-		double BB = 2.0*sqrt(-AA2/3.0)*1e5;
-		double xSO4 = BB*cos(AA/3.0) - PP/3.0;
+		double AA = std::acos(-BB2/(2.0*std::sqrt(-AA2*AA2*AA2/27.0)));
+		double BB = 2.0*std::sqrt(-AA2/3.0)*1e5;
+		double xSO4 = BB*std::cos(AA/3.0) - PP/3.0;
 		if(xSO4 > 0.0)
 		{
 			return conc_Al * (Coeff.K_SO4[0] + 2.0*Coeff.K_SO4[1]*xSO4)*xSO4 + xSO4;
 		}
-		xSO4 = BB*cos(AA/3.0 + 2.0*Pi/3.0) - PP/3.0;
+		xSO4 = BB*std::cos(AA/3.0 + 2.0*Pi/3.0) - PP/3.0;
 		if(xSO4 > 0.0)
 		{
 			return conc_Al * (Coeff.K_SO4[0] + 2.0*Coeff.K_SO4[1]*xSO4)*xSO4 + xSO4;
 		}
-		xSO4 = BB*cos(AA/3.0 + 4.0*Pi/3.0) - PP/3.0;
+		xSO4 = BB*std::cos(AA/3.0 + 4.0*Pi/3.0) - PP/3.0;
 		if(xSO4 > 0.0)
 		{
 			return conc_Al * (Coeff.K_SO4[0] + 2.0*Coeff.K_SO4[1]*xSO4)*xSO4 + xSO4;
@@ -477,7 +478,7 @@ ComputeIonicStrength(const magic_coeff &Coeff, double conc_Ca, double conc_Mg, d
 	
 	// Ionic strength is approximated using Debye-Huckel expression (changing umol/L to mol/L)
 	double Xxis = (4.0*(conc_Ca + conc_Mg + conc_SO4 + conc_CO3 + conc_HA2M) + conc_Na + conc_K + conc_NH4 + conc_Cl + conc_NO3 + conc_F + conc_H + Coeff.K_W/conc_H + conc_HCO3 + conc_H2AM + 9.0*conc_A3M + conc_AlHA + conc_Al*(9.0 + 4.0*conc_F*Coeff.K_F[0] + F2*Coeff.K_F[1] + F2*F2*Coeff.K_F[3] + 4.0*F2*F3*Coeff.K_F[4] + 9.0*F3*F3*Coeff.K_F[5] + conc_SO4*Coeff.K_SO4[0] + conc_SO4*conc_SO4*Coeff.K_SO4[1] + 4.0*Coeff.K_Al[0]/conc_H + Coeff.K_Al[1]/H2 + Coeff.K_Al[3]/(H2*H2)))*0.0000005;
-	return sqrt(Xxis)/(1.0 + sqrt(Xxis));
+	return std::sqrt(Xxis)/(1.0 + std::sqrt(Xxis));
 }
 
 
@@ -533,10 +534,10 @@ MagicCore(const magic_input &Input, const magic_param &Param, magic_output &Resu
 	Result.conc_H = H_estimate;
 	
 	// Calculate pH - from H concen (convert mmol/m3 to mol/L)
-	Result.pH     = -log10(Result.conc_H*1e-6);
+	Result.pH     = -std::log10(Result.conc_H*1e-6);
 	
 	// Calculate trivalent Aluminum ion concen (Al3+) (mmol/m3) - from H ion concen (mmol/m3), aluminum solubility coeff and H ion power
-	Result.conc_Al = Coeff.GibbsAlSolubility * pow(Result.conc_H, Param.HAlOH3Exponent);
+	Result.conc_Al = Coeff.GibbsAlSolubility * std::pow(Result.conc_H, Param.HAlOH3Exponent);
 	
 	// Calculate free Ammonium ion concen (mmol/m3) - from total Ammonium amount (meq/m2) and pore volume (m)  (convert meq to mmol)
 	Result.conc_NH4 = Input.total_NH4 / WaterVolume;
@@ -607,12 +608,12 @@ MagicCore(const magic_input &Input, const magic_param &Param, magic_output &Resu
 		double exchangeable_Al = 1.0 - TotalBaseCations/SoilCationExchange + WaterVolume*SumBaseCations1/SoilCationExchange;
 		
 		// Solve cation exchange equations using selectivity coefficients - calculations based on GainesThomas cation exchange using equivalents of charge
-		double XK0 = log10(exchangeable_Al/Coeff.GibbsAlSolubility)/3.0 - log10(Result.conc_H)*(Param.HAlOH3Exponent/3.0);
+		double XK0 = std::log10(exchangeable_Al/Coeff.GibbsAlSolubility)/3.0 - std::log10(Result.conc_H)*(Param.HAlOH3Exponent/3.0);
 		
-		CaExchange = pow(10.0, 2.0*XK0 + Coeff.K_AlCa);
-		MgExchange = pow(10.0, 2.0*XK0 + Coeff.K_AlMg);
-		NaExchange = pow(10.0, XK0 + Coeff.K_AlNa);
-		KExchange  = pow(10.0, XK0 + Coeff.K_AlK);
+		CaExchange = std::pow(10.0, 2.0*XK0 + Coeff.K_AlCa);
+		MgExchange = std::pow(10.0, 2.0*XK0 + Coeff.K_AlMg);
+		NaExchange = std::pow(10.0, XK0 + Coeff.K_AlNa);
+		KExchange  = std::pow(10.0, XK0 + Coeff.K_AlK);
 	}
 	else
 	{
@@ -651,10 +652,10 @@ MagicCore(const magic_input &Input, const magic_param &Param, magic_output &Resu
 			
 			Result.pH += dpH;
 			// Convert to new H conc (mmol/m3) and repeat solution for charge balance
-			Result.conc_H = 1.0 / pow(10.0, Result.pH - 6.0);
+			Result.conc_H = 1.0 / std::pow(10.0, Result.pH - 6.0);
 			
 			// Calculate trivalent Aluminum ion concen (Al3+) (mmol/m3) - from H ion concen (mmol/m3), aluminum solubility coeff (XKG) and H ion power (XPON)
-			Result.conc_Al = Coeff.GibbsAlSolubility * pow(Result.conc_H, Param.HAlOH3Exponent);
+			Result.conc_Al = Coeff.GibbsAlSolubility * std::pow(Result.conc_H, Param.HAlOH3Exponent);
 			
 			// Solve for free Fluoride ion concen (mmol/m3) - from aqueous Fluoride concen (mmol/m3) and trivalent Al ion concen (mmol/m3)  	
 			Result.conc_F = SolveFreeFluoride(Coeff, Result.all_F, Result.conc_Al);
@@ -700,12 +701,12 @@ MagicCore(const magic_input &Input, const magic_param &Param, magic_output &Resu
 	
 			
 				// Solve cation exchange equations using selectivity coefficients - calculations based on GainesThomas cation exchange using equivalents of charge
-				double XK0 = log10(exchangeable_Al/Coeff.GibbsAlSolubility)/3.0 - log10(Result.conc_H)*(Param.HAlOH3Exponent/3.0);
+				double XK0 = std::log10(exchangeable_Al/Coeff.GibbsAlSolubility)/3.0 - std::log10(Result.conc_H)*(Param.HAlOH3Exponent/3.0);
 				
-				CaExchange = pow(10.0, 2.0*XK0 + Coeff.K_AlCa);
-				MgExchange = pow(10.0, 2.0*XK0 + Coeff.K_AlMg);
-				NaExchange = pow(10.0, XK0 + Coeff.K_AlNa);
-				KExchange  = pow(10.0, XK0 + Coeff.K_AlK);
+				CaExchange = std::pow(10.0, 2.0*XK0 + Coeff.K_AlCa);
+				MgExchange = std::pow(10.0, 2.0*XK0 + Coeff.K_AlMg);
+				NaExchange = std::pow(10.0, XK0 + Coeff.K_AlNa);
+				KExchange  = std::pow(10.0, XK0 + Coeff.K_AlK);
 			}
 			else
 			{
@@ -871,9 +872,9 @@ MagicCoreInitial(const magic_init_input &Input, const magic_param &Param, magic_
 
 	Result.pH = 5.0; //Initial estimate.
 	
-	Result.conc_H = 1.0 / pow(10.0, Result.pH - 6.0);
+	Result.conc_H = 1.0 / std::pow(10.0, Result.pH - 6.0);
 	
-	double conc_Al = Coeff.GibbsAlSolubility * pow(Result.conc_H, Param.HAlOH3Exponent);
+	double conc_Al = Coeff.GibbsAlSolubility * std::pow(Result.conc_H, Param.HAlOH3Exponent);
 	
 	Result.conc_SO4 = SolveFreeSO4(Coeff, Input.all_SO4, conc_Al);
 	
@@ -918,8 +919,8 @@ MagicCoreInitial(const magic_init_input &Input, const magic_param &Param, magic_
 			SetEquilibriumConstants(Param, Coeff, IsSoil, Result.IonicStrength, SoilCationExchange);
 			
 			conc_CO2 = Coeff.HenrysLawConstant*Param.PartialPressureCO2/100.0;
-			Result.conc_H = 1.0 / pow(10.0, Result.pH - 6.0);
-			conc_Al = Coeff.GibbsAlSolubility * pow(Result.conc_H, Param.HAlOH3Exponent);
+			Result.conc_H = 1.0 / std::pow(10.0, Result.pH - 6.0);
+			conc_Al = Coeff.GibbsAlSolubility * std::pow(Result.conc_H, Param.HAlOH3Exponent);
 			
 			Result.conc_SO4 = SolveFreeSO4(Coeff, Input.all_SO4, conc_Al);
 			Result.conc_F = SolveFreeFluoride(Coeff, Input.all_F, conc_Al);
@@ -954,12 +955,12 @@ MagicCoreInitial(const magic_init_input &Input, const magic_param &Param, magic_
 		//if(exchangeable_Al < 0.0)
 		//	fatal_error(Mobius_Error::model_specific, "Initial exchangeable Ca, Mg, Na, and K sum to more than 100%\n");
 		
-		double Ratio = log10(exchangeable_Al / conc_Al);
+		double Ratio =std:: log10(exchangeable_Al / conc_Al);
 		
-		Result.Log10CaAlSelectCoeff = 2.0*Ratio + 3.0*log10(Input.conc_Ca / Input.exchangeable_Ca) - 6.0;
-		Result.Log10MgAlSelectCoeff = 2.0*Ratio + 3.0*log10(Input.conc_Mg / Input.exchangeable_Mg) - 6.0;
-		Result.Log10NaAlSelectCoeff = Ratio + 3.0*log10(Input.conc_Na / Input.exchangeable_Na)     - 12.0;
-		Result.Log10KAlSelectCoeff  = Ratio + 3.0*log10(Input.conc_K / Input.exchangeable_K)       - 12.0;
+		Result.Log10CaAlSelectCoeff = 2.0*Ratio + 3.0*std::log10(Input.conc_Ca / Input.exchangeable_Ca) - 6.0;
+		Result.Log10MgAlSelectCoeff = 2.0*Ratio + 3.0*std::log10(Input.conc_Mg / Input.exchangeable_Mg) - 6.0;
+		Result.Log10NaAlSelectCoeff = Ratio + 3.0*std::log10(Input.conc_Na / Input.exchangeable_Na)     - 12.0;
+		Result.Log10KAlSelectCoeff  = Ratio + 3.0*std::log10(Input.conc_K / Input.exchangeable_K)       - 12.0;
 		
 		//log_print("conc_Al ", conc_Al, " conc_Ca ", Input.conc_Ca, " exch_Ca ", Input.exchangeable_Ca, "\n");
 		//log_print("select: ", Result.Log10CaAlSelectCoeff, "\n");
