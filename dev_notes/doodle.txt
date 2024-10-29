@@ -2,6 +2,34 @@
 
 
 
+
+
+# In model scope:
+
+# Here pet_module is a par_real with a global scope.
+if(pet_module.pm) {
+	# Do whatever is needed to load the Penman-monteith PET module
+}
+# This is a bit tricky because then we need to register global par_groups before anything else. Right now par_groups are pretty far down.
+# So we would have to scan the par_groups twice...
+# Could have a separate "option" declaration, but it is nicer to reuse enum parameters.
+		# Although, options should not be editable in the data set
+		# What if we call it an option_group instead? And it can only have par_enum, and it is not displayed in MobiView?
+option_group("PET module") {
+	
+}
+
+
+
+
+
+
+
+
+
+
+
+
 # Multiple return values could be useful in some functions that reuse some partial computations. E.g.
 
 solar_declination : function(day_of_year : [day]) {

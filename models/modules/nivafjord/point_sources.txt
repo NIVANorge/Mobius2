@@ -6,10 +6,13 @@ module("NIVAFjord point sources", version(0, 0, 0),
 	phos  : quantity,
 	sed   : quantity,
 	o2    : quantity,
+	heat  : quantity,
+	temp  : property
 ) {
 """
 This is a module for point source inputs to NIVAFjord.
 """
+
 	par_group("Point sources", layer) {
 		eff_q  : par_real("Water point source", [m 3, day-1], 0)
 		eff_n  : par_real("DIN point source", [k g, day-1], 0)
@@ -18,16 +21,19 @@ This is a module for point source inputs to NIVAFjord.
 		o2sat  : par_real("Point source water O2 saturation", [], 1)
 	}
 	
+	load("stdlib/seawater.txt", library("Sea oxygen"))
+	load("stdlib/physiochemistry.txt", library("Chemistry"))
+	
 	flux(out, layer.water, [m 3, day-1], "Point source water to layer") {  eff_q  }
 	
 	flux(out, layer.water.heat, [J, day-1], "Point source heat to layer") {
-		conc(layer.water)*eff_q  # Assume same temperature in effluent and bay. TODO: This is not always the case.
+		conc(layer.water.heat)*eff_q  # Assume same temperature in effluent and bay. TODO: This is not always the case.
 	}
 	
 	flux(out, layer.water.o2, [k g, day-1], "Point source O2 to layer") {
 		eff_temp := layer.water.temp,
 		eff_salin := 0,
-		o2c = o2sat*o2_mol_mass*o2_saturation(eff_temp, eff_salin),
+		o2c := o2sat*o2_mol_mass*o2_saturation(eff_temp, eff_salin),
 		o2c*eff_q->>
 	}
 	

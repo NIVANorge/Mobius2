@@ -3,6 +3,11 @@
 	*** High pri ***
 		
 		
+		
+		Dynamic module selection is completely needed for things like PET modules. Otherwise you get different model versions for everything...
+		
+		
+		
 		NIVAFjord:
 			
 			Need a complete rethink of horizontal fluxes. They cause too much numerical instability when there is large in/outflow for small layers.
@@ -11,6 +16,8 @@
 		
 			In Varna setup, can merge channel into beloslav to mitigate this a bit?
 				Probably necessary!
+				
+			Moreover, they need to be proper two-way for the layer switching to work in both ways.
 		
 		
 		MobiView
