@@ -398,11 +398,17 @@ Parameter_Registration::process_declaration(Catalog *catalog) {
 
 void
 Par_Group_Registration::process_declaration(Catalog *catalog) {
-	int which = match_declaration(decl,
-	{
-		{Token_Type::quoted_string},
-		{Token_Type::quoted_string, {Decl_Type::compartment, true}},
-	}, false, -1, true);
+	
+	int which;
+	if(this->decl_type == Decl_Type::par_group) {
+		which = match_declaration(decl,
+		{
+			{Token_Type::quoted_string},
+			{Token_Type::quoted_string, {Decl_Type::compartment, true}},
+		}, false, -1, true);
+	} else {
+		which = match_declaration(decl, {{Token_Type::quoted_string}}, false, -1, false);
+	}
 	
 	auto parent_scope = catalog->get_scope(scope_id);
 	
@@ -434,10 +440,18 @@ Par_Group_Registration::process_declaration(Catalog *catalog) {
 	}
 	
 	auto body = static_cast<Decl_Body_AST *>(decl->body);
-
+	
+	std::set<Decl_Type> allowed_decls;
+	if(this->decl_type == Decl_Type::par_group)
+		allowed_decls = {Decl_Type::par_real, Decl_Type::par_int, Decl_Type::par_bool, Decl_Type::par_enum, Decl_Type::unit, Decl_Type::compose_unit, Decl_Type::unit_of};
+	else if(this->decl_type == Decl_Type::option_group)
+		allowed_decls = {Decl_Type::par_bool, Decl_Type::par_enum};
+	else
+		fatal_error(Mobius_Error::internal, "Unhandled par_group type");
+		
 	// NOTE: Have to allow Decl_Type::unit since they are often inline declared in parameter declarations.
 	for(Decl_AST *child : body->child_decls)
-		catalog->register_decls_recursive(&scope, child, {Decl_Type::par_real, Decl_Type::par_int, Decl_Type::par_bool, Decl_Type::par_enum, Decl_Type::unit, Decl_Type::compose_unit, Decl_Type::unit_of});
+		catalog->register_decls_recursive(&scope, child, allowed_decls);
 	
 	for(auto id : scope.all_ids) {
 		catalog->find_entity(id)->process_declaration(catalog);
@@ -1747,14 +1761,116 @@ process_module_load_outer(Mobius_Model *model, Module_Load &load) {
 	}
 }
 
+bool
+should_use_option(Mobius_Model *model, Model_Options *options, Argument_AST *arg) {
+	
+	std::string symbol = arg->chain[0].string_value;
+	auto find = model->top_scope[symbol];
+	if(!find) {
+		arg->source_loc().print_error_header();
+		fatal_error("The identifier '", symbol, "' has not been declared.");
+	}
+	auto id = find->id;
+	if(id.reg_type != Reg_Type::parameter) {  // Should technically not be possible since this happens in first pass?
+		arg->source_loc().print_error_header();
+		fatal_error("The identifier '", symbol, "' does not refer to a parameter.");
+	}
+	auto par = model->parameters[id];
+	if(par->decl_type != Decl_Type::par_enum && par->decl_type != Decl_Type::par_bool)
+		fatal_error(Mobius_Error::internal, "Somehow an option_group parameter was of the wrong type.");
+	
+	
+	// Find what value was passed in the options for this parameter (or use default if option was not passed).
+	s64 val = par->default_val.val_integer;
+	if(options) {
+		std::string serial = model->serialize(id);
+		auto find2 = options->options.find(serial);
+		
+		if(find2 != options->options.end()) {
+			std::string &value = find2->second;
+			if(par->decl_type == Decl_Type::par_bool) {
+				if(value == "true") val = 1;
+				else if(value == "false") val = 0;
+				else {
+					// Hmm, this is annoying, we can't refer to the source of the option *value*
+					arg->source_loc().print_error_header();
+					fatal_error("Received an invalid value for the parameter '", symbol, "'. Expected either 'true' or 'false'. The value probably comes from the loaded data set.");
+				}
+			} else {
+				val = par->enum_int_value(value);
+				if(val < 0) {
+					arg->source_loc().print_error_header();
+					fatal_error("The value '", value, "' is not valid for the parameter '", symbol, "'. The value probably comes from the loaded data set.");
+				}
+			}
+		}
+	}
+	
+	if(par->decl_type == Decl_Type::par_bool) {
+		if(arg->chain.size() != 1) {
+			arg->source_loc().print_error_header();
+			fatal_error("Expected only one symbol in the argument (par_identifier).");
+		}
+		return (bool)val;
+	}
+	
+	if(arg->chain.size() != 2) {
+		arg->source_loc().print_error_header();
+		fatal_error("Expected two symbols in the argument (par_identifier.value).");
+	}
+	
+	auto &check_value = arg->chain[1].string_value;
+	s64 check_val = par->enum_int_value(check_value);
+	
+	if(check_val < 0) {
+		arg->source_loc().print_error_header();
+		fatal_error("The value '", check_value, "' is not valid for the parameter '", symbol, "'.");
+	}
+	
+	return (val == check_val);
+}
+
+void
+process_option_decl(Mobius_Model *model, Model_Options *options, Decl_AST *decl, Model_Extension *extend, std::vector<std::pair<Decl_AST *, Model_Extension *>> &all_decls) {
+	
+	match_declaration(decl, {{Arg_Pattern::any}}, false); // Have to use 'any' since this isn't quite covered by the matching system.
+	bool correct = true;
+	auto arg = decl->args[0];
+	if(arg->decl) correct = false;
+	if(!arg->bracketed_chain.empty() || !arg->secondary_bracketed.empty()) correct = false;
+	for(auto token : arg->chain) {
+		if(token.type != Token_Type::identifier && token.type != Token_Type::boolean) correct = false;
+	}
+	if(!correct) {
+		arg->source_loc().print_error_header();
+		fatal_error("Expected a parameter value.");
+	}
+	
+	if(should_use_option(model, options, arg)) {
+		auto body = static_cast<Decl_Body_AST *>(decl->body);
+		
+		for(Decl_AST *child : body->child_decls) {
+			
+			if(child->type == Decl_Type::option_group) {
+				child->source_loc.print_error_header();
+				fatal_error("It is not allowed to have option groups inside options.");
+			} else if(child->type == Decl_Type::option) {
+				process_option_decl(model, options, child, extend, all_decls);
+			} else
+				all_decls.push_back({child, extend});
+		}
+	}
+}
+
+
 Mobius_Model *
-load_model(String_View file_name, Mobius_Config *config) {
+load_model(String_View file_name, Mobius_Config *config, Model_Options *options) {
 	
 	Mobius_Model *model = new Mobius_Model();
 	
 	if(config)
 		model->config = *config;
-	else 
+	else
 		model->config = load_config();
 	
 	mobius_developer_mode = model->config.developer_mode;
@@ -1783,8 +1899,48 @@ load_model(String_View file_name, Mobius_Config *config) {
 		if(extend1.depth == extend2.depth) return extend1.load_order < extend2.load_order;
 		return extend1.depth > extend2.depth;
 	});
-
+	
 	auto scope = &model->top_scope;
+	
+	std::set<Decl_Type> allowed_first = { Decl_Type::option_group };
+	
+	for(auto &extend : extend_models) {
+		auto ast = extend.decl;
+		auto body = static_cast<Decl_Body_AST *>(ast->body);
+		// Don't think we need to check excludes here??
+		
+		for(Decl_AST *child : body->child_decls) {
+			if(child->type == Decl_Type::option_group) {
+				model->register_decls_recursive(scope, child, allowed_first);
+			}
+		}
+	}
+	
+	// Option groups are registered as par groups.
+	for(auto id : scope->by_type(Reg_Type::par_group)) {
+		auto entity = model->find_entity(id);
+		if(entity->decl_type == Decl_Type::option_group && !entity->has_been_processed) // Note: To avoid the internally created "System" group.
+			entity->process_declaration(model);
+	}
+				
+	
+	// Gather all declarations that were not excluded or ruled out by an option
+	std::vector<std::pair<Decl_AST *, Model_Extension *>> all_decls;
+	
+	for(auto &extend : extend_models) {
+		auto ast = extend.decl;
+		auto body = static_cast<Decl_Body_AST *>(ast->body);
+
+		for(Decl_AST *child : body->child_decls) {
+			if(should_exclude_decl(extend, child)) continue;
+			if(child->type == Decl_Type::option_group) continue; // Already processed.
+			
+			if(child->type == Decl_Type::option)
+				process_option_decl(model, options, child, &extend, all_decls);
+			else
+				all_decls.push_back({child, &extend});
+		}
+	}
 	
 	// Declarations allowed in the model top scope.
 	// Not including declarations that don't create an entity registration (solve, ...) . These are handled separately.
@@ -1806,44 +1962,41 @@ load_model(String_View file_name, Mobius_Config *config) {
 	std::vector<Decl_AST *>  special_decls;
 	std::vector<Module_Load> module_loads;
 	
-	for(auto &extend : extend_models) {
-		auto ast = extend.decl;
-		auto body = static_cast<Decl_Body_AST *>(ast->body);
+
+	for(auto &decl : all_decls) {
 		
-		for(Decl_AST *child : body->child_decls) {
+		Decl_AST *child = decl.first;
+		Model_Extension *extend = decl.second;
+		
+		if(child->type == Decl_Type::load) {
 			
-			if(should_exclude_decl(extend, child)) continue;
+			int which = match_declaration(child,
+				{
+					{Token_Type::quoted_string, {Decl_Type::module, true}},
+					{Token_Type::quoted_string, {Decl_Type::library, true}},
+				}, false);
 			
-			if(child->type == Decl_Type::load) {
-				
-				int which = match_declaration(child, 
-					{
-						{Token_Type::quoted_string, {Decl_Type::module, true}},
-						{Token_Type::quoted_string, {Decl_Type::library, true}},
-					}, false);
-				
-				if(which == 0) {
-					// Register inlined load arguments only. The actual load is processed later.
-					pre_register_module_loads(model, scope, child, module_loads, extend.normalized_path);
-				} else
-					process_load_library_declaration(model, child, scope->parent_id, file_name);
-			} else if (child->type == Decl_Type::extend) {
-				// Do nothing. This was handled already.
-			} else if (child->type == Decl_Type::module || child->type == Decl_Type::preamble) {
-				// Inline module declaration. These are handled later.
-				module_loads.emplace_back(child, true, "", file_name);  // true signifies it is an inline decl.
-				
-			} else if (child->type == Decl_Type::solve || child->type == Decl_Type::unit_conversion || child->type == Decl_Type::aggregation_weight) {
-				// These don't create registrations on their own.. They will be processed after other declarations below.
-				special_decls.push_back(child);
-				// We still may have to handle inline decls in arguments.
-				for(auto arg : child->args) {
-					if(arg->decl)
-						model->register_decls_recursive(scope, arg->decl, allowed_model_decls);
-				}
-			} else {
-				model->register_decls_recursive(scope, child, allowed_model_decls);
+			if(which == 0) {
+				// Register inlined load arguments only. The actual load is processed later.
+				pre_register_module_loads(model, scope, child, module_loads, extend->normalized_path);
+			} else
+				process_load_library_declaration(model, child, scope->parent_id, file_name);
+		} else if (child->type == Decl_Type::extend) {
+			// Do nothing. This was handled already.
+		} else if (child->type == Decl_Type::module || child->type == Decl_Type::preamble) {
+			// Inline module declaration. These are handled later.
+			module_loads.emplace_back(child, true, "", file_name);  // true signifies it is an inline decl.
+			
+		} else if (child->type == Decl_Type::solve || child->type == Decl_Type::unit_conversion || child->type == Decl_Type::aggregation_weight) {
+			// These don't create registrations on their own.. They will be processed after other declarations below.
+			special_decls.push_back(child);
+			// We still may have to handle inline decls in arguments.
+			for(auto arg : child->args) {
+				if(arg->decl)
+					model->register_decls_recursive(scope, arg->decl, allowed_model_decls);
 			}
+		} else {
+			model->register_decls_recursive(scope, child, allowed_model_decls);
 		}
 	}
 	

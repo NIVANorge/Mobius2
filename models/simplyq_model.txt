@@ -1,6 +1,12 @@
 
 model("SimplyQ") {
 
+	option_group("SimplyQ configuration") {
+		pet_module : par_enum("PET module", degree_day) { degree_day penman_monteith }
+		river_module : par_enum("River discharge module", simple) { simple trapezoid manual }
+	}
+
+
 	sc       : index_set("Subcatchment")
 	lu       : index_set("Landscape units")
 	
@@ -35,12 +41,46 @@ model("SimplyQ") {
 	} @no_cycles
 	
 	###### Import modules
-	load("modules/pet.txt",       module("Degree-day PET", air, soil, pet, temp))
 	load("modules/hbv_snow.txt",  module("HBVSnow", air, snow_box, snow, water, temp, precip, loc(soil.water)))
-	load("modules/simplyq.txt",
-		module("SimplyQ land", soil, gw, river, water, flow, pet, a_catch, loc(river.water), loc(river.water)),
-		module("SimplyQ river", river, water, flow, loc(downstream))
-	)	
+	load("modules/simplyq.txt",   module("SimplyQ land", soil, gw, river, water, flow, pet, a_catch, loc(river.water), loc(river.water)))
+	
+	option(river_module.simple) {
+		load("modules/simplyq.txt", module("SimplyQ river", river, water, flow, loc(downstream)))
+	}
+	option(river_module.trapezoid) {
+		load("modules/simplyq.txt", module("SimplyQ river trapezoid", river, water, flow, loc(downstream)))
+	}
+	option(river_module.manual) {
+		tc_reach : property("Reach time constant")
+		load("modules/simplyq.txt", module("SimplyQ river trapezoid", river, water, flow, tc_reach, loc(downstream)))
+	}
+	
+	option(pet_module.degree_day) {
+		load("modules/pet.txt",       module("Degree-day PET", air, soil, pet, temp))
+	}
+	option(pet_module.penman_monteith) {
+		
+		pressure : property("Pressure")
+		lwd      : property("Downwelling longwave radiation")
+		g_rad    : property("Global radiation")
+		wind     : property("Wind speed")
+		s_vap    : property("Saturation vapor pressure")
+		a_vap    : property("Actual vapor pressure")
+		cos_z    : property("Cosine of the solar zenith angle")
+		dens     : property("Density")
+		a_hum    : property("Actual specific humidity")
+		
+		load("modules/simplysoiltemp.txt",
+			module("Simply soil temperature", air, soil, snow_box, snow, temp))
+		
+		load("modules/atmospheric.txt",
+			module("Atmospheric", air, temp, wind, g_rad, pressure, a_hum, dens, lwd, cos_z, a_vap, s_vap))
+		
+		load("modules/pet.txt",
+			module("Penman-Monteith PET daily", air, soil, snow_box, snow, temp, pet, pressure, lwd, g_rad, wind, s_vap, a_vap))
+
+		solve(sol, air.cos_z)
+	}
 	
 	aggregation_weight(soil, gw)    { lu_prop }
 	aggregation_weight(soil, river) { lu_prop }
@@ -49,7 +89,7 @@ model("SimplyQ") {
 	unit_conversion(soil.water, river.water) { a_catch }
 	unit_conversion(gw.water, river.water)   { a_catch }
 	
-		
+	
 	###### Set ODE solvers
 	
 	#par_group("Solver configuration") {

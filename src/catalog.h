@@ -3,6 +3,7 @@
 #define MOBIUS_CATALOG_H
 
 #include <set>
+#include <map>
 
 #include "common_types.h"
 #include "ast.h"
@@ -227,6 +228,12 @@ Catalog {
 	
 protected :
 	void register_single_decl(Decl_Scope *scope, Decl_AST *decl, const std::set<Decl_Type> &allowed_types);
+};
+
+// Hmm, maybe not the best place to have this, but both Mobius_Model and Data_Set need to know about it.
+struct
+Model_Options {
+	std::map<std::string, std::string> options;
 };
 
 inline Entity_Id

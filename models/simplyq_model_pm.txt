@@ -1,4 +1,7 @@
 
+
+# NOTE: This file is outdated. It is no longer necessary when we have this as a model option in simplyq_model.
+
 model("SimplyQ with Penman-Monteith") {
 
 	sc       : index_set("Subcatchment")
@@ -75,7 +78,6 @@ model("SimplyQ with Penman-Monteith") {
 	sol : solver("Simply solver", inca_dascru, [2, hr], 1e-2)
 	
 	solve(sol, soil.water, gw.water, river.water, air.cos_z)
-	
 }
 
 

@@ -203,6 +203,8 @@ Data_Set : Catalog {
 	
 	Registry_Base *registry(Reg_Type reg_type);
 	Decl_Scope    *get_scope(Entity_Id scope_id);
+	
+	void get_model_options(Model_Options &options);
 };
 
 

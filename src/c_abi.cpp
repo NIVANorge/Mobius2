@@ -85,11 +85,14 @@ mobius_build_from_model_and_data_file(char * model_file, char * data_file, char 
 	config.mobius_base_path = base_path;
 	
 	try {
-		Mobius_Model *model = load_model(model_file, &config);
-		auto app = new Model_Application(model);
-			
 		Data_Set *data_set = new Data_Set;
 		data_set->read_from_file(data_file);
+		
+		Model_Options options;
+		data_set->get_model_options(options);
+		
+		Mobius_Model *model = load_model(model_file, &config, &options);
+		auto app = new Model_Application(model);
 		
 		app->build_from_data_set(data_set);
 		app->compile();

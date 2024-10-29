@@ -343,7 +343,7 @@ Mobius_Config
 load_config(String_View config = "config.txt");
 
 Mobius_Model *
-load_model(String_View file_name, Mobius_Config *config = nullptr);
+load_model(String_View file_name, Mobius_Config *config = nullptr, Model_Options *options = nullptr);
 
 //void
 //process_location_argument(Mobius_Model *model, Decl_Scope *scope, Argument_AST *arg, Var_Location *location,

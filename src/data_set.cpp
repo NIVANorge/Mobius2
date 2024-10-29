@@ -79,11 +79,15 @@ Module_Data::process_declaration(Catalog *catalog) {
 void
 Par_Group_Data::process_declaration(Catalog *catalog) {
 	
-	match_declaration(decl,
-	{
-		{Token_Type::quoted_string},
-		{Token_Type::quoted_string, {Decl_Type::index_set, true}},
-	}, false, -1);
+	if(this->decl_type == Decl_Type::par_group) {
+		match_declaration(decl,
+		{
+			{Token_Type::quoted_string},
+			{Token_Type::quoted_string, {Decl_Type::index_set, true}},
+		}, false, -1);
+	} else { // option_group
+		match_declaration(decl, {{Token_Type::quoted_string}}, false, -1);
+	}
 	
 	set_serial_name(catalog, this);
 	auto data_set = static_cast<Data_Set *>(catalog);
@@ -101,13 +105,21 @@ Par_Group_Data::process_declaration(Catalog *catalog) {
 	
 	auto body = static_cast<Decl_Body_AST *>(decl->body);
 	
-	const std::set<Decl_Type> allowed_decls = {
-		Decl_Type::par_real,
-		Decl_Type::par_int,
-		Decl_Type::par_bool,
-		Decl_Type::par_enum,
-		Decl_Type::par_datetime
-	};
+	std::set<Decl_Type> allowed_decls;
+	if(this->decl_type == Decl_Type::par_group) {
+		allowed_decls = {
+			Decl_Type::par_real,
+			Decl_Type::par_int,
+			Decl_Type::par_bool,
+			Decl_Type::par_enum,
+			Decl_Type::par_datetime
+		};
+	} else { // option_group.
+		allowed_decls = {
+			Decl_Type::par_bool,
+			Decl_Type::par_enum,
+		};
+	}
 	
 	for(auto child : body->child_decls)
 		catalog->register_decls_recursive(&scope, child, allowed_decls);
@@ -868,6 +880,7 @@ Data_Set::read_from_file(String_View file_name) {
 		Decl_Type::module,
 		Decl_Type::preamble,
 		Decl_Type::par_group,
+		Decl_Type::option_group,
 		Decl_Type::series,
 		Decl_Type::series_interval,
 		Decl_Type::time_step,
@@ -1102,6 +1115,40 @@ read_series_data_from_csv(Data_Set *data_set, Series_Data *series_data, String_V
 		}
 	}
 }
+
+void
+Data_Set::get_model_options(Model_Options &options) {
+	
+	auto iter = top_scope.by_type(Reg_Type::par_group);
+	for(auto group_id : iter) {
+		auto group = par_groups[group_id];
+		if(group->decl_type != Decl_Type::option_group) continue;
+		
+		auto iter2 = group->scope.by_type(Reg_Type::parameter);
+		for(auto par_id : iter2) {
+			auto par = parameters[par_id];
+			
+			std::string par_val;
+			if(par->decl_type == Decl_Type::par_bool) {
+				if(par->values.size() != 1)
+					fatal_error(Mobius_Error::internal, "Expected exactly one value for an option_group parameter.");
+				auto val = par->values[0];
+				par_val = val.val_boolean ? "true" : "false";
+			} else if(par->decl_type == Decl_Type::par_enum) {
+				if(par->values_enum.size() != 1)
+					fatal_error(Mobius_Error::internal, "Expected exactly one value for an option_group parameter.");
+				par_val = par->values_enum[0];
+			} else
+				fatal_error(Mobius_Error::internal, "An option_group parameter is of wrong type.");
+			
+			//TODO: Check if we overwrite an existing option?? Should not really happen unless we make weird API for this.
+			std::string par_key = serialize(par_id);
+			options.options[par_key] = par_val;
+		}
+	}
+	
+}
+
 
 struct
 Scope_Writer {

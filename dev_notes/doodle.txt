@@ -2,12 +2,12 @@
 
 
 
-
+## Model options (that compile in or out whole declaration paths)
 
 # In model scope:
 
 # Here pet_module is a par_real with a global scope.
-if(pet_module.pm) {
+option(pet_module.penman_monteith) {
 	# Do whatever is needed to load the Penman-monteith PET module
 }
 # This is a bit tricky because then we need to register global par_groups before anything else. Right now par_groups are pretty far down.
@@ -15,13 +15,24 @@ if(pet_module.pm) {
 # Could have a separate "option" declaration, but it is nicer to reuse enum parameters.
 		# Although, options should not be editable in the data set
 		# What if we call it an option_group instead? And it can only have par_enum, and it is not displayed in MobiView?
+
 option_group("PET module") {
-	
+	pet_module : par_enum("PET module", penman_monteith) [ degree_day penman_monteith ]
 }
+# Also requires us to either pass a Data_Set to Model creation or at least some data that is extracted from it..
+# And to then merge the if scopes into the main scope when loading somehow..
+#	Have to disallow declaring options inside an "if".
 
+# Allow par_bool too
 
+# Allow these options to be passed to modules too (to have if's inside these)? 
+# Yes? This should actually be easy since modules are loaded after everything else.
 
+# Actually, difficult to use "if" as a name, so use "option instead"
 
+# Remember that we need to skip a lot of iterations over par_group when it is an option_group..
+
+# Need a function to extract Model_Options from Data_Set.
 
 
 
