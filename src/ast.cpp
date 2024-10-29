@@ -202,15 +202,21 @@ parse_decl_header_base(Decl_Base_AST *decl, Token_Stream *stream, bool allow_uni
 
 	stream->read_token(); // Consume the '('
 	
+	/*
 	next = stream->peek_token();
 	if((char)next.type == ')') {
 		stream->read_token();
 		return;
 	}
+	*/
 	
 	while(true) {
 		next = stream->peek_token();
 		
+		if((char)next.type == ')') {   // Allow argument lists to end in a comma
+			stream->read_token();
+			break;
+		}
 		if(!can_be_value_token(next.type) && (char)next.type != '[') {
 			next.print_error_header();
 			fatal_error("Misformatted declaration argument list."); //TODO: better error message.

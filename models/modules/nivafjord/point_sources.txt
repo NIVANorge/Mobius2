@@ -1,0 +1,43 @@
+
+module("NIVAFjord point sources", version(0, 0, 0),
+	layer : compartment,
+	water : quantity,
+	din   : quantity,
+	phos  : quantity,
+	sed   : quantity,
+	o2    : quantity,
+) {
+"""
+This is a module for point source inputs to NIVAFjord.
+"""
+	par_group("Point sources", layer) {
+		eff_q  : par_real("Water point source", [m 3, day-1], 0)
+		eff_n  : par_real("DIN point source", [k g, day-1], 0)
+		eff_p  : par_real("DIP point source", [k g, day-1], 0)
+		eff_ss : par_real("SS point source", [k g, day-1], 0)
+		o2sat  : par_real("Point source water O2 saturation", [], 1)
+	}
+	
+	flux(out, layer.water, [m 3, day-1], "Point source water to layer") {  eff_q  }
+	
+	flux(out, layer.water.heat, [J, day-1], "Point source heat to layer") {
+		conc(layer.water)*eff_q  # Assume same temperature in effluent and bay. TODO: This is not always the case.
+	}
+	
+	flux(out, layer.water.o2, [k g, day-1], "Point source O2 to layer") {
+		eff_temp := layer.water.temp,
+		eff_salin := 0,
+		o2c = o2sat*o2_mol_mass*o2_saturation(eff_temp, eff_salin),
+		o2c*eff_q->>
+	}
+	
+	# TODO: CO2, CH4 content of effluent water?
+	
+	flux(out, layer.water.din, [k g, day-1], "Point source DIN to layer") {  eff_n  }
+	
+	flux(out, layer.water.phos, [k g, day-1], "Point source DIP to layer") {  eff_p  }
+	
+	flux(out, layer.water.sed, [k g, day-1], "Point source suspended solids to layer") {  eff_ss  }
+	
+	# TODO: What about carbon content of the effluent suspended solids
+}

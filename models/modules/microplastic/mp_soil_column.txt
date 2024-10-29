@@ -4,7 +4,7 @@ module("Microplastic soil column", version(0, 0, 1),
 	layer : compartment,
 	water : quantity,
 	mp : quantity,
-	vert : connection
+	vert : connection,
 ) {
 """
 This is a module for transport of microplastic in a single *experimentally controlled* soil column. It can't be directly upscaled, but will be used for informing construction of upscaled models.
@@ -91,16 +91,21 @@ This is a module for transport of microplastic in a single *experimentally contr
 	
 	flux(layer.water, vert, [m m, day-1], "Layer water percolation") { perc }
 	
+	# TODO: Capillarity, retention of water in a layer, evapotranspiration.
+	
+	
+	
 	
 	
 	transp_f : property("Transport size factor")
 	var(layer.mp.transp_f, []) {
-		transp_f_base #TODO: Some formula depending on size (and pore size?)
+		transp_f_base #TODO: Some formula depending on size, pore size, hydrophobicity.
 	}
 	
 	bio_f : property("Bioturbation size factor")
+	
 	var(layer.mp.bio_f, []) {
-		1 #TODO: Some formula depending on size (could be same as transport_f?)
+		1 #TODO: Some formula depending on size
 	}
 	
 	var(layer.mp, [m g], "Layer microplastics") @initial { init_mp }

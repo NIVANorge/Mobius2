@@ -81,5 +81,7 @@ module("NIVAFjord boundary chemistry", version(0, 0, 0),
 		
 	var(bnd_layer.water.phyt.op, [k g], "Boundary layer phytoplankton P")
 		@override_conc { 1 / cn_molar_to_mass_ratio(phyt_cp) }
+		
+	# TODO: CO2 and CH4
 	
 }
