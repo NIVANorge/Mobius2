@@ -1,13 +1,12 @@
 
 preamble("NIVAFjord dimensions", version(0, 0, 0),
-	all_basins : index_set,
-	layer_idx  : index_set,
+	all_layer  : compartment,
 	layer      : compartment
 ) {
 
-	par_group("Layer thickness") {
+	par_group("Layer thickness", all_layer) {
 		dz0    : par_real("Stable layer thickness", [m], 1, 0.1, 5)
-	} @index_with(all_basins, layer_idx)
+	} @fully_distribute
 	
 	par_group("Layer area", layer) {
 		A      : par_real("Layer area", [m 2], 10000, 0, 1e6)

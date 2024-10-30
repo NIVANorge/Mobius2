@@ -185,11 +185,14 @@ load_top_decl_from_file(Mobius_Model *model, Source_Location from, String_View p
 			Entity_Id id = invalid_entity_id;
 			
 			if(decl->type == Decl_Type::library) {
+				
 				id = model->libraries.register_decl(&model->top_scope, decl);
 				auto lib = model->libraries[id];
 				lib->scope.parent_id = id;
 				lib->normalized_path = normalized_path;
 				lib->name = found_name;
+				set_serial_name(model, lib, 0); // To prevent double loads of libraries.
+				
 			} else if (is_module_like) {
 				id = model->module_templates.register_decl(&model->top_scope, decl);
 				auto mod = model->module_templates[id];
@@ -417,7 +420,7 @@ Par_Group_Registration::process_declaration(Catalog *catalog) {
 	set_serial_name(catalog, this);
 	scope.parent_id = id;
 	
-	// TODO: Don't allow duplicate components or index sets.
+	// TODO: Don't allow duplicate components.
 	
 	if(which >= 1) {
 		for(int idx = 1; idx < decl->args.size(); ++idx)
@@ -426,12 +429,11 @@ Par_Group_Registration::process_declaration(Catalog *catalog) {
 	
 	for(auto note : decl->notes) {
 		auto str = note->decl.string_value;
-		if(str == "index_with") {
+		if(str == "fully_distribute") {
 			
-			match_declaration_base(note, {{{Decl_Type::index_set, true}}}, 0);
+			match_declaration_base(note, {{}}, 0);
 			
-			for(auto arg : note->args)
-				direct_index_sets.push_back(parent_scope->resolve_argument(Reg_Type::index_set, arg));
+			must_fully_distribute = true;
 			
 		} else {
 			note->decl.print_error_header();
@@ -1017,8 +1019,16 @@ process_load_library_declaration(Mobius_Model *model, Decl_AST *decl, Entity_Id 
 		auto lib_load_decl = decl->args[idx]->decl;
 		match_declaration(lib_load_decl, {{Token_Type::quoted_string}}, false, false);
 		std::string library_name = single_arg(lib_load_decl, 0)->string_value;
-
-		load_library(model, to_scope, file_name, relative_to, library_name, lib_load_decl->source_loc);
+		
+		auto find_id = model->get_scope(to_scope)->deserialize(library_name, Reg_Type::unrecognized);
+		if(!is_valid(find_id)) // If it doesn't exist, load it
+			load_library(model, to_scope, file_name, relative_to, library_name, lib_load_decl->source_loc);
+		else if(find_id.reg_type != Reg_Type::library) {
+			lib_load_decl->source_loc.print_error_header();
+			fatal_error("Trying to load a library \"", library_name, "\" that is named the same as another non-library entity in the same scope");
+		}
+		// If a library was already loaded with that name, just ignore the reattempted load.
+		// TODO: What if it was a different library with the same name??
 	}
 }
 
@@ -1702,8 +1712,8 @@ basic_checks_and_finalization(Mobius_Model *model) {
 			for(auto index_set : model->components[comp_id]->index_sets)
 				insert_dependency(model, group->max_index_sets, index_set);
 		}
-		for(auto index_set : group->direct_index_sets)
-			insert_dependency(model, group->max_index_sets, index_set);
+		//for(auto index_set : group->direct_index_sets)
+		//	insert_dependency(model, group->max_index_sets, index_set);
 	}
 }
 
@@ -1731,7 +1741,7 @@ process_module_load_outer(Mobius_Model *model, Module_Load &load) {
 		
 		bool allow_identifier = (module_spec->type == Decl_Type::preamble);
 		
-		int which = match_declaration(module_spec, 
+		int which = match_declaration(module_spec,
 			{
 				{Token_Type::quoted_string, Token_Type::quoted_string},
 				{Token_Type::quoted_string, Token_Type::quoted_string, {true}},

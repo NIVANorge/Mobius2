@@ -39,8 +39,9 @@ struct
 Par_Group_Registration : Registration_Base {
 	
 	std::vector<Entity_Id> components;
-	std::vector<Entity_Id> direct_index_sets;
+	//std::vector<Entity_Id> direct_index_sets;
 	Decl_Scope             scope;
+	bool                   must_fully_distribute = false;
 	
 	Index_Set_Tuple        max_index_sets; // This one will not be correctly set until the model is fully loaded.
 	

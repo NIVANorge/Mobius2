@@ -57,8 +57,10 @@ model("NIVAFjord") {
 		module("AirSea", "AirSea Fjord", air, basin, ice, heat, temp, precip, wind, g_rad, pressure, rho, a_hum, lwd, sw, attn, indicator,
 							evap, cos_z, loc(basin.freeze_t), loc(basin.area), loc(layer.water[vert.top]), loc(layer.water.heat[sw_vert.top])))
 	
+	all_layer : compartment("All layers", all_basins, layer_idx) # This is not used for anything other than to force a par group to distribute over all_basin
+	
 	load("modules/nivafjord/basin.txt",
-		dims : preamble("NIVAFjord dimensions", all_basins, layer_idx, layer),
+		dims : preamble("NIVAFjord dimensions", all_layer, layer),
 		module("NIVAFjord basin", air, basin, layer, water, salt, heat, temp, salinity, pressure, wind, g_rad, rho, attn, z, dz, h, area, freeze_t, sw, loc(basin.ice.indicator), vert, sw_vert, loc(sediment.heat), dims))
 	
 	load("modules/nivafjord/boundary_basin.txt",

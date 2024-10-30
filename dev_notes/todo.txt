@@ -2,34 +2,16 @@
 
 	*** High pri ***
 		
-		
-		
-		Dynamic module selection is completely needed for things like PET modules. Otherwise you get different model versions for everything...
-		
-		
-		
-		NIVAFjord:
-			
-			Need a complete rethink of horizontal fluxes. They cause too much numerical instability when there is large in/outflow for small layers.
-			
-			There should really be an error if there is an opening to a neighboring basin on a depth below the max depth of that basin.
-		
-			In Varna setup, can merge channel into beloslav to mitigate this a bit?
-				Probably necessary!
-				
-			Moreover, they need to be proper two-way for the layer switching to work in both ways.
-		
-		
+
 		MobiView
 			If the plot x axis was set to nonsense since the first selected series was entirely NaN, it won't be fixed by selecting a non-NaN series.
-				Should not be considered as was_auto_resized in this case.
+				Should not be considered as was_auto_resized if it was entirely NaN, so that the autoresize can trigger again.
 			If the parameter search is already selected, it doesn't react to clicks.
 		
-		
-		Dataset no longer checks correctly if the correct amount of parameter values were provided?
+		Dataset no longer checks if the correct amount of parameter values were provided?
 			May be intentional, but then it breaks when saving it again.
-			I think this only happens for a parameter group that is not used by the model.
-		Dataset doesn't generate identifier for generated index set.
+			I think this only happens for a parameter group that is not used by the model. Then when it tries to save it, there is a problem.
+		Dataset doesn't generate identifier for generated index set, and hence par_groups that refer to it are formatted incorrectly.
 			Default to use same as in the model?
 		
 		Got an (internal) error in the following case
@@ -39,54 +21,32 @@
 			layer.water.tox was distributed over tox_index with the actual dependency.
 			Caused problem when the dissolved flux were to be added to the connection aggregate (lack of index set).
 				Probably also a problem for vert.top etc.
-				
-				It is a bit tricky for the framework to predetermine this.. But there is maybe something like this for graph aggregates
+				It is a bit tricky for the framework to predetermine this.. But there is maybe something like this for graph aggregates already that could be applied here too.
 		
 		
 		Want to be able to declare something like
 			basin.tox.vel_air
 		to get tox_index dependency for the variable without basin.tox being a variable.
 			For now, could make it a variable with @override {1[k g]}, but it is a bit annoying.
-			
 			Didn't we already make this possible? Test it!
 			
 			
 		If a discrete flux goes from something that is @override, it should not be clamped to the value of what it is carrying.
-	
-	
 
 		Add forums on github page? (github Discussions)
-		
-		
-		
-		Made it possible to add properties to solvers manually, but it could be error prone.
-			Fix errors if they appear.
+
 			
-		There is no guard against loading a library twice, instead you get identifier name conflict.
-		
-		
-		@index_with for par_group causes problems if you want to reuse the module without one of the index sets..
-			Was introduced to force distribution over those index sets.
-				Because in external_computation it needs to know distribution at framework compile time, not model compile time.
-			That info could be declared differently, like a @fully_distribute note or something.
+		There is no guard against loading a library twice into the same scope, instead you get identifier name conflict.
+			Should probably allow it, but ignore the second load.
 		
 
-		Something is broken with airsea, but only in some cases .... (has something to do with ice or longwave).
+		Something is broken with airsea, but only in some rare cases .... (has something to do with ice or longwave (?) ).
 			In 07_model it looks like a bad interaction with mixing, numerical instability (why was it not an issue before??).
 			EasyTox still broken.
 		
 		Not including declaration of union index set in data set can create an internal error.
 			wb_index : index_set("Water body") @union(sc, lake)
 			
-		Get rid of the idea of aggregating to a *compartment*. Instead, only aggregate to the index set tuple.
-			Difficulties:
-				Serialization name depends on compartment (should be easy to change)
-				aggregation_weight depends on compartment. Make it work like unit_conversion instead?
-					See other suggestion about merging unit_conversion and aggregation_weight.
-		Make par_aggregate work the same as regular_aggregate.
-		
-		
-		
 		
 
 		Specific models
@@ -95,6 +55,15 @@
 			Also for O2 (found a difficulty with that earlier, but maybe we could resolve it?)
 			
 			NIVAFjord
+			
+				Need a complete rethink of horizontal fluxes. They cause too much numerical instability when there is large in/outflow for small layers.
+			
+					There should really be an error if there is an opening to a neighboring basin on a depth below the max depth of that basin.
+				
+					In Varna setup, can merge channel into beloslav to mitigate this a bit?
+						Probably necessary!
+						
+					Moreover, they need to be proper two-way for the layer switching to work in both ways.
 				
 				Go to the simpler version from MyLake of parametrizing vertical mixing
 					Mathematically the same, just removes unnecessary parameters
@@ -206,6 +175,16 @@
 	
 	
 	*** Intermediate-pri ***
+	
+		Get rid of the idea of aggregating to a *compartment*. Instead, only aggregate to the index set tuple.
+			Difficulties:
+				Serialization name depends on compartment (should be easy to change)
+				aggregation_weight depends on compartment. Make it work like unit_conversion instead?
+					See other suggestion about merging unit_conversion and aggregation_weight.
+		Make par_aggregate work the same as regular_aggregate.
+	
+	
+		Make option() also available inside modules. Unify some of the airsea FPV stuff this way? Also try to unify some of the NIVAFjord models to not have that many files.
 	
 		Make something like
 		

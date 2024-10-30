@@ -57,7 +57,7 @@ It is almost possible to unify a lot of this one with nivafjord_model.txt . The 
 		module("Atmospheric", air, temp, wind, g_rad, pressure, a_hum, rho, lwd, cos_z, a_vap, s_vap))
 	
 	load("modules/nivafjord/basin.txt",
-		dims : preamble("NIVAFjord dimensions", basin_idx, layer_idx, layer),
+		dims : preamble("NIVAFjord dimensions", layer, layer),
 		module("NIVAFjord basin", air, basin, layer, water, salt, heat, temp, salinity, pressure, wind, g_rad, rho, attn, z, dz, h, area, freeze_t, sw, loc(basin.ice.indicator), vert, sw_vert, loc(sediment.heat), dims))
 	
 	fjord_phyt : quantity("Fjord phytoplankton")

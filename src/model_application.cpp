@@ -466,6 +466,15 @@ process_par_group_index_sets(Mobius_Model *model, Data_Set *data_set, Entity_Id 
 			}
 			index_sets.push_back(index_set_id);
 		}
+		
+		if(par_group->must_fully_distribute) {
+			for(auto set_id : par_group->max_index_sets) {
+				if(std::find(index_sets.begin(), index_sets.end(), set_id) == index_sets.end()) {
+					par_group_data->source_loc.print_error_header();
+					fatal_error("The par_group \"", par_group->name, "\" is marked as @fully_distribute in the model. That means that it must be given all the index sets that it can. It is missing \"", model->index_sets[set_id]->name, "\".");
+				}
+			}
+		}
 	}
 }
 

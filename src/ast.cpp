@@ -1140,8 +1140,8 @@ match_declaration(Decl_AST *decl, const std::initializer_list<std::initializer_l
 			found_notes.insert(note_name);
 		}
 	} else if(!decl->notes.empty()) {
-		decl->notes[0]->body->opens_at.print_error_header();
-		fatal_error("This declaration should not have more than one body.");
+		decl->notes[0]->decl.print_error_header();
+		fatal_error("This declaration should not have notes.");
 	}
 	
 	return found_match;
