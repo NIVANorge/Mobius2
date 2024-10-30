@@ -93,6 +93,7 @@ read_series_data_from_spreadsheet(Data_Set *data_set, Series_Data *series, Strin
 			auto cell = sheet.cell(row, 1);
 			auto &val = cell.value();
 			
+			bool empty = false;
 			if(can_be_date(val)) {
 				
 				first_date_row = row;
@@ -101,23 +102,30 @@ read_series_data_from_spreadsheet(Data_Set *data_set, Series_Data *series, Strin
 			} else if (val.type() == XLValueType::String) {
 				auto name = val.get<std::string>();
 				
-				// Expect the name of an index set.
-				auto index_set_id = data_set->deserialize(name, Reg_Type::index_set);
-				if(!is_valid(index_set_id)) {
-					close_due_to_error(doc, tab, row, 1);
-					fatal_error("The index set ", name, " was not previously declared in the data set.");
+				if(name.empty())
+					empty = true;
+				else {
+					// Expect the name of an index set.
+					auto index_set_id = data_set->deserialize(name, Reg_Type::index_set);
+					if(!is_valid(index_set_id)) {
+						close_due_to_error(doc, tab, row, 1);
+						fatal_error("The index set ", name, " was not previously declared in the data set.");
+					}
+					index_sets.push_back(index_set_id);
 				}
-				index_sets.push_back(index_set_id);
-				
 			} else if(val.type() == XLValueType::Empty) {
+				empty = true;
+			} else {
+				close_due_to_error(doc, tab, row, 1);
+				fatal_error("The cell is not the name of an index set or a date, and it is not an empty cell signifying a flag row.");
+			}
+			
+			if(empty) {
 				if(potential_flag_row > 0) {
 					close_due_to_error(doc, tab, row, 1);
 					fatal_error("There should not be empty cells in column A except in row 1, or potentially in the row right above the dates, or at the end.");
 				}
 				potential_flag_row = row;
-			} else {
-				close_due_to_error(doc, tab, row, 1);
-				fatal_error("The cell is not the name of an index set or a date, and it is not an empty cell signifying a flag row.");
 			}
 		}
 		

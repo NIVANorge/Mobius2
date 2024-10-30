@@ -75,6 +75,10 @@ Decl_Scope::set_serial_name(const std::string &serial_name, Source_Location sour
 
 Entity_Id
 Decl_Scope::deserialize(const std::string &serial_name, Reg_Type expected_type) const {
+	
+	if(serial_name.empty())
+		fatal_error(Mobius_Error::internal, "Tried to deserialize an empty string");
+	
 	auto find = serialized_entities.find(serial_name);
 	if(find == serialized_entities.end()) return invalid_entity_id;
 	auto result = find->second.id;
@@ -223,7 +227,7 @@ Catalog::deserialize(const std::string &serial_name, Reg_Type expected_type) {
 	auto vec = split(serial_name, '\\');  // Hmm, this is maybe a bit inefficient, but probably not a problem.
 	
 	Decl_Scope *scope = &top_scope;
-	for(int idx = 0; idx < vec.size()-1; ++idx) {
+	for(int idx = 0; idx < (int)vec.size()-1; ++idx) {
 		auto scope_id = scope->deserialize(vec[idx], Reg_Type::unrecognized);
 		if(!is_valid(scope_id)) return invalid_entity_id;
 		scope = get_scope(scope_id);
