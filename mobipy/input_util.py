@@ -9,7 +9,7 @@ def xlsx_input_from_dataframe(file, df, sheet_name, indexes = {}, flags = None) 
 		file - Either a string (file path) or a pandas.ExcelWriter . If it is a pandas.ExcelWriter it must use an 'openpyxl' engine.
 		df   - A pandas.DataFrame . It must be formatted in a way that makes sense as a Mobius2 input, for instance with correct column names, and with datetime indexing.
 		sheet_name - string, name of the sheet to write to.
-		indexes - A dict  index_set->index_names, where the index_set is the name of an index_set in the relevant model, and index_names is either:
+		indexes - A dict  {index_set : index_names}, where for each entry the index_set is the (string) name of an index_set in the relevant model, and index_names is either:
 			1. A single index name, which will be the index for that index set for all series in the dataframe.
 			2. A list of index names, one for each column in the dataframe. If too few values are passed, the later columns will not be indexed over this index_set.
 		flags - One of the following
@@ -18,12 +18,12 @@ def xlsx_input_from_dataframe(file, df, sheet_name, indexes = {}, flags = None) 
 			3. A list of flags strings, one for each column in the dataframe. If too few values are passed, the later columns will have blank flags.
 	'''
 	
-	if not isinstance(df.index, pd.DateTimeIndex) :
+	if not isinstance(df.index, pd.DatetimeIndex) :
 		raise ValueError('A pandas.DataFrame that is indexed by datetimes is expected.')
 	
 	if isinstance(file, str) :
 		opened_here = True
-		writer = pd.ExcelWriter(file, engine='openpyxl')
+		writer = pd.ExcelWriter(file, engine='openpyxl', if_sheet_exists='replace', mode='a')
 	else :
 		opened_here = False
 		writer = file
@@ -34,9 +34,9 @@ def xlsx_input_from_dataframe(file, df, sheet_name, indexes = {}, flags = None) 
 	book = writer.book
 	
 	# Remove the sheet if it already exists
-	if sheet_name in book.sheetnames :
-		sheet = book[sheet_name]
-		book.remove(sheet)
+	#if sheet_name in book.sheetnames :
+	#	sheet = book[sheet_name]
+	#	book.remove(sheet)
 	
 	df.to_excel(writer, sheet_name=sheet_name)
 	
