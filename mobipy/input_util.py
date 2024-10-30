@@ -12,9 +12,10 @@ def xlsx_input_from_dataframe(file, df, sheet_name, indexes = {}, flags = None) 
 		indexes - A dict  index_set->index_names, where the index_set is the name of an index_set in the relevant model, and index_names is either:
 			1. A single index name, which will be the index for that index set for all series in the dataframe.
 			2. A list of index names, one for each column in the dataframe. If too few values are passed, the later columns will not be indexed over this index_set.
-		flags - Either None, or
-			1. A single string which will be the flags value for all series in the dataframe
-			2. A list of flags strings, one for each column in the dataframe. If too few values are passed, the later columns will have blank flags.
+		flags - One of the following
+			1. None
+			2. A single string which will be the flags value for all series in the dataframe
+			3. A list of flags strings, one for each column in the dataframe. If too few values are passed, the later columns will have blank flags.
 	'''
 	
 	if not isinstance(df.index, pd.DateTimeIndex) :
@@ -43,7 +44,7 @@ def xlsx_input_from_dataframe(file, df, sheet_name, indexes = {}, flags = None) 
 	sheet = book[sheet_name]
 	
 	# Make it so that the date column displays correctly and is not truncated
-    sheet.column_dimensions['A'].width = 30
+	sheet.column_dimensions['A'].width = 30
 	
 	# Write rows describing indexing and potentially flags
 	n_sets = len(indexes)
