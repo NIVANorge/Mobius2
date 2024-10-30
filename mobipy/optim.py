@@ -55,7 +55,8 @@ def run_mcmc(app, params, set_params, log_likelihood, burn, steps, walkers, run_
 		while steps_left > 0 :
 			ts = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 			print('%s : Running MCMC, %d steps left.' % (ts, steps_left))
-			result = mcmc.emcee(params=params, pos=starting_guesses, burn=burn, steps=use_steps, nwalkers=walkers, float_behavior='posterior', reuse_sampler=reuse_sampler)
+			# Note: can't use the burn parameter here since it maybe higher than the partial runs. But it doesn't matter for the outcome of the run.
+			result = mcmc.emcee(params=params, pos=starting_guesses, burn=0, steps=use_steps, nwalkers=walkers, float_behavior='posterior', reuse_sampler=reuse_sampler)
 			reuse_sampler=True
 			steps_left -= use_steps
 			use_steps = min(steps_left, report_interval)
