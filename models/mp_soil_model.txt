@@ -21,7 +21,7 @@ This is a model for simulating microplastic movement in a single experimentally 
 		module("Microplastic soil column", air, layer, water, mp, vert)
 	)
 	
-	sol : solver("Soil solver", inca_dascru, [10, min], 1e-2)
+	sol : solver("Soil solver", inca_dascru, [10, min], 1e-5)
 	
 	solve(sol, layer.water, layer.mp)
 }

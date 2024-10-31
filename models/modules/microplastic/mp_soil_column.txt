@@ -18,11 +18,20 @@ This is a module for transport of microplastic in a single *experimentally contr
 		sph : par_real("Soil grain sphericity", [], 1, 0, 1)
 		dp  : par_real("Soil grain diameter", [m m], 0.5, 0.001, 10)
 		
-		grad : par_real("Hydraulic gradient", [], 0.05, 0, 1, "When the box is full")
+		grad : par_real("Hydraulic gradient", [], 0.05, 0, 1, "When the box is full") #TODO: Do this differently
+		
+		roots : par_bool("Roots are present", false) #TODO: May also need the fraction of volume this takes up?
+	}
+	
+	par_group("General soil properties") {
+		fcs  : par_real("Field capacity saturation", [], 0.2, 0.1, 0.4, "0.1=sand, 0.4=clay")
+		pwps : par_real("Permanent wilting point saturation", [], 0.09, 0.04, 0.22, "0.04=sand, 0.22=clay")
+		
+		# Tabular values:
+		# https://extension.okstate.edu/fact-sheets/understanding-soil-water-content-and-thresholds-for-irrigation-management.html
 	}
 	
 	par_group("General transport") {
-		
 		transp_f_base : par_real("Base transport factor", [], 1e-5, 0, 1)
 		bio_down : par_real("Bioturbation down rate", [day-1], 0.01, 0, 1)
 		bio_up   : par_real("Bioturbation up rate", [day-1], 0.001, 0, 1)
@@ -40,11 +49,33 @@ This is a module for transport of microplastic in a single *experimentally contr
 	load("stdlib/basic_math.txt", library("Response"), library("Basic"))
 	
 	precip : property("Precipitation")
+	pet    : property("Potential evapotranspiration")
 	theta  : property("Porosity")
 	perm   : property("Soil permeability")
 	cond   : property("Soil hydraulic conductivity")
+	etp    : property("Evapotranspiration")
+	etp_above : property("Evapotranspiration above")
 	
-	var(air.precip, [m m, day-1], "Precipitation")
+	var(air.precip, [m m, day-1])
+	
+	var(air.pet, [m m, day-1])
+	
+	# TODO: May not be that realistic that etp works from top down since roots will always take some??
+	var(layer.etp, [m m, day-1]) {
+		can_etp := is_at[vert.top] | roots,
+		{
+			maxcap := dz*theta,
+			pot := max(0, air.pet-etp_above), # Remaining unsatisfied pet
+			s_response(water, maxcap*pwps, maxcap*fcs, 0, pot)  # Turn ET off as saturation goes below field capacity and approaches PWP.
+		} if can_etp,
+		0 otherwise
+	}
+	
+	var(layer.etp_above, [m m, day-1]) {
+		etp[vert.above] + etp_above[vert.above]
+	} @no_store
+	
+	flux(layer.water, out, [m m, day-1], "Evapotranspiration flux") { etp } @no_store
 	
 	var(layer.theta, [], "Layer porosity") { theta0 } # Eventually allow change over time
 	
@@ -62,12 +93,13 @@ This is a module for transport of microplastic in a single *experimentally contr
 	perc : property("Percolation")
 	
 	# Hmm this is done a bit awkward..
-	water_tot : property("Water above")
-	var(layer.water_tot, [m m]) { water + water_tot[vert.above] } @no_store
+	water_tot : property("Water above") #Not actually above, but above including this.
+	var(layer.water_tot, [m m]) { max(0, water - dz*theta*fcs) + water_tot[vert.above] } @no_store
 	z : property("Effective depth")
 	var(layer.z, [m m]) { dz*theta + z[vert.above] } @no_store
 	
 	var(layer.water.side, [m m, day-1]) {
+		# TODO: This is wrong... Should compute gradient based on z and, z of outside and distance.
 		agrad := grad*(water_tot/z),
 		agrad*cond->>
 	}
@@ -77,13 +109,19 @@ This is a module for transport of microplastic in a single *experimentally contr
 		maxcap_b := dz[vert.below] * theta[vert.below],
 		
 		maxrate := cond->>,
+		mincap := maxcap*fcs,
 		
-		# TODO: This is just a test.
-		maxperc := s_response(water, 0, 0.1*maxcap, 0, maxrate),
-		s_response(water[vert.below], 0.8*maxcap_b, maxcap_b, maxperc, 0)
+		maxperc := s_response(water, mincap, min(1.1*mincap, maxcap), 0, maxrate),
+		#s_response(water[vert.below], maxcap_b, 0.9*maxcap_b, 0, maxperc)
+		#1.1*mincap, mincap, 0, maxrate),      # Cut flow off when water saturation reaches field capacity
+		s_response(water[vert.below], 0.9*maxcap_b, maxcap_b, maxperc, 0)  # Cut flow off when water saturation below fills up
+		
+		# TODO: Capillary action when water below is above fc and this layer is below fc?
+		# We could also compute forces on the water, but probably not necessary
+		# https://onlinelibrary.wiley.com/doi/epdf/10.1155/2020/6671479
 	}
 	
-	var(layer.water, [m m], "Soil layer pore water") @initial { 0[m m] } # Assume it is dry.
+	var(layer.water, [m m], "Soil layer pore water") @initial { dz*theta*fcs } 
 	
 	flux(out, layer.water[vert.top], [m m, day-1], "Precipitation to soil") {  air.precip  }
 	
@@ -91,7 +129,10 @@ This is a module for transport of microplastic in a single *experimentally contr
 	
 	flux(layer.water, vert, [m m, day-1], "Layer water percolation") { perc }
 	
-	# TODO: Capillarity, retention of water in a layer, evapotranspiration.
+	
+	
+	#    Need, min saturation (=field capacity), max saturation (=1?)
+	# Also permanent wilting point (etp cutoff).
 	
 	
 	

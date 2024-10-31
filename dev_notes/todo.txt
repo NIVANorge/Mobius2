@@ -56,6 +56,8 @@
 			
 			NIVAFjord
 			
+				Find a way to unify nivafjord_base and nivafjord_lake_base into one model declaration (using options)
+			
 				Need a complete rethink of horizontal fluxes. They cause too much numerical instability when there is large in/outflow for small layers.
 			
 					There should really be an error if there is an opening to a neighboring basin on a depth below the max depth of that basin.

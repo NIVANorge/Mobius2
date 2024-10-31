@@ -6,7 +6,7 @@ model("NIVAFjord-Chem-Base") {
 This won't run as its own model, it is just a base for model extension.
 """	
 	
-	extend("nivafjord_model.txt")
+	extend("nivafjord_base.txt")
 	
 	phyt_type : index_set("Phytoplankton type")
 	
@@ -42,7 +42,7 @@ This won't run as its own model, it is just a base for model extension.
 		module("NIVAFjord boundary chemistry", bnd_layer, water, o2, oc, din, on, phos, op, fjord_phyt, chl_a, sed, chem_par))
 	
 	load("modules/nivafjord/point_sources.txt",
-		module("NIVAFjord point sources", layer, water, din, phos, sed, o2, heat, temp))
+		module("NIVAFjord point sources", layer, water, din, on, phos, sed, oc, o2, heat, temp))
 	
 	load("modules/easychem.txt",
 		module("Simple River O₂", river, water, o2, temp))

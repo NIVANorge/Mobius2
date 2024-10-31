@@ -9,7 +9,7 @@ It is also currently without horizontal exchange between basins, so it only work
 
 	# TODO: FPV cover does not dynamically affect wind mixing (not sure to how large a degree that would happen).
 	
-	extend("nivafjord_lake_model.txt")
+	extend("nivafjord_lake_base.txt")
 	
 	tox_index : index_set("Contaminant type")
 	

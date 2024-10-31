@@ -2,9 +2,7 @@
 
 model("NIVAFjord lake SimplyTox") {
 """
-TODO: This one is incomplete.
-
-Maaybe we want a simpler biochemistry model for this one, not the entire NIVAFjord biochemistry...
+TODO: Maybe we want a simpler biochemistry model for this one, not the entire NIVAFjord biochemistry...
 """
 	
 	extend("simplytox_model.txt") @exclude(
@@ -20,7 +18,7 @@ Maaybe we want a simpler biochemistry model for this one, not the entire NIVAFjo
 		sol : solver
 	)
 
-	extend("nivafjord_lake_model.txt")
+	extend("nivafjord_lake_base.txt")
 	
 	downstream : connection("Downstream") @directed_graph { river+ } @no_cycles
 	

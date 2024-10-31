@@ -6,7 +6,7 @@ preamble("NIVAFjord dimensions", version(0, 0, 0),
 
 	par_group("Layer thickness", all_layer) {
 		dz0    : par_real("Stable layer thickness", [m], 1, 0.1, 5)
-	} @fully_distribute
+	} @fully_distribute # This is because an external_computation uses this parameter, and it can't change its indexing scheme.
 	
 	par_group("Layer area", layer) {
 		A      : par_real("Layer area", [m 2], 10000, 0, 1e6)

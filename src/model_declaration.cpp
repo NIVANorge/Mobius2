@@ -1304,6 +1304,13 @@ Solver_Registration::process_declaration(Catalog *catalog) {
 	solver_fun = scope->resolve_argument(Reg_Type::solver_function, decl->args[1]);
 	hmin = 0.01;
 	
+	// TODO: There is a weakness with the matcher that it can't know the type of an identifier, so an identifier matches any Decl_Type.
+	// Hence this hack..
+	auto h_tmp = scope->resolve_argument(Reg_Type::unrecognized, decl->args[2]);
+	if(h_tmp.reg_type == Reg_Type::parameter)
+		which += 2;
+	
+	
 	if(which == 0 || which == 1) {
 		h_unit = scope->resolve_argument(Reg_Type::unit, decl->args[2]);
 		if(which == 1)

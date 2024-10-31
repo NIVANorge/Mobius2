@@ -3,8 +3,10 @@ module("NIVAFjord point sources", version(0, 0, 0),
 	layer : compartment,
 	water : quantity,
 	din   : quantity,
+	on    : quantity,
 	phos  : quantity,
 	sed   : quantity,
+	oc    : quantity,
 	o2    : quantity,
 	heat  : quantity,
 	temp  : property
@@ -14,36 +16,42 @@ This is a module for point source inputs to NIVAFjord.
 """
 
 	par_group("Point sources", layer) {
-		eff_q  : par_real("Water point source", [m 3, day-1], 0)
-		eff_n  : par_real("DIN point source", [k g, day-1], 0)
-		eff_p  : par_real("DIP point source", [k g, day-1], 0)
-		eff_ss : par_real("SS point source", [k g, day-1], 0)
+		eff_q  : par_real("Water point source", [m 3, year-1], 0)
+		eff_in : par_real("DIN point source", [M g, year-1], 0)    #Maybe we should introduce the shorthand ton for M g.
+		eff_on : par_real("DON point source", [M g, year-1], 0)
+		eff_p  : par_real("DIP point source", [M g, year-1], 0)
+		eff_ss : par_real("SS point source", [M g, year-1], 0)
+		ss_c   : par_real("SS point source C fraction", [g, k g-1], 0)
 		o2sat  : par_real("Point source water O2 saturation", [], 1)
 	}
 	
 	load("stdlib/seawater.txt", library("Sea oxygen"))
 	load("stdlib/physiochemistry.txt", library("Chemistry"))
 	
-	flux(out, layer.water, [m 3, day-1], "Point source water to layer") {  eff_q  }
+	flux(out, layer.water, [m 3, day-1], "Point source water to layer") {  eff_q/time.days_this_year  }
 	
 	flux(out, layer.water.heat, [J, day-1], "Point source heat to layer") {
-		conc(layer.water.heat)*eff_q  # Assume same temperature in effluent and bay. TODO: This is not always the case.
+		conc(layer.water.heat)*eff_q/time.days_this_year  # Assume same temperature in effluent and bay. TODO: This is not always the case.
 	}
 	
 	flux(out, layer.water.o2, [k g, day-1], "Point source O2 to layer") {
 		eff_temp := layer.water.temp,
 		eff_salin := 0,
 		o2c := o2sat*o2_mol_mass*o2_saturation(eff_temp, eff_salin),
-		o2c*eff_q->>
+		o2c*eff_q/time.days_this_year->>
 	}
 	
 	# TODO: CO2, CH4 content of effluent water?
 	
-	flux(out, layer.water.din, [k g, day-1], "Point source DIN to layer") {  eff_n  }
+	flux(out, layer.water.din, [k g, day-1], "Point source DIN to layer") {  eff_in/time.days_this_year->>  }
 	
-	flux(out, layer.water.phos, [k g, day-1], "Point source DIP to layer") {  eff_p  }
+	flux(out, layer.water.on, [k g, day-1], "Point source DON to layer") {  eff_on/time.days_this_year->>  }
 	
-	flux(out, layer.water.sed, [k g, day-1], "Point source suspended solids to layer") {  eff_ss  }
+	flux(out, layer.water.phos, [k g, day-1], "Point source DIP to layer") {  eff_p/time.days_this_year->>  }
+	
+	flux(out, layer.water.sed, [k g, day-1], "Point source suspended solids to layer") {  eff_ss/time.days_this_year->>  }
+	
+	flux(out, layer.water.sed.oc, [k g, day-1], "Point source POC to layer") {  eff_ss*ss_c/time.days_this_year->> }
 	
 	# TODO: What about carbon content of the effluent suspended solids
 }

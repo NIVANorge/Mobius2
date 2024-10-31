@@ -1,6 +1,6 @@
 
 
-model("MAGIC (test)") {
+model("MAGIC (simple)") {
 
 	ci : index_set("Compartment index")
 	
@@ -27,7 +27,6 @@ model("MAGIC (test)") {
 	f   : quantity("F")
 	po4 : quantity("PO4")
 	
-	
 	ts         : property("Time step size")
 	concn      : property("Ionic concentration")
 	conc_all   : property("Total concentration")
@@ -46,7 +45,10 @@ model("MAGIC (test)") {
 	load("modules/magic/magic_forest_cnp.txt",
 		module("MAGIC-Forest CNP", comp, nh4, no3, po4, ts, ext_in, bal))
 	
-	# TODO: parametrize:
-	sol : solver("MAGIC solver", euler, [1/10, month], 0.01)
+	par_group("Solver resolution") {
+		step : par_real("Solver step size", [month], 0.1, 0.0001, 1)
+	}
+	
+	sol : solver("MAGIC solver", euler, step)
 	solve(sol, comp.ca, comp.mg, comp.na, comp.k, comp.nh4, comp.so4, comp.cl, comp.no3, comp.f, comp.po4)
 }
