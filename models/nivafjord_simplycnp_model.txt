@@ -9,9 +9,36 @@ model("NIVAFjord-SimplyCNP") {
 		air : compartment, 
 		water : quantity,
 		heat : quantity,
+		sed : quantity,
+		oc : quantity,
+		din : quantity,
+		on : quantity,
+		phos : quantity,
+		op : quantity,
 		temp : property,
 		precip : property,
 		sol : solver
 	)
+	
+	edge       : compartment("Basin edge",       basin_idx, e_idx)
+	edge_layer : compartment("Basin edge layer", basin_idx, e_idx, layer_idx)
+	
+	load("modules/nivafjord/horizontal_fluxes.txt",
+		module("NIVAFjord horizontal fluxes", basin, bnd_basin, layer, bnd_layer, river, edge, edge_layer, water, salt, temp, salinity, flow, rho, pressure, dz, h, horz, vert, dims),
+		module("NIVAFjord simple realignment", basin, layer, water, dz, vert, dims)
+	)
+	
+	load("modules/easychem.txt",
+		module("Simple River O₂", river, water, o2, temp))
+	
+	wb_index : index_set("Water body") @union(sc, basin_idx)
+	
+	downstream : connection("Downstream") @directed_graph {
+		river+
+	} @no_cycles
+	
+	horz : connection("Fjord horizontal") @directed_graph(e_idx) { 
+		(river? layer+ bnd_layer?) | river
+	} @no_cycles
 }
 

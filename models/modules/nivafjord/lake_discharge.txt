@@ -1,6 +1,6 @@
 
 							
-module("NIVAFjord lake", version(0, 0, 1),
+module("NIVAFjord lake discharge", version(0, 0, 1),
 	river : compartment,
 	basin : compartment,
 	layer : compartment,

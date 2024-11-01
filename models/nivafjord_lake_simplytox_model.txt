@@ -17,27 +17,23 @@ TODO: Maybe we want a simpler biochemistry model for this one, not the entire NI
 		wind : property,
 		sol : solver
 	)
+	
+	has_boundaries : constant(false)
 
-	extend("nivafjord_lake_base.txt")
+	extend("nivafjord_chem_base.txt") @exclude(has_boundaries : constant) # Overrule the has_boundaries from the base model.
 	
 	downstream : connection("Downstream") @directed_graph { river+ } @no_cycles
 	
 	river_lake : connection("River-lake") @directed_graph { river+ layer } @no_cycles
-	
-	load("modules/airsea.txt",
-		module("AirSea", "AirSea Fjord", air, basin, ice, heat, temp, precip, wind, g_rad, pressure, rho, a_hum, lwd, sw, attn, indicator,
-							evap, cos_z, loc(basin.freeze_t), loc(basin.area), loc(layer.water[vert.top]), loc(layer.water.heat[sw_vert.top]))
-	)
 							
-	load("modules/nivafjord/lake_basin.txt",
-		module("NIVAFjord lake", river, basin, layer, water, flow, dz, river_lake, vert, dims)
+	load("modules/nivafjord/lake_discharge.txt",
+		module("NIVAFjord lake discharge", river, basin, layer, water, flow, dz, river_lake, vert, dims)
 	)
 							
 	load("modules/simplytox.txt",
 		module("SimplyTox partitioning", "SimplyTox fjord layer", layer, water, oc, tox, temp, loc(layer.water.sed.oc), [n g], constant(true), phys),
 		module("SimplyTox partitioning", "SimplyTox fjord sediments", sediment, water, oc, tox, temp, loc(sediment.sed.oc), [n g], constant(false), phys),
 		module("SimplyTox air-water",    "SimplyTox lake air-water", air, basin, water, tox, temp, wind, loc(basin.area), phys)
-		#module("SimplyTox partitioning", "SimplyTox lake sediments", lake_sed, water, oc, tox, temp, loc(lake_sed.sed.oc), [n g, m-2], constant(false), phys)
 	)
 	
 	load("modules/nivafjord/tox.txt",
@@ -48,6 +44,10 @@ TODO: Maybe we want a simpler biochemistry model for this one, not the entire NI
 	load("modules/nivafjord/horizontal_fluxes.txt",
 		module("NIVAFjord simple realignment", basin, layer, water, dz, vert, dims))
 	
+	load("modules/easychem.txt",
+		module("Simple River O₂", river, water, o2, temp))
+	
+	# This could maybe go into the main NIVAFjord model (put in same file as point_sources). It is relevant for different applications.
 	module("NIVAFjord extraction", version(0, 0, 1)) {
 
 		par_group("Extraction", layer) {
@@ -58,4 +58,6 @@ TODO: Maybe we want a simpler biochemistry model for this one, not the entire NI
 			ext
 		}
 	}
+	
+	solve(sol, sediment.water)
 }

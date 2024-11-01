@@ -9,7 +9,14 @@ It is also currently without horizontal exchange between basins, so it only work
 
 	# TODO: FPV cover does not dynamically affect wind mixing (not sure to how large a degree that would happen).
 	
-	extend("nivafjord_lake_base.txt")
+	# Overrule configs for nivafjord_base
+	has_boundaries : constant(false)
+	default_airsea : constant(false)
+	
+	extend("nivafjord_chem_base.txt") @exclude(
+		has_boundaries : constant,
+		default_airsea : constant,
+	)
 	
 	tox_index : index_set("Contaminant type")
 	
@@ -38,10 +45,6 @@ It is also currently without horizontal exchange between basins, so it only work
 	#	module("SimplyTox air-water",    "SimplyTox lake air-water", air, basin, water, tox, temp, wind, loc(basin.area), phys),
 		module("SimplyTox partitioning", "SimplyTox fjord layer", layer, water, oc, tox, temp, loc(layer.water.sed.oc), [n g], constant(true), phys)
 	)
-	
-	#load("modules/nivafjord/tox.txt",
-	#	module("NIVAFjord tox air-water", basin, layer, air, water, tox, temp, area, vert, loc(basin.ice.indicator), dims, phys)
-	#)
 	
 	load("modules/nivafjord/horizontal_fluxes.txt",
 		module("NIVAFjord simple realignment", basin, layer, water, dz, vert, dims))

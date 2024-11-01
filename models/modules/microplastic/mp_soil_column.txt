@@ -98,23 +98,28 @@ This is a module for transport of microplastic in a single *experimentally contr
 	z : property("Effective depth")
 	var(layer.z, [m m]) { dz*theta + z[vert.above] } @no_store
 	
+	
+	sat_lim : property("Saturation limiter")
+	var(layer.sat_lim, []) {
+		maxcap := dz * theta,
+		mincap := maxcap*fcs,
+		s_response(water, mincap, min(1.1*mincap, maxcap), 0, 1)
+	} @no_store
+	
 	var(layer.water.side, [m m, day-1]) {
 		# TODO: This is wrong... Should compute gradient based on z and, z of outside and distance.
 		agrad := grad*(water_tot/z),
-		agrad*cond->>
+		sat_lim*agrad*cond->>
 	}
 	
 	var(layer.water.perc, [m m, day-1]) {
-		maxcap := dz * theta,
 		maxcap_b := dz[vert.below] * theta[vert.below],
-		
 		maxrate := cond->>,
-		mincap := maxcap*fcs,
 		
-		maxperc := s_response(water, mincap, min(1.1*mincap, maxcap), 0, maxrate),
-		#s_response(water[vert.below], maxcap_b, 0.9*maxcap_b, 0, maxperc)
-		#1.1*mincap, mincap, 0, maxrate),      # Cut flow off when water saturation reaches field capacity
-		s_response(water[vert.below], 0.9*maxcap_b, maxcap_b, maxperc, 0)  # Cut flow off when water saturation below fills up
+		# Cut percolation off when water saturation goes below field capacity.
+		maxperc := sat_lim*maxrate,
+		# Cut percolation off when water saturation below fills up
+		s_response(water[vert.below], 0.9*maxcap_b, maxcap_b, maxperc, 0)
 		
 		# TODO: Capillary action when water below is above fc and this layer is below fc?
 		# We could also compute forces on the water, but probably not necessary

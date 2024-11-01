@@ -124,6 +124,10 @@ register_intrinsics(Mobius_Model *model) {
 	
 	model->solver_functions[euler_id]->solver_fun = &euler_solver;
 	model->solver_functions[dascru_id]->solver_fun = &inca_dascru;
+	
+	// Create a empty preamble that can be passed to module loads when you don't want to pass an optional preamble
+	// (can be used if the parts of the module that rely on the preamble are ruled out by an option)
+	//auto no_preamble_id = model->modules.create_internal(mod_scope, "no_preamble", "No preamble", Decl_Type::preamble);
 }
 
 Entity_Id
@@ -1032,8 +1036,179 @@ process_load_library_declaration(Mobius_Model *model, Decl_AST *decl, Entity_Id 
 	}
 }
 
+struct
+Model_Extension {
+	std::string normalized_path;
+	Decl_AST *decl;
+	int load_order;
+	int depth;
+	std::set<std::pair<Decl_Type, std::string>> excludes;
+};
+
+bool
+should_exclude_decl(Model_Extension &extend, Decl_AST *decl) {
+	
+	for(auto &exclude : extend.excludes) {
+		if(
+			(exclude.first == decl->type) &&
+			(exclude.second.empty() || (decl->identifier.string_value == exclude.second.c_str()) )
+		)
+			return true;
+	}
+	
+	return false;
+}
+
+bool
+should_use_option(Mobius_Model *model, Model_Options *options, Argument_AST *arg) {
+	
+	std::string symbol = arg->chain[0].string_value;
+	auto find = model->top_scope[symbol];
+	if(!find) {
+		arg->source_loc().print_error_header();
+		fatal_error("The identifier '", symbol, "' has not been declared.");
+	}
+	auto id = find->id;
+	
+	if(id.reg_type == Reg_Type::constant) {
+		auto constant = model->constants[id];
+		if(constant->value_type != Value_Type::boolean) {
+			arg->source_loc().print_error_header();
+			fatal_error("The constant '", symbol, "' is not of boolean type, and so can't be used as the argument to an option.");
+		}
+		if(arg->chain.size() != 1) {
+			arg->source_loc().print_error_header();
+			fatal_error("Expected only one symbol in the argument (constant identifier).");
+		}
+		return constant->value.val_boolean;
+	}
+	
+	if(id.reg_type != Reg_Type::parameter) {  // Should technically not be possible since this happens in first pass?
+		arg->source_loc().print_error_header();
+		fatal_error("The identifier '", symbol, "' does not refer to a parameter or constant.");
+	}
+	
+	auto par = model->parameters[id];
+	if(par->decl_type != Decl_Type::par_enum && par->decl_type != Decl_Type::par_bool)
+		fatal_error(Mobius_Error::internal, "Somehow an option_group parameter was of the wrong type.");
+	
+	// Find what value was passed in the options for this parameter (or use default if option was not passed).
+	s64 val = par->default_val.val_integer;
+	if(options) {
+		std::string serial = model->serialize(id);
+		auto find2 = options->options.find(serial);
+		
+		if(find2 != options->options.end()) {
+			std::string &value = find2->second;
+			if(par->decl_type == Decl_Type::par_bool) {
+				if(value == "true") val = 1;
+				else if(value == "false") val = 0;
+				else {
+					// Hmm, this is annoying, we can't refer to the source of the option *value*
+					arg->source_loc().print_error_header();
+					fatal_error("Received an invalid value for the parameter '", symbol, "'. Expected either 'true' or 'false'. The value probably comes from the loaded data set.");
+				}
+			} else {
+				val = par->enum_int_value(value);
+				if(val < 0) {
+					arg->source_loc().print_error_header();
+					fatal_error("The value '", value, "' is not valid for the parameter '", symbol, "'. The value probably comes from the loaded data set.");
+				}
+			}
+		}
+	}
+	
+	if(par->decl_type == Decl_Type::par_bool) {
+		if(arg->chain.size() != 1) {
+			arg->source_loc().print_error_header();
+			fatal_error("Expected only one symbol in the argument (parameter identifier).");
+		}
+		return (bool)val;
+	}
+	
+	if(arg->chain.size() != 2) {
+		arg->source_loc().print_error_header();
+		fatal_error("Expected two symbols in the argument (par_identifier.value).");
+	}
+	
+	auto &check_value = arg->chain[1].string_value;
+	s64 check_val = par->enum_int_value(check_value);
+	
+	if(check_val < 0) {
+		arg->source_loc().print_error_header();
+		fatal_error("The value '", check_value, "' is not valid for the parameter '", symbol, "'.");
+	}
+	
+	return (val == check_val);
+}
+
+void
+process_option_decl(Mobius_Model *model, Model_Options *options, Decl_AST *decl, Model_Extension *extend, std::vector<std::pair<Decl_AST *, Model_Extension *>> &all_decls);
+
+void
+process_option_body(Mobius_Model *model, Model_Options *options, Decl_Body_AST *body, Model_Extension *extend, std::vector<std::pair<Decl_AST *, Model_Extension *>> &all_decls) {
+	for(Decl_AST *child : body->child_decls) {
+		
+		if(extend && should_exclude_decl(*extend, child)) continue;
+		
+		if(child->type == Decl_Type::option_group) {
+			child->source_loc.print_error_header();
+			fatal_error("It is not allowed to have option groups inside options.");
+		} else if(child->type == Decl_Type::option) {
+			// TODO: Right now there will be a problem if an option relies on a constant that was declared inside an option.
+			// because only constants that are in the outer scope have been processed at this point.
+			// We don't want to limit declarations of constant to outer scope like we do with option_group.
+			// It is unlikely to be a problem in practice... But we should give a proper error if it happens unlike now where
+			// it would just say that it can't find the identifier.
+			
+			process_option_decl(model, options, child, extend, all_decls);
+		} else
+			all_decls.push_back({child, extend});
+	}
+}
+
+void
+process_option_decl(Mobius_Model *model, Model_Options *options, Decl_AST *decl, Model_Extension *extend, std::vector<std::pair<Decl_AST *, Model_Extension *>> &all_decls) {
+	
+	match_declaration(decl, {{Arg_Pattern::any}}, false, 1, true); // Have to use 'any' since this isn't quite covered by the matching system.
+	bool correct = true;
+	auto arg = decl->args[0];
+	if(arg->decl) correct = false;
+	if(!arg->bracketed_chain.empty() || !arg->secondary_bracketed.empty()) correct = false;
+	for(auto token : arg->chain) {
+		if(token.type != Token_Type::identifier && token.type != Token_Type::boolean) correct = false;
+	}
+	if(!correct) {
+		arg->source_loc().print_error_header();
+		fatal_error("Expected a parameter value.");
+	}
+	
+	bool use_option = should_use_option(model, options, arg);
+	
+	if(use_option) {
+		auto body = static_cast<Decl_Body_AST *>(decl->body);
+		
+		process_option_body(model, options, body, extend, all_decls);
+	}
+	
+	for(auto note : decl->notes) {
+		if(note->decl.string_value == "otherwise") {
+			match_declaration_base(note, {{}}, 1);
+			
+			if(!use_option) {
+				auto body = static_cast<Decl_Body_AST *>(note->body);
+		
+				process_option_body(model, options, body, extend, all_decls);
+			}
+		} else {
+			note->decl.print_error_header();
+			fatal_error("Unrecognized note type '@", note->decl.string_value, "' for 'option' declaration.");
+		}
+	}
+}
+
 Entity_Id
-process_module_load(Mobius_Model *model, Token *load_name, Entity_Id template_id, Source_Location &load_loc, std::vector<Entity_Id> &load_args, bool inline_declared, String_View identifier) {
+process_module_load(Mobius_Model *model, Model_Options *options, Token *load_name, Entity_Id template_id, Source_Location &load_loc, std::vector<Entity_Id> &load_args, bool inline_declared, String_View identifier) {
 	
 	auto mod_temp = model->module_templates[template_id];
 	bool is_preamble = (mod_temp->decl_type == Decl_Type::preamble);
@@ -1162,6 +1337,43 @@ process_module_load(Mobius_Model *model, Token *load_name, Entity_Id template_id
 		}
 	}
 	
+	
+	// TODO: Factor out some of the option processing
+	std::set<Decl_Type> allowed_first_pass = { Decl_Type::option_group, Decl_Type::constant, Decl_Type::unit };
+	
+	for(Decl_AST *child : body->child_decls) {
+		if(child->type == Decl_Type::option_group || child->type == Decl_Type::constant)
+			model->register_decls_recursive(&module->scope, child, allowed_first_pass);
+	}
+	
+	// Option groups are registered as par groups.
+	for(auto id : module->scope.by_type(Reg_Type::par_group)) {
+		auto entity = model->find_entity(id);
+		if((entity->decl_type == Decl_Type::option_group) && !entity->has_been_processed)
+			entity->process_declaration(model);
+	}
+	
+	for(auto id : module->scope.by_type(Reg_Type::constant)) {
+		auto entity = model->find_entity(id);
+		if((entity->decl_type == Decl_Type::constant) && !entity->has_been_processed)
+			entity->process_declaration(model);
+	}
+				
+	
+	// Gather all declarations that were not excluded or ruled out by an option
+	// NOTE: Model_Extension is not used here. Just reusing code from model scope processing.
+	std::vector<std::pair<Decl_AST *, Model_Extension *>> all_decls;
+	for(Decl_AST *child : body->child_decls) {
+		if(child->type == Decl_Type::option_group || child->type == Decl_Type::constant) continue; // Already processed.
+		
+		if(child->type == Decl_Type::option)
+			process_option_decl(model, options, child, nullptr, all_decls);
+		else
+			all_decls.push_back({child, nullptr});
+	}
+	
+	
+	
 	const std::set<Decl_Type> allowed_types = is_preamble ? std::set<Decl_Type> {
 		// Allowed in preambles.
 		Decl_Type::property,
@@ -1178,8 +1390,8 @@ process_module_load(Mobius_Model *model, Token *load_name, Entity_Id template_id
 		Decl_Type::connection,
 		Decl_Type::loc,
 		Decl_Type::par_group,
-		Decl_Type::constant, 
-		Decl_Type::function, 
+		Decl_Type::constant,
+		Decl_Type::function,
 		Decl_Type::unit,
 		Decl_Type::compose_unit,
 		Decl_Type::unit_of,
@@ -1190,11 +1402,13 @@ process_module_load(Mobius_Model *model, Token *load_name, Entity_Id template_id
 		Decl_Type::assert,
 	};
 	
-	for(Decl_AST *child : body->child_decls) {
+	for(auto &pair : all_decls) {
+		
+		Decl_AST *child = pair.first;
 		
 		if(child->type == Decl_Type::load)
 			process_load_library_declaration(model, child, module_id, mod_temp->normalized_path);
-		else 
+		else
 			model->register_decls_recursive(&module->scope, child, allowed_types);
 	}
 	
@@ -1393,29 +1607,6 @@ process_unit_conversion_declaration(Mobius_Model *model, Decl_Scope *scope, Decl
 	}
 	
 	model->components[data.source.first()]->unit_convs.push_back(data);
-}
-
-struct
-Model_Extension {
-	std::string normalized_path;
-	Decl_AST *decl;
-	int load_order;
-	int depth;
-	std::set<std::pair<Decl_Type, std::string>> excludes;
-};
-
-bool
-should_exclude_decl(Model_Extension &extend, Decl_AST *decl) {
-	
-	for(auto &exclude : extend.excludes) {
-		if(
-			(exclude.first == decl->type) &&
-			(exclude.second.empty() || (decl->identifier.string_value == exclude.second.c_str()) ) 
-		)
-			return true;
-	}
-	
-	return false;
 }
 
 bool
@@ -1725,7 +1916,7 @@ basic_checks_and_finalization(Mobius_Model *model) {
 }
 
 void
-process_module_load_outer(Mobius_Model *model, Module_Load &load) {
+process_module_load_outer(Mobius_Model *model, Module_Load &load, Model_Options *options) {
 	
 	auto scope = &model->top_scope;
 	auto module_spec = load.module_spec;
@@ -1743,7 +1934,7 @@ process_module_load_outer(Mobius_Model *model, Module_Load &load) {
 		for(int argidx = 2; argidx < module_spec->args.size(); ++argidx)
 			load_args.push_back(scope->resolve_argument(Reg_Type::module, module_spec->args[argidx]));
 		
-		process_module_load(model, nullptr, template_id, load_loc, load_args, true, module_spec->identifier.string_value);
+		process_module_load(model, options, nullptr, template_id, load_loc, load_args, true, module_spec->identifier.string_value);
 	} else {
 		
 		bool allow_identifier = (module_spec->type == Decl_Type::preamble);
@@ -1774,108 +1965,7 @@ process_module_load_outer(Mobius_Model *model, Module_Load &load) {
 			// Reg_Type::unrecognized means 'any' in this case. Note that we already screened for allowed types earlier.
 			load_args.push_back(scope->resolve_argument(Reg_Type::unrecognized, module_spec->args[argidx]));
 		
-		auto module_id = process_module_load(model, load_name, template_id, load_loc, load_args, false, module_spec->identifier.string_value);
-	}
-}
-
-bool
-should_use_option(Mobius_Model *model, Model_Options *options, Argument_AST *arg) {
-	
-	std::string symbol = arg->chain[0].string_value;
-	auto find = model->top_scope[symbol];
-	if(!find) {
-		arg->source_loc().print_error_header();
-		fatal_error("The identifier '", symbol, "' has not been declared.");
-	}
-	auto id = find->id;
-	if(id.reg_type != Reg_Type::parameter) {  // Should technically not be possible since this happens in first pass?
-		arg->source_loc().print_error_header();
-		fatal_error("The identifier '", symbol, "' does not refer to a parameter.");
-	}
-	auto par = model->parameters[id];
-	if(par->decl_type != Decl_Type::par_enum && par->decl_type != Decl_Type::par_bool)
-		fatal_error(Mobius_Error::internal, "Somehow an option_group parameter was of the wrong type.");
-	
-	
-	// Find what value was passed in the options for this parameter (or use default if option was not passed).
-	s64 val = par->default_val.val_integer;
-	if(options) {
-		std::string serial = model->serialize(id);
-		auto find2 = options->options.find(serial);
-		
-		if(find2 != options->options.end()) {
-			std::string &value = find2->second;
-			if(par->decl_type == Decl_Type::par_bool) {
-				if(value == "true") val = 1;
-				else if(value == "false") val = 0;
-				else {
-					// Hmm, this is annoying, we can't refer to the source of the option *value*
-					arg->source_loc().print_error_header();
-					fatal_error("Received an invalid value for the parameter '", symbol, "'. Expected either 'true' or 'false'. The value probably comes from the loaded data set.");
-				}
-			} else {
-				val = par->enum_int_value(value);
-				if(val < 0) {
-					arg->source_loc().print_error_header();
-					fatal_error("The value '", value, "' is not valid for the parameter '", symbol, "'. The value probably comes from the loaded data set.");
-				}
-			}
-		}
-	}
-	
-	if(par->decl_type == Decl_Type::par_bool) {
-		if(arg->chain.size() != 1) {
-			arg->source_loc().print_error_header();
-			fatal_error("Expected only one symbol in the argument (par_identifier).");
-		}
-		return (bool)val;
-	}
-	
-	if(arg->chain.size() != 2) {
-		arg->source_loc().print_error_header();
-		fatal_error("Expected two symbols in the argument (par_identifier.value).");
-	}
-	
-	auto &check_value = arg->chain[1].string_value;
-	s64 check_val = par->enum_int_value(check_value);
-	
-	if(check_val < 0) {
-		arg->source_loc().print_error_header();
-		fatal_error("The value '", check_value, "' is not valid for the parameter '", symbol, "'.");
-	}
-	
-	return (val == check_val);
-}
-
-void
-process_option_decl(Mobius_Model *model, Model_Options *options, Decl_AST *decl, Model_Extension *extend, std::vector<std::pair<Decl_AST *, Model_Extension *>> &all_decls) {
-	
-	match_declaration(decl, {{Arg_Pattern::any}}, false); // Have to use 'any' since this isn't quite covered by the matching system.
-	bool correct = true;
-	auto arg = decl->args[0];
-	if(arg->decl) correct = false;
-	if(!arg->bracketed_chain.empty() || !arg->secondary_bracketed.empty()) correct = false;
-	for(auto token : arg->chain) {
-		if(token.type != Token_Type::identifier && token.type != Token_Type::boolean) correct = false;
-	}
-	if(!correct) {
-		arg->source_loc().print_error_header();
-		fatal_error("Expected a parameter value.");
-	}
-	
-	if(should_use_option(model, options, arg)) {
-		auto body = static_cast<Decl_Body_AST *>(decl->body);
-		
-		for(Decl_AST *child : body->child_decls) {
-			
-			if(child->type == Decl_Type::option_group) {
-				child->source_loc.print_error_header();
-				fatal_error("It is not allowed to have option groups inside options.");
-			} else if(child->type == Decl_Type::option) {
-				process_option_decl(model, options, child, extend, all_decls);
-			} else
-				all_decls.push_back({child, extend});
-		}
+		process_module_load(model, options, load_name, template_id, load_loc, load_args, false, module_spec->identifier.string_value);
 	}
 }
 
@@ -1919,24 +2009,30 @@ load_model(String_View file_name, Mobius_Config *config, Model_Options *options)
 	
 	auto scope = &model->top_scope;
 	
-	std::set<Decl_Type> allowed_first = { Decl_Type::option_group };
+	std::set<Decl_Type> allowed_first_pass = { Decl_Type::option_group, Decl_Type::constant, Decl_Type::unit };
 	
 	for(auto &extend : extend_models) {
 		auto ast = extend.decl;
 		auto body = static_cast<Decl_Body_AST *>(ast->body);
-		// Don't think we need to check excludes here??
-		
+
 		for(Decl_AST *child : body->child_decls) {
-			if(child->type == Decl_Type::option_group) {
-				model->register_decls_recursive(scope, child, allowed_first);
-			}
+			if(should_exclude_decl(extend, child)) continue;
+			
+			if(child->type == Decl_Type::option_group || child->type == Decl_Type::constant)
+				model->register_decls_recursive(scope, child, allowed_first_pass);
 		}
 	}
 	
 	// Option groups are registered as par groups.
 	for(auto id : scope->by_type(Reg_Type::par_group)) {
 		auto entity = model->find_entity(id);
-		if(entity->decl_type == Decl_Type::option_group && !entity->has_been_processed) // Note: To avoid the internally created "System" group.
+		if((entity->decl_type == Decl_Type::option_group) && !entity->has_been_processed)
+			entity->process_declaration(model);
+	}
+	
+	for(auto id : scope->by_type(Reg_Type::constant)) {
+		auto entity = model->find_entity(id);
+		if(!entity->has_been_processed) 
 			entity->process_declaration(model);
 	}
 				
@@ -1950,7 +2046,7 @@ load_model(String_View file_name, Mobius_Config *config, Model_Options *options)
 
 		for(Decl_AST *child : body->child_decls) {
 			if(should_exclude_decl(extend, child)) continue;
-			if(child->type == Decl_Type::option_group) continue; // Already processed.
+			if(child->type == Decl_Type::option_group || child->type == Decl_Type::constant) continue; // Already processed.
 			
 			if(child->type == Decl_Type::option)
 				process_option_decl(model, options, child, &extend, all_decls);
@@ -2055,11 +2151,11 @@ load_model(String_View file_name, Mobius_Config *config, Model_Options *options)
 		// Maybe that system should be rewritten to take into account what references what instead? Probably too much effort..
 	for(auto &load : module_loads) {
 		if(load.module_spec->type != Decl_Type::preamble) continue;
-		process_module_load_outer(model, load);
+		process_module_load_outer(model, load, options);
 	}
 	for(auto &load : module_loads) {
 		if(load.module_spec->type != Decl_Type::module) continue;
-		process_module_load_outer(model, load);
+		process_module_load_outer(model, load, options);
 	}
 	
 	basic_checks_and_finalization(model);
