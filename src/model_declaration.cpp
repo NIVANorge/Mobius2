@@ -1060,10 +1060,10 @@ should_exclude_decl(Model_Extension &extend, Decl_AST *decl) {
 }
 
 bool
-should_use_option(Mobius_Model *model, Model_Options *options, Argument_AST *arg) {
+should_use_option(Mobius_Model *model, Decl_Scope *scope, Model_Options *options, Argument_AST *arg) {
 	
 	std::string symbol = arg->chain[0].string_value;
-	auto find = model->top_scope[symbol];
+	auto find = (*scope)[symbol];
 	if(!find) {
 		arg->source_loc().print_error_header();
 		fatal_error("The identifier '", symbol, "' has not been declared.");
@@ -1080,6 +1080,7 @@ should_use_option(Mobius_Model *model, Model_Options *options, Argument_AST *arg
 			arg->source_loc().print_error_header();
 			fatal_error("Expected only one symbol in the argument (constant identifier).");
 		}
+		
 		return constant->value.val_boolean;
 	}
 	
@@ -1143,10 +1144,10 @@ should_use_option(Mobius_Model *model, Model_Options *options, Argument_AST *arg
 }
 
 void
-process_option_decl(Mobius_Model *model, Model_Options *options, Decl_AST *decl, Model_Extension *extend, std::vector<std::pair<Decl_AST *, Model_Extension *>> &all_decls);
+process_option_decl(Mobius_Model *model, Decl_Scope *scope, Model_Options *options, Decl_AST *decl, Model_Extension *extend, std::vector<std::pair<Decl_AST *, Model_Extension *>> &all_decls);
 
 void
-process_option_body(Mobius_Model *model, Model_Options *options, Decl_Body_AST *body, Model_Extension *extend, std::vector<std::pair<Decl_AST *, Model_Extension *>> &all_decls) {
+process_option_body(Mobius_Model *model, Decl_Scope *scope, Model_Options *options, Decl_Body_AST *body, Model_Extension *extend, std::vector<std::pair<Decl_AST *, Model_Extension *>> &all_decls) {
 	for(Decl_AST *child : body->child_decls) {
 		
 		if(extend && should_exclude_decl(*extend, child)) continue;
@@ -1161,14 +1162,14 @@ process_option_body(Mobius_Model *model, Model_Options *options, Decl_Body_AST *
 			// It is unlikely to be a problem in practice... But we should give a proper error if it happens unlike now where
 			// it would just say that it can't find the identifier.
 			
-			process_option_decl(model, options, child, extend, all_decls);
+			process_option_decl(model, scope, options, child, extend, all_decls);
 		} else
 			all_decls.push_back({child, extend});
 	}
 }
 
 void
-process_option_decl(Mobius_Model *model, Model_Options *options, Decl_AST *decl, Model_Extension *extend, std::vector<std::pair<Decl_AST *, Model_Extension *>> &all_decls) {
+process_option_decl(Mobius_Model *model, Decl_Scope *scope, Model_Options *options, Decl_AST *decl, Model_Extension *extend, std::vector<std::pair<Decl_AST *, Model_Extension *>> &all_decls) {
 	
 	match_declaration(decl, {{Arg_Pattern::any}}, false, 1, true); // Have to use 'any' since this isn't quite covered by the matching system.
 	bool correct = true;
@@ -1183,12 +1184,12 @@ process_option_decl(Mobius_Model *model, Model_Options *options, Decl_AST *decl,
 		fatal_error("Expected a parameter value.");
 	}
 	
-	bool use_option = should_use_option(model, options, arg);
+	bool use_option = should_use_option(model, scope, options, arg);
 	
 	if(use_option) {
 		auto body = static_cast<Decl_Body_AST *>(decl->body);
 		
-		process_option_body(model, options, body, extend, all_decls);
+		process_option_body(model, scope, options, body, extend, all_decls);
 	}
 	
 	for(auto note : decl->notes) {
@@ -1198,7 +1199,7 @@ process_option_decl(Mobius_Model *model, Model_Options *options, Decl_AST *decl,
 			if(!use_option) {
 				auto body = static_cast<Decl_Body_AST *>(note->body);
 		
-				process_option_body(model, options, body, extend, all_decls);
+				process_option_body(model, scope, options, body, extend, all_decls);
 			}
 		} else {
 			note->decl.print_error_header();
@@ -1338,7 +1339,7 @@ process_module_load(Mobius_Model *model, Model_Options *options, Token *load_nam
 	}
 	
 	
-	// TODO: Factor out some of the option processing
+	// TODO: Factor out some of the option processing between modules and models
 	std::set<Decl_Type> allowed_first_pass = { Decl_Type::option_group, Decl_Type::constant, Decl_Type::unit };
 	
 	for(Decl_AST *child : body->child_decls) {
@@ -1367,7 +1368,7 @@ process_module_load(Mobius_Model *model, Model_Options *options, Token *load_nam
 		if(child->type == Decl_Type::option_group || child->type == Decl_Type::constant) continue; // Already processed.
 		
 		if(child->type == Decl_Type::option)
-			process_option_decl(model, options, child, nullptr, all_decls);
+			process_option_decl(model, &module->scope, options, child, nullptr, all_decls);
 		else
 			all_decls.push_back({child, nullptr});
 	}
@@ -2049,7 +2050,7 @@ load_model(String_View file_name, Mobius_Config *config, Model_Options *options)
 			if(child->type == Decl_Type::option_group || child->type == Decl_Type::constant) continue; // Already processed.
 			
 			if(child->type == Decl_Type::option)
-				process_option_decl(model, options, child, &extend, all_decls);
+				process_option_decl(model, &model->top_scope, options, child, &extend, all_decls);
 			else
 				all_decls.push_back({child, &extend});
 		}

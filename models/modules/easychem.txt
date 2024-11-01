@@ -22,7 +22,7 @@ Authors: Magnus D. Norling
 	var(river.water.o2, [k g], [m g, l-1], "River oxygen") 
 	
 	flux(out, river.water.o2, [k g, day-1], "River oxygen from catchment") {
-		catch_conc := f_o2sat*o2_saturation(temp, 0) * o2_mol_mass,
+		catch_conc := f_o2sat*o2_saturation_concentration(temp, 0) * o2_mol_mass,
 		in_flux(water)*catch_conc->>
 	}
 }
@@ -125,8 +125,8 @@ Authors: François Clayer, Magnus D. Norling
 	
 	f_par     : constant("Fraction of PAR in SW radiation", [], 0.45)  # Photosynthetically available radiation
 	
-	var(epi.water.o2, [k g], [m g, l-1], "Epilimnion O₂")  @initial_conc { o2_saturation(temp, 0)*init_O2*o2_mol_mass->> }
-	var(hyp.water.o2, [k g], [m g, l-1], "Hypolimnion O₂") @initial_conc { o2_saturation(temp, 0)*init_O2*o2_mol_mass->> }  
+	var(epi.water.o2, [k g], [m g, l-1], "Epilimnion O₂")  @initial_conc { o2_saturation_concentration(temp, 0)*init_O2*o2_mol_mass->> }
+	var(hyp.water.o2, [k g], [m g, l-1], "Hypolimnion O₂") @initial_conc { o2_saturation_concentration(temp, 0)*init_O2*o2_mol_mass->> }  
 	
 	var(epi.water.oc, [k g], [m g, l-1], "Epilimnion DOC")  @initial_conc { init_c }
 	var(hyp.water.oc, [k g], [m g, l-1], "Hypolimnion DOC") @initial_conc { init_c }
@@ -167,11 +167,11 @@ Authors: François Clayer, Magnus D. Norling
 	
 	o2sat : property("O₂ saturation concentration")
 	var(epi.water.o2sat, [m g, l-1]) {
-		o2_saturation(temp, 0)*o2_mol_mass -> [m g, l-1]
+		o2_saturation_concentration(temp, 0)*o2_mol_mass -> [m g, l-1]
 	}
 	
 	flux(out, epi.water.o2, [k g, day-1], "Precipitation O₂") {
-		cnc := 0.9*o2_saturation(air.temp, 0)*o2_mol_mass -> [m g, l-1],  #Not sure what the fraction should be..
+		cnc := 0.9*o2_saturation_concentration(air.temp, 0)*o2_mol_mass -> [m g, l-1],  #Not sure what the fraction should be..
 		air.precip*area*cnc->>
 	}
 	

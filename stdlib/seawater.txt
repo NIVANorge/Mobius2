@@ -115,80 +115,20 @@ Riley, J. P. & Skirrow, G. Chemical oceanography. 2 edn, Vol. 1 606 (Academic Pr
 		# ref_diff  - the diffusivity of the substance in water at temperature ref_T and salinity ref_S.
 		ref_diff * (dynamic_viscosity_sea_water(ref_T, ref_S) / dynamic_viscosity_sea_water(T, S)) * ((T -> [K]) / (ref_T -> [K]))
 	}
-	
-	/*
-	seawater_secant_bulk_modulus : function(T : [deg_c], S : [], P : [d bar]) {
-		T68 := T * 1.00024 => []
-		h3 := -5.77905e-7
-		h2 := 1.16092e-4
-		h1 := 1.43713e-3
-		h0 := 3.239908
-		AW := h0 + (h1 + (h2 + h3*T68)*T68)*T68
-		k2 := 5.2787e-8
-		k1 := -6.12293e-6
-		k0 := 8.50935e-5
-		BW := k0 + (k1 + k2*T68)*T68
-		e4 := -5.155288e-5
-		e3 := 1.360477e-2
-		e2 := -2.327105
-		e1 := 148.4206
-		e0 := 19652.21
-		KW := e0 + (e1 + (e2 + (e3 + e4*T68)*T68)*T68)*T68
-		j0 := 1.91075e-4
-		i2 := -1.6078e-6
-		i1 := -1.0981e-5
-		i0 :=  2.2838e-3
-		SR := sqrt(S)
-		A  := AW + (i0 + (i1 + i2*T68)*T68 + j0*SR)*S
-		m2 := 9.1697e-10
-		m1 := 2.0816e-8
-		m0 := -9.9348e-7
-		B  := (BW + (m0 + (m1 + m2*T68)*T68)*S) => [bar-1]
-		f3 := -6.1670e-5
-		f2 := 1.09987e-2
-		f1 := -0.603459
-		f0 := 54.6746
-		g2 := -5.3009e-4
-		g1 := +1.6483e-2
-		g0 := +7.944e-2
-		K0 := (KW + (f0 + (f1 + (f2 + f3*T68)*T68)*T68 + (g0 + (g1 + g2*T68)*T68)*SR)*S) => [bar]
-		p  := P->[bar]
-		K0 + (A + B*p)*p
-	}
-	
-	seawater_density : function(T : [deg_c], S : [], P : [h bar]) {
-		densP0 := seawater_dens_p0(T, S)
-		K      := seawater_secant_bulk_modulus(T, S, P);
-		P      := P -> [bar]
-		densP0/(1.0 - p/K)
-	}
-	*/
 }
 
 library("Sea oxygen") {
 """
-This contains formulas for O2 saturation and surface exchange in sea water. Based on
+This contains formulas for O₂, CO₂ and CH₄ saturation and surface exchange in sea water. Based on
 
 R.F. Weiss, The solubility of nitrogen, oxygen and argon in water and seawater, Deep Sea Research and Oceanographic Abstracts, Volume 17, Issue 4, 1970, 721-735, [https://doi.org/10.1016/0011-7471(70)90037-9](https://doi.org/10.1016/0011-7471(70)90037-9).
 
 The implementation is influenced by the one in [SELMA](https://github.com/fabm-model/fabm/tree/master/src/models/selma).
+
+There are other undocumented sources. This should be updated soon.
 """
-	/*
-	o2_saturation_alt : function (T : [deg_c], S : []) {
-		tk := (T->[K]*0.01)=>[],
-		c := -173.4292 + 249.6339/tk + 143.3483*ln(tk) - 21.8492*tk
-			+ S*(-0.033096 + 0.014259*tk - 0.0017*tk^2),
-		exp(c)*1[m l, l-1]*((1.33/32)=>[m mol, m l-1])  # This is at surface pressure. TODO: Make this work better
-	}
 	
-	o2_piston_velocity_alt : function(wind : [m, s-1], temp : [deg_c]) {
-		t := temp=>[],
-		schmidt := 1920.4 - 135.6*t + 5.2122*t^2 -0.10939*t^3 + 0.00093777*t^4,
-		(0.251*wind*2*(schmidt/660)^(-0.5)=>[c m, hr-1])
-	}
-	*/
-	
-	o2_saturation : function (T : [deg_c], S : []) {
+	o2_saturation_concentration : function (T : [deg_c], S : []) {
 		# Formula from Weiss 1970 (also in Selma).
 		T_k := (T -> [K]) => [],
 		logsat := - 135.90205
@@ -199,17 +139,43 @@ The implementation is influenced by the one in [SELMA](https://github.com/fabm-m
 			- S*(0.017674 - 10.754/T_k + 2140.7/T_k^2),
 		exp(logsat) => [m mol, m-3]
 	}
+	
+	co2_saturation_concentration : function(T : [deg_c]) {
+	
+		#TODO: Maybe factor out Henry's constant computation for CO₂
+		T_k := (T->[K]) =>[],
+		lKh := 108.3865 + 0.01985076*T_k - 6919.53/T_k - 40.45154*log10(T_k) + 669365/(T_k^2), ## Weyhenmeyer et al., 2012
+		Kh := 10^(lKh=>[]),
+
+		#TODO: Better explain the constants in this formula
+		0.012*450*(Kh*1.013*0.987) => [m g, l-1] ## pco2 in ppm : 450 ppm, co2_eq in mgC/L
+	}
+	
+	# TODO: Document the source of the below functions! Are they all from the same paper?
+	
+	schmidt_600 : function(wind : [m, s-1]) {
+		wnd := wind => [],
+		2.07 + 0.215*(wnd^1.7)
+	}
 
 	o2_piston_velocity : function(wind : [m, s-1], temp : [deg_c]) {
-		# TODO: Document the source!
-		wnd     := wind => [],
 		T       := temp => [],
-		k_600   := 2.07 + 0.215*(wnd^1.7),
+		k_600   := schmidt_600(wind),
 		schmidt := 1800.6 - 120.10*T + 3.7818*T^2 - 0.047608*T^3,
 		k_600*(schmidt/600)^(-0.666) => [c m, hr-1]
-		#sc := (1450 + (1.1*T - 71)*T),
-		#max(0.05, 5.9*(5.9*wnd - 49.3)/sqrt(sc))     if wind >= 13[m, s-1],
-		#max(0.05, 1.003*wnd / ((sc)^0.66))           if wind <= 3.6[m, s-1],
-		#max(0.05, 5.9*(2.85*wnd - 9.65) / sqrt(sc)   otherwise
+	}
+	
+	co2_piston_velocity : function(wind : [m, s-1], temp : [deg_c]) {
+		T       := temp => [],
+		k_600   := schmidt_600(wind),
+		schmidt := 1923.6 - 125.06*T + 4.3773*T^2 - 0.085681*T^3 + 0.00070284*T^4,
+		k_600*min(2.5, (schmidt/600)^(-0.666)) => [c m, hr-1]
+	}
+	
+	ch4_piston_velocity : function(wind : [m, s-1], temp : [deg_c]) {
+		T       := temp => [],
+		k_600   := schmidt_600(wind),
+		schmidt := 1909.4 - 120.78*T + 4.1555*T^2 - 0.080578*T^3 + 0.00065777*T^4,
+		k_600*min(2.5, (schmidt/600)^(-0.666)) => [c m, hr-1]
 	}
 }

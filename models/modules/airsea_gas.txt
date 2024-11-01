@@ -4,7 +4,6 @@ module("AirSeaGas", version(0, 0, 0),
 	layer : compartment,
 	basin : compartment,
 	water : quantity,
-	ice : quantity,
 	o2 : quantity,
 	co2 : quantity,
 	ch4 : quantity,
@@ -14,41 +13,22 @@ module("AirSeaGas", version(0, 0, 0),
 	o2satconc : property,
 	ice_ind : loc,
 	vert : connection,
-	dims : preamble
+	dims : preamble,
+	compute_dic : par_bool
 ) {
 
 	load("stdlib/seawater.txt", library("Sea oxygen"))
 	load("stdlib/physiochemistry.txt", library("Chemistry"))
 	
 	p_vel     : property("O₂ piston velocity")
-	pco2_vel  : property("CO₂ piston velocity")
-	pch4_vel  : property("CH4 piston velocity")
 	
 	var(basin.p_vel, [c m, hr-1]) {
 		o2_piston_velocity(air.wind, layer.water.temp[vert.top])
 	}
 	
-	## TO DO: decide whether to add this in the stdlib together with p_vel for O2.
-	var(basin.pco2_vel, [c m, hr-1]) {
-		wnd := air.wind => [],
-		k_600 := 2.07 + 0.215* (wnd^1.7) => [],
-		t := layer.water.temp[vert.top] =>[],
-		schmidt := 1923.6-125.06*t +4.3773*t^2 -0.085681*t^3+0.00070284*t^4,
-		k_600* min(2.5,(schmidt/600)^(-0.666)) => [c m, hr-1]
-	}
-	
-	## TO DO: decide whether to add this in the stdlib together with p_vel for O2.
-	var(basin.pch4_vel, [c m, hr-1]) {
-		wnd := air.wind => [],
-		k_600 := 2.07 + 0.215* (wnd^1.7) => [],
-		t := layer.water.temp[vert.top] =>[],
-		schmidt := 1909.4-120.78*t +4.1555*t^2 -0.080578*t^3+0.00065777*t^4,
-		k_600* min(2.5,(schmidt/600)^(-0.666)) => [c m, hr-1]
-	}
-	
 	flux(out, layer.water.o2[vert.top], [k g, day-1], "Precipitation O₂") {
 		precip_saturation := 0.9, # Probably ok estimate? Not extremely important in any case.
-		cnc := precip_saturation*o2_saturation(air.temp, 0)*o2_mol_mass,
+		cnc := precip_saturation*o2_saturation_concentration(air.temp, 0)*o2_mol_mass,
 		air.precip*A[vert.top]*cnc->>
 	}
 	
@@ -56,24 +36,38 @@ module("AirSeaGas", version(0, 0, 0),
 		(!ice_ind) * basin.p_vel*(conc(o2[vert.top]) - o2satconc[vert.top])*A[vert.top] ->>
 	}
 	
+	option(compute_dic) {
 	
-	flux(layer.water.co2[vert.top], out, [k g, day-1], "CO₂ gas exchange at surface") {
-		top_t := (layer.water.temp[vert.top]->[K]) =>[],
-		lKh := 108.3865 + 0.01985076 * top_t -6919.53 / top_t-40.45154 * log10(top_t)+669365 /(top_t^2), ## Weyhenmeyer et al., 2012
-		Kh := 10 ^ (lKh=>[]),
-
-		co2_eq := 0.012[m g, l-1] *450 * (Kh * 1.013[] * 0.987[]), ## pco2 in ppm : 450 ppm, co2_eq in mgC/L
+		pco2_vel  : property("CO₂ piston velocity")
+		pch4_vel  : property("CH₄ piston velocity")
 		
-		(!ice_ind) *  basin.pco2_vel * (conc(layer.water.co2[vert.top]) - co2_eq ) *A[vert.top] ->>	
-	}
+		var(basin.pco2_vel, [c m, hr-1]) {
+			co2_piston_velocity(air.wind, layer.water.temp[vert.top])
+		}
+		
+		var(basin.pch4_vel, [c m, hr-1]) {
+			ch4_piston_velocity(air.wind, layer.water.temp[vert.top])
+		}
 	
-	flux(layer.water.ch4[vert.top], out, [k g, day-1], "CH4 gas exchange at surface") {
-		top_t := (layer.water.temp[vert.top]->[K]) =>[],
+		flux(layer.water.co2[vert.top], out, [k g, day-1], "CO₂ gas exchange at surface") {
+			#top_t := (layer.water.temp[vert.top]->[K]) =>[],
+			#lKh := 108.3865 + 0.01985076 * top_t -6919.53 / top_t-40.45154 * log10(top_t)+669365 /(top_t^2), ## Weyhenmeyer et al., 2012
+			#Kh := 10 ^ (lKh=>[]),
+			#co2_eq := 0.012[m g, l-1] *450 * (Kh * 1.013[] * 0.987[]), ## pco2 in ppm : 450 ppm, co2_eq in mgC/L
+			
+			co2_eq := co2_saturation_concentration(layer.water.temp[vert.top]),
+			
+			(!ice_ind) *  basin.pco2_vel * (conc(layer.water.co2[vert.top]) - co2_eq ) *A[vert.top] ->>	
+		}
 		
-		Kh := exp( (-365.183 + 18103.7/top_t + 49.7554*ln(top_t) - 0.000285033*top_t)/1.9872)/55.556,
+		flux(layer.water.ch4[vert.top], out, [k g, day-1], "CH₄ gas exchange at surface") {
+			top_t := (layer.water.temp[vert.top]->[K]) =>[],
+			
+			Kh := exp( (-365.183 + 18103.7/top_t + 49.7554*ln(top_t) - 0.000285033*top_t)/1.9872)/55.556,
 
-		ch4_eq := 0.016[m g, l-1] * Kh * 2.3, ### ch4_eq in mgCH4/L, 2.3 being in ppm
-		(!ice_ind) * basin.pch4_vel * (conc(layer.water.ch4[vert.top]) - ch4_eq) * A[vert.top] ->>
+			ch4_eq := 0.016[m g, l-1] * Kh * 2.3, ### ch4_eq in mgCH4/L, 2.3 being in ppm
+			(!ice_ind) * basin.pch4_vel * (conc(layer.water.ch4[vert.top]) - ch4_eq) * A[vert.top] ->>
+		}
 	}
 }
 

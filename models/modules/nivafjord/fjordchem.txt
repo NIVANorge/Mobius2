@@ -59,14 +59,13 @@ preamble("NIVAFjord chemistry rates", version(0, 0, 0),
 
 module("NIVAFjord chemistry", version(0, 0, 5),
 	air   : compartment,
-	basin : compartment,
+	#basin : compartment,
 	layer : compartment,
 	sediment : compartment,
 	water : quantity,
 	o2    : quantity,
 	co2   : quantity,
 	ch4   : quantity,
-	ice   : quantity,
 	oc    : quantity,
 	din   : quantity,
 	on    : quantity,
@@ -74,23 +73,21 @@ module("NIVAFjord chemistry", version(0, 0, 5),
 	op    : quantity,
 	sed   : quantity,
 	phyt  : quantity,
-	zoo   : quantity,
 	chl_a : property,
 	temp  : property,
 	salin : property,
-	wind  : property,
 	z     : property,
 	dz    : property,
-	indicator : property,
 	attn  : property,
-	precip : property,
 	area   : property,
 	cos_z : property,
 	sw    : property,
 	o2satconc : property,
 	vert  : connection,
 	chem_par : preamble,
-	dims     : preamble
+	dims     : preamble,
+	
+	compute_dic : par_bool,
 ) {
 	#TODO: Would be nice to unify easychem and fjordchem a bit more, maybe some shared code.
 	# Esp. for surface O2 exchange and maybe microbes and phyto (into separate modules).
@@ -120,13 +117,15 @@ module("NIVAFjord chemistry", version(0, 0, 5),
 	
 	# TODO: Initial states for all these:
 	# Main variables:
-	var(layer.water.o2, [k g], [m g, l-1], "Layer O₂") @initial_conc { o2_saturation(temp, salin)*init_O2*o2_mol_mass->> }
+	var(layer.water.o2, [k g], [m g, l-1], "Layer O₂") @initial_conc { o2_saturation_concentration(temp, salin)*init_O2*o2_mol_mass->> }
 	
 	var(layer.water.oc, [k g], [m g, l-1], "Layer DOC") @initial_conc { init_DOC }
 	
-	var(layer.water.co2, [k g], [m g, l-1], "Layer CO₂")
-	
-	var(layer.water.ch4, [k g], [m g, l-1], "Layer CH4")
+	option(compute_dic) {
+		var(layer.water.co2, [k g], [m g, l-1], "Layer CO₂")
+		
+		var(layer.water.ch4, [k g], [m g, l-1], "Layer CH₄")
+	}
 	
 	var(layer.water.din, [k g], [m g, l-1], "Layer DIN")
 	
@@ -149,7 +148,7 @@ module("NIVAFjord chemistry", version(0, 0, 5),
 	o2sat     : property("O₂ saturation")
 	
 	var(layer.water.o2satconc, [m g, l-1]) {
-		o2_saturation(temp, salin)*o2_mol_mass ->>
+		o2_saturation_concentration(temp, salin)*o2_mol_mass ->>
 	} #@no_store
 	
 	var(layer.water.o2sat, []) {
@@ -347,8 +346,10 @@ module("NIVAFjord chemistry", version(0, 0, 5),
 		+ (on + sed.on)*min_rat*n_min*(o2_mol_mass/n_mol_mass)*1.5    # ON -> NH4 -> NO3   #TODO: Should the 1.5 be parametrizable?
 	}
 	
-	flux(out, layer.water.co2, [k g, day-1], "Microbial CO2 production") {
-		(oc + sed.oc)*(min_rat+denit_rat) # NOTE: CO2 is in kg(C)
+	option(compute_dic) {
+		flux(out, layer.water.co2, [k g, day-1], "Microbial CO2 production") {
+			(oc + sed.oc)*(min_rat+denit_rat) # NOTE: CO2 is in kg(C)
+		}
 	}
 	
 	var(layer.water.denit_rat, [day-1], "Denitrification rate") {

@@ -37,7 +37,7 @@ This is a module for point source inputs to NIVAFjord.
 	flux(out, layer.water.o2, [k g, day-1], "Point source O2 to layer") {
 		eff_temp := layer.water.temp,
 		eff_salin := 0,
-		o2c := o2sat*o2_mol_mass*o2_saturation(eff_temp, eff_salin),
+		o2c := o2sat*o2_mol_mass*o2_saturation_concentration(eff_temp, eff_salin),
 		o2c*eff_q/time.days_this_year->>
 	}
 	

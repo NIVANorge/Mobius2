@@ -431,6 +431,12 @@ process_par_group_index_sets(Mobius_Model *model, Data_Set *data_set, Entity_Id 
 	}
 	
 	auto par_group = model->par_groups[group_id];
+	
+	if(par_group->decl_type != par_group_data->decl_type) {
+		par_group_data->source_loc.print_error_header();
+		fatal_error("The parameter group \"", par_group->name, "\" should be of type '", name(par_group->decl_type), "'.");
+	}
+	
 	if(par_group->max_index_sets.empty()) {
 		if(!par_group_data->index_sets.empty()) {
 			par_group_data->source_loc.print_error_header();
@@ -1132,10 +1138,16 @@ Model_Application::save_to_data_set(Model_Data *save_from) {
 				auto scope_id_data = map_id(model, data_set, par_group->scope_id);
 				scope = data_set->get_scope(scope_id_data);
 			}
-			par_group_data_id = data_set->par_groups.create_internal(scope, "", par_group->name, Decl_Type::par_group);
+			par_group_data_id = data_set->par_groups.create_internal(scope, "", par_group->name, par_group->decl_type);
 			data_set->par_groups[par_group_data_id]->scope.parent_id = par_group_data_id;
 		}
 		auto par_group_data = data_set->par_groups[par_group_data_id];
+		
+		if(par_group_data->decl_type != par_group->decl_type) {
+			par_group_data->source_loc.print_log_header();
+			log_print("This parameter group is of the wrong type. Expected it to be '", name(par_group->decl_type), "'.\n");
+		}
+		
 		par_group_data->index_sets.clear();
 		
 		bool index_sets_resolved = false;

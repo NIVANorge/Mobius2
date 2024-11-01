@@ -20,7 +20,8 @@ module("NIVAFjord sediments", version(0, 0, 3),
 	z        : property,
 	vert     : connection,
 	dims     : preamble,
-	chem_par : preamble
+	chem_par : preamble,
+	compute_dic : par_bool,
 ) {
 	
 	par_group("Sediments") {
@@ -79,7 +80,9 @@ module("NIVAFjord sediments", version(0, 0, 3),
 	
 	var(sediment.sed.oc, [k g], [g, k g-1], "Sediment organic carbon") @initial_conc { init_c }
 	
-	var(sediment.sed.ch4, [k g], [g, k g-1], "Sediment CH4") 
+	option(compute_dic) {
+		var(sediment.sed.ch4, [k g], [g, k g-1], "Sediment CH4")
+	}
 	
 	var(sediment.sed.on, [k g], [g, k g-1], "Sediment organic N") @initial_conc { init_c / cn_molar_to_mass_ratio(sed_cn) }
 	
@@ -124,37 +127,39 @@ module("NIVAFjord sediments", version(0, 0, 3),
 		+ (sediment.sed.on)*mr*n_min*(o2_mol_mass/n_mol_mass)*1.5    # ON -> NH4 -> NO3   #TODO: Should the 1.5 be parametrizable?
 	}
 	
-	# Simple CO2 release from the sediment = O2 sediment demand
-	flux(out, layer.water.co2, [k g, day-1], "CO₂ sediment microbial production") {
-		mr := layer.water.min_rat,
-		dr := layer.water.denit_rat,
-		(sediment.sed.oc)*(mr + dr)    
-	}
-	
-	# Simple CH4 production in the sediment: fraction scaled to CO2 production
-	flux(out, sediment.sed.ch4, [k g, day-1], "CH4 sediment microbial production") {
-		mr := layer.water.min_rat,
-		(sediment.sed.oc) * mr * ch4_production_scaler    
-	}
-	
-	ch4satconc : property("CH4 saturation concentration")
-	
-	## Simplified model of CH4 sollubility as a function of water temp, ambient pressure and salinity: Duan and Mao, 2006, https://doi.org/10.1016/j.gca.2006.03.018
-	# TODO: Name the magic constants, and probably move to stdlib.
-	var(sediment.sed.ch4satconc, [g, k g-1]) {
-		ch4_mol_mass*((0.00247[mol, k g-1] - (0.00004033[mol, k g-1, deg_c-1] * sediment.temp))* (1-(0.2844-0.001775[deg_c-1]*sediment.temp) * (layer.water.salin/58.44)))* (1 + 44.6[m-1] * (layer.z[vert.above])/490)
-	}
-	
-	## Simple CH4 bubble release from the sediment 
-	flux(sediment.sed.ch4, out, [k g, day-1], "CH4 sediment bubbling") {
-		max(0, bubble_ch4*(conc(ch4) - ch4satconc)*sediment.sed) ->>
-	}
-	
-	## Simple CH4 diffusion release from the sediment; Diffusion coefficient from 
-	flux(sediment.sed.ch4, layer.water.ch4, [k g, day-1], "CH4 sediment diffusion release") {
-		# TODO: Use Mobius2 inbuilt unit conversion and use named constants (e.g. is 1000[g, l-1] rho_water?)
-		diff_coeff := (4.18e-11[m 2, s-1, deg_c-1]*sediment.temp + 8.06e-10[m 2, s-1])->[m 2, day-1],
-		diff_coeff  * (conc(sediment.sed.ch4)* 1000[g, l-1] *(porosity)- conc(layer.water.ch4)) * 0.001[k g, g-1] / 0.25 [m] * sediment.area
+	option(compute_dic) {
+		# Simple CO2 release from the sediment = O2 sediment demand
+		flux(out, layer.water.co2, [k g, day-1], "CO₂ sediment microbial production") {
+			mr := layer.water.min_rat,
+			dr := layer.water.denit_rat,
+			(sediment.sed.oc)*(mr + dr)    
+		}
+		
+		# Simple CH4 production in the sediment: fraction scaled to CO2 production
+		flux(out, sediment.sed.ch4, [k g, day-1], "CH4 sediment microbial production") {
+			mr := layer.water.min_rat,
+			(sediment.sed.oc) * mr * ch4_production_scaler    
+		}
+		
+		ch4satconc : property("CH4 saturation concentration")
+		
+		## Simplified model of CH4 sollubility as a function of water temp, ambient pressure and salinity: Duan and Mao, 2006, https://doi.org/10.1016/j.gca.2006.03.018
+		# TODO: Name the magic constants, and probably move to stdlib.
+		var(sediment.sed.ch4satconc, [g, k g-1]) {
+			ch4_mol_mass*((0.00247[mol, k g-1] - (0.00004033[mol, k g-1, deg_c-1] * sediment.temp))* (1-(0.2844-0.001775[deg_c-1]*sediment.temp) * (layer.water.salin/58.44)))* (1 + 44.6[m-1] * (layer.z[vert.above])/490)
+		}
+		
+		## Simple CH4 bubble release from the sediment 
+		flux(sediment.sed.ch4, out, [k g, day-1], "CH4 sediment bubbling") {
+			max(0, bubble_ch4*(conc(ch4) - ch4satconc)*sediment.sed) ->>
+		}
+		
+		## Simple CH4 diffusion release from the sediment; Diffusion coefficient from 
+		flux(sediment.sed.ch4, layer.water.ch4, [k g, day-1], "CH4 sediment diffusion release") {
+			# TODO: Use Mobius2 inbuilt unit conversion and use named constants (e.g. is 1000[g, l-1] rho_water?)
+			diff_coeff := (4.18e-11[m 2, s-1, deg_c-1]*sediment.temp + 8.06e-10[m 2, s-1])->[m 2, day-1],
+			diff_coeff  * (conc(sediment.sed.ch4)* 1000[g, l-1] *(porosity)- conc(layer.water.ch4)) * 0.001[k g, g-1] / 0.25 [m] * sediment.area
+		}
 	}
 	
 	

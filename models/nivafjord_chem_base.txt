@@ -8,8 +8,12 @@ This won't run as its own model, it is just a base for model extension.
 	
 	extend("nivafjord_base.txt")
 	
-	phyt_type : index_set("Phytoplankton type")
+	phyt_type : index_set("Phytoplankton type") #Not currently used..
 	
+	option_group("FjordChem configurations") {
+		compute_dic : par_bool("Compute DIC (CO₂, CH₄)", true)
+		# Eventually we could have other configurations, like include zooplankton, type of phyto module, allow multiple phyto species etc.
+	}
 	
 	sed : quantity("Sediments")
 	oc : quantity("Organic carbon")
@@ -20,7 +24,7 @@ This won't run as its own model, it is just a base for model extension.
 	
 	# Called 'fjord_phyt' to distinguish from freshwater in the version of the model that also has EasyLake
 	fjord_phyt : quantity("Fjord phytoplankton")#, phyt_type)
-	zoo        : quantity("Zooplankton")
+	#zoo        : quantity("Zooplankton")
 	o2         : quantity("O₂")
 	co2        : quantity("CO₂")
 	ch4        : quantity("CH₄")
@@ -30,15 +34,15 @@ This won't run as its own model, it is just a base for model extension.
 	
 	load("modules/nivafjord/fjordchem.txt",
 		chem_par : preamble("NIVAFjord chemistry rates", fjord_phyt),
-		module("NIVAFjord chemistry", air, basin, layer, sediment, water, o2, co2, ch4, ice, oc, din, on, phos, op, sed, fjord_phyt, zoo, chl_a, temp, salinity, wind, z, dz, indicator, attn, precip, area, cos_z, sw, o2satconc, vert, chem_par, dims))
+		module("NIVAFjord chemistry", air, layer, sediment, water, o2, co2, ch4, oc, din, on, phos, op, sed, fjord_phyt, chl_a, temp, salinity, z, dz, attn, area, cos_z, sw, o2satconc, vert, chem_par, dims, compute_dic))
 	
 	option(default_airsea) {
 		load("modules/airsea_gas.txt",
-			module("AirSeaGas", air, layer, basin, water, ice, o2, co2, ch4, temp, wind, precip, o2satconc, loc(basin.ice.indicator), vert, dims)) 
+			module("AirSeaGas", air, layer, basin, water, o2, co2, ch4, temp, wind, precip, o2satconc, loc(basin.ice.indicator), vert, dims, compute_dic)) 
 	}
 	
 	load("modules/nivafjord/sediment.txt",
-		module("NIVAFjord sediments", layer, sediment, water, o2, co2, ch4, salinity, sed, oc, din, on, phos, op, heat, area, temp, dz, z, vert, chem_par, dims))
+		module("NIVAFjord sediments", layer, sediment, water, o2, co2, ch4, salinity, sed, oc, din, on, phos, op, heat, area, temp, dz, z, vert, chem_par, dims, compute_dic))
 	
 	option(has_boundaries) {
 		load("modules/nivafjord/boudary_chem.txt",
