@@ -127,28 +127,40 @@ The implementation is influenced by the one in [SELMA](https://github.com/fabm-m
 
 There are other undocumented sources. This should be updated soon.
 """
+
+	load("physiochemistry.txt", library("Chemistry"))
 	
 	o2_saturation_concentration : function (T : [deg_c], S : []) {
 		# Formula from Weiss 1970 (also in Selma).
-		T_k := (T -> [K]) => [],
+		Tk := (T -> [K]) => [],
 		logsat := - 135.90205
-			+ 1.575701e5  / T_k
-			- 6.642308e7  / T_k^2
-			+ 1.243800e10 / T_k^3
-			- 8.621949e11 / T_k^4
-			- S*(0.017674 - 10.754/T_k + 2140.7/T_k^2),
+			+ 1.575701e5  / Tk
+			- 6.642308e7  / Tk^2
+			+ 1.243800e10 / Tk^3
+			- 8.621949e11 / Tk^4
+			- S*(0.017674 - 10.754/Tk + 2140.7/Tk^2),
 		exp(logsat) => [m mol, m-3]
 	}
 	
-	co2_saturation_concentration : function(T : [deg_c]) {
+	# TODO: We could just provide the Henry's constant in the library and let the caller do the rest?
 	
-		#TODO: Maybe factor out Henry's constant computation for CO₂
-		T_k := (T->[K]) =>[],
-		lKh := 108.3865 + 0.01985076*T_k - 6919.53/T_k - 40.45154*log10(T_k) + 669365/(T_k^2), ## Weyhenmeyer et al., 2012
-		Kh := 10^(lKh=>[]),
-
-		#TODO: Better explain the constants in this formula
-		0.012*450*(Kh*1.013*0.987) => [m g, l-1] ## pco2 in ppm : 450 ppm, co2_eq in mgC/L
+	# Compute saturation concentration of CO₂ in water (in mg(C)/l)
+	co2_saturation_concentration : function(T : [deg_c], co2_atm_ppm : [], air_pressure) {
+		Tk := (T->[K]) =>[],
+		log10Kh := 108.3865 + 0.01985076*Tk - 6919.53/Tk - 40.45154*log10(Tk) + 669365/(Tk^2), # Stumm and Morgan 1996
+		Kh := (10^log10Kh) => [mol, l-1, bar-1],
+		
+		pCO2 := co2_atm_ppm*1e-6*air_pressure,
+		pCO2*Kh*c_mol_mass -> [m g, l-1]
+	}
+	
+	# Compute saturation concentration of CO₂ in water (in mg(CH₄)/l)
+	ch4_saturation_concentration : function(T : [deg_c], ch4_atm_ppm : [], air_pressure) {
+		Tk := (T->[K]) =>[],
+		Kh := exp( (-365.183 + 18103.7/Tk + 49.7554*ln(Tk) - 0.000285033*Tk)/1.9872)/55.556 => [mol, l-1, bar-1], # Source?
+		
+		pCH4 := ch4_atm_ppm*1e-6*air_pressure,
+		pCH4*Kh*ch4_mol_mass -> [m g, l-1]
 	}
 	
 	# TODO: Document the source of the below functions! Are they all from the same paper?

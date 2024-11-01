@@ -10,6 +10,8 @@ module("NIVAFjord boundary chemistry", version(0, 0, 0),
 	op : quantity,
 	phyt : quantity,
 	chl_a : property,
+	temp : property,
+	salinity : property,
 	sed : quantity,
 	chem_par : preamble
 ) {
@@ -30,7 +32,12 @@ module("NIVAFjord boundary chemistry", version(0, 0, 0),
 	pocconc : property("POC conc")
 	
 	# Input series :
-	var(bnd_layer.water.o2conc, [m g, l-1], "Boundary layer O₂ conc")
+	var(bnd_layer.water.o2conc, [m g, l-1], "Boundary layer O₂ conc") {
+		#In case data was not provided, assume it is at saturation
+		#TODO: This is not a good idea except near surface?
+		o2_saturation_concentration(temp, salinity)*o2_mol_mass->>
+	}
+	
 	var(bnd_layer.water.docconc, [m g, l-1], "Boundary layer DOC conc")
 	var(bnd_layer.water.dinconc, [m g, l-1], "Boundary layer NO3 conc")
 	var(bnd_layer.water.dipconc, [m g, l-1], "Boundary layer PO4 conc")
