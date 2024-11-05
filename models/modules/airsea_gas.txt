@@ -1,7 +1,6 @@
 
 module("AirSeaGas", version(0, 0, 0),
 	air : compartment,
-	layer : compartment,
 	basin : compartment,
 	water : quantity,
 	o2 : quantity,
@@ -13,14 +12,14 @@ module("AirSeaGas", version(0, 0, 0),
 	o2satconc : property,
 	pressure : property,
 	ice_ind : loc,
-	vert : connection,
-	dims : preamble,
+	top_water : loc,
+	A_surf : loc,
 	compute_dic : par_bool
 ) {
 """
 Air-sea gas exchange module (O₂, CO₂, CH₄)
 
-Authors: Francois Clayer, Magnus Dahler Norling
+Authors: François Clayer, Magnus Dahler Norling
 """
 
 	load("stdlib/seawater.txt", library("Sea oxygen"))
@@ -29,17 +28,17 @@ Authors: Francois Clayer, Magnus Dahler Norling
 	p_vel     : property("O₂ piston velocity")
 	
 	var(basin.p_vel, [c m, hr-1]) {
-		o2_piston_velocity(air.wind, layer.water.temp[vert.top])
+		o2_piston_velocity(air.wind, top_water.temp)
 	}
 	
-	flux(out, layer.water.o2[vert.top], [k g, day-1], "Precipitation O₂") {
+	flux(out, top_water.o2, [k g, day-1], "Precipitation O₂") {
 		precip_saturation := 0.9, # Probably ok estimate? Not extremely important in any case.
 		cnc := precip_saturation*o2_saturation_concentration(air.temp, 0)*o2_mol_mass,
-		air.precip*A[vert.top]*cnc->>
+		air.precip*A_surf*cnc->>
 	}
 	
-	flux(layer.water.o2[vert.top], out,  [k g, day-1], "O₂ gas exchange at surface") {
-		(!ice_ind) * basin.p_vel*(conc(o2[vert.top]) - o2satconc[vert.top])*A[vert.top] ->>
+	flux(top_water.o2, out,  [k g, day-1], "O₂ gas exchange at surface") {
+		(!ice_ind) * basin.p_vel*(conc(top_water.o2) - top_water.o2satconc)*A_surf ->>
 	}
 	
 	option(compute_dic) {
@@ -48,25 +47,25 @@ Authors: Francois Clayer, Magnus Dahler Norling
 		pch4_vel  : property("CH₄ piston velocity")
 		
 		var(basin.pco2_vel, [c m, hr-1]) {
-			co2_piston_velocity(air.wind, layer.water.temp[vert.top])
+			co2_piston_velocity(air.wind, top_water.temp)
 		}
 		
 		var(basin.pch4_vel, [c m, hr-1]) {
-			ch4_piston_velocity(air.wind, layer.water.temp[vert.top])
+			ch4_piston_velocity(air.wind, top_water.temp)
 		}
 	
-		flux(layer.water.co2[vert.top], out, [k g, day-1], "CO₂ gas exchange at surface") {
+		flux(top_water.co2, out, [k g, day-1], "CO₂ gas exchange at surface") {
 			co2_atm_ppm := 450, #Could be parametrized
-			co2_eq := co2_saturation_concentration(layer.water.temp[vert.top], co2_atm_ppm, air.pressure),
+			co2_eq := co2_saturation_concentration(top_water.temp, co2_atm_ppm, air.pressure),
 			
-			(!ice_ind) *  basin.pco2_vel * (conc(layer.water.co2[vert.top]) - co2_eq ) *A[vert.top] ->>	
+			(!ice_ind) *  basin.pco2_vel * (conc(top_water.co2) - co2_eq )*A_surf ->>	
 		}
 		
-		flux(layer.water.ch4[vert.top], out, [k g, day-1], "CH₄ gas exchange at surface") {
+		flux(top_water.ch4, out, [k g, day-1], "CH₄ gas exchange at surface") {
 			ch4_atm_ppm := 2.3, #Could be parametrized
-			ch4_eq := ch4_saturation_concentration(layer.water.temp[vert.top], ch4_atm_ppm, air.pressure),
+			ch4_eq := ch4_saturation_concentration(top_water.temp, ch4_atm_ppm, air.pressure),
 			
-			(!ice_ind) * basin.pch4_vel * (conc(layer.water.ch4[vert.top]) - ch4_eq) * A[vert.top] ->>
+			(!ice_ind) * basin.pch4_vel * (conc(top_water.ch4) - ch4_eq)*A_surf ->>
 		}
 	}
 }
@@ -91,6 +90,8 @@ module("AirSeaGas FPV", version(0, 0, 0),
 	dims : preamble
 ) {
 
+	#TODO: Unify as much as possible with AirSeaGas above
+
 	load("stdlib/seawater.txt", library("Sea oxygen"))
 	load("stdlib/physiochemistry.txt", library("Chemistry"))
 	
@@ -102,7 +103,6 @@ module("AirSeaGas FPV", version(0, 0, 0),
 		o2_piston_velocity(air.wind, layer.water.temp[vert.top])
 	}
 	
-	## TO DO: decide whether to add this in the stdlib together with p_vel for O2.
 	var(basin.pco2_vel, [c m, hr-1]) {
 		wnd := air.wind => [],
 		k_600 := 2.07 + 0.215* (wnd^1.7) => [],
@@ -111,7 +111,6 @@ module("AirSeaGas FPV", version(0, 0, 0),
 		k_600* min(2.5,(schmidt/600)^(-0.666)) => [c m, hr-1]
 	}
 	
-	## TO DO: decide whether to add this in the stdlib together with p_vel for O2.
 	var(basin.pch4_vel, [c m, hr-1]) {
 		wnd := air.wind => [],
 		k_600 := 2.07 + 0.215* (wnd^1.7) => [],

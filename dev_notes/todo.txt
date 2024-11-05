@@ -1,6 +1,9 @@
 
 
 	*** High pri ***
+	
+	
+		par_bool and constant (of type bool) should somehow be interchangably passed as module argument so that the module doesn't need to know how an option argument was declared. Maybe allow using loc as option argument inside modules? That would only be possible for loc's that are passed as module arguments though (but using it for local locs would be nonsense anyway).
 		
 		
 		MobiView
@@ -24,13 +27,6 @@
 			Caused problem when the dissolved flux were to be added to the connection aggregate (lack of index set).
 				Probably also a problem for vert.top etc.
 				It is a bit tricky for the framework to predetermine this.. But there is maybe something like this for graph aggregates already that could be applied here too.
-		
-		
-		Want to be able to declare something like
-			basin.tox.vel_air
-		to get tox_index dependency for the variable without basin.tox being a variable.
-			For now, could make it a variable with @override {1[k g]}, but it is a bit annoying.
-			Didn't we already make this possible? Test it!
 			
 			
 		If a discrete flux goes from something that is @override, it should not be clamped to the value of what it is carrying.

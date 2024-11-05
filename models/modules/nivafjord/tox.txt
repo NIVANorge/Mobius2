@@ -16,15 +16,11 @@ module("NIVAFjord tox air-water", version(0, 0, 1),
 	phys : preamble
 ) {
 """
-TODO: We should be able to unify this with EasyTox.
-TODO: photodegradation (for use with nitrosamines).
+TODO: Would it be possible to unify this with EasyTox?
 """
 	var(air.tox.atmconc, [n g, m-3]) # Input series. In case it isn't declared anywhere else
 	
-	# A bit stupid that we need these: It is to be able to declare things like basin.water.tox.moldiff
-	# and get the correct index set dependency on 'tox'. Ideally we should be able to declare basin.water.tox.moldiff even if basin.water.tox doesn't exist as long as moldiff is a property?
-	var(basin.water, [k g], "Basin water dummy. This is not used either") @override { 1[k g] }
-	var(basin.water.tox, [k g], "Basin contaminant dummy. This is not used") @override { 1[k g] }
+	# This is needed so that the module that computes e.g. vel_air_water knows what temperature to look up.
 	var(basin.water.temp, [deg_c], "Basin surface temperature") { layer.water.temp[vert.top] }
 	
 	par_group("Photo-degradation", tox) {

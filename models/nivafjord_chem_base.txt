@@ -38,7 +38,7 @@ This won't run as its own model, it is just a base for model extension.
 	
 	option(default_airsea) {
 		load("modules/airsea_gas.txt",
-			module("AirSeaGas", air, layer, basin, water, o2, co2, ch4, temp, wind, precip, o2satconc, pressure, loc(basin.ice.indicator), vert, dims, compute_dic)) 
+			module("AirSeaGas", air, basin, water, o2, co2, ch4, temp, wind, precip, o2satconc, pressure, loc(basin.ice.indicator), loc(layer.water[vert.top]), loc(basin.area), compute_dic)) 
 	}
 	
 	load("modules/nivafjord/sediment.txt",

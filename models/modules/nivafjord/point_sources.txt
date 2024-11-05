@@ -55,3 +55,17 @@ This is a module for point source inputs to NIVAFjord.
 	
 	# TODO: What about carbon content of the effluent suspended solids
 }
+
+module("NIVAFjord extraction", version(0, 0, 1),
+	layer : compartment,
+	water : quantity
+) {
+
+	par_group("Extraction", layer) {
+		ext : par_real("Extraction rate", [m 3, day-1], 0, 0, 10000)
+	}
+	
+	flux(layer.water, out, [m 3, day-1], "Layer extraction") {
+		ext
+	}
+}

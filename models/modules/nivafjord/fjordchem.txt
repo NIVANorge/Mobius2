@@ -212,13 +212,13 @@ module("NIVAFjord chemistry", version(0, 0, 5),
 		#NOTE: Use N molar mass instead of NO3 since that is what we track in the model (e.g. DIN is modeled as mg(N)/l)
 		cmol := phyt_cn*conc(water.din)/n_mol_mass->[m mol, m-3],
 		cmol^2 / ((alpha/phyt_cn)^2 + cmol^2)
-	} @no_store
+	} #@no_store
 	
 	var(layer.water.phyt.P_lim, []) {
 		#NOTE: Use P molar mass instead of PO4 since that is what we track in the model
 		cmol := conc(water.phos)/p_mol_mass->[m mol, m-3],
 		cmol^2 / ((alpha/phyt_cp)^2 + cmol^2)
-	} @no_store
+	} #@no_store
 	
 	equi : property("Equilibrium concentration")
 	

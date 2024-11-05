@@ -1,5 +1,5 @@
 
-module("NIVAFjord sediments", version(0, 0, 3),
+module("NIVAFjord sediments", version(0, 0, 4),
 	layer    : compartment,
 	sediment : compartment,
 	water    : quantity,
@@ -28,6 +28,10 @@ module("NIVAFjord sediments", version(0, 0, 3),
 		th       : par_real("Active sediment thickness", [m], 0.1, 0.00001, 1)
 		porosity : par_real("Sediment porosity", [], 0.5, 0, 0.99)
 		resus    : par_real("Resuspension fraction", [], 0.01, 0, 1, "Fraction of settling material that is resuspended")
+	}
+	
+	par_group("Biochemistry") {
+		micr_rel              : par_real("Sediment relative microbial rate", [], 1, 0, 1, "Rate of sediment microbial processes relative to water column rate")
 		ch4_production_scaler : par_real("Sediment CH4 production scaler", [], 0.01, 0, 1, "sediment CH4 production relative to sediment CO2 production")
 		bubble_ch4            : par_real("Bubble CH4 formation coefficient", [day-1], 0.5, 0, 1)
 	}
@@ -60,7 +64,6 @@ module("NIVAFjord sediments", version(0, 0, 3),
 		V := area*dzh,
 		T_avg := heat / (sed_C*sed_rho*area*dzh) -> [deg_c],
 		2*T_avg - T_bot
-		#(T_avg - T_bot/4)*(4/3)
 	} @initial { T_bot } #layer.water.temp } # Or T_bot?
 	
 	flux(layer.water.heat, sediment.heat, [J, day-1], "Water-sediment heat conduction") {
@@ -95,25 +98,23 @@ module("NIVAFjord sediments", version(0, 0, 3),
 	var(sediment.water.oc, [k g], [m g, l-1], "Sediment pore water DOC") @override_conc { sed_doc }
 	
 	
-	# NOTE: In NIVAFjord it is just a reduction in settling, here instead it causes mixing of concentrations. Not sure what is best.
+	# NOTE: In the original NIVAFjord it is just a reduction in settling, here instead it causes mixing of concentrations. Not sure what is best.
 	#   We could also make it independent of the settling (which is more realistic maybe).
 	flux(sediment.sed, layer.water.sed, [k g, day-1], "Sediment resuspension") {  in_flux(sed)*resus ->>  }
 	
-	flux(sediment.sed, out, [k g, day-1], "Sediment burial") {   in_flux(sed)*(1 - resus) ->>   }  # Keep the layer the same thickness by moving down as much as accumulates on top
-	
+	# Keep the layer the same thickness by moving down (removing) the same amount that accumulates on the top
+	flux(sediment.sed, out, [k g, day-1], "Sediment burial") {   in_flux(sed)*(1 - resus) ->>   }  
 	
 	#TODO: Take into account porosity?
 	#  Should sediment processes access pore water instead, and then have slow exchange between pore water and water column?
 	#           Probably unnecessary?
 	
-	#TODO: It is annoying to redo the below formulas for the sediments. Should be possible to unify the code.
-	
 	flux(sediment.sed.oc, out, [k g, day-1], "POC mineralization") {
-		sed.oc*layer.water.min_rat
+		sed.oc*layer.water.min_rat*micr_rel
 	} @no_carry
 	
 	flux(sediment.sed.on, layer.water.din, [k g, day-1], "PON mineralization and nitrification") {
-		sed.on*layer.water.min_rat*n_min
+		sed.on*layer.water.min_rat*micr_rel*n_min
 	}
 	
 	# TODO: Should we assume PO4 formation is O2 limited?
@@ -122,7 +123,7 @@ module("NIVAFjord sediments", version(0, 0, 3),
 	}
 	
 	flux(layer.water.o2, out, [k g, day-1], "O₂ sediment microbial consumption") {
-		mr := layer.water.min_rat,
+		mr := layer.water.min_rat*micr_rel,
 		(sediment.sed.oc)*mr*(o2_mol_mass/c_mol_mass)*O2toC    
 		+ (sediment.sed.on)*mr*n_min*(o2_mol_mass/n_mol_mass)*1.5    # ON -> NH4 -> NO3   #TODO: Should the 1.5 be parametrizable?
 	}
@@ -130,14 +131,14 @@ module("NIVAFjord sediments", version(0, 0, 3),
 	option(compute_dic) {
 		# Simple CO2 release from the sediment = O2 sediment demand
 		flux(out, layer.water.co2, [k g, day-1], "CO₂ sediment microbial production") {
-			mr := layer.water.min_rat,
-			dr := layer.water.denit_rat,
+			mr := layer.water.min_rat*micr_rel,
+			dr := layer.water.denit_rat*micr_rel,
 			(sediment.sed.oc)*(mr + dr)    
 		}
 		
 		# Simple CH4 production in the sediment: fraction scaled to CO2 production
 		flux(out, sediment.sed.ch4, [k g, day-1], "CH4 sediment microbial production") {
-			mr := layer.water.min_rat,
+			mr := layer.water.min_rat*micr_rel,
 			(sediment.sed.oc) * mr * ch4_production_scaler    
 		}
 		
@@ -149,19 +150,18 @@ module("NIVAFjord sediments", version(0, 0, 3),
 			ch4_mol_mass*((0.00247[mol, k g-1] - (0.00004033[mol, k g-1, deg_c-1] * sediment.temp))* (1-(0.2844-0.001775[deg_c-1]*sediment.temp) * (layer.water.salin/58.44)))* (1 + 44.6[m-1] * (layer.z[vert.above])/490)
 		}
 		
-		## Simple CH4 bubble release from the sediment 
+		# Simple CH4 bubble release from the sediment 
 		flux(sediment.sed.ch4, out, [k g, day-1], "CH4 sediment bubbling") {
 			max(0, bubble_ch4*(conc(ch4) - ch4satconc)*sediment.sed) ->>
 		}
 		
-		## Simple CH4 diffusion release from the sediment; Diffusion coefficient from 
+		# Simple CH4 diffusion release from the sediment; Diffusion coefficient from 
 		flux(sediment.sed.ch4, layer.water.ch4, [k g, day-1], "CH4 sediment diffusion release") {
 			# TODO: Use Mobius2 inbuilt unit conversion and use named constants (e.g. is 1000[g, l-1] rho_water?)
 			diff_coeff := (4.18e-11[m 2, s-1, deg_c-1]*sediment.temp + 8.06e-10[m 2, s-1])->[m 2, day-1],
 			diff_coeff  * (conc(sediment.sed.ch4)* 1000[g, l-1] *(porosity)- conc(layer.water.ch4)) * 0.001[k g, g-1] / 0.25 [m] * sediment.area
 		}
 	}
-	
 	
 	flux(sediment.sed.oc, out, [k g, day-1], "POC mineralization by denitrification") {
 		sediment.sed.oc*layer.water.denit_rat
