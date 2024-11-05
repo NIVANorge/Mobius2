@@ -7,6 +7,7 @@ from pyDOE import lhs
 import builtins
 from .plotting import chain_plot
 import datetime
+import pickle as pkl
 
 
 # Note: we can't use multiprocessing for this, only multithreading, since a Model_Application object that is allocated from C++ on one process
@@ -19,7 +20,7 @@ import datetime
 #        return Parallel(n_jobs=-1, verbose=0, backend='threading')(builtins.map(delayed(fn), args))
 
 
-def run_mcmc(app, params, set_params, log_likelihood, burn, steps, walkers, run_timeout=-1, report_interval=-1, plot_file='chains.png') :
+def run_mcmc(app, params, set_params, log_likelihood, burn, steps, walkers, run_timeout=-1, report_interval=-1, plot_file='chains.png', result_file='result.pkl') :
 
 	def ll_fun(params) :
 		
@@ -42,7 +43,7 @@ def run_mcmc(app, params, set_params, log_likelihood, burn, steps, walkers, run_
 	starting_guesses = np.maximum(starting_guesses, mins)
 	starting_guesses = np.minimum(starting_guesses, maxs)
 	
-	mcmc = lmfit.Minimizer(ll_fun, params, nan_policy='omit', kws={'moves':emcee.moves.StretchMove()})
+	mcmc = lmfit.Minimizer(ll_fun, params, nan_policy='omit', kws={'moves':emcee.moves.StretchMove(), 'skip_initial_state_check':True})
 
 	#return mcmc.emcee(params=params, pos=starting_guesses, burn=burn, steps=steps, nwalkers=walkers, workers=Thread_Pool(), float_behavior='posterior') #This doesn't work, no idea why.
 	
@@ -60,7 +61,12 @@ def run_mcmc(app, params, set_params, log_likelihood, burn, steps, walkers, run_
 			reuse_sampler=True
 			steps_left -= use_steps
 			use_steps = min(steps_left, report_interval)
-			chain_plot(result, filename=plot_file)
+			if plot_file :
+				chain_plot(result, filename=plot_file)
+			if result_file :
+				with open(result_file,'wb') as resfile :
+					pkl.dump({'result' : result}, resfile)
+					
 		return result
 			
 	
