@@ -929,10 +929,12 @@ Data_Set::read_from_file(String_View file_name) {
 }
 
 void
-Data_Set::generate_index_data(const std::string &name, const std::string &sub_indexed_to, const std::vector<std::string> &union_of) {
+Data_Set::generate_index_data(const std::string &name, const std::string &identifier, const std::string &sub_indexed_to, const std::vector<std::string> &union_of) {
+	
+	// TODO: If the identifier was not declared in the model (so is "") or there is a conflicting identifier in the data set, this will lead to a problem.
 	
 	// NOTE: We don't check for correctness of sub-indexing vs. union here since we assume this was done by the Model_Application.
-	auto id = index_sets.create_internal(&top_scope, "", name, Decl_Type::index_set);
+	auto id = index_sets.create_internal(&top_scope, identifier, name, Decl_Type::index_set);
 
 	auto set = index_sets[id];
 	
@@ -1420,6 +1422,29 @@ write_quick_select_to_file(Data_Set *data_set, Scope_Writer *writer, Entity_Id s
 }
 
 void
+write_parameter_value(Scope_Writer *writer, Parameter_Value val, Decl_Type decl_type) {
+	char buf[64];
+	switch(decl_type) {
+		case Decl_Type::par_real :
+			writer->write("%.15g ", val.val_real);
+			break;
+		
+		case Decl_Type::par_bool :
+			writer->write("%s ", val.val_boolean ? "true" : "false");
+			break;
+		
+		case Decl_Type::par_int :
+			writer->write("%lld ", (long long)val.val_integer);
+			break;
+		
+		case Decl_Type::par_datetime :
+			val.val_datetime.to_string(buf);
+			writer->write("%s ", buf);
+			break;
+	}
+}
+
+void
 write_parameter_to_file(Data_Set *data_set, Scope_Writer *writer, Entity_Id parameter_id) {
 	
 	auto par = data_set->parameters[parameter_id];
@@ -1435,53 +1460,50 @@ write_parameter_to_file(Data_Set *data_set, Scope_Writer *writer, Entity_Id para
 		
 	} else if(!par->is_on_map_form) {
 	
-		int n_dims = std::max(1, (int)par_group->index_sets.size());
-		bool multiline = n_dims > 1;
-		if(!multiline) writer->newline();
-		writer->open_scope('[', multiline);
-		
 		int expect_count = data_set->index_data.get_instance_count(par_group->index_sets);
-		if(expect_count != par->get_count())
-			fatal_error(Mobius_Error::internal, "Somehow we have a data set where a parameter \"", par->name, "\" has a value array that is not sized correctly wrt. its index set dependencies.");
 		
-		int offset = 0;
-		data_set->index_data.for_each(par_group->index_sets,
-			[&](Indexes &indexes) {
-				
-				int val_idx = offset++;
-				if(par->decl_type == Decl_Type::par_enum) {
-					writer->write("%s ", par->values_enum[val_idx].data());
-				} else {
-					Parameter_Value val = par->values[val_idx];
-					char buf[64];
-					switch(par->decl_type) {
-						case Decl_Type::par_real :
-							writer->write("%.15g ", val.val_real);
-							break;
-						
-						case Decl_Type::par_bool :
-							writer->write("%s ", val.val_boolean ? "true" : "false");
-							break;
-						
-						case Decl_Type::par_int :
-							writer->write("%lld ", (long long)val.val_integer);
-							break;
-						
-						case Decl_Type::par_datetime :
-							val.val_datetime.to_string(buf);
-							writer->write("%s ", buf);
-							break;
-					}
+		if(expect_count == par->get_count()) {
+			
+			int n_dims = std::max(1, (int)par_group->index_sets.size());
+			bool multiline = n_dims > 1;
+			if(!multiline) writer->newline();
+			writer->open_scope('[', multiline);
+			
+			int offset = 0;
+			data_set->index_data.for_each(par_group->index_sets,
+				[&](Indexes &indexes) {
+					
+					int val_idx = offset++;
+					if(par->decl_type == Decl_Type::par_enum)
+						writer->write("%s ", par->values_enum[val_idx].c_str());
+					else
+						write_parameter_value(writer, par->values[val_idx], par->decl_type);
+				},
+				[&](int pos) {
+					if(multiline && (offset > 0) && (pos == n_dims-1))
+						writer->newline();
 				}
-			},
-			[&](int pos) {
-				if(multiline && (offset > 0) && (pos == n_dims-1))
-					writer->newline();
+			);
+			if(multiline)
+				writer->newline();
+			writer->close_scope();
+		} else {
+			//fatal_error(Mobius_Error::internal, "Somehow we have a data set where a parameter \"", par->name, "\" has a value array that is not sized correctly wrt. its index set dependencies.");
+			
+			// NOTE: This can legitimately happen if this comes from a module that was not loaded, hence it would not have triggered an error on load if it was not resized properly after an index count change.
+			// Instead of trying to write it out formatted, just write it as a list, but don't delete it.
+			// The reason to do this is to allow the user to deal with the error later if they re-enable the module (and not just decide for them that this data should be discarded).
+			// Alternatively we could do a post-load check on the data set if the parameter count is correct, not just when building a model application with it in order to rule out ill-formed data sets whatsoever?
+			writer->open_scope('[', false);
+			if(par->decl_type == Decl_Type::par_enum) {
+				for(auto &val : par->values_enum)
+					writer->write("%s ", val.c_str());
+			} else {
+				for(auto val : par->values)
+					write_parameter_value(writer, val, par->decl_type);
 			}
-		);
-		if(multiline)
-			writer->newline();
-		writer->close_scope();
+			writer->close_scope();
+		}
 	} else {
 		writer->open_scope('!');
 		

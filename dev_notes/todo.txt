@@ -1,23 +1,10 @@
 
 
 	*** High pri ***
-	
-	
-		par_bool and constant (of type bool) should somehow be interchangably passed as module argument so that the module doesn't need to know how an option argument was declared. Maybe allow using loc as option argument inside modules? That would only be possible for loc's that are passed as module arguments though (but using it for local locs would be nonsense anyway).
 		
 		
-		MobiView
-			If the plot x axis was set to nonsense since the first selected series was entirely NaN, it won't be fixed by selecting a non-NaN series.
-				Should not be considered as was_auto_resized if it was entirely NaN, so that the autoresize can trigger again.
-			If the parameter search is already selected, it doesn't react to clicks.
-			
-			We could allow editing option_group parameters in MobiView (use the same recompile system as for constant parameters).
-		
-		Dataset no longer checks if the correct amount of parameter values were provided?
-			May be intentional, but then it breaks when saving it again.
-			I think this only happens for a parameter group that is not used by the model. Then when it tries to save it, there is a problem.
-		Dataset doesn't generate identifier for generated index set, and hence par_groups that refer to it are formatted incorrectly.
-			Default to use same as in the model?
+		We need a way to make it easier to refactor parameter declarations without breaking existing data files.
+			Both in terms of changing parameter name and in terms of what group/module they are in.
 		
 		Got an (internal) error in the following case
 			flux(bnd.water, layer.water[vert.specific]) ...
@@ -27,23 +14,19 @@
 			Caused problem when the dissolved flux were to be added to the connection aggregate (lack of index set).
 				Probably also a problem for vert.top etc.
 				It is a bit tricky for the framework to predetermine this.. But there is maybe something like this for graph aggregates already that could be applied here too.
-			
-			
+		
 		If a discrete flux goes from something that is @override, it should not be clamped to the value of what it is carrying.
 
 		Add forums on github page? (github Discussions)
-
-			
-		There is no guard against loading a library twice into the same scope, instead you get identifier name conflict.
-			Should probably allow it, but ignore the second load.
 		
 
-		Something is broken with airsea, but only in some rare cases .... (has something to do with ice or longwave (?) ).
-			In 07_model it looks like a bad interaction with mixing, numerical instability (why was it not an issue before??).
-			EasyTox still broken.
+		EasyTox setup for Elvåga is broken, looks like a heat balance problem.
+			Could be an airsea problem, but that module works for most other setups.
+			In 07_model there is a bad interaction with mixing, numerical instability, which was also not an issue before. May be related
 		
 		Not including declaration of union index set in data set can create an internal error.
 			wb_index : index_set("Water body") @union(sc, lake)
+			
 			
 		
 
@@ -52,25 +35,18 @@
 			Use options to combine airsea_fpv and airsea_fpv_simple
 				Put them in the main airsea file.
 			
-			Maybe factor out common phyto module for EasyChem and FjordChem.
-			Also airsea_gas (found a difficulty with that earlier, but maybe we could resolve it now?)
+			Factor out common phyto module for EasyChem and FjordChem.
 			
 			Lots of duplication between the different airsea things in general.
-			
-			DIC in nivafjord boundary (but how?)
+				The FPV versions should be able to reuse some of what is there already.
 			
 			NIVAFjord
 			
-				Find a way to unify nivafjord_base and nivafjord_lake_base into one model declaration (using options)
-			
-				Need a complete rethink of horizontal fluxes. They cause too much numerical instability when there is large in/outflow for small layers.
-			
-					There should really be an error if there is an opening to a neighboring basin on a depth below the max depth of that basin.
-				
-					In Varna setup, can merge channel into beloslav to mitigate this a bit?
-						Probably necessary!
+				DIC in nivafjord boundary (when DIC is enabled).
 						
-					Moreover, they need to be proper two-way for the layer switching to work in both ways.
+				Need a complete rethink of horizontal fluxes. They cause too much numerical instability when there is large in/outflow for small layers.
+					There should really be an error if there is an opening to a neighboring basin on a depth below the max depth of that basin.
+					Moreover, they need to be proper two-way for the layer switching to work in both directions.
 				
 				Go to the simpler version from MyLake of parametrizing vertical mixing
 					Mathematically the same, just removes unnecessary parameters
@@ -78,22 +54,18 @@
 					See guide chapter 07
 				
 				Finish biochemistry.
-					Do we need separate NH4? Do we need Si?
-					Sulfate reduction?
-					Zooplankton?
-					
-					Experiment with different phytoplankton formulation.
-					
-				Go over wind mixing again, it seems a bit broken.
-					Issue is that in our model the upper well-mixed layers don't stay entirely well-mixed, so the wind mixing is just spent there.
-				It would eventually be better to formulate mixing in terms of turbulent energy that gets transported (and spent). Then wind is just an input to that, and so is other sources.
+					Relegated to if we need it in an application probably
+						Do we need separate NH4? Do we need Si?
+						Sulfate reduction?
+						Zooplankton?
+						Experiment with different phytoplankton formulation.
 					
 				Should really solve the advection/diffusion equation with Crank-Nicholson.
 					A bit difficult to integrate it into the existing framework.
 				
 			EasyChem + SimplyCNP
 			
-				Figure out how to do effluents.
+				Figure out how to do effluents to not cause concentration problems during low flow.
 							
 				Shading effect on phyto light availability (light should be more like an average in the epilimnion taking into account attenuation).
 					But that would also be problematic since it is quite uneven but the resulting phyto conc isn't.
@@ -182,6 +154,11 @@
 	
 	
 	*** Intermediate-pri ***
+	
+		MobiView
+			We could allow editing option_group parameters in MobiView
+				Use a similar recompile system as for constant parameters.
+				Difference is that you also need to reload the model in this case.
 	
 		Get rid of the idea of aggregating to a *compartment*. Instead, only aggregate to the index set tuple.
 			Difficulties:
@@ -394,6 +371,11 @@
 			Not possible for .specific in code (if we allow that), only if it is the target of a flux.
 		
 	*** Low-pri ****
+	
+		Module arguments that are ruled out by options should not give dev. warnings.
+			(But this is tricky to fix, as otherwise we would have to process these declarations).
+	
+		We could "autobox" locs. I.e. let a parameter be a valid loc argument.
 	
 		Add NetCDF4 i/o
 	

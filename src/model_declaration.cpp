@@ -920,12 +920,19 @@ Connection_Registration::process_declaration(Catalog *catalog) {
 void
 Loc_Registration::process_declaration(Catalog *catalog) {
 
-	match_declaration(decl, {{Arg_Pattern::loc}});
+	int which = match_declaration(decl, {
+		{Arg_Pattern::loc},
+		{Decl_Type::constant},
+	});
 	
 	auto scope = catalog->get_scope(scope_id);
 	auto model = static_cast<Mobius_Model *>(catalog);
 	
-	resolve_loc_decl_argument(model, scope, decl->args[0], *this);
+	if(which == 0) {
+		resolve_loc_decl_argument(model, scope, decl->args[0], *this);
+	} else {
+		this->val_id = scope->resolve_argument(Reg_Type::constant, decl->args[0]);
+	}
 	
 	has_been_processed = true;
 }
@@ -1066,9 +1073,20 @@ should_use_option(Mobius_Model *model, Decl_Scope *scope, Model_Options *options
 	auto find = (*scope)[symbol];
 	if(!find) {
 		arg->source_loc().print_error_header();
-		fatal_error("The identifier '", symbol, "' has not been declared.");
+		fatal_error("The identifier '", symbol, "' has not been declared. Note that only entities of type 'constant', 'par_bool' and 'par_enum' are valid arguments to an option.");
 	}
 	auto id = find->id;
+	
+	// TODO: We should clearer about the fact that using a 'loc' is only valid if it was passed as a load argument to a module.
+	// This is maybe another argument for making a val() declaration type that takes parameters and constants, while loc only takes proper locations?
+	if(id.reg_type == Reg_Type::loc) {
+		auto loc_decl = model->locs[id];
+		if(!is_valid(loc_decl->val_id)) {
+			arg->source_loc().print_error_header();
+			fatal_error("The 'loc' identifier '", symbol, "' does not refer to a parameter or constant.");
+		}
+		id = loc_decl->val_id;
+	}
 	
 	if(id.reg_type == Reg_Type::constant) {
 		auto constant = model->constants[id];

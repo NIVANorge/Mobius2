@@ -2,7 +2,6 @@
 module("AirSeaGas", version(0, 0, 0),
 	air : compartment,
 	basin : compartment,
-	water : quantity,
 	o2 : quantity,
 	co2 : quantity,
 	ch4 : quantity,
@@ -14,7 +13,7 @@ module("AirSeaGas", version(0, 0, 0),
 	ice_ind : loc,
 	top_water : loc,
 	A_surf : loc,
-	compute_dic : par_bool
+	compute_dic : loc
 ) {
 """
 Air-sea gas exchange module (O₂, CO₂, CH₄)

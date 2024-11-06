@@ -199,7 +199,7 @@ Data_Set : Catalog {
 	
 	void read_from_file(String_View file_name);
 	void write_to_file(String_View file_name);
-	void generate_index_data(const std::string &name, const std::string &sub_indexed_to, const std::vector<std::string> &union_of);
+	void generate_index_data(const std::string &name, const std::string &identifier, const std::string &sub_indexed_to, const std::vector<std::string> &union_of);
 	
 	Registry_Base *registry(Reg_Type reg_type);
 	Decl_Scope    *get_scope(Entity_Id scope_id);

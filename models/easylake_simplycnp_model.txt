@@ -6,21 +6,23 @@ model("EasyLake-SimplyCNP") {
 	
 	phyt : quantity("Phytoplankton")
 	o2   : quantity("O₂")
-	chl_a     : property("Chlorophyll-a")
+	o2satconc : property("O₂ saturation concentration")
+	chl_a : property("Chlorophyll-a")
 	
-	#lake_sed : compartment("Lake sediment bed", lake_index)
-	#solve(sol, lake_sed.sed)
+	# Note: co2 and ch4 are not used in this instance, but AirSeaGas takes them as load arguments 
+	# since they are used in other applications of that module.
+	# We could alternatively separate out the DIC module from the O2 module?
+	co2 : quantity("CO₂")
+	ch4 : quantity("CH₄")
 	
-	#unit_conversion(epi.water.sed, lake_sed.sed) { 1/(epi.area - hyp.area) }
-	#unit_conversion(hyp.water.sed, lake_sed.sed) { 1/hyp.area }
-	#unit_conversion(epi.water.phos, lake_sed.sed.phos) { 1/(epi.area - hyp.area) }
+	load("modules/airsea_gas.txt",
+		module("AirSeaGas", "AirSeaGas Lake", air, epi, o2, co2, ch4, temp, wind, precip, o2satconc, pressure, loc(epi.ice.indicator), loc(epi.water), loc(epi.area), loc(constant(false)))
+	) 
 	
 	load("modules/easychem.txt",
 		module("Simple River O₂", river, water, o2, temp),
-		module("EasyChem", air, epi, hyp, water, oc, phyt, o2, din, phos, on, op, ice, sed, temp, precip, sw, wind, indicator, tp, tdp, tn, toc, chl_a, area, om_cnp),
+		module("EasyChem", epi, hyp, water, oc, phyt, o2, din, phos, on, op, sed, temp, sw, tp, tdp, tn, toc, chl_a, o2satconc, area, om_cnp),
 		module("EasyChem-Particulate", air, epi, hyp, water, sed, wind, area, downstream, loc(out)),
 		module("EasyChem-Sediment-Simple-P", epi, hyp, water, phos, area)
-		#module("EasyChem-Particulate", air, epi, hyp, water, sed, wind, area, downstream, loc(lake_sed.sed)),
-		#module("EasyChem-Sediment-P", lake_sed, epi, hyp, water, phos, sed, temp, area)
 	)
 }

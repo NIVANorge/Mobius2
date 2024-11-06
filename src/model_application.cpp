@@ -1006,7 +1006,10 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 				union_of.push_back(model->serialize(ui_id));
 			
 			// TODO: Also do something if it is an edge index set!
-			data_set->generate_index_data(index_set->name, sub_indexed_to, union_of);
+			
+			auto id_scope = model->get_scope(index_set->scope_id);
+			std::string identifier = (*id_scope)[index_set_id];
+			data_set->generate_index_data(index_set->name, identifier, sub_indexed_to, union_of);
 		}
 	}
 	

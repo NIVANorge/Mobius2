@@ -172,7 +172,7 @@ module("NIVAFjord chemistry", version(0, 0, 5),
 	}
 	
 	
-	# In NIVAFjord, particles settle faster when deeper because they have aggregated into larger particles. We could add that.
+	# In the original NIVAFjord, particles settle faster when deeper because they have aggregated into larger particles. We could add that.
 	flux(layer.water.sed, vert, [k g, day-1], "Layer particle settling") {
 		sett_vel * conc(sed) * A[vert.below] ->>
 	}
@@ -238,14 +238,13 @@ module("NIVAFjord chemistry", version(0, 0, 5),
 	} @no_store
 	
 	fix : property("Photosynthetic C fixation")
-	resp : property("Bacterial respiration")
 	
 	var(layer.water.phyt.fix, [k g, day-1]) {
 		phyt_turnover*equi*water ->>
 	}
 	
-	flux(out, layer.water.phyt, [k g, day-1], "Phytoplankton growth") {   fix   }
-	# A bit awkward, had to make these negative in opposite direction in order to get aggregation..
+	flux(out, layer.water.phyt, [k g, day-1], "Phytoplankton growth") {   fix   } @no_store
+	# A bit awkward, had to make these negative in opposite direction in order to get aggregation.. (when they are distributed over multiple phyt types)
 	flux(layer.water.phyt.on, layer.water.din, [k g, day-1], "Phytoplankton growth N uptake") {   -phyt.fix/cn_molar_to_mass_ratio(phyt_cn)   } @no_store
 	flux(layer.water.phyt.op, layer.water.phos, [k g, day-1], "Phytoplankton growth P uptake") {   -phyt.fix/cp_molar_to_mass_ratio(phyt_cp)   } @no_store
 	
@@ -266,29 +265,7 @@ module("NIVAFjord chemistry", version(0, 0, 5),
 	var(layer.water.phyt.chl_a, [m g, l-1], "Phyto chl-a") {   conc(phyt)*chl_a_f->>   }
 	
 	var(layer.water.chl_a, [m g, l-1], "Layer chl-a") {   aggregate(phyt.chl_a)   } # Hmm, only relevant if we have many species of phyto.
-	
-	/*
-	sed_vel : property("Sedimentation velocity")
-	
-	var(layer.water.phyt.sed_vel, [m, day-1], "Phytoplankton sinking velocity") {
-		phyt_eq := q10_adjust(phyt_eq_20, 20[deg_c], temp, phyt_q10) / (chl_a_f->[]),
-		min_sett := 0.1, #Parametrize
-		
-		nut_lim := min(N_lim, P_lim),
-		conc_lim := max(0, (phyt_eq - conc(phyt))/phyt_eq),
-		totlim := 1-min(nut_lim, conc_lim),
-		
-		sett_vel*s_response(totlim, 0, 1, min_sett, 1)->>
-	}
-	
-	flux(layer.water.phyt, vert, [k g, day-1], "Phytoplankton sinking") {
-		conc(phyt)*sed_vel*A[vert.below]->>
-	}
-	
-	flux(layer.water.phyt, sediment.sed, [k g, day-1], "Phytoplankton settling to sediments") {
-		conc(phyt)*sed_vel*sediment.area ->>
-	}
-	*/
+
 	
 	/*
 	var(layer.water.zoo, [k g], [m g, l-1], "Layer zooplankton") @initial_conc { init_zoo }
@@ -350,7 +327,6 @@ module("NIVAFjord chemistry", version(0, 0, 5),
 		sed.op*temp_fac*maxdecomp_20*p_min
 	}
 
-	# How take into account existing oxygen content of DOM?
 	flux(layer.water.o2, out, [k g, day-1], "O₂ microbial consumption") {
 		  (oc + sed.oc)*min_rat*(o2_mol_mass/c_mol_mass)*O2toC   
 		+ (on + sed.on)*min_rat*n_min*(o2_mol_mass/n_mol_mass)*1.5    # ON -> NH4 -> NO3   #TODO: Should the 1.5 be parametrizable?

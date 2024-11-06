@@ -63,7 +63,7 @@ struct
 Loc_Registration : Registration_Base {
 	
 	Specific_Var_Location loc;
-	Entity_Id             val_id = invalid_entity_id;    // One could also pass a parameter or constant as a loc.
+	Entity_Id             val_id = invalid_entity_id;    // One can pass a parameter or constant as a loc.
 	
 	void process_declaration(Catalog *catalog);
 };

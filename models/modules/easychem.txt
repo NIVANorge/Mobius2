@@ -29,7 +29,7 @@ Authors: Magnus D. Norling
 
 
 module("EasyChem", version(0, 0, 5),
-	air    : compartment,
+	#air    : compartment,
 	epi    : compartment,
 	hyp    : compartment,
 	
@@ -41,19 +41,20 @@ module("EasyChem", version(0, 0, 5),
 	phos   : quantity,
 	on     : quantity,
 	op     : quantity,
-	ice    : quantity,
+	#ice    : quantity,
 	sed    : quantity,
 	
 	temp   : property,
-	precip : property,
+	#precip : property,
 	sw     : property,
-	wind   : property,
-	indicator : property,
+	#wind   : property,
+	#indicator : property,
 	tp     : property,
 	tdp    : property,
 	tn     : property,
 	toc    : property,
 	chl_a  : property,
+	o2satconc : property,
 	
 	area   : property,
 	
@@ -118,7 +119,7 @@ Authors: François Clayer, Magnus D. Norling
 	}
 	
 	# These should be passed in so that they are the same entity as in NIVAFjord.
-	p_vel     : property("O₂ piston velocity")
+	#p_vel     : property("O₂ piston velocity")
 	light_lim : property("Light limitation")
 	N_lim     : property("Nitrogen limitation")
 	P_lim     : property("Phosphorus limitation")
@@ -155,28 +156,12 @@ Authors: François Clayer, Magnus D. Norling
 	var(epi.water.sed.op, [k g], "Epilimnion POP") @show_conc(epi.water, [m g, l-1])
 	var(hyp.water.sed.op, [k g], "Hypolimnion POP") @show_conc(hyp.water, [m g, l-1])
 	
-	
-	
 	var(epi.water.phyt, [k g], [m g, l-1], "Epilimnion Phytoplankton")  @initial_conc { init_phyt }
 	var(hyp.water.phyt, [k g], [m g, l-1], "Hypolimnion Phytoplankton") @initial_conc { init_phyt }
 	
-	
-	var(epi.water.p_vel, [c m, hr-1]) {
-		pvel_scaler * o2_piston_velocity(air.wind, temp)
-	}
-	
-	o2sat : property("O₂ saturation concentration")
-	var(epi.water.o2sat, [m g, l-1]) {
-		o2_saturation_concentration(temp, 0)*o2_mol_mass -> [m g, l-1]
-	}
-	
-	flux(out, epi.water.o2, [k g, day-1], "Precipitation O₂") {
-		cnc := 0.9*o2_saturation_concentration(air.temp, 0)*o2_mol_mass -> [m g, l-1],  #Not sure what the fraction should be..
-		air.precip*area*cnc->>
-	}
-	
-	flux(out, epi.water.o2, [k g, day-1], "O₂ gas exchange at surface") {
-		(!ice.indicator) * p_vel*(o2sat - conc(o2))*area ->>
+	# This could maybe be factored into AirSeaGas, but it is a bit tricky.
+	var(epi.water.o2satconc, [m g, l-1]) {
+		o2_saturation_concentration(temp, 0)*o2_mol_mass ->>
 	}
 	
 	o2rate : property("Sediment O₂ consumption rate")
