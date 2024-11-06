@@ -213,8 +213,12 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 				// so that a discrete flux can never overtax its target.
 				
 				Var_Id source_id = app->vars.id_of(var->loc1);
-				auto source_ref = make_state_var_identifier(source_id);
-				instr.code = make_intrinsic_function_call(Value_Type::real, "min", instr.code, source_ref);
+				// Note, if the source is overridden (it has a function to compute its value directly)
+				// we don't care about not overtaxing it as then it is not subject to mass balance.
+				if(!as<State_Var::Type::declared>(app->vars[source_id])->function_tree) {
+					auto source_ref = make_state_var_identifier(source_id);
+					instr.code = make_intrinsic_function_call(Value_Type::real, "min", instr.code, source_ref);
+				}
 			}
 			
 			// TODO: same problem as elsewhere: O(n) operation to look up all fluxes to or from a given state variable.

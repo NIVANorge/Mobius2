@@ -4,7 +4,14 @@
 		
 		
 		We need a way to make it easier to refactor parameter declarations without breaking existing data files.
-			Both in terms of changing parameter name and in terms of what group/module they are in.
+			In the following cases
+				- changing parameter name
+				- changing what group/module they are in.
+			Maybe something like
+				par_real("New name", [], 1) @formerly("Old name")
+			where you could also put a full serialized name in @formerly.
+			Then when doing the load if it doesn't find the parameter in the data set by the new name, it can check if it finds it by the former name.
+			Must also be made to work if the entire module/group is missing from the data set.
 		
 		Got an (internal) error in the following case
 			flux(bnd.water, layer.water[vert.specific]) ...
@@ -15,12 +22,7 @@
 				Probably also a problem for vert.top etc.
 				It is a bit tricky for the framework to predetermine this.. But there is maybe something like this for graph aggregates already that could be applied here too.
 		
-		If a discrete flux goes from something that is @override, it should not be clamped to the value of what it is carrying.
-
 		Add forums on github page? (github Discussions)
-		
-		Not including declaration of union index set in data set can create an internal error. (Doesn't always happen?)
-			wb_index : index_set("Water body") @union(sc, lake)
 			
 		NIVAFjord-simplycnp seems to be randomly slow at Varna setup (can change between reloads of the model)
 			However, when it is slow it still produces correct results!
@@ -33,9 +35,10 @@
 				Put them in the main airsea file.
 			
 			Factor out common phyto module for EasyChem and FjordChem.
+				Would be nice to have the @formerly parameter functionality first (see above) to not break 1000 different data files.
 			
 			Lots of duplication between the different airsea things in general.
-				The FPV versions should be able to reuse some of what is there already.
+				The FPV versions should be able to reuse some of what is in the plain versions.
 			
 			NIVAFjord
 			

@@ -71,6 +71,8 @@ This is a module for transport of microplastic in a single *experimentally contr
 		0 otherwise
 	}
 	
+	############# Hydrology part
+	
 	var(layer.etp_above, [m m, day-1]) {
 		etp[vert.above] + etp_above[vert.above]
 	} @no_store
@@ -134,13 +136,18 @@ This is a module for transport of microplastic in a single *experimentally contr
 	
 	flux(layer.water, vert, [m m, day-1], "Layer water percolation") { perc }
 	
-	
-	
-	#    Need, min saturation (=field capacity), max saturation (=1?)
-	# Also permanent wilting point (etp cutoff).
-	
-	
-	
+	flux(layer.water, vert, [m m, day-1], "Layer capillary flow") {
+		satcap := dz*theta*fcs,
+		speed := 0.01[day-1], #TODO: Parametrize, or formula based on porosity?
+		diff := water[below] - water,
+		dryness := (satcap - water)/satcap,
+		desired := -speed*max(0, diff*dryness),   # Negative since this moves water in the opposite direction (up)
+		# Cut off if no water available below
+		satcap_b := dz[vert.below] * theta[vert.below] * fcs,
+		s_response(water[below], satcap_b, 1.1*satcap_b, 0, desired)
+	}
+
+	####### Microplastic part
 	
 	
 	transp_f : property("Transport size factor")
