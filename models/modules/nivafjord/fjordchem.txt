@@ -74,6 +74,8 @@ module("NIVAFjord chemistry", version(0, 0, 5),
 	sed   : quantity,
 	phyt  : quantity,
 	chl_a : property,
+	tn    : property,
+	tp    : property,
 	temp  : property,
 	salin : property,
 	z     : property,
@@ -144,6 +146,14 @@ module("NIVAFjord chemistry", version(0, 0, 5),
 	var(layer.water.sed.op, [k g], [g, k g-1], "Layer POP") @show_conc(layer.water, [m g, l-1])
 	
 	var(layer.water.sed.on, [k g], [g, k g-1], "Layer PON") @show_conc(layer.water, [m g, l-1])
+	
+	var(layer.water.tn, [m g, l-1], "Layer TN") {
+		conc(din) + conc(on) + conc(sed)*conc(sed.on)->>
+	}
+	
+	var(layer.water.tp, [m g, l-1], "Layer TP") {
+		conc(phos) + conc(op) + conc(sed)*(conc(sed.op) + conc(sed.phos))->>
+	}
 
 	o2sat     : property("O₂ saturation")
 	

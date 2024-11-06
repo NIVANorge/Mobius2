@@ -17,6 +17,8 @@ model("NIVAFjord-SimplyCNP") {
 		op : quantity,
 		temp : property,
 		precip : property,
+		tn : property,
+		tp : property,
 		sol : solver
 	)
 	

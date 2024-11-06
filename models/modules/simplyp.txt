@@ -1,5 +1,5 @@
 
-module("SimplyP", version(0, 6, 0),
+module("SimplyP", version(0, 7, 0),
 	soil    : compartment,
 	gw      : compartment,
 	river   : compartment,
@@ -64,14 +64,16 @@ SimplyP was originally implemented in Python and published as
 
 Jackson-Blake LA, Sample JE, Wade AJ, Helliwell RC, Skeffington RA. 2017. Are our dynamic water quality models too complex? A comparison of a new parsimonious phosphorus model, SimplyP, and INCA-P. Water Resources Research, 53, 5382–5399. [https://doi.org/10.1002/2016WR020132](https://doi.org/10.1002/2016WR020132)
 
-New to version 0.6:
+#### Changelog
+
+0.6 (First Mobius2 version):
 - The model has been ported to Mobius2. Everything is solved as one large coupled ODE system, so transport between land and river and between different river sections is more precise.
 
-New to version 0.4:
+0.4:
 - Landscape units are dynamic and user-specified instead of hardcoded.
 - Sediment and hydrology equations are factored out into separate modules (SimplyQ, SimplySed)
 
-New to version 0.3:
+0.3 (First Mobius1 version):
 - More realistic hydrology.
 
 For reference, here is [the original Python implementation of SimplyP](https://github.com/LeahJB/SimplyP), which is no longer being developed.
@@ -97,6 +99,7 @@ Authors: Leah A. Jackson-Blake, Magnus D. Norling
 	
 	par_group("Groundwater P", gw) {
 		gw_tdp : par_real("Groundwater TDP concentration", [m g, l-1], 0, 0, 10)
+		#gw_type : par_enum("Groundwater TDP computation type", const) { const mass_bal }
 	}
 	
 	par_group("River P", river) {
@@ -150,7 +153,12 @@ Authors: Leah A. Jackson-Blake, Magnus D. Norling
 
 	var(soil.plab.plabconc, [m g, k g-1]) {  plab / m_soil_m2  }
 	
-	var(gw.water.phos, [k g, k m-2], [m g, l-1], "Groundwater DIP") @initial_conc { gw_tdp } @override_conc { gw_tdp }
+	var(gw.water.phos, [k g, k m-2], [m g, l-1], "Groundwater DIP")
+	@initial_conc { gw_tdp }
+	@override_conc { 
+		gw_tdp      #if gw_type.const,
+		#no_override otherwise
+	}
 	
 	var(river.water.phos, [k g], [m g, l-1], "River DIP") @initial_conc { gw_tdp }
 	

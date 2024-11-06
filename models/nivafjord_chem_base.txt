@@ -29,12 +29,14 @@ This won't run as its own model, it is just a base for model extension.
 	co2        : quantity("CO₂")
 	ch4        : quantity("CH₄")
 	chl_a      : property("Chlorophyll-a")
+	tn         : property("Total nitrogen")
+	tp         : property("Total phosphorous")
 	
 	o2satconc : property("O₂ saturation concentration")
 	
 	load("modules/nivafjord/fjordchem.txt",
 		chem_par : preamble("NIVAFjord chemistry rates", fjord_phyt),
-		module("NIVAFjord chemistry", air, layer, sediment, water, o2, co2, ch4, oc, din, on, phos, op, sed, fjord_phyt, chl_a, temp, salinity, z, dz, attn, area, cos_z, sw, o2satconc, vert, chem_par, dims, compute_dic))
+		module("NIVAFjord chemistry", air, layer, sediment, water, o2, co2, ch4, oc, din, on, phos, op, sed, fjord_phyt, chl_a, tn, tp, temp, salinity, z, dz, attn, area, cos_z, sw, o2satconc, vert, chem_par, dims, compute_dic))
 	
 	option(default_airsea) {
 		load("modules/airsea_gas.txt",
