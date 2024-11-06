@@ -19,15 +19,12 @@
 
 		Add forums on github page? (github Discussions)
 		
-
-		EasyTox setup for Elvåga is broken, looks like a heat balance problem.
-			Could be an airsea problem, but that module works for most other setups.
-			In 07_model there is a bad interaction with mixing, numerical instability, which was also not an issue before. May be related
-		
-		Not including declaration of union index set in data set can create an internal error.
+		Not including declaration of union index set in data set can create an internal error. (Doesn't always happen?)
 			wb_index : index_set("Water body") @union(sc, lake)
 			
-			
+		NIVAFjord-simplycnp seems to be randomly slow at Varna setup (can change between reloads of the model)
+			However, when it is slow it still produces correct results!
+			Is this just due to high memory usage / random bad cache behaviour??
 		
 
 		Specific models

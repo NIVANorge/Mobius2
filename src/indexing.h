@@ -79,6 +79,10 @@ Multi_Array_Structure<Handle_T>::get_offset_code(Handle_T handle, Index_Exprs &i
 			return nullptr;
 		}
 		
+		//NOTE: It was not correct to multiply with count of the union member, because what we are actually indexing is the union itself!!
+		// TODO: Clean up this code once we have verified that nothing is broken (get_index doesn't seem to need to pass back the 'actual index set').
+		actual_index_set = index_set;
+		
 		result = make_binop('*', result, make_literal((s64)app->index_data.get_max_count(actual_index_set).index));
 		result = make_binop('+', result, index);
 	}

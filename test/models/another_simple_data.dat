@@ -4,7 +4,8 @@ data_set {
 The doc string
 """
 	
-	i : index_set("I") [ 5 ]
+	i : index_set("I") [ 1 ]
+	j : index_set("J") [ 1 ]
 	
 	par_group("System") {
 		
@@ -13,20 +14,6 @@ The doc string
 		
 		par_datetime("End date") 
 		[ 1990-12-31 ]
-	
-	}
-	
-	module("So simple", version(2, 0, 0)) {
-		
-		par_group("Pars", i) {
-			
-			par_real("T") 
-			[ 0 0 0 0 0 ]
-			
-			par_real("F") 
-			[ 1 2 3 4 5 ]
-		
-		}
 	
 	}
 
