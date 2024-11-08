@@ -6,14 +6,18 @@ model("SimplyTox") {
 	extend("simplyc_model.txt") @exclude(sol : solver)
 	extend("simplysed_model.txt") @exclude(sol : solver)
 	
-	# TODO: Need a way to exclude this when extending..
-	par_group("Solver step size") {
-		solver_h0    : par_real("Solver desired step", [hr], 2, 0.01, 24)
-		solver_rel_h0: par_real("Solver minimal relative step", [], 0.01, 1e-8, 0.1)
-	}
 	
-	# It is in some instances necessary for the user to configure the solver step in this model.
-	sol : solver("Simply solver", inca_dascru, solver_h0, solver_rel_h0)
+	st_config_solver : constant(true) # Can be overridden by extending model if it wants to config differently
+	
+	option(st_config_solver) {
+		par_group("Solver step size") {
+			solver_h0    : par_real("Solver desired step", [hr], 2, 0.01, 24)
+			solver_rel_h0: par_real("Solver minimal relative step", [], 0.01, 1e-8, 0.1)
+		}
+		sol : solver("Simply solver", inca_dascru, solver_h0, solver_rel_h0)
+	} @otherwise {
+		sol : solver("Simply solver", inca_dascru, [2, hr], 0.001)
+	}
 	solve(sol, soil.oc, dsoil.oc, gw.oc, soilair.tox,
 		river_sed.oc, river_sed.water)
 	

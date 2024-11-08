@@ -28,6 +28,7 @@
 			However, when it is slow it still produces correct results!
 			Is this just due to high memory usage / random bad cache behaviour??
 		
+		water_temp_to_heat should just be water_temp_to_heat_conc, then refactor everywhere.
 
 		Specific models
 		

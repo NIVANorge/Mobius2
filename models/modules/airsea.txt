@@ -102,7 +102,8 @@ Authors: Magnus D. Norling
 		(!surf.ice.indicator) * A_surf * net_rad ->>
 	}
 	
-	flux(out, top_water.heat, [J, day-1], "Freeze heating") {  A_surf * surf.ice.energy ->>  }    # Energy used to melt ice instead of heating the water body (or other way around with freezing)
+	# Energy used to melt ice instead of heating the water body (or other way around with freezing)
+	flux(out, top_water.heat, [J, day-1], "Freeze heating") {  A_surf * surf.ice.energy ->>  }    
 	
 	flux(out, top_water.heat, [J, day-1], "Latent heat flux") {
 		l_vap := latent_heat_of_vaporization(top_water.temp),
@@ -114,7 +115,7 @@ Authors: Magnus D. Norling
 	}
 	
 	var(surf.evap, [m m, day-1]) {
-		rho_ref := 1025 [k g, m-3],
+		rho_ref := 1025[k g, m-3],
 		(!surf.ice.indicator) * (air.rho / rho_ref) * chd * air.wind * (s_hum - air.a_hum) ->>
 	}
 	

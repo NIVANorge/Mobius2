@@ -15,8 +15,6 @@ model("Another simple") {
 			p : par_real("P", [], 5)
 		}
 		
-		
-		
 		t : property("Test 1")
 		var(a.t, []) { p }
 		

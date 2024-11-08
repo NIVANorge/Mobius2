@@ -117,7 +117,7 @@ Riley, J. P. & Skirrow, G. Chemical oceanography. 2 edn, Vol. 1 606 (Academic Pr
 	}
 }
 
-library("Sea oxygen") {
+library("Sea oxygen") { # Should be renamed since it includes other gases
 """
 This contains formulas for O₂, CO₂ and CH₄ saturation and surface exchange in sea water. Based on
 

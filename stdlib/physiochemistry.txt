@@ -95,6 +95,7 @@ Reference: Schwarzengack, Gschwend, Imboden, "Environmental organic chemistry" 2
 		0.002*wind + 0.003[m, s-1]
 	}
 	
+	# Hmm, is there a reason to do this differently than we do in Sea oxygen?
 	transfer_velocity_of_CO2_in_water_20C : function(wind : [m, s-1]) {
 		w := wind => [],
 		{
@@ -103,7 +104,6 @@ Reference: Schwarzengack, Gschwend, Imboden, "Environmental organic chemistry" 2
 			(1.64*w - 13.69)*1e-3  otherwise
 		} => [c m, s-1]
 	}
-	
 	
 	load(library("Water utils"))
 	

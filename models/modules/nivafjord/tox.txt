@@ -37,8 +37,8 @@ TODO: Would it be possible to unify this with EasyTox?
 		(!ice_ind) * vaw * (conc(tox[vert.top])->[n g, m-3] - air.tox.atmconc/kaw)*basin.area ->>
 	}
 	
-	flux(layer.water.tox[vert.top], out, [n g, day-1], "Lake contaminant photo-degradation") {
-		opt_c * qy * (f_par / e_par) * sw[vert.top] * tox[vert.top] ->>
+	flux(layer.water.tox, out, [n g, day-1], "Lake contaminant photo-degradation") {
+		opt_c * qy * (f_par / e_par) * sw * tox ->>
 	}
 	
 	flux(out, layer.water.tox[vert.top], [n g, day-1], "Contaminant direct deposition") {
@@ -61,7 +61,7 @@ module("NIVAFjord tox sediment-water", version(0, 0, 1),
 	
 	var(layer.water.tox.moldiff, [m 2, s-1])
 	
-	porosity : constant("Sediment porosity", [], 0.6) #TODO: This should be the same value as for sediments!
+	porosity : constant("Sediment porosity", [], 0.6) #TODO: This should be the same value as for sediments module!
 	
 	var(layer.water.tox.diff_sed, [m 2, s-1]) {
 		moldiff / (1 + 3*(1 + porosity))
@@ -74,4 +74,6 @@ module("NIVAFjord tox sediment-water", version(0, 0, 1),
 	flux(layer.water.oc.tox, sediment.water.oc.tox, [k g, day-1], "Lake-sediment bed diffusive DOC contaminant exchange") {
 		layer.water.tox.diff_sed * sediment.area * (conc(layer.water.oc.tox)*conc(layer.water.oc) - conc(sediment.water.oc.tox)*conc(sediment.water.oc)) / sediment.dz ->>
 	}
+	
+	# TODO: There should be pore water exchange when there is resuspension
 }

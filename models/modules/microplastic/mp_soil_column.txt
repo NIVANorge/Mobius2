@@ -121,22 +121,24 @@ This is a module for transport of microplastic in a single *experimentally contr
 		# Cut percolation off when water saturation goes below field capacity.
 		maxperc := sat_lim*maxrate,
 		# Cut percolation off when water saturation below fills up
-		s_response(water[vert.below], 0.9*maxcap_b, maxcap_b, maxperc, 0)
+		p := s_response(water[vert.below], 0.9*maxcap_b, maxcap_b, maxperc, 0),
 		
-		# TODO: Capillary action when water below is above fc and this layer is below fc?
-		# We could also compute forces on the water, but probably not necessary
-		# https://onlinelibrary.wiley.com/doi/epdf/10.1155/2020/6671479
+		0 if is_at[vert.bottom],
+		p otherwise	
 	}
 	
-	var(layer.water, [m m], "Soil layer pore water") @initial { dz*theta*fcs } 
+	var(layer.water, [m m], "Soil layer pore water") @initial {  dz*theta*fcs  } 
 	
 	flux(out, layer.water[vert.top], [m m, day-1], "Precipitation to soil") {  air.precip  }
 	
-	flux(layer.water, out, [m m, day-1], "Layer water lateral flow") { side }
+	flux(layer.water, out, [m m, day-1], "Layer water lateral flow") {  side  }
 	
-	flux(layer.water, vert, [m m, day-1], "Layer water percolation") { perc }
+	flux(layer.water, vert, [m m, day-1], "Layer water percolation") {  perc  }
 	
 	flux(layer.water, vert, [m m, day-1], "Layer capillary flow") {
+		# We could also compute forces on the water, but probably not necessary
+		# https://onlinelibrary.wiley.com/doi/epdf/10.1155/2020/6671479
+		
 		satcap := dz*theta*fcs,
 		speed := 0.01[day-1], #TODO: Parametrize, or formula based on porosity?
 		diff := water[below] - water,

@@ -12,6 +12,7 @@ This won't run as its own model, it is just a base for model extension.
 	
 	option_group("FjordChem configurations") {
 		compute_dic : par_bool("Compute DIC (CO₂, CH₄)", true)
+		point_sources : par_enum("Point sources type", none) { none constant dynamic }
 		# Eventually we could have other configurations, like include zooplankton, type of phyto module, allow multiple phyto species etc.
 	}
 	
@@ -51,8 +52,22 @@ This won't run as its own model, it is just a base for model extension.
 			module("NIVAFjord boundary chemistry", bnd_layer, water, o2, oc, din, on, phos, op, fjord_phyt, chl_a, temp, salinity, sed, chem_par))
 	}
 	
-	load("modules/nivafjord/point_sources.txt",
-		module("NIVAFjord point sources", layer, water, din, on, phos, sed, oc, o2, heat, temp))
+	option(point_sources.constant) {
+		load("modules/nivafjord/point_sources.txt",
+			module("NIVAFjord point sources", layer, water, din, on, phos, sed, oc, o2, heat, temp))
+	}
+	
+	option(point_sources.dynamic) {
+		
+		psi : index_set("Point source index")
+		ps : compartment("Point source", psi)
+		
+		psc : connection("Point source connection") @directed_graph { ps layer } @no_cycles
+		
+		load("modules/nivafjord/point_sources.txt",
+			module("NIVAFjord dynamic point sources", ps, layer, water, din, on, phos, sed, oc, o2, heat, temp, vert, psc)
+		)
+	}
 	
 	
 	solve(sol, sediment.sed, sediment.heat)

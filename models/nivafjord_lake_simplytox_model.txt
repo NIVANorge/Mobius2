@@ -5,6 +5,9 @@ model("NIVAFjord lake SimplyTox") {
 TODO: Maybe we want a simpler biochemistry model for this one, not the entire NIVAFjord biochemistry...
 """
 	
+	# Don't declare the solver configuration in simplytox because it is already done in NIVAFjord
+	st_config_solver : constant(false)
+	
 	extend("simplytox_model.txt") @exclude(
 		downstream : connection,
 		air : compartment,
@@ -15,6 +18,7 @@ TODO: Maybe we want a simpler biochemistry model for this one, not the entire NI
 		temp : property,
 		precip : property,
 		wind : property,
+		st_config_solver : constant,
 		sol : solver
 	)
 	
