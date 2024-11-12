@@ -49,7 +49,7 @@ cp ../OpenXLSX/external /usr/local/include/OpenXLSX
 
 ## 2. Install LLVM
 
-Run the following commands that installs LLVM 18 (see the [reference page](https://apt.llvm.org/) if needed).
+Run the following commands that install LLVM 18 (see the [reference page](https://apt.llvm.org/) if needed).
 
 ```shell
 wget https://apt.llvm.org/llvm.sh
