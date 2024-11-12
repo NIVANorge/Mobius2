@@ -14,6 +14,28 @@ data_set {
 		]
 	}
 	
+	quick_select("River ionic charge") [!
+		"Ca" : [ "Ca(2+) ionic concentration" "Obs Ca" ]
+		"Mg" : [ "Mg(2+) ionic concentration" "Obs Mg" ]
+		"Na" : [ "Na(+) ionic concentration" "Obs Na" ]
+		"K" : [ "K(+) ionic concentration" "Obs K" ]
+		"SO4" : [ "SO4(2-) ionic concentration" "Obs SO4" ]
+		"Cl" : [ "Cl(-) ionic concentration" "Obs Cl" ]
+		"NO3" : [ "NO3(-) ionic concentration" "Obs NO3" ]
+		"Ca" : [ "Ca(2+) ionic concentration" "Obs Ca" ]
+		"Al" : [ "Al(3+) ionic concentration" "Obs Al3+" ]
+		"H" : [ "H(+) ionic concentration" "Obs H+" ]
+		"TOC charge" : ["Total anionic charge from DOC (triprotic acid) in solution (H2AM, HA2M, A3M)" "OA balance"]
+		"pH" : [ "pH" "Obs Ph" ]
+	]
+	
+	quick_select("Soil exchangeable cations") [!
+		"ECa" : [ "Exchangeable Ca on soil as % of CEC" "Obs  Ca%" ]
+		"EMg" : [ "Exchangeable Mg on soil as % of CEC" "Obs Mg%" ]
+		"ENa" : [ "Exchangeable Na on soil as % of CEC" "Obs Na%" ]
+		"EK" : [ "Exchangeable K on soil as % of CEC" "Obs K%" ]
+	]
+	
 	par_group("System") {
 		
 		par_datetime("Start date") 
