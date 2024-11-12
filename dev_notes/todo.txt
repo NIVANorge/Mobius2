@@ -35,7 +35,7 @@
 			Use options to combine airsea_fpv and airsea_fpv_simple
 				Put them in the main airsea file.
 			
-			Factor out common phyto module for EasyChem and FjordChem.
+			Reuse phytplankton.txt for EasyChem.
 				Would be nice to have the @formerly parameter functionality first (see above) to not break 1000 different data files.
 			
 			Lots of duplication between the different airsea things in general.

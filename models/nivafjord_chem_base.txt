@@ -36,8 +36,12 @@ This won't run as its own model, it is just a base for model extension.
 	o2satconc : property("O₂ saturation concentration")
 	
 	load("modules/nivafjord/fjordchem.txt",
-		chem_par : preamble("NIVAFjord chemistry rates", fjord_phyt),
+		chem_par : preamble("NIVAFjord chemistry rates"),
 		module("NIVAFjord chemistry", air, layer, sediment, water, o2, co2, ch4, oc, din, on, phos, op, sed, fjord_phyt, chl_a, tn, tp, temp, salinity, z, dz, attn, area, cos_z, sw, o2satconc, vert, chem_par, dims, compute_dic))
+		
+	load("modules/plankton.txt",
+		phyt_par : preamble("Phytoplankton parameters", fjord_phyt),
+		module("Phytoplankton", layer, water, fjord_phyt, oc, on, op, o2, din, phos, sed, chl_a, sw, temp, phyt_par))
 	
 	option(default_airsea) {
 		load("modules/airsea_gas.txt",
@@ -49,7 +53,7 @@ This won't run as its own model, it is just a base for model extension.
 	
 	option(has_boundaries) {
 		load("modules/nivafjord/boudary_chem.txt",
-			module("NIVAFjord boundary chemistry", bnd_layer, water, o2, oc, din, on, phos, op, fjord_phyt, chl_a, temp, salinity, sed, chem_par))
+			module("NIVAFjord boundary chemistry", bnd_layer, water, o2, oc, din, on, phos, op, fjord_phyt, chl_a, temp, salinity, sed, chem_par, phyt_par))
 	}
 	
 	option(point_sources.constant) {

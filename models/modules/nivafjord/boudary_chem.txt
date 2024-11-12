@@ -13,7 +13,8 @@ module("NIVAFjord boundary chemistry", version(0, 0, 0),
 	temp : property,
 	salinity : property,
 	sed : quantity,
-	chem_par : preamble
+	chem_par : preamble,
+	phyt_par : preamble,
 ) {
 
 	par_group("Boundary organic matter") {
