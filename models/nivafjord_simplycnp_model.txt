@@ -26,7 +26,8 @@ model("NIVAFjord-SimplyCNP") {
 	edge_layer : compartment("Basin edge layer", basin_idx, e_idx, layer_idx)
 	
 	load("modules/nivafjord/horizontal_fluxes.txt",
-		module("NIVAFjord horizontal fluxes", basin, bnd_basin, layer, bnd_layer, river, edge, edge_layer, water, salt, temp, salinity, flow, rho, pressure, dz, h, horz, vert, dims),
+		module("NIVAFjord horizontal fluxes", basin, bnd_basin, layer, bnd_layer, edge, edge_layer, water, salt, temp, salinity, rho, pressure, dz, h, horz, vert, dims),
+		module("NIVAFjord river inputs", river, layer, water, salt, temp, salinity, rho, flow, horz, vert),
 		module("NIVAFjord simple realignment", basin, layer, water, dz, vert, dims)
 	)
 	

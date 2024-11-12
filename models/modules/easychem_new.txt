@@ -7,7 +7,7 @@ module("Simple River O₂", version(0, 1, 1),
 	temp : property
 ) {
 """
-The purpose of this module is only to provide oxygen inputs to EasyChem and NIVAFjord.
+The purpose of this module is only to provide riverine oxygen inputs to EasyChem and NIVAFjord when they are coupled to a catchment module.
 
 Authors: Magnus D. Norling
 """
@@ -29,7 +29,7 @@ Authors: Magnus D. Norling
 
 
 module("EasyChem", version(0, 0, 6),
-	#air    : compartment,
+
 	epi    : compartment,
 	hyp    : compartment,
 	

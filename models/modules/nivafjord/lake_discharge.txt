@@ -1,13 +1,13 @@
 
 							
 module("NIVAFjord lake discharge", version(0, 0, 1),
-	river : compartment,
+	#river : compartment,
 	basin : compartment,
 	layer : compartment,
 	water : quantity,
-	flow  : property,
+	#flow  : property,
 	dz    : property,
-	river_lake : connection,
+	#river_lake : connection,
 	vert  : connection,
 	dims  : preamble
 ) {
@@ -20,16 +20,8 @@ This is a module that can be used if a NIVAFjord basin is to be treated as a lak
 		rl : par_real("Rating curve linear component", [m 2, s-1], 1, 0.1, 1000) 
 	}
 	
-	# Right now it can only have one lake at the end. Should maybe configure so that you can have multiple lakes..
-	
-	# Note: only discharge to top layer. We could go with the more detailed NIVAFjord approach, but it is probably unnecessary?
-	
-	flux(river.water, layer.water[river_lake.below, vert.top], [m 3, s-1], "River discharge to lake") {
-		river.water.flow
-	}
-	
 	# TODO: more detailed rating curve?
-	
+	# TODO: Possibly connect this up to a downstream river network again?
 	flux(layer.water[vert.top], out, [m 3, s-1], "Lake outlet discharge") {
 		excess := max(0, dz[vert.top] - dz0[vert.top]),
 		rl * excess

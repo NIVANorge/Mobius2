@@ -20,11 +20,12 @@ Authors: Leah A. Jackson-Blake, Magnus D. Norling
 	load("stdlib/basic_math.txt", library("Response"))
 	
 	par_group("DIN universal params") {
-		din_immob_rate   : par_real("Soilwater DIN uptake rate at 20°C", [m, day-1], 0, 0, 0.05, "(name is outdated, should be changed). This represents uptake, immobilisation and denitrification.")
-		din_immob_q10    : par_real("Soilwater DIN uptake rate response to 10°C change (Q10)", [], 1.0, 1.0, 5.0)
+		din_immob_rate   : par_real("Soilwater DIN retention rate at 20°C", [m, day-1], 0, 0, 0.05, "This represents uptake, immobilisation and denitrification.")
+			@formerly("SimplyN\DIN universal params\Soilwater DIN uptake rate at 20°C") #NOTE: For compatibility with older data files.
+		din_immob_q10    : par_real("Soilwater DIN retention rate response to 10°C change (Q10)", [], 1.0, 1.0, 5.0)
+			@formerly("SimplyN\DIN universal params\Soilwater DIN uptake rate response to 10°C change (Q10)")
 		gw_conc_type     : par_enum("Groundwater DIN computation type", const) { const soil_avg mass_bal }
 		gw_din_conc      : par_real("Groundwater DIN concentration", [m g, l-1], 0.0, 0.0, 30.0, "Only used if type is const")
-		#gw_din_hl        : par_real("Groundwater DIN half-life", [day], 100, 0, 10000, "Only used if type is mass_bal")
 		reach_denit_rate : par_real("Reach denitrification rate at 20°C", [day-1], 0.0, 0.0, 0.1)
 		reach_denit_q10  : par_real("(Q10) Reach denitrification rate response to 10°C change in temperature", [], 1.0, 1.0, 5.0)
 	}
@@ -49,7 +50,6 @@ Authors: Leah A. Jackson-Blake, Magnus D. Norling
 	}
 	
 	flux(soil.sn, soil.water.din, [k g, k m-2, day-1], "Fertilizer DIN release") {
-		#soil.sn * fert_rel * soil.water ->>
 		soil.sn * fert_rel * in_flux(soil.water) ->>
 	}
 	

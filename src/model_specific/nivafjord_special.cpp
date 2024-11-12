@@ -3,11 +3,13 @@
 
 
 extern "C" DLLEXPORT void
-nivafjord_place_river_flux(Value_Access *target_out, Value_Access *density_river, Value_Access *densities_target) {
+nivafjord_place_river_flux(Value_Access *target_out, Value_Access *density_river, Value_Access *max_layer, Value_Access *densities_target) {
 	double dens0 = density_river->at(0);
 	int closest = 0;
 	
-	for(int layer = 0; layer < densities_target->count; ++layer) {
+	int maxd = std::min((int)max_layer->at(0), (int)densities_target->count);
+	
+	for(int layer = 0; layer < maxd; ++layer) {
 		if(dens0 <= densities_target->at(layer)) break;
 		closest = layer;
 	}

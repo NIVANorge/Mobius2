@@ -1,17 +1,77 @@
 
+
+module("NIVAFjord river inputs", version(0, 0, 0),
+	river : compartment,
+	layer : compartment,
+	water : quantity,
+	salt : quantity,
+	temp : property,
+	salin : property,
+	rho : property,
+	flow : property,
+	horz : connection,
+	vert : connection,
+) {
+	load("stdlib/seawater.txt", library("Seawater"))
+	load("stdlib/physiochemistry.txt", library("Water utils"))
+	
+	par_group("River to fjord") {
+		river_max : par_real("River max discharge layer", [], 10)
+	}
+	
+	vert_target : property("Vertical exchange target")
+	
+	var(river.vert_target, [], "Outlet vertical target")
+	
+	external_computation("Place river horizontal fluxes", "nivafjord_place_river_flux", river) {
+		result(river.vert_target)
+		river.water.rho
+		river_max
+		last(river.water.rho[horz.below]) # This must be 'last' because layer.water.rho must be solved after this instruction.
+	} @allow_connection(river, horz)
+	
+	flux(river.water, layer.water[horz.below, vert.specific], [m 3, s-1], "River discharge to fjord") {
+		flow->>
+	} @specific { river.vert_target }
+
+	# TODO: Could have a SimplyCl module
+	var(river.water.salin, [], "River salinity") {  0  } @no_store
+	
+	var(river.water.salt, [k g], [k g, m-3]) @override_conc {   1e-3*salin*rho_water   }
+	
+	var(river.water.rho, [k g, m-3]) {
+		seawater_pot_dens(temp, salin)
+	}
+}
+
+module("NIVAFjord simplified river inputs", version(0, 0, 0),
+	river : compartment,
+	layer : compartment,
+	water : quantity,
+	flow : property,
+	horz : connection,
+	vert : connection
+) {
+	# We could maybe get rid of this module.
+
+	flux(river.water, layer.water[horz.below, vert.top], [m 3, s-1], "River discharge to lake") {
+		river.water.flow
+	}
+}
+
 module("NIVAFjord horizontal fluxes", version(0, 0, 2),
 	basin  : compartment,
 	bnd_basin : compartment,
 	layer  : compartment,
 	bnd_layer : compartment,
-	river  : compartment,
+	#river  : compartment,
 	edge   : compartment,
 	edge_layer : compartment,
 	water  : quantity,
 	salt   : quantity,
 	temp   : property,
 	salin  : property,
-	flow   : property,
+	#flow   : property,
 	rho    : property,
 	pressure : property,
 	dz     : property,
@@ -38,29 +98,9 @@ This one is for if there is a boundary compartment and river inputs
 	par_group("Fjord horizontal boundary", edge_layer) {
 		w_bnd  : par_real("Boundary width", [m], 0, 0, 10000)
 	}
-
+	
+	
 	vert_target : property("Vertical exchange target")
-	
-	var(river.vert_target, [], "Outlet vertical target")
-	
-	external_computation("Place river horizontal fluxes", "nivafjord_place_river_flux", river) {
-		result(river.vert_target)
-		river.water.rho
-		last(river.water.rho[horz.below]) # This must be 'last' because layer.water.rho must be solved after this instruction.
-	} @allow_connection(river, horz)
-	
-	flux(river.water, layer.water[horz.below, vert.specific], [m 3, s-1], "River discharge to fjord") {
-		flow->>
-	} @specific { river.vert_target }
-
-	# TODO: Could have a SimplyCl module
-	var(river.water.salin, [], "River salinity") {  0  } @no_store
-	
-	var(river.water.salt, [k g], [k g, m-3]) @override_conc {   1e-3*salin*rho_water   }
-	
-	var(river.water.rho, [k g, m-3]) {
-		seawater_pot_dens(temp, salin)
-	}
 	
 	var(edge_layer.vert_target, [], "Fjord layer horizontal exchange vertical target") @no_store
 	

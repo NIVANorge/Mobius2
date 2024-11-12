@@ -112,6 +112,8 @@ Parameter_Registration : Registration_Base {
 	
 	std::vector<std::string> enum_values;
 	
+	std::string former_name;
+	
 	s64 enum_int_value(const std::string &name) {
 		auto find = std::find(enum_values.begin(), enum_values.end(), name);
 		if(find != enum_values.end())

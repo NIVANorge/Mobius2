@@ -519,9 +519,20 @@ read_single_parameter_data(Model_Application *app, Entity_Id par_id, Parameter_D
 	});
 }
 
+void
+gather_former_names(Model_Application *app, std::map<std::string, Entity_Id> &former_names) {
+	auto model = app->model;
+	
+	for(auto par_id : model->parameters) {
+		auto par = model->parameters[par_id];
+		if(!par->former_name.empty())
+			former_names[par->former_name] = par_id;
+	}
+}
+
 
 void
-process_parameters(Model_Application *app, Data_Set *data_set, Entity_Id par_group_data_id, std::vector<u8> &warned_module_already) {
+process_parameters(Model_Application *app, Data_Set *data_set, Entity_Id par_group_data_id, std::vector<u8> &warned_module_already, std::map<std::string, Entity_Id> &former_names) {
 	
 	if(!app->parameter_structure.has_been_set_up)
 		fatal_error(Mobius_Error::internal, "We tried to process parameter data before the parameter structure was set up.");
@@ -557,6 +568,7 @@ process_parameters(Model_Application *app, Data_Set *data_set, Entity_Id par_gro
 	
 	// TODO: Error messages should reference the name of the module template rather than the module maybe.
 	// TODO: We should rethink what is an error and what is a warning here.
+	
 	if(!is_valid(group_id)) {
 		log_print("In ");
 		par_group_data->source_loc.print_log_header();
@@ -575,6 +587,15 @@ process_parameters(Model_Application *app, Data_Set *data_set, Entity_Id par_gro
 		if(par_data->mark_for_deletion) continue;
 		
 		auto par_id = map_id(data_set, model, par_data_id);
+		
+		if(!is_valid(par_id)) {
+			std::string serial = data_set->serialize(par_data_id);
+			auto find = former_names.find(serial);
+			if(find != former_names.end()) {
+				par_id = find->second;
+				log_print("Note: The parameter \"", serial, "\" has been renamed to \"", model->parameters[par_id]->name, "\". This will be automatically updated in the dataset if you save it.\n");
+			}
+		}
 		
 		if(!is_valid(par_id)) {
 			if(module_is_outdated) {
@@ -1068,8 +1089,11 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 	set_up_parameter_structure(&par_group_index_sets);
 	
 	std::vector<u8> warned_module_already(data_set->modules.count());
+	std::map<std::string, Entity_Id> former_names;
+	gather_former_names(this, former_names);
+	
 	for(auto par_group_data_id : data_set->par_groups)
-		process_parameters(this, data_set, par_group_data_id, warned_module_already);
+		process_parameters(this, data_set, par_group_data_id, warned_module_already, former_names);
 	
 	if(data_set->series.count() > 0) {
 		Series_Metadata metadata;

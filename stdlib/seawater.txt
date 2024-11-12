@@ -163,7 +163,7 @@ There are other undocumented sources. This should be updated soon.
 		pCH4*Kh*ch4_mol_mass -> [m g, l-1]
 	}
 	
-	# TODO: Document the source of the below functions! Are they all from the same paper?
+	# TODO: Document the source of the Schmidt number calculations! Are they all from the same paper?
 	
 	schmidt_600 : function(wind : [m, s-1]) {
 		wnd := wind => [],

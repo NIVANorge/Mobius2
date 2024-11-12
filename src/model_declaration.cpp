@@ -327,13 +327,13 @@ Parameter_Registration::process_declaration(Catalog *catalog) {
 			{Token_Type::quoted_string, Decl_Type::unit, token_type, Token_Type::quoted_string},                           // 1
 			{Token_Type::quoted_string, Decl_Type::unit, token_type, token_type, token_type},                              // 2
 			{Token_Type::quoted_string, Decl_Type::unit, token_type, token_type, token_type, Token_Type::quoted_string},   // 3
-		});
+		}, true, 0, true);
 	} else if (decl->type == Decl_Type::par_bool || decl->type == Decl_Type::par_enum) {            // note: min, max values for boolean parameters are redundant.
 		which = match_declaration(decl,
 		{
 			{Token_Type::quoted_string, token_type},                                                      // 0
 			{Token_Type::quoted_string, token_type, Token_Type::quoted_string},                           // 1
-		}, true, -1);
+		}, true, -1, true);
 	} else
 		fatal_error(Mobius_Error::internal, "Got an unrecognized type in parameter declaration processing.");
 
@@ -398,6 +398,22 @@ Parameter_Registration::process_declaration(Catalog *catalog) {
 		default_val.val_integer = default_val_int;
 		min_val.val_integer = 0;
 		max_val.val_integer = (s64)enum_values.size() - 1;
+	}
+	
+	for(auto note : decl->notes) {
+		auto str = note->decl.string_value;
+		if(str == "formerly") {
+			
+			// TODO: Should somehow give an error if this is set on an option_group parameter (as that would not work).
+			
+			match_declaration_base(note, {{Token_Type::quoted_string}}, 0);
+			
+			former_name = single_arg(note, 0)->string_value;
+			
+		} else {
+			note->decl.print_error_header();
+			fatal_error("Unrecognized note type '", str, "' for parameter declaration.");
+		}
 	}
 	
 	has_been_processed = true;

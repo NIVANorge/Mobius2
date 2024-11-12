@@ -2,17 +2,6 @@
 
 	*** High pri ***
 		
-		
-		We need a way to make it easier to refactor parameter declarations without breaking existing data files.
-			In the following cases
-				- changing parameter name
-				- changing what group/module they are in.
-			Maybe something like
-				par_real("New name", [], 1) @formerly("Old name")
-			where you could also put a full serialized name in @formerly.
-			Then when doing the load if it doesn't find the parameter in the data set by the new name, it can check if it finds it by the former name.
-			Must also be made to work if the entire module/group is missing from the data set.
-		
 		Got an (internal) error in the following case
 			flux(bnd.water, layer.water[vert.specific]) ...
 			
@@ -37,6 +26,9 @@
 			
 			Lots of duplication between the different airsea things in general.
 				The FPV versions should be able to reuse some of what is in the plain versions.
+			
+			The combining of phytoplankton module for NIVAFjord and EasyLake does not work that well in the Vansjø setup
+				Due to having made certain assumptions about N and C balance of these. Too much POC and PON from phyto.
 			
 			NIVAFjord
 			

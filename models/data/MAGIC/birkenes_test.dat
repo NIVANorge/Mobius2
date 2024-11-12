@@ -22,10 +22,9 @@ data_set {
 		"SO4" : [ "SO4(2-) ionic concentration" "Obs SO4" ]
 		"Cl" : [ "Cl(-) ionic concentration" "Obs Cl" ]
 		"NO3" : [ "NO3(-) ionic concentration" "Obs NO3" ]
-		"Ca" : [ "Ca(2+) ionic concentration" "Obs Ca" ]
 		"Al" : [ "Al(3+) ionic concentration" "Obs Al3+" ]
 		"H" : [ "H(+) ionic concentration" "Obs H+" ]
-		"TOC charge" : ["Total anionic charge from DOC (triprotic acid) in solution (H2AM, HA2M, A3M)" "OA balance"]
+		"TOC charge" : [ "Total anionic charge from DOC (triprotic acid) in solution (H2AM, HA2M, A3M)" "OA balance" ]
 		"pH" : [ "pH" "Obs Ph" ]
 	]
 	
@@ -50,6 +49,13 @@ data_set {
 		
 		par_real("Relative area") 
 		[ 0.95 0.05 ]
+	
+	}
+	
+	par_group("Solver resolution") {
+		
+		par_real("Solver step size") 
+		[ 0.1 ]
 	
 	}
 	
