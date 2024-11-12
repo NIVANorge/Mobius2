@@ -185,6 +185,10 @@ Catalog::register_single_decl(Decl_Scope *scope, Decl_AST *decl, const std::set<
 void
 Catalog::register_decls_recursive(Decl_Scope *scope, Decl_AST *decl, const std::set<Decl_Type> &allowed_types) {
 	
+	if(decl->type == Decl_Type::library) {
+		fatal_error(Mobius_Error::internal, "Should not get a library to register_decls_recursive.");
+	}
+	
 	register_single_decl(scope, decl, allowed_types);
 	
 	// NOTE: function arguments have the same syntax as decls, but they aren't actually decls.

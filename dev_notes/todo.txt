@@ -36,7 +36,7 @@
 				Put them in the main airsea file.
 			
 			Reuse phytplankton.txt for EasyChem.
-				Would be nice to have the @formerly parameter functionality first (see above) to not break 1000 different data files.
+				A bit annoying due to the basin specific phyto thing.
 			
 			Lots of duplication between the different airsea things in general.
 				The FPV versions should be able to reuse some of what is in the plain versions.

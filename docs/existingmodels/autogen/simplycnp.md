@@ -13,7 +13,7 @@ Since the modules can be dynamically loaded with different arguments, this docum
 
 See the note on [notation](autogen.html#notation).
 
-The file was generated at 2024-09-09 12:02:42.
+The file was generated at 2024-11-12 12:57:15.
 
 ---
 
@@ -40,8 +40,8 @@ Authors: James E. Sample, Leah A. Jackson-Blake, Magnus D. Norling
 | ---- | ------ | ---- |
 | Soil | **soil** | compartment |
 | Groundwater | **gw** | compartment |
-|  | **runoff_target** | loc |
 | River | **river** | compartment |
+|  | **runoff_target** | loc |
 | Water | **water** | quantity |
 | Flow | **flow** | property |
 | Potential evapotranspiration | **pet** | property |
@@ -666,7 +666,7 @@ $$
 
 ## SimplyP
 
-Version: 0.6.0
+Version: 0.7.0
 
 File: [modules/simplyp.txt](https://github.com/NIVANorge/Mobius2/tree/main/models/modules/simplyp.txt)
 
@@ -723,14 +723,16 @@ SimplyP was originally implemented in Python and published as
 
 Jackson-Blake LA, Sample JE, Wade AJ, Helliwell RC, Skeffington RA. 2017. Are our dynamic water quality models too complex? A comparison of a new parsimonious phosphorus model, SimplyP, and INCA-P. Water Resources Research, 53, 5382–5399. [https://doi.org/10.1002/2016WR020132](https://doi.org/10.1002/2016WR020132)
 
-New to version 0.6:
+#### Changelog
+
+0.6 (First Mobius2 version):
 - The model has been ported to Mobius2. Everything is solved as one large coupled ODE system, so transport between land and river and between different river sections is more precise.
 
-New to version 0.4:
+0.4:
 - Landscape units are dynamic and user-specified instead of hardcoded.
 - Sediment and hydrology equations are factored out into separate modules (SimplyQ, SimplySed)
 
-New to version 0.3:
+0.3 (First Mobius1 version):
 - More realistic hydrology.
 
 For reference, here is [the original Python implementation of SimplyP](https://github.com/LeahJB/SimplyP), which is no longer being developed.

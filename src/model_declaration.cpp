@@ -961,13 +961,13 @@ process_load_library_declaration(Mobius_Model *model, Decl_AST *decl, Entity_Id 
 
 void
 load_library(Mobius_Model *model, Entity_Id to_scope, String_View rel_path, String_View load_decl_path, std::string &decl_name, Source_Location load_loc) {
-	
+
 	Entity_Id lib_id = load_top_decl_from_file(model, load_loc, rel_path, load_decl_path, decl_name, Decl_Type::library);
 
 	auto lib = model->libraries[lib_id];
 	
 	if(!lib->has_been_processed && !lib->is_being_processed) {
-		
+				
 		// TODO: This inner part could be put in Registration<Reg_Type::library>::process_declaration maybe, but it is a bit awkward due to pointer invalidation.
 		
 		// To not go into an infinite loop if we have a recursive load, we have to mark this and then skip future loads of it in the same recursive call.
@@ -1032,9 +1032,9 @@ process_load_library_declaration(Mobius_Model *model, Decl_AST *decl, Entity_Id 
 		std::string library_name = single_arg(lib_load_decl, 0)->string_value;
 		
 		auto find_id = model->get_scope(to_scope)->deserialize(library_name, Reg_Type::unrecognized);
-		if(!is_valid(find_id)) // If it doesn't exist, load it
+		if(!is_valid(find_id) || !model->libraries[find_id]->has_been_processed) { // If it doesn't exist or is processed, load it
 			load_library(model, to_scope, file_name, relative_to, library_name, lib_load_decl->source_loc);
-		else if(find_id.reg_type != Reg_Type::library) {
+		} else if(find_id.reg_type != Reg_Type::library) {
 			lib_load_decl->source_loc.print_error_header();
 			fatal_error("Trying to load a library \"", library_name, "\" that is named the same as another non-library entity in the same scope");
 		}
@@ -2109,10 +2109,11 @@ load_model(String_View file_name, Mobius_Config *config, Model_Options *options)
 				}, false);
 			
 			if(which == 0) {
-				// Register inlined load arguments only. The actual load is processed later.
+				// Register inlined load argument declarations only. The actual load is processed later.
 				pre_register_module_loads(model, scope, child, module_loads, extend->normalized_path);
-			} else
+			} else {
 				process_load_library_declaration(model, child, scope->parent_id, file_name);
+			}
 		} else if (child->type == Decl_Type::extend) {
 			// Do nothing. This was handled already.
 		} else if (child->type == Decl_Type::module || child->type == Decl_Type::preamble) {
@@ -2151,8 +2152,13 @@ load_model(String_View file_name, Mobius_Config *config, Model_Options *options)
 	
 	// TODO: Instead do this for all the registries at the end (make a Catalog function for reuse in Data_Set). Then we will also catch missed processing inside modules and libraries.
 	for(auto id : scope->all_ids) {
-		if(!model->find_entity(id)->has_been_processed)
+		auto entity = model->find_entity(id);
+		if(!entity->has_been_processed) {
+			if(entity->decl_type == Decl_Type::library) {
+				error_print("** something went wrong with processing ", entity->name, ".\n");
+			}
 			fatal_error(Mobius_Error::internal, "Failed to process declaration of type ", name(id.reg_type), ".");
+		}
 	}
 	
 	// Special decls that don't cause registrations but instead modify other ones.

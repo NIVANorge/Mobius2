@@ -795,9 +795,9 @@ main() {
 	// TODO: Read these from a file:
 	std::vector<std::vector<const char *>> models = {
 		{"SimplyCNP", "simplycnp_model.txt", "SimplyQ land", "SimplyQ river", "SimplyC land", "SimplyC river", "SimplyN", "SimplyP", "SimplySed"},
-		{"EasyLake", "easylake_simplycnp_model.txt", "EasyLake", "EasyChem", "EasyChem-Particulate"},
+		{"EasyLake", "easylake_simplycnp_model_new.txt", "EasyLake", "Phytoplankton parameters Lake", "Phytoplankton Lake", "EasyChem", "EasyChem-Particulate"},
 		{"NIVAFjord", "nivafjord_simplycnp_model.txt", "NIVAFjord dimensions", "NIVAFjord basin", "NIVAFjord chemistry rates", "NIVAFjord chemistry", "NIVAFjord sediments"},
-		{"Auxiliary", "easylake_simplycnp_model.txt", "Degree-day PET", "HBVSnow", "Simply soil temperature", "RiverTemperature", "Atmospheric", "AirSea Lake", "Simple river TOC", "Organic CNP land", "Simple organic NP"},
+		{"Auxiliary", "easylake_simplycnp_model.txt", "Degree-day PET", "HBVSnow", "Simply soil temperature", "RiverTemperature", "Atmospheric", "AirSea Lake", "AirSeaGas Lake", "Simple river TOC", "Organic CNP land", "Simple organic NP"},
 	};
 	
 	for(int i = 0; i < models.size(); ++i)

@@ -1,6 +1,6 @@
 
 
-preamble("NIVAFjord chemistry rates", version(0, 0, 0)) {
+preamble("NIVAFjord chemistry rates", version(0, 0, 1)) {
 	
 	par_group("Oxygen") {
 		bubble         : par_real("Bubble formation coefficient", [day-1], 0, 0, 1)
@@ -37,7 +37,6 @@ preamble("NIVAFjord chemistry rates", version(0, 0, 0)) {
 
 module("NIVAFjord chemistry", version(0, 0, 5),
 	air   : compartment,
-	#basin : compartment,
 	layer : compartment,
 	sediment : compartment,
 	water : quantity,
@@ -50,8 +49,7 @@ module("NIVAFjord chemistry", version(0, 0, 5),
 	phos  : quantity,
 	op    : quantity,
 	sed   : quantity,
-	phyt  : quantity,
-	chl_a : property,
+	phyt  : quantity, # Only used for attn (shading)
 	tn    : property,
 	tp    : property,
 	temp  : property,
@@ -69,15 +67,17 @@ module("NIVAFjord chemistry", version(0, 0, 5),
 	
 	compute_dic : par_bool,
 ) {
-	#TODO: Would be nice to unify easychem and fjordchem a bit more, maybe some shared code.
-	# Esp. for surface O2 exchange and maybe microbes and phyto (into separate modules).
+"""
+NIVAFjord module for O₂, dissolved nutrients and particles as well as microbial processes.
+
+Authors: Magnus Dahler Norling, François Clayer
+"""
 	
 	par_group("Initial chem", layer) {
 		init_O2  : par_real("Initial O₂ saturation", [], 1, 0, 1)
 		init_DOC : par_real("Initial DOC concentration", [m g, l-1], 0, 0, 100)
 		init_ss  : par_real("Initial suspended sediment concentration", [m g, l-1], 0, 0, 100)
 		init_foc : par_real("Initial particle organic carbon content", [g, k g-1], 0, 0, 1000)
-		#init_zoo : par_real("Initial zooplankton concentration", [m g, l-1], 0.0001, 0, 0.1)
 	}
 	
 	par_group("Light") {
@@ -150,7 +150,7 @@ module("NIVAFjord chemistry", version(0, 0, 5),
 	}
 	
 	
-	# In the original NIVAFjord, particles settle faster when deeper because they have aggregated into larger particles. We could add that.
+	# In the original NIVA fjord model, particles settle faster when deeper because they have aggregated into larger particles. We could add that.
 	flux(layer.water.sed, vert, [k g, day-1], "Layer particle settling") {
 		sett_vel * conc(sed) * A[vert.below] ->>
 	}

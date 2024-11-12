@@ -1,0 +1,32 @@
+
+model("EasyLake-SimplyCNP") {
+	extend("easylake_simplyq_model.txt")
+	
+	extend("simplycnp_model.txt") @exclude(heat : quantity) # To not clash with easylake decls of this
+	
+	phyt : quantity("Phytoplankton")
+	o2   : quantity("O₂")
+	o2satconc : property("O₂ saturation concentration")
+	chl_a : property("Chlorophyll-a")
+	
+	# Note: co2 and ch4 are not used in this instance, but AirSeaGas takes them as load arguments 
+	# since they are used in other applications of that module.
+	# We could alternatively separate out the DIC module from the O2 module?
+	co2 : quantity("CO₂")
+	ch4 : quantity("CH₄")
+	
+	load("modules/airsea_gas.txt",
+		module("AirSeaGas", "AirSeaGas Lake", air, epi, o2, co2, ch4, temp, wind, precip, o2satconc, pressure, loc(epi.ice.indicator), loc(epi.water), loc(epi.area), loc(constant(false)))
+	) 
+	
+	load("modules/easychem_new.txt",
+		module("Simple River O₂", river, water, o2, temp),
+		module("EasyChem", epi, hyp, water, oc, phyt, o2, din, phos, on, op, sed, temp, sw, tp, tdp, tn, toc, chl_a, o2satconc, area, om_cnp, phyt_par_lake),
+		module("EasyChem-Particulate", air, epi, hyp, water, sed, wind, area, downstream, loc(out)),
+		module("EasyChem-Sediment-Simple-P", epi, hyp, water, phos, area)
+	)
+	
+	load("modules/plankton.txt",
+		phyt_par_lake : preamble("Phytoplankton parameters", "Phytoplankton parameters Lake", epi, phyt),
+		module("Phytoplankton", "Phytoplankton Lake", epi, water, phyt, oc, on, op, o2, din, phos, sed, chl_a, sw, temp, phyt_par_lake))
+}

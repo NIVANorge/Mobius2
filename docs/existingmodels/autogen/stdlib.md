@@ -14,7 +14,7 @@ The standard library provides common functions and constants for many models.
 
 See the note on [notation](autogen.html#notation).
 
-The file was generated at 2024-09-09 12:02:42.
+The file was generated at 2024-11-12 12:57:15.
 
 ---
 
@@ -123,7 +123,7 @@ $$
 **hour_angle(day_of_year : day, time_zone : hr, hour_of_day : hr, longitude : °)** = 
 
 $$
-\mathrm{b} = 2\cdot \pi\cdot \frac{\mathrm{day\_of\_year}-81 \mathrm{day}\,}{365 \mathrm{day}\,} \\ \mathrm{eot} = \left(9.87\cdot \mathrm{sin}\left(2\cdot \mathrm{b}\right)-7.53\cdot \mathrm{cos}\left(\mathrm{b}\right)-1.5\cdot \mathrm{sin}\left(\mathrm{b}\right)\Rightarrow \mathrm{hr}\,\right) \\ \mathrm{lsmt} = 15 \mathrm{°}\,\mathrm{hr}^{-1}\,\cdot \mathrm{time\_zone} \\ \mathrm{ast} = \mathrm{hour\_of\_day}+\mathrm{eot}+\left(4 \mathrm{min}\,\mathrm{°}^{-1}\,\cdot \left(\mathrm{lsmt}-\mathrm{longitude}\right)\rightarrow \mathrm{hr}\,\right) \\ \href{stdlib.html#basic}{\mathrm{radians}}\left(15 \mathrm{°}\,\mathrm{hr}^{-1}\,\cdot \left(\mathrm{ast}-12 \mathrm{hr}\,\right)\right)
+\mathrm{b} = 2\cdot \pi\cdot \frac{\mathrm{day\_of\_year}-81 \mathrm{day}\,}{365 \mathrm{day}\,} \\ \mathrm{eot} = \left(9.87\cdot \mathrm{sin}\left(2\cdot \mathrm{b}\right)-7.53\cdot \mathrm{cos}\left(\mathrm{b}\right)-1.5\cdot \mathrm{sin}\left(\mathrm{b}\right)\Rightarrow \mathrm{hr}\,\right) \\ \mathrm{lsmt} = 15 \mathrm{°}\,\mathrm{hr}^{-1}\,\cdot \mathrm{time\_zone} \\ \mathrm{ast} = \mathrm{hour\_of\_day}+\mathrm{eot}+\left(4 \mathrm{min}\,\mathrm{°}^{-1}\,\cdot \left(\mathrm{lsmt}-\mathrm{longitude}\right)\Rightarrow \mathrm{hr}\,\right) \\ \href{stdlib.html#basic}{\mathrm{radians}}\left(15 \mathrm{°}\,\mathrm{hr}^{-1}\,\cdot \left(\mathrm{ast}-12 \mathrm{hr}\,\right)\right)
 $$
 
 **cos_zenith_angle(hour_a, day_of_year : day, latitude : °)** = 
@@ -218,7 +218,7 @@ File: [stdlib/physiochemistry.txt](https://github.com/NIVANorge/Mobius2/tree/mai
 
 ### Description
 
-These are simplified functions for computing properties of freshwater at surface pressure. See the Seawater library for functions that work better in more general cases.
+These are simplified functions for computing properties of freshwater at surface pressure. See the Seawater library for functions that take into account salinity and other factors.
 
 References to be inserted.
 
@@ -311,6 +311,12 @@ $$
 \mathrm{w} = \left(\mathrm{wind}\Rightarrow 1\right) \\ \left(\begin{cases}0.00065 & \text{if}\;\mathrm{w}\leq 4.2 \\ \left(0.79\cdot \mathrm{w}-2.68\right)\cdot 0.001 & \text{if}\;\mathrm{w}\leq 13 \\ \left(1.64\cdot \mathrm{w}-13.69\right)\cdot 0.001 & \text{otherwise}\end{cases}\Rightarrow \mathrm{cm}\,\mathrm{s}^{-1}\,\right)
 $$
 
+**waterside_vel_low_turbulence(T : K, moldiff : m² s⁻¹, wind : m s⁻¹)** = 
+
+$$
+\mathrm{kinvis} = \href{stdlib.html#water-utils}{\mathrm{kinematic\_viscosity\_water}}\left(\mathrm{T}\right) \\ \mathrm{schmidt} = \frac{\mathrm{kinvis}}{\mathrm{moldiff}} \\ \mathrm{asc} = \begin{cases}0.67 & \text{if}\;\mathrm{wind}<4.2 \mathrm{m}\,\mathrm{s}^{-1}\, \\ 0.5 & \text{otherwise}\end{cases} \\ \mathrm{vCO2} = \href{stdlib.html#diffusivity}{\mathrm{transfer\_velocity\_of\_CO2\_in\_water\_20C}}\left(\mathrm{wind}\right) \\ \left(\left(\frac{\mathrm{schmidt}}{600}\right)^{-\mathrm{asc}}\cdot \mathrm{vCO2}\rightarrow \mathrm{m}\,\mathrm{s}^{-1}\,\right)
+$$
+
 ---
 
 ## Chemistry
@@ -332,6 +338,7 @@ This library contains some commonly used molar masses and functions to convert m
 | NO₃ molar mass | **no3_mol_mass** | g mol⁻¹ | 62 |
 | PO₄ molar mass | **po4_mol_mass** | g mol⁻¹ | 94.9714 |
 | Ca molar mass | **ca_mol_mass** | g mol⁻¹ | 40.078 |
+| CH₄ molar mass | **ch4_mol_mass** | g mol⁻¹ | 16.04 |
 
 ### Library functions
 
@@ -584,24 +591,56 @@ File: [stdlib/seawater.txt](https://github.com/NIVANorge/Mobius2/tree/main/stdli
 
 ### Description
 
-This contains formulas for O2 saturation and surface exchange in sea water. Based on
+This contains formulas for O₂, CO₂ and CH₄ saturation and surface exchange in sea water. Based on
 
 R.F. Weiss, The solubility of nitrogen, oxygen and argon in water and seawater, Deep Sea Research and Oceanographic Abstracts, Volume 17, Issue 4, 1970, 721-735, [https://doi.org/10.1016/0011-7471(70)90037-9](https://doi.org/10.1016/0011-7471(70)90037-9).
 
 The implementation is influenced by the one in [SELMA](https://github.com/fabm-model/fabm/tree/master/src/models/selma).
 
+There are other undocumented sources. This should be updated soon.
+
 ### Library functions
 
-**o2_saturation(T : °C, S)** = 
+**o2_saturation_concentration(T : °C, S)** = 
 
 $$
-\mathrm{T\_k} = \left(\left(\mathrm{T}\rightarrow \mathrm{K}\,\right)\Rightarrow 1\right) \\ \mathrm{logsat} = -135.902+\frac{157570}{\mathrm{T\_k}}-\frac{6.64231\cdot 10^{7}}{\mathrm{T\_k}^{2}}+\frac{1.2438\cdot 10^{10}}{\mathrm{T\_k}^{3}}-\frac{8.62195\cdot 10^{11}}{\mathrm{T\_k}^{4}}-\mathrm{S}\cdot \left(0.017674-\frac{10.754}{\mathrm{T\_k}}+\frac{2140.7}{\mathrm{T\_k}^{2}}\right) \\ \left(e^{\mathrm{logsat}}\Rightarrow \mathrm{mmol}\,\mathrm{m}^{-3}\,\right)
+\mathrm{Tk} = \left(\left(\mathrm{T}\rightarrow \mathrm{K}\,\right)\Rightarrow 1\right) \\ \mathrm{logsat} = -135.902+\frac{157570}{\mathrm{Tk}}-\frac{6.64231\cdot 10^{7}}{\mathrm{Tk}^{2}}+\frac{1.2438\cdot 10^{10}}{\mathrm{Tk}^{3}}-\frac{8.62195\cdot 10^{11}}{\mathrm{Tk}^{4}}-\mathrm{S}\cdot \left(0.017674-\frac{10.754}{\mathrm{Tk}}+\frac{2140.7}{\mathrm{Tk}^{2}}\right) \\ \left(e^{\mathrm{logsat}}\Rightarrow \mathrm{mmol}\,\mathrm{m}^{-3}\,\right)
+$$
+
+**co2_saturation_concentration(T : °C, co2_atm_ppm, air_pressure)** = 
+
+$$
+\mathrm{Tk} = \left(\left(\mathrm{T}\rightarrow \mathrm{K}\,\right)\Rightarrow 1\right) \\ \mathrm{log10Kh} = 108.386+0.0198508\cdot \mathrm{Tk}-\frac{6919.53}{\mathrm{Tk}}-40.4515\cdot \mathrm{log}_{10}left(\mathrm{Tk}ight)+\frac{669365}{\mathrm{Tk}^{2}} \\ \mathrm{Kh} = \left(10^{\mathrm{log10Kh}}\Rightarrow \mathrm{mol}\,\mathrm{l}^{-1}\,\mathrm{bar}^{-1}\,\right) \\ \mathrm{pCO2} = \mathrm{co2\_atm\_ppm}\cdot 10^{-6}\cdot \mathrm{air\_pressure} \\ \left(\mathrm{pCO2}\cdot \mathrm{Kh}\cdot \mathrm{c\_mol\_mass}\rightarrow \mathrm{mg}\,\mathrm{l}^{-1}\,\right)
+$$
+
+**ch4_saturation_concentration(T : °C, ch4_atm_ppm, air_pressure)** = 
+
+$$
+\mathrm{Tk} = \left(\left(\mathrm{T}\rightarrow \mathrm{K}\,\right)\Rightarrow 1\right) \\ \mathrm{Kh} = \left(\frac{e^{\frac{-365.183+\frac{18103.7}{\mathrm{Tk}}+49.7554\cdot \mathrm{ln}\left(\mathrm{Tk}\right)-0.000285033\cdot \mathrm{Tk}}{1.9872}}}{55.556}\Rightarrow \mathrm{mol}\,\mathrm{l}^{-1}\,\mathrm{bar}^{-1}\,\right) \\ \mathrm{pCH4} = \mathrm{ch4\_atm\_ppm}\cdot 10^{-6}\cdot \mathrm{air\_pressure} \\ \left(\mathrm{pCH4}\cdot \mathrm{Kh}\cdot \mathrm{ch4\_mol\_mass}\rightarrow \mathrm{mg}\,\mathrm{l}^{-1}\,\right)
+$$
+
+**schmidt_600(wind : m s⁻¹)** = 
+
+$$
+\mathrm{wnd} = \left(\mathrm{wind}\Rightarrow 1\right) \\ 2.07+0.215\cdot \mathrm{wnd}^{1.7}
 $$
 
 **o2_piston_velocity(wind : m s⁻¹, temp : °C)** = 
 
 $$
-\mathrm{wnd} = \left(\mathrm{wind}\Rightarrow 1\right) \\ \mathrm{T} = \left(\mathrm{temp}\Rightarrow 1\right) \\ \mathrm{k\_600} = 2.07+0.215\cdot \mathrm{wnd}^{1.7} \\ \mathrm{schmidt} = 1800.6-120.1\cdot \mathrm{T}+3.7818\cdot \mathrm{T}^{2}-0.047608\cdot \mathrm{T}^{3} \\ \left(\mathrm{k\_600}\cdot \left(\frac{\mathrm{schmidt}}{600}\right)^{-0.666}\Rightarrow \mathrm{cm}\,\mathrm{hr}^{-1}\,\right)
+\mathrm{T} = \left(\mathrm{temp}\Rightarrow 1\right) \\ \mathrm{k\_600} = \href{stdlib.html#sea-oxygen}{\mathrm{schmidt\_600}}\left(\mathrm{wind}\right) \\ \mathrm{schmidt} = 1800.6-120.1\cdot \mathrm{T}+3.7818\cdot \mathrm{T}^{2}-0.047608\cdot \mathrm{T}^{3} \\ \left(\mathrm{k\_600}\cdot \left(\frac{\mathrm{schmidt}}{600}\right)^{-0.666}\Rightarrow \mathrm{cm}\,\mathrm{hr}^{-1}\,\right)
+$$
+
+**co2_piston_velocity(wind : m s⁻¹, temp : °C)** = 
+
+$$
+\mathrm{T} = \left(\mathrm{temp}\Rightarrow 1\right) \\ \mathrm{k\_600} = \href{stdlib.html#sea-oxygen}{\mathrm{schmidt\_600}}\left(\mathrm{wind}\right) \\ \mathrm{schmidt} = 1923.6-125.06\cdot \mathrm{T}+4.3773\cdot \mathrm{T}^{2}-0.085681\cdot \mathrm{T}^{3}+0.00070284\cdot \mathrm{T}^{4} \\ \left(\mathrm{k\_600}\cdot \mathrm{min}\left(2.5,\, \left(\frac{\mathrm{schmidt}}{600}\right)^{-0.666}\right)\Rightarrow \mathrm{cm}\,\mathrm{hr}^{-1}\,\right)
+$$
+
+**ch4_piston_velocity(wind : m s⁻¹, temp : °C)** = 
+
+$$
+\mathrm{T} = \left(\mathrm{temp}\Rightarrow 1\right) \\ \mathrm{k\_600} = \href{stdlib.html#sea-oxygen}{\mathrm{schmidt\_600}}\left(\mathrm{wind}\right) \\ \mathrm{schmidt} = 1909.4-120.78\cdot \mathrm{T}+4.1555\cdot \mathrm{T}^{2}-0.080578\cdot \mathrm{T}^{3}+0.00065777\cdot \mathrm{T}^{4} \\ \left(\mathrm{k\_600}\cdot \mathrm{min}\left(2.5,\, \left(\frac{\mathrm{schmidt}}{600}\right)^{-0.666}\right)\Rightarrow \mathrm{cm}\,\mathrm{hr}^{-1}\,\right)
 $$
 
 

@@ -13,7 +13,7 @@ Since the modules can be dynamically loaded with different arguments, this docum
 
 See the note on [notation](autogen.html#notation).
 
-The file was generated at 2024-09-09 12:02:42.
+The file was generated at 2024-11-12 12:57:15.
 
 ---
 
@@ -28,14 +28,13 @@ File: [modules/nivafjord/basin.txt](https://github.com/NIVANorge/Mobius2/tree/ma
 | Name | Symbol | Type |
 | ---- | ------ | ---- |
 | Fjord layer | **layer** | compartment |
-| All basins | **all_basins** | index_set |
-| Layer index | **layer_idx** | index_set |
+| All layers | **all_layer** | compartment |
 
 ### Parameters
 
 | Name | Symbol | Unit |  Description |
 | ---- | ------ | ---- |  ----------- |
-| **Layer thickness** | | |  |
+| **Layer thickness** | | | Distributes like: `all_layer` |
 | Stable layer thickness | **dz0** | m |  |
 | **Layer area** | | | Distributes like: `layer` |
 | Layer area | **A** | m² |  |
@@ -82,8 +81,8 @@ Authors: Magnus D. Norling
 | Density | **rho** | property |
 | Basin | **basin** | compartment |
 | Fjord layer | **layer** | compartment |
-| Water | **water** | quantity |
 | Salinity | **salinity** | property |
+| Water | **water** | quantity |
 | Ice formation temperature | **freeze_temp** | property |
 | Salt | **salt** | quantity |
 | Heat energy | **heat** | quantity |
@@ -99,6 +98,12 @@ Authors: Magnus D. Norling
 |  | **ice_ind** | loc |
 | Fjord vertical | **vert** | connection |
 | Shortwave vertical | **sw_vert** | connection |
+
+### Constants
+
+| Name | Symbol | Unit | Value |
+| ---- | ------ | ---- | ----- |
+| Sediment albedo | **sed_alb** |  | 0.3 |
 
 ### Parameters
 
@@ -495,22 +500,16 @@ Unit: J day⁻¹
 Value:
 
 $$
-\left(\mathrm{in\_flux}\left(\mathrm{sw\_vert},\, \mathrm{layer}.\mathrm{water}.\mathrm{heat}\right)\rightarrow \mathrm{J}\,\mathrm{day}^{-1}\,\right)\cdot \left(1-\mathrm{attn}\right)\cdot \frac{\mathrm{A}-\mathrm{A}\lbrack\mathrm{vert}.\mathrm{below}\rbrack}{\mathrm{A}}
+\left(\mathrm{in\_flux}\left(\mathrm{sw\_vert},\, \mathrm{layer}.\mathrm{water}.\mathrm{heat}\right)\rightarrow \mathrm{J}\,\mathrm{day}^{-1}\,\right)\cdot \left(1-\mathrm{attn}\right)\cdot \left(1-\mathrm{sed\_alb}\right)\cdot \frac{\mathrm{A}-\mathrm{A}\lbrack\mathrm{vert}.\mathrm{below}\rbrack}{\mathrm{A}}
 $$
 
 ---
 
 ## NIVAFjord chemistry rates
 
-Version: 0.0.0
+Version: 0.0.1
 
 File: [modules/nivafjord/fjordchem.txt](https://github.com/NIVANorge/Mobius2/tree/main/models/modules/nivafjord/fjordchem.txt)
-
-### External symbols
-
-| Name | Symbol | Type |
-| ---- | ------ | ---- |
-| Fjord phytoplankton | **phyt** | quantity |
 
 ### Parameters
 
@@ -531,16 +530,6 @@ File: [modules/nivafjord/fjordchem.txt](https://github.com/NIVANorge/Mobius2/tre
 | **P desorption / adsorption** | | |  |
 | PO4 sorption coefficient | **k_sorp** | l mg⁻¹ |  |
 | PO4 sorption rate | **r_sorp** | day⁻¹ |  |
-| **Phytoplankton** | | | Distributes like: `fjord_phyt` |
-| Chl-a of phyto at equilibrium | **phyt_eq_20** | mg l⁻¹ | Assuming 20°C and no nutrient or light limitations. |
-| Q10 of Phyto equilibrium | **phyt_q10** |  | Adjustment of rate with 10°C change in temperature |
-| Phytoplankton turnover rate | **phyt_turnover** | day⁻¹ |  |
-| Optimal PAR intensity | **iopt** | W m⁻² |  |
-| Half-saturation for nutrient uptake | **alpha** | mmol m⁻³ |  |
-| Molar C/N ratio in Phytoplankton | **phyt_cn** |  | The default is the Redfield ratio |
-| Molar C/P ratio in Phytoplankton | **phyt_cp** |  | The default is the Redfield ratio |
-| Phytoplankton excretion rate | **excr** | day⁻¹ |  |
-| Chl-a fraction | **chl_a_f** | % | How large a fraction of the phytoplankton mass is chlorophyll a |
 
 ---
 
@@ -550,45 +539,43 @@ Version: 0.0.5
 
 File: [modules/nivafjord/fjordchem.txt](https://github.com/NIVANorge/Mobius2/tree/main/models/modules/nivafjord/fjordchem.txt)
 
+### Description
+
+NIVAFjord module for O₂, dissolved nutrients and particles as well as microbial processes.
+
+Authors: Magnus Dahler Norling, François Clayer
+
 ### External symbols
 
 | Name | Symbol | Type |
 | ---- | ------ | ---- |
 | Atmosphere | **air** | compartment |
+| CO₂ | **co2** | quantity |
 | Cosine of the solar zenith angle | **cos_z** | property |
 | Depth | **z** | property |
-| Basin | **basin** | compartment |
+| O₂ saturation concentration | **o2satconc** | property |
 | Fjord layer | **layer** | compartment |
+| CH₄ | **ch4** | quantity |
 | Fjord sediment | **sediment** | compartment |
 | Organic nitrogen | **on** | quantity |
 | Water | **water** | quantity |
 | O₂ | **o2** | quantity |
-| Inorganic nitrogen | **din** | quantity |
-| Ice | **ice** | quantity |
-| Wind speed | **wind** | property |
 | Temperature | **temp** | property |
 | Organic carbon | **oc** | quantity |
-| Inorganic phosphorous | **phos** | quantity |
+| Nitrate | **din** | quantity |
+| Total nitrogen | **tn** | property |
+| Phosphate | **phos** | quantity |
 | Organic phosphorous | **op** | quantity |
-| Particles | **sed** | quantity |
+| Sediments | **sed** | quantity |
 | Fjord phytoplankton | **phyt** | quantity |
-| Thickness | **dz** | property |
-| Zooplankton | **zoo** | quantity |
-| Attenuation | **attn** | property |
-| Chlorophyll-a | **chl_a** | property |
+| Total phosphorous | **tp** | property |
 | Salinity | **salin** | property |
-| Ice indicator | **indicator** | property |
-| Precipitation | **precip** | property |
+| Thickness | **dz** | property |
+| Attenuation | **attn** | property |
 | Area | **area** | property |
 | Shortwave radiation | **sw** | property |
 | Fjord vertical | **vert** | connection |
-
-### Constants
-
-| Name | Symbol | Unit | Value |
-| ---- | ------ | ---- | ----- |
-| Fraction of PAR in SW radiation | **f_par** |  | 0.45 |
-| Phytoplankton increased death rate from anoxicity | **phyt_death_anox** |  | 10 |
+| Compute DIC (CO₂, CH₄) | **compute_dic** | par_bool |
 
 ### Parameters
 
@@ -597,6 +584,8 @@ File: [modules/nivafjord/fjordchem.txt](https://github.com/NIVANorge/Mobius2/tre
 | **Initial chem** | | | Distributes like: `layer` |
 | Initial O₂ saturation | **init_O2** |  |  |
 | Initial DOC concentration | **init_DOC** | mg l⁻¹ |  |
+| Initial suspended sediment concentration | **init_ss** | mg l⁻¹ |  |
+| Initial particle organic carbon content | **init_foc** | g kg⁻¹ |  |
 | **Light** | | |  |
 | Diffuse attenuation coefficent (clear water) | **attn0** | m⁻¹ |  |
 | Shading factor | **shade_f** | m⁻¹ l mg⁻¹ | Shading provided by suspended particles and DOM |
@@ -616,7 +605,7 @@ Conc. unit: mg l⁻¹
 Initial value (concentration):
 
 $$
-\left(\href{stdlib.html#sea-oxygen}{\mathrm{o2\_saturation}}\left(\mathrm{temp},\, \mathrm{salin}\right)\cdot \mathrm{init\_O2}\cdot \mathrm{o2\_mol\_mass}\rightarrow \mathrm{kg}\,\right)
+\left(\href{stdlib.html#sea-oxygen}{\mathrm{o2\_saturation\_concentration}}\left(\mathrm{temp},\, \mathrm{salin}\right)\cdot \mathrm{init\_O2}\cdot \mathrm{o2\_mol\_mass}\rightarrow \mathrm{kg}\,\right)
 $$
 
 #### **Layer DOC**
@@ -632,6 +621,22 @@ Initial value (concentration):
 $$
 \mathrm{init\_DOC}
 $$
+
+#### **Layer CO₂**
+
+Location: **layer.water.co2**
+
+Unit: kg
+
+Conc. unit: mg l⁻¹
+
+#### **Layer CH₄**
+
+Location: **layer.water.ch4**
+
+Unit: kg
+
+Conc. unit: mg l⁻¹
 
 #### **Layer DIN**
 
@@ -673,6 +678,12 @@ Unit: kg
 
 Conc. unit: mg l⁻¹
 
+Initial value (concentration):
+
+$$
+\mathrm{init\_ss}
+$$
+
 #### **Layer POC**
 
 Location: **layer.water.sed.oc**
@@ -680,6 +691,12 @@ Location: **layer.water.sed.oc**
 Unit: kg
 
 Conc. unit: g kg⁻¹
+
+Initial value (concentration):
+
+$$
+\mathrm{init\_foc}
+$$
 
 #### **Layer PIP**
 
@@ -705,16 +722,28 @@ Unit: kg
 
 Conc. unit: g kg⁻¹
 
-#### **O₂ piston velocity**
+#### **Layer TN**
 
-Location: **basin.p_vel**
+Location: **layer.water.tn**
 
-Unit: cm hr⁻¹
+Unit: mg l⁻¹
 
 Value:
 
 $$
-\href{stdlib.html#sea-oxygen}{\mathrm{o2\_piston\_velocity}}\left(\mathrm{air}.\mathrm{wind},\, \mathrm{layer}.\mathrm{water}.\mathrm{temp}\lbrack\mathrm{vert}.\mathrm{top}\rbrack\right)
+\mathrm{conc}\left(\mathrm{din}\right)+\mathrm{conc}\left(\mathrm{on}\right)+\left(\mathrm{conc}\left(\mathrm{sed}\right)\cdot \mathrm{conc}\left(\mathrm{sed}.\mathrm{on}\right)\rightarrow \mathrm{mg}\,\mathrm{l}^{-1}\,\right)
+$$
+
+#### **Layer TP**
+
+Location: **layer.water.tp**
+
+Unit: mg l⁻¹
+
+Value:
+
+$$
+\mathrm{conc}\left(\mathrm{phos}\right)+\mathrm{conc}\left(\mathrm{op}\right)+\left(\mathrm{conc}\left(\mathrm{sed}\right)\cdot \left(\mathrm{conc}\left(\mathrm{sed}.\mathrm{op}\right)+\mathrm{conc}\left(\mathrm{sed}.\mathrm{phos}\right)\right)\rightarrow \mathrm{mg}\,\mathrm{l}^{-1}\,\right)
 $$
 
 #### **O₂ saturation concentration**
@@ -726,7 +755,7 @@ Unit: mg l⁻¹
 Value:
 
 $$
-\left(\href{stdlib.html#sea-oxygen}{\mathrm{o2\_saturation}}\left(\mathrm{temp},\, \mathrm{salin}\right)\cdot \mathrm{o2\_mol\_mass}\rightarrow \mathrm{mg}\,\mathrm{l}^{-1}\,\right)
+\left(\href{stdlib.html#sea-oxygen}{\mathrm{o2\_saturation\_concentration}}\left(\mathrm{temp},\, \mathrm{salin}\right)\cdot \mathrm{o2\_mol\_mass}\rightarrow \mathrm{mg}\,\mathrm{l}^{-1}\,\right)
 $$
 
 #### **O₂ saturation**
@@ -751,134 +780,6 @@ Value:
 
 $$
 \mathrm{att\_c} = \mathrm{attn0}+\left(\mathrm{conc}\left(\mathrm{sed}\right)+\mathrm{aggregate}\left(\mathrm{conc}\left(\mathrm{phyt}\right)\right)+\mathrm{conc}\left(\mathrm{oc}\right)\right)\cdot \mathrm{shade\_f} \\ \mathrm{cz} = \mathrm{max}\left(0.01,\, \href{stdlib.html#radiation}{\mathrm{refract}}\left(\mathrm{air}.\mathrm{cos\_z},\, \mathrm{refraction\_index\_water}\right)\right) \\ \mathrm{th} = \frac{\mathrm{dz}}{\mathrm{cz}} \\ 1-e^{-\mathrm{att\_c}\cdot \mathrm{th}}
-$$
-
-#### **Layer phytoplankton**
-
-Location: **layer.water.phyt**
-
-Unit: kg
-
-Conc. unit: mg l⁻¹
-
-#### **Phytoplankton C**
-
-Location: **layer.water.phyt.oc**
-
-Unit: kg
-
-Value (concentration):
-
-$$
-1
-$$
-
-#### **Phytoplankton N**
-
-Location: **layer.water.phyt.on**
-
-Unit: kg
-
-Value (concentration):
-
-$$
-\frac{1}{\href{stdlib.html#chemistry}{\mathrm{cn\_molar\_to\_mass\_ratio}}\left(\mathrm{phyt\_cn}\right)}
-$$
-
-#### **Phytoplankton P**
-
-Location: **layer.water.phyt.op**
-
-Unit: kg
-
-Value (concentration):
-
-$$
-\frac{1}{\href{stdlib.html#chemistry}{\mathrm{cp\_molar\_to\_mass\_ratio}}\left(\mathrm{phyt\_cp}\right)}
-$$
-
-#### **Light limitation**
-
-Location: **layer.water.phyt.light_lim**
-
-Unit: 
-
-Value:
-
-$$
-\mathrm{par\_sw} = \mathrm{sw}\cdot \mathrm{f\_par} \\ \mathrm{f} = \frac{\mathrm{par\_sw}}{\mathrm{max}\left(0.5\cdot \mathrm{par\_sw},\, \mathrm{iopt}\right)} \\ \mathrm{f}\cdot e^{1-\mathrm{f}}
-$$
-
-#### **Nitrogen limitation**
-
-Location: **layer.water.phyt.N_lim**
-
-Unit: 
-
-Value:
-
-$$
-\mathrm{cmol} = \left(\mathrm{phyt\_cn}\cdot \frac{\mathrm{conc}\left(\mathrm{water}.\mathrm{din}\right)}{\mathrm{n\_mol\_mass}}\rightarrow \mathrm{mmol}\,\mathrm{m}^{-3}\,\right) \\ \frac{\mathrm{cmol}^{2}}{\left(\frac{\mathrm{alpha}}{\mathrm{phyt\_cn}}\right)^{2}+\mathrm{cmol}^{2}}
-$$
-
-#### **Phosphorus limitation**
-
-Location: **layer.water.phyt.P_lim**
-
-Unit: 
-
-Value:
-
-$$
-\mathrm{cmol} = \left(\frac{\mathrm{conc}\left(\mathrm{water}.\mathrm{phos}\right)}{\mathrm{p\_mol\_mass}}\rightarrow \mathrm{mmol}\,\mathrm{m}^{-3}\,\right) \\ \frac{\mathrm{cmol}^{2}}{\left(\frac{\mathrm{alpha}}{\mathrm{phyt\_cp}}\right)^{2}+\mathrm{cmol}^{2}}
-$$
-
-#### **Phytoplankton equilibrium concentration**
-
-Location: **layer.water.phyt.equi**
-
-Unit: mg l⁻¹
-
-Value:
-
-$$
-\mathrm{phyt\_eq} = \frac{\href{stdlib.html#response}{\mathrm{q10\_adjust}}\left(\mathrm{phyt\_eq\_20},\, 20 \mathrm{°C}\,,\, \mathrm{temp},\, \mathrm{phyt\_q10}\right)}{\left(\mathrm{chl\_a\_f}\rightarrow 1\right)} \\ \mathrm{phyt\_eq}\cdot \mathrm{min}\left(\mathrm{light\_lim},\, \mathrm{min}\left(\mathrm{N\_lim},\, \mathrm{P\_lim}\right)\right)
-$$
-
-#### **Photosynthetic C fixation**
-
-Location: **layer.water.phyt.fix**
-
-Unit: kg day⁻¹
-
-Value:
-
-$$
-\left(\mathrm{phyt\_turnover}\cdot \mathrm{equi}\cdot \mathrm{water}\rightarrow \mathrm{kg}\,\mathrm{day}^{-1}\,\right)
-$$
-
-#### **Phyto chl-a**
-
-Location: **layer.water.phyt.chl_a**
-
-Unit: mg l⁻¹
-
-Value:
-
-$$
-\left(\mathrm{conc}\left(\mathrm{phyt}\right)\cdot \mathrm{chl\_a\_f}\rightarrow \mathrm{mg}\,\mathrm{l}^{-1}\,\right)
-$$
-
-#### **Layer chl-a**
-
-Location: **layer.water.chl_a**
-
-Unit: mg l⁻¹
-
-Value:
-
-$$
-\mathrm{aggregate}\left(\mathrm{phyt}.\mathrm{chl\_a}\right)
 $$
 
 #### **Oxicity factor**
@@ -930,34 +831,6 @@ $$
 $$
 
 ### Fluxes
-
-#### **Precipitation O₂**
-
-Source: out
-
-Target: layer.water.o2[vert.top]
-
-Unit: kg day⁻¹
-
-Value:
-
-$$
-\mathrm{precip\_saturation} = 0.9 \\ \mathrm{cnc} = \mathrm{precip\_saturation}\cdot \href{stdlib.html#sea-oxygen}{\mathrm{o2\_saturation}}\left(\mathrm{air}.\mathrm{temp},\, 0\right)\cdot \mathrm{o2\_mol\_mass} \\ \left(\mathrm{air}.\mathrm{precip}\cdot \mathrm{A}\lbrack\mathrm{vert}.\mathrm{top}\rbrack\cdot \mathrm{cnc}\rightarrow \mathrm{kg}\,\mathrm{day}^{-1}\,\right)
-$$
-
-#### **O₂ gas exchange at surface**
-
-Source: layer.water.o2[vert.top]
-
-Target: out
-
-Unit: kg day⁻¹
-
-Value:
-
-$$
-\left(\;\text{not}\;\mathrm{basin}.\mathrm{ice}.\mathrm{indicator}\cdot \mathrm{basin}.\mathrm{p\_vel}\cdot \left(\mathrm{conc}\left(\mathrm{o2}\lbrack\mathrm{vert}.\mathrm{top}\rbrack\right)-\mathrm{o2satconc}\lbrack\mathrm{vert}.\mathrm{top}\rbrack\right)\cdot \mathrm{A}\lbrack\mathrm{vert}.\mathrm{top}\rbrack\rightarrow \mathrm{kg}\,\mathrm{day}^{-1}\,\right)
-$$
 
 #### **O₂ bubble formation**
 
@@ -1027,118 +900,6 @@ Value:
 
 $$
 \mathrm{diss\_r}\cdot \mathrm{sed}.\mathrm{on}
-$$
-
-#### **Phytoplankton growth**
-
-Source: out
-
-Target: layer.water.phyt
-
-Unit: kg day⁻¹
-
-Value:
-
-$$
-\mathrm{fix}
-$$
-
-#### **Phytoplankton growth N uptake**
-
-Source: layer.water.phyt.on
-
-Target: layer.water.din
-
-Unit: kg day⁻¹
-
-Value:
-
-$$
-\frac{-\mathrm{phyt}.\mathrm{fix}}{\href{stdlib.html#chemistry}{\mathrm{cn\_molar\_to\_mass\_ratio}}\left(\mathrm{phyt\_cn}\right)}
-$$
-
-#### **Phytoplankton growth P uptake**
-
-Source: layer.water.phyt.op
-
-Target: layer.water.phos
-
-Unit: kg day⁻¹
-
-Value:
-
-$$
-\frac{-\mathrm{phyt}.\mathrm{fix}}{\href{stdlib.html#chemistry}{\mathrm{cp\_molar\_to\_mass\_ratio}}\left(\mathrm{phyt\_cp}\right)}
-$$
-
-#### **Phytoplankton C excretion**
-
-Source: layer.water.phyt
-
-Target: layer.water.oc
-
-Unit: kg day⁻¹
-
-Value:
-
-$$
-\mathrm{excr}\cdot \mathrm{phyt}
-$$
-
-#### **Phytoplankton N excretion**
-
-Source: layer.water.phyt.on
-
-Target: layer.water.on
-
-Unit: kg day⁻¹
-
-Value:
-
-$$
-\mathrm{excr}\cdot \mathrm{phyt}.\mathrm{on}
-$$
-
-#### **Phytoplankton P excretion**
-
-Source: layer.water.phyt.op
-
-Target: layer.water.op
-
-Unit: kg day⁻¹
-
-Value:
-
-$$
-\mathrm{excr}\cdot \mathrm{phyt}.\mathrm{op}
-$$
-
-#### **Phytoplankton death**
-
-Source: layer.water.phyt
-
-Target: layer.water.sed
-
-Unit: kg day⁻¹
-
-Value:
-
-$$
-\mathrm{wd} = 0.5 \\ \mathrm{o2\_factor} = \href{stdlib.html#response}{\mathrm{s\_response}}\left(\mathrm{conc}\left(\mathrm{o2}\right),\, \left(1-\mathrm{wd}\right)\cdot \mathrm{ox\_th},\, \left(1+\mathrm{wd}\right)\cdot \mathrm{ox\_th},\, \mathrm{phyt\_death\_anox},\, 1\right) \\ \mathrm{phyt\_turnover}\cdot \mathrm{phyt}\cdot \mathrm{o2\_factor}
-$$
-
-#### **Layer O₂ photosynthesis**
-
-Source: out
-
-Target: layer.water.o2
-
-Unit: kg day⁻¹
-
-Value:
-
-$$
-\mathrm{aggregate}\left(\mathrm{phyt}.\mathrm{fix}\right)\cdot \mathrm{O2toC}\cdot \frac{\mathrm{o2\_mol\_mass}}{\mathrm{c\_mol\_mass}}
 $$
 
 #### **DOC mineralization**
@@ -1239,6 +1000,20 @@ $$
 \left(\mathrm{oc}+\mathrm{sed}.\mathrm{oc}\right)\cdot \mathrm{min\_rat}\cdot \frac{\mathrm{o2\_mol\_mass}}{\mathrm{c\_mol\_mass}}\cdot \mathrm{O2toC}+\left(\mathrm{on}+\mathrm{sed}.\mathrm{on}\right)\cdot \mathrm{min\_rat}\cdot \mathrm{n\_min}\cdot \frac{\mathrm{o2\_mol\_mass}}{\mathrm{n\_mol\_mass}}\cdot 1.5
 $$
 
+#### **Microbial CO2 production**
+
+Source: out
+
+Target: layer.water.co2
+
+Unit: kg day⁻¹
+
+Value:
+
+$$
+\left(\mathrm{oc}+\mathrm{sed}.\mathrm{oc}\right)\cdot \left(\mathrm{min\_rat}+\mathrm{denit\_rat}\right)
+$$
+
 #### **DOC mineralization by denitrification**
 
 Source: layer.water.oc
@@ -1278,7 +1053,7 @@ Unit: kg day⁻¹
 Value:
 
 $$
-\mathrm{bo2} = \left(\mathrm{water}.\mathrm{oc}+\mathrm{water}.\mathrm{sed}.\mathrm{oc}\right)\cdot \mathrm{denit\_rat}\cdot \mathrm{O2toC}\cdot \frac{\mathrm{o2\_mol\_mass}}{\mathrm{c\_mol\_mass}} \\ \mathrm{bo2}\cdot \frac{3}{2}\cdot \frac{\mathrm{n\_mol\_mass}}{\mathrm{o2\_mol\_mass}}
+\mathrm{bo2} = \left(\mathrm{water}.\mathrm{oc}+\mathrm{water}.\mathrm{sed}.\mathrm{oc}\right)\cdot \mathrm{denit\_rat}\cdot \mathrm{O2toC}\cdot \frac{\mathrm{o2\_mol\_mass}}{\mathrm{c\_mol\_mass}} \\ \mathrm{bo2}\cdot 1.5\cdot \frac{\mathrm{n\_mol\_mass}}{\mathrm{o2\_mol\_mass}}
 $$
 
 #### **PO4 adsorption / desorption to particles**
@@ -1299,7 +1074,7 @@ $$
 
 ## NIVAFjord sediments
 
-Version: 0.0.3
+Version: 0.0.4
 
 File: [modules/nivafjord/sediment.txt](https://github.com/NIVANorge/Mobius2/tree/main/models/modules/nivafjord/sediment.txt)
 
@@ -1307,29 +1082,34 @@ File: [modules/nivafjord/sediment.txt](https://github.com/NIVANorge/Mobius2/tree
 
 | Name | Symbol | Type |
 | ---- | ------ | ---- |
+| CO₂ | **co2** | quantity |
+| Depth | **z** | property |
 | Fjord layer | **layer** | compartment |
+| CH₄ | **ch4** | quantity |
 | Fjord sediment | **sediment** | compartment |
 | Organic nitrogen | **on** | quantity |
 | Water | **water** | quantity |
 | O₂ | **o2** | quantity |
-| Particles | **sed** | quantity |
+| Salinity | **salin** | property |
+| Sediments | **sed** | quantity |
 | Temperature | **temp** | property |
 | Organic carbon | **oc** | quantity |
-| Inorganic nitrogen | **din** | quantity |
-| Inorganic phosphorous | **phos** | quantity |
+| Nitrate | **din** | quantity |
+| Phosphate | **phos** | quantity |
 | Organic phosphorous | **op** | quantity |
 | Heat energy | **heat** | quantity |
 | Area | **area** | property |
 | Thickness | **dz** | property |
 | Fjord vertical | **vert** | connection |
+| Compute DIC (CO₂, CH₄) | **compute_dic** | par_bool |
 
 ### Constants
 
 | Name | Symbol | Unit | Value |
 | ---- | ------ | ---- | ----- |
 | Sediment density | **sed_rho** | kg m⁻³ | 2600 |
-| Sediment specific heat capacity | **sed_C** | J kg⁻¹ K⁻¹ | 5000 |
-| Sediment heat conductivity coefficient | **sed_k** | W m⁻¹ K⁻¹ | 20 |
+| Sediment specific heat capacity | **sed_C** | J kg⁻¹ K⁻¹ | 4000 |
+| Sediment heat conductivity coefficient | **sed_k** | W m⁻¹ K⁻¹ | 2.2 |
 | Sediment C/N | **sed_cn** |  | 6.25 |
 | Sediment C/P | **sed_cp** |  | 106 |
 
@@ -1341,14 +1121,31 @@ File: [modules/nivafjord/sediment.txt](https://github.com/NIVANorge/Mobius2/tree
 | Active sediment thickness | **th** | m |  |
 | Sediment porosity | **porosity** |  |  |
 | Resuspension fraction | **resus** |  | Fraction of settling material that is resuspended |
+| **Biochemistry** | | |  |
+| Sediment relative microbial rate | **micr_rel** |  | Rate of sediment microbial processes relative to water column rate |
+| Sediment CH4 production scaler | **ch4_production_scaler** |  | sediment CH4 production relative to sediment CO2 production |
+| Bubble CH4 formation coefficient | **bubble_ch4** | day⁻¹ |  |
 | **Initial chem** | | | Distributes like: `sediment` |
 | Initial sediment C fraction | **init_c** | g kg⁻¹ |  |
 | Initial sediment IP fraction | **init_p** | g kg⁻¹ |  |
+| Sediment pore water DOC concentration | **sed_doc** | mg l⁻¹ |  |
 | **Sediment temperature** | | |  |
 | Thickness of thermally active sediment layer | **dzh** | m |  |
 | Deep sediment temperature | **T_bot** | °C |  |
 
 ### State variables
+
+#### **Active sediment thickness**
+
+Location: **sediment.dz**
+
+Unit: m
+
+Value:
+
+$$
+\mathrm{th}
+$$
 
 #### **Sediment thermal energy**
 
@@ -1377,7 +1174,7 @@ $$
 Initial value:
 
 $$
-\mathrm{layer}.\mathrm{water}.\mathrm{temp}
+\mathrm{T\_bot}
 $$
 
 #### **Sediment area**
@@ -1417,6 +1214,14 @@ Initial value (concentration):
 $$
 \mathrm{init\_c}
 $$
+
+#### **Sediment CH4**
+
+Location: **sediment.sed.ch4**
+
+Unit: kg
+
+Conc. unit: g kg⁻¹
 
 #### **Sediment organic N**
 
@@ -1460,6 +1265,44 @@ $$
 \frac{\mathrm{init\_c}}{\href{stdlib.html#chemistry}{\mathrm{cp\_molar\_to\_mass\_ratio}}\left(\mathrm{sed\_cp}\right)}
 $$
 
+#### **Sediment pore water**
+
+Location: **sediment.water**
+
+Unit: m³
+
+Value:
+
+$$
+\mathrm{area}\cdot \mathrm{th}\cdot \mathrm{porosity}
+$$
+
+#### **Sediment pore water DOC**
+
+Location: **sediment.water.oc**
+
+Unit: kg
+
+Conc. unit: mg l⁻¹
+
+Value (concentration):
+
+$$
+\mathrm{sed\_doc}
+$$
+
+#### **CH4 saturation concentration**
+
+Location: **sediment.sed.ch4satconc**
+
+Unit: g kg⁻¹
+
+Value:
+
+$$
+\mathrm{ch4\_mol\_mass}\cdot \left(0.00247 \mathrm{mol}\,\mathrm{kg}^{-1}\,-4.033\cdot 10^{5} \mathrm{mol}\,\mathrm{kg}^{-1}\,\mathrm{°C}^{-1}\,\cdot \mathrm{sediment}.\mathrm{temp}\right)\cdot \left(1-\left(0.2844-0.001775 \mathrm{°C}^{-1}\,\cdot \mathrm{sediment}.\mathrm{temp}\right)\cdot \frac{\mathrm{layer}.\mathrm{water}.\mathrm{salin}}{58.44}\right)\cdot \left(1+44.6 \mathrm{m}^{-1}\,\cdot \frac{\mathrm{layer}.\mathrm{z}\lbrack\mathrm{vert}.\mathrm{above}\rbrack}{490}\right)
+$$
+
 ### Fluxes
 
 #### **Water-sediment heat conduction**
@@ -1473,7 +1316,7 @@ Unit: J day⁻¹
 Value:
 
 $$
-\mathrm{dz\_} = 0.5\cdot \left(\mathrm{layer}.\mathrm{dz}+\mathrm{dzh}\right) \\ \left(\mathrm{sediment}.\mathrm{area}\cdot \left(\left(\mathrm{layer}.\mathrm{water}.\mathrm{temp}\rightarrow \mathrm{K}\,\right)-\left(\mathrm{sediment}.\mathrm{temp}\rightarrow \mathrm{K}\,\right)\right)\cdot \frac{\mathrm{sed\_k}}{\mathrm{dz\_}}\rightarrow \mathrm{J}\,\mathrm{day}^{-1}\,\right)
+\mathrm{dz\_} = 0.5 \mathrm{m}\, \\ \left(\mathrm{sediment}.\mathrm{area}\cdot \left(\left(\mathrm{layer}.\mathrm{water}.\mathrm{temp}\rightarrow \mathrm{K}\,\right)-\left(\mathrm{sediment}.\mathrm{temp}\rightarrow \mathrm{K}\,\right)\right)\cdot \frac{\mathrm{sed\_k}}{\mathrm{dz\_}}\rightarrow \mathrm{J}\,\mathrm{day}^{-1}\,\right)
 $$
 
 #### **Sediment resuspension**
@@ -1515,7 +1358,7 @@ Unit: kg day⁻¹
 Value:
 
 $$
-\mathrm{sed}.\mathrm{oc}\cdot \mathrm{layer}.\mathrm{water}.\mathrm{min\_rat}
+\mathrm{sed}.\mathrm{oc}\cdot \mathrm{layer}.\mathrm{water}.\mathrm{min\_rat}\cdot \mathrm{micr\_rel}
 $$
 
 #### **PON mineralization and nitrification**
@@ -1529,7 +1372,7 @@ Unit: kg day⁻¹
 Value:
 
 $$
-\mathrm{sed}.\mathrm{on}\cdot \mathrm{layer}.\mathrm{water}.\mathrm{min\_rat}\cdot \mathrm{n\_min}
+\mathrm{sed}.\mathrm{on}\cdot \mathrm{layer}.\mathrm{water}.\mathrm{min\_rat}\cdot \mathrm{micr\_rel}\cdot \mathrm{n\_min}
 $$
 
 #### **POP mineralization**
@@ -1557,7 +1400,63 @@ Unit: kg day⁻¹
 Value:
 
 $$
-\mathrm{mr} = \mathrm{layer}.\mathrm{water}.\mathrm{min\_rat} \\ \mathrm{sediment}.\mathrm{sed}.\mathrm{oc}\cdot \mathrm{mr}\cdot \frac{\mathrm{o2\_mol\_mass}}{\mathrm{c\_mol\_mass}}\cdot \mathrm{O2toC}+\mathrm{sediment}.\mathrm{sed}.\mathrm{on}\cdot \mathrm{mr}\cdot \mathrm{n\_min}\cdot \frac{\mathrm{o2\_mol\_mass}}{\mathrm{n\_mol\_mass}}\cdot 1.5
+\mathrm{mr} = \mathrm{layer}.\mathrm{water}.\mathrm{min\_rat}\cdot \mathrm{micr\_rel} \\ \mathrm{sediment}.\mathrm{sed}.\mathrm{oc}\cdot \mathrm{mr}\cdot \frac{\mathrm{o2\_mol\_mass}}{\mathrm{c\_mol\_mass}}\cdot \mathrm{O2toC}+\mathrm{sediment}.\mathrm{sed}.\mathrm{on}\cdot \mathrm{mr}\cdot \mathrm{n\_min}\cdot \frac{\mathrm{o2\_mol\_mass}}{\mathrm{n\_mol\_mass}}\cdot 1.5
+$$
+
+#### **CO₂ sediment microbial production**
+
+Source: out
+
+Target: layer.water.co2
+
+Unit: kg day⁻¹
+
+Value:
+
+$$
+\mathrm{mr} = \mathrm{layer}.\mathrm{water}.\mathrm{min\_rat}\cdot \mathrm{micr\_rel} \\ \mathrm{dr} = \mathrm{layer}.\mathrm{water}.\mathrm{denit\_rat}\cdot \mathrm{micr\_rel} \\ \mathrm{sediment}.\mathrm{sed}.\mathrm{oc}\cdot \left(\mathrm{mr}+\mathrm{dr}\right)
+$$
+
+#### **CH4 sediment microbial production**
+
+Source: out
+
+Target: sediment.sed.ch4
+
+Unit: kg day⁻¹
+
+Value:
+
+$$
+\mathrm{mr} = \mathrm{layer}.\mathrm{water}.\mathrm{min\_rat}\cdot \mathrm{micr\_rel} \\ \mathrm{sediment}.\mathrm{sed}.\mathrm{oc}\cdot \mathrm{mr}\cdot \mathrm{ch4\_production\_scaler}
+$$
+
+#### **CH4 sediment bubbling**
+
+Source: sediment.sed.ch4
+
+Target: out
+
+Unit: kg day⁻¹
+
+Value:
+
+$$
+\left(\mathrm{max}\left(0,\, \mathrm{bubble\_ch4}\cdot \left(\mathrm{conc}\left(\mathrm{ch4}\right)-\mathrm{ch4satconc}\right)\cdot \mathrm{sediment}.\mathrm{sed}\right)\rightarrow \mathrm{kg}\,\mathrm{day}^{-1}\,\right)
+$$
+
+#### **CH4 sediment diffusion release**
+
+Source: sediment.sed.ch4
+
+Target: layer.water.ch4
+
+Unit: kg day⁻¹
+
+Value:
+
+$$
+\mathrm{diff\_coeff} = \left(4.18\cdot 10^{11} \mathrm{m}^{2}\,\mathrm{s}^{-1}\,\mathrm{°C}^{-1}\,\cdot \mathrm{sediment}.\mathrm{temp}+8.06\cdot 10^{10} \mathrm{m}^{2}\,\mathrm{s}^{-1}\,\rightarrow \mathrm{m}^{2}\,\mathrm{day}^{-1}\,\right) \\ \mathrm{diff\_coeff}\cdot \left(\mathrm{conc}\left(\mathrm{sediment}.\mathrm{sed}.\mathrm{ch4}\right)\cdot 1000 \mathrm{g}\,\mathrm{l}^{-1}\,\cdot \mathrm{porosity}-\mathrm{conc}\left(\mathrm{layer}.\mathrm{water}.\mathrm{ch4}\right)\right)\cdot \frac{0.001 \mathrm{kg}\,\mathrm{g}^{-1}\,}{0.25 \mathrm{m}\,}\cdot \mathrm{sediment}.\mathrm{area}
 $$
 
 #### **POC mineralization by denitrification**

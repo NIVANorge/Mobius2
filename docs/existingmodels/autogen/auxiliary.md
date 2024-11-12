@@ -13,7 +13,7 @@ Since the modules can be dynamically loaded with different arguments, this docum
 
 See the note on [notation](autogen.html#notation).
 
-The file was generated at 2024-09-09 12:02:42.
+The file was generated at 2024-11-12 12:57:15.
 
 ---
 
@@ -623,8 +623,8 @@ Authors: Magnus D. Norling
 | Density | **rho** | property |
 | Ice | **ice** | quantity |
 | Heat energy | **heat** | quantity |
-| Temperature | **temp** | property |
 | Wind speed | **wind** | property |
+| Temperature | **temp** | property |
 | Precipitation | **precip** | property |
 | Global radiation | **g_rad** | property |
 | Pressure | **pressure** | property |
@@ -691,7 +691,7 @@ $$
 \href{stdlib.html#air-sea}{\mathrm{tc\_latent\_heat}}\left(\mathrm{air}.\mathrm{wind},\, \mathrm{stab}\right)
 $$
 
-#### **Transfer coefficent for sensible heat flux**
+#### **Transfer coefficient for sensible heat flux**
 
 Location: **surf.chd**
 
@@ -949,6 +949,83 @@ Value:
 
 $$
 \left(\frac{\mathrm{energy}+\begin{cases}\mathrm{lambda\_ice}\cdot \frac{\left(\mathrm{freeze\_temp}\rightarrow \mathrm{K}\,\right)-\left(\mathrm{temp}\rightarrow \mathrm{K}\,\right)}{\mathrm{ice}} & \text{if}\;\mathrm{temp}\leq \mathrm{freeze\_temp}\;\text{and}\;\mathrm{indicator} \\ -\left(1-\mathrm{albedo}\right)\cdot \mathrm{air}.\mathrm{g\_rad}\cdot \mathrm{attn} & \text{if}\;\mathrm{indicator} \\ 0 & \text{otherwise}\end{cases}}{\mathrm{rho\_ice}\cdot \mathrm{l\_freeze}}\rightarrow \mathrm{m}\,\mathrm{day}^{-1}\,\right)+\left(\begin{cases}\mathrm{air}.\mathrm{precip} & \text{if}\;\mathrm{indicator}\;\text{and}\;\mathrm{air}.\mathrm{temp}\leq \mathrm{freeze\_temp} \\ 0 & \text{otherwise}\end{cases}\rightarrow \mathrm{m}\,\mathrm{day}^{-1}\,\right)
+$$
+
+---
+
+## AirSeaGas Lake
+
+Version: 0.0.0
+
+File: [modules/airsea_gas.txt](https://github.com/NIVANorge/Mobius2/tree/main/models/modules/airsea_gas.txt)
+
+### Description
+
+Air-sea gas exchange module (O₂, CO₂, CH₄)
+
+Authors: François Clayer, Magnus Dahler Norling
+
+### External symbols
+
+| Name | Symbol | Type |
+| ---- | ------ | ---- |
+| Atmosphere | **air** | compartment |
+| CO₂ | **co2** | quantity |
+| O₂ saturation concentration | **o2satconc** | property |
+| Epilimnion | **basin** | compartment |
+| O₂ | **o2** | quantity |
+| CH₄ | **ch4** | quantity |
+| Wind speed | **wind** | property |
+| Temperature | **temp** | property |
+| Precipitation | **precip** | property |
+| Pressure | **pressure** | property |
+|  | **ice_ind** | loc |
+|  | **top_water** | loc |
+|  | **A_surf** | loc |
+|  | **compute_dic** | loc |
+
+### State variables
+
+#### **O₂ piston velocity**
+
+Location: **basin.p_vel**
+
+Unit: cm hr⁻¹
+
+Value:
+
+$$
+\href{stdlib.html#sea-oxygen}{\mathrm{o2\_piston\_velocity}}\left(\mathrm{air}.\mathrm{wind},\, \mathrm{top\_water}.\mathrm{temp}\right)
+$$
+
+### Fluxes
+
+#### **Precipitation O₂**
+
+Source: out
+
+Target: top_water.o2
+
+Unit: kg day⁻¹
+
+Value:
+
+$$
+\mathrm{precip\_saturation} = 0.9 \\ \mathrm{cnc} = \mathrm{precip\_saturation}\cdot \href{stdlib.html#sea-oxygen}{\mathrm{o2\_saturation\_concentration}}\left(\mathrm{air}.\mathrm{temp},\, 0\right)\cdot \mathrm{o2\_mol\_mass} \\ \left(\mathrm{air}.\mathrm{precip}\cdot \mathrm{A\_surf}\cdot \mathrm{cnc}\rightarrow \mathrm{kg}\,\mathrm{day}^{-1}\,\right)
+$$
+
+#### **O₂ gas exchange at surface**
+
+Source: top_water.o2
+
+Target: out
+
+Unit: kg day⁻¹
+
+Value:
+
+$$
+\left(\;\text{not}\;\mathrm{ice\_ind}\cdot \mathrm{basin}.\mathrm{p\_vel}\cdot \left(\mathrm{conc}\left(\mathrm{top\_water}.\mathrm{o2}\right)-\mathrm{top\_water}.\mathrm{o2satconc}\right)\cdot \mathrm{A\_surf}\rightarrow \mathrm{kg}\,\mathrm{day}^{-1}\,\right)
 $$
 
 ---

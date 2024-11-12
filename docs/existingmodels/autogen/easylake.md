@@ -8,12 +8,12 @@ nav_order: 1
 
 # EasyLake
 
-This is auto-generated documentation based on the model code in [models/easylake_simplycnp_model.txt](https://github.com/NIVANorge/Mobius2/blob/main/models/easylake_simplycnp_model.txt) .
+This is auto-generated documentation based on the model code in [models/easylake_simplycnp_model_new.txt](https://github.com/NIVANorge/Mobius2/blob/main/models/easylake_simplycnp_model_new.txt) .
 Since the modules can be dynamically loaded with different arguments, this documentation does not necessarily reflect all use cases of the modules.
 
 See the note on [notation](autogen.html#notation).
 
-The file was generated at 2024-09-09 12:02:42.
+The file was generated at 2024-11-12 12:57:15.
 
 ---
 
@@ -107,7 +107,7 @@ $$
 **hypo_temperature_integral(A_0 : m², T_e : °C, T_b : °C, z_e : m, z_0 : m, theta)** = 
 
 $$
-\left(2\cdot \mathrm{T\_b}+\left(\mathrm{theta}+2\right)\cdot \mathrm{T\_e}\right)\cdot \mathrm{A\_0}\cdot \frac{\mathrm{z\_e}^{3}\cdot \left(\frac{\mathrm{z\_e}}{\mathrm{z\_0}}\right)^{\mathrm{theta}+1}}{\left(\mathrm{theta}^{2}+6\cdot \mathrm{theta}+8\right)\cdot \mathrm{z\_e}^{2}}
+\left(2\cdot \mathrm{T\_b}+\left(\mathrm{theta}+2\right)\cdot \mathrm{T\_e}\right)\cdot \mathrm{A\_0}\cdot \mathrm{z\_e}\cdot \frac{\left(\frac{\mathrm{z\_e}}{\mathrm{z\_0}}\right)^{\mathrm{theta}+1}}{\mathrm{theta}^{2}+6\cdot \mathrm{theta}+8}
 $$
 
 ### Parameters
@@ -119,11 +119,12 @@ $$
 | Water level at which outflow is 0 | **z_outflow** | m |  |
 | Winter epilimnion thickness | **th_epi_w** | m |  |
 | Spring epilimnion thickness | **th_epi_s** | m |  |
-| Lake bathymetry factor | **theta** |  | The cross-section area of the lake at level z is A_0*(z/z_0)^theta |
+| Lake bathymetry factor | **theta** |  | The cross-section area of the lake at level z is A_0*(z/z_0)^(theta+1) |
 | Epilimnion thickening rate | **dz_epi** | m day⁻¹ | How fast the thickness of the epilimnion changes during summer |
 | Rating function linear component | **rate_l** | m² s⁻¹ |  |
 | Initial epilimnion temperature | **t_epi** | °C |  |
 | Bottom temperature | **t_bot** | °C |  |
+| Wind mixing rate | **wnd_rate** | day⁻¹ |  |
 
 ### State variables
 
@@ -328,22 +329,338 @@ This is a mixing flux (affects dissolved quantities only)
 Value:
 
 $$
-\mathrm{A\_surf}\cdot \mathrm{epi}.\mathrm{th}\cdot \mathrm{epi}.\mathrm{ind}\cdot 0.1 \mathrm{day}^{-1}\,
+\mathrm{A\_surf}\cdot \mathrm{epi}.\mathrm{th}\cdot \mathrm{epi}.\mathrm{ind}\cdot \mathrm{wnd\_rate}
+$$
+
+---
+
+## Phytoplankton parameters Lake
+
+Version: 0.0.0
+
+File: [modules/plankton.txt](https://github.com/NIVANorge/Mobius2/tree/main/models/modules/plankton.txt)
+
+### External symbols
+
+| Name | Symbol | Type |
+| ---- | ------ | ---- |
+| Epilimnion | **basin** | compartment |
+| Phytoplankton | **phyt** | quantity |
+
+### Constants
+
+| Name | Symbol | Unit | Value |
+| ---- | ------ | ---- | ----- |
+| Fraction of PAR in SW radiation | **f_par** |  | 0.45 |
+| Phytoplankton oxicity threshold | **phyt_ox_th** | mg l⁻¹ | 2 |
+| Phytoplankton increased death rate from anoxicity | **phyt_death_anox** |  | 10 |
+
+### Parameters
+
+| Name | Symbol | Unit |  Description |
+| ---- | ------ | ---- |  ----------- |
+| **Phytoplankton** | | | Distributes like: `phyt` |
+| Chl-a of phyto at equilibrium | **phyt_eq_20** | mg l⁻¹ | Assuming 20°C and no nutrient or light limitations. |
+| Q10 of Phyto equilibrium | **phyt_q10** |  | Adjustment of rate with 10°C change in temperature |
+| Phytoplankton turnover rate | **phyt_turnover** | day⁻¹ |  |
+| Optimal PAR intensity | **iopt** | W m⁻² |  |
+| Half-saturation for nutrient uptake | **alpha** | mmol m⁻³ |  |
+| Molar C/N ratio in Phytoplankton | **phyt_cn** |  | The default is the Redfield ratio |
+| Molar C/P ratio in Phytoplankton | **phyt_cp** |  | The default is the Redfield ratio |
+| Phytoplankton excretion rate | **excr** | day⁻¹ |  |
+| Chl-a fraction | **chl_a_f** | % | How large a fraction of the phytoplankton mass is chlorophyll a |
+| **Basin specific phytoplankton** | | | Distributes like: `epi` |
+| Phytoplankton amenability | **phyt_a** |  | Adjustment factor to account for shallow lakes being better for plankton, after taking nutrients and light into consideration |
+
+---
+
+## Phytoplankton Lake
+
+Version: 0.0.0
+
+File: [modules/plankton.txt](https://github.com/NIVANorge/Mobius2/tree/main/models/modules/plankton.txt)
+
+### Description
+
+A phytoplankton module that is based on non-exponential growth. This is more stable and easier to calibrate, but can some times miss growth peaks.
+
+Authors: Magnus Dahler Norling, François Clayer
+
+### External symbols
+
+| Name | Symbol | Type |
+| ---- | ------ | ---- |
+| Epilimnion | **layer** | compartment |
+| Organic nitrogen | **on** | quantity |
+| Water | **water** | quantity |
+| Phytoplankton | **phyt** | quantity |
+| Temperature | **temp** | property |
+| Organic carbon | **oc** | quantity |
+| Organic phosphorous | **op** | quantity |
+| O₂ | **o2** | quantity |
+| Inorganic nitrogen | **din** | quantity |
+| Inorganic phosphorous | **phos** | quantity |
+| Particles | **sed** | quantity |
+| Chlorophyll-a | **chl_a** | property |
+| Shortwave radiation | **sw** | property |
+
+### State variables
+
+#### **Layer phytoplankton**
+
+Location: **layer.water.phyt**
+
+Unit: kg
+
+Conc. unit: mg l⁻¹
+
+#### **Phytoplankton C**
+
+Location: **layer.water.phyt.oc**
+
+Unit: kg
+
+Value (concentration):
+
+$$
+1
+$$
+
+#### **Phytoplankton N**
+
+Location: **layer.water.phyt.on**
+
+Unit: kg
+
+Value (concentration):
+
+$$
+\frac{1}{\href{stdlib.html#chemistry}{\mathrm{cn\_molar\_to\_mass\_ratio}}\left(\mathrm{phyt\_cn}\right)}
+$$
+
+#### **Phytoplankton P**
+
+Location: **layer.water.phyt.op**
+
+Unit: kg
+
+Value (concentration):
+
+$$
+\frac{1}{\href{stdlib.html#chemistry}{\mathrm{cp\_molar\_to\_mass\_ratio}}\left(\mathrm{phyt\_cp}\right)}
+$$
+
+#### **Light limitation**
+
+Location: **layer.water.phyt.light_lim**
+
+Unit: 
+
+Value:
+
+$$
+\mathrm{par\_sw} = \mathrm{sw}\cdot \mathrm{f\_par} \\ \mathrm{f} = \frac{\mathrm{par\_sw}}{\mathrm{max}\left(0.5\cdot \mathrm{par\_sw},\, \mathrm{iopt}\right)} \\ \mathrm{f}\cdot e^{1-\mathrm{f}}
+$$
+
+#### **Nitrogen limitation**
+
+Location: **layer.water.phyt.N_lim**
+
+Unit: 
+
+Value:
+
+$$
+\mathrm{cmol} = \left(\mathrm{phyt\_cn}\cdot \frac{\mathrm{conc}\left(\mathrm{water}.\mathrm{din}\right)}{\mathrm{n\_mol\_mass}}\rightarrow \mathrm{mmol}\,\mathrm{m}^{-3}\,\right) \\ \frac{\mathrm{cmol}^{2}}{\left(\frac{\mathrm{alpha}}{\mathrm{phyt\_cn}}\right)^{2}+\mathrm{cmol}^{2}}
+$$
+
+#### **Phosphorus limitation**
+
+Location: **layer.water.phyt.P_lim**
+
+Unit: 
+
+Value:
+
+$$
+\mathrm{cmol} = \left(\frac{\mathrm{conc}\left(\mathrm{water}.\mathrm{phos}\right)}{\mathrm{p\_mol\_mass}}\rightarrow \mathrm{mmol}\,\mathrm{m}^{-3}\,\right) \\ \frac{\mathrm{cmol}^{2}}{\left(\frac{\mathrm{alpha}}{\mathrm{phyt\_cp}}\right)^{2}+\mathrm{cmol}^{2}}
+$$
+
+#### **Phytoplankton equilibrium concentration**
+
+Location: **layer.water.phyt.equi**
+
+Unit: mg l⁻¹
+
+Value:
+
+$$
+\mathrm{phyt\_eq} = \mathrm{phyt\_a}\cdot \frac{\href{stdlib.html#response}{\mathrm{q10\_adjust}}\left(\mathrm{phyt\_eq\_20},\, 20 \mathrm{°C}\,,\, \mathrm{temp},\, \mathrm{phyt\_q10}\right)}{\left(\mathrm{chl\_a\_f}\rightarrow 1\right)} \\ \mathrm{phyt\_eq}\cdot \mathrm{min}\left(\mathrm{light\_lim},\, \mathrm{min}\left(\mathrm{N\_lim},\, \mathrm{P\_lim}\right)\right)
+$$
+
+#### **Photosynthetic C fixation**
+
+Location: **layer.water.phyt.fix**
+
+Unit: kg day⁻¹
+
+Value:
+
+$$
+\left(\mathrm{phyt\_turnover}\cdot \mathrm{equi}\cdot \mathrm{water}\rightarrow \mathrm{kg}\,\mathrm{day}^{-1}\,\right)
+$$
+
+#### **Phyto chl-a**
+
+Location: **layer.water.phyt.chl_a**
+
+Unit: mg l⁻¹
+
+Value:
+
+$$
+\left(\mathrm{conc}\left(\mathrm{phyt}\right)\cdot \mathrm{chl\_a\_f}\rightarrow \mathrm{mg}\,\mathrm{l}^{-1}\,\right)
+$$
+
+#### **Layer chl-a**
+
+Location: **layer.water.chl_a**
+
+Unit: mg l⁻¹
+
+Value:
+
+$$
+\mathrm{aggregate}\left(\mathrm{phyt}.\mathrm{chl\_a}\right)
+$$
+
+### Fluxes
+
+#### **Phytoplankton growth**
+
+Source: out
+
+Target: layer.water.phyt
+
+Unit: kg day⁻¹
+
+Value:
+
+$$
+\mathrm{fix}
+$$
+
+#### **Phytoplankton growth N uptake**
+
+Source: layer.water.phyt.on
+
+Target: layer.water.din
+
+Unit: kg day⁻¹
+
+Value:
+
+$$
+\frac{-\mathrm{phyt}.\mathrm{fix}}{\href{stdlib.html#chemistry}{\mathrm{cn\_molar\_to\_mass\_ratio}}\left(\mathrm{phyt\_cn}\right)}
+$$
+
+#### **Phytoplankton growth P uptake**
+
+Source: layer.water.phyt.op
+
+Target: layer.water.phos
+
+Unit: kg day⁻¹
+
+Value:
+
+$$
+\frac{-\mathrm{phyt}.\mathrm{fix}}{\href{stdlib.html#chemistry}{\mathrm{cp\_molar\_to\_mass\_ratio}}\left(\mathrm{phyt\_cp}\right)}
+$$
+
+#### **Phytoplankton C excretion**
+
+Source: layer.water.phyt
+
+Target: layer.water.oc
+
+Unit: kg day⁻¹
+
+Value:
+
+$$
+\mathrm{excr}\cdot \mathrm{phyt}
+$$
+
+#### **Phytoplankton N excretion**
+
+Source: layer.water.phyt.on
+
+Target: layer.water.on
+
+Unit: kg day⁻¹
+
+Value:
+
+$$
+\mathrm{excr}\cdot \mathrm{phyt}.\mathrm{on}
+$$
+
+#### **Phytoplankton P excretion**
+
+Source: layer.water.phyt.op
+
+Target: layer.water.op
+
+Unit: kg day⁻¹
+
+Value:
+
+$$
+\mathrm{excr}\cdot \mathrm{phyt}.\mathrm{op}
+$$
+
+#### **Phytoplankton death**
+
+Source: layer.water.phyt
+
+Target: layer.water.sed
+
+Unit: kg day⁻¹
+
+Value:
+
+$$
+\mathrm{wd} = 0.5 \\ \mathrm{o2\_factor} = \href{stdlib.html#response}{\mathrm{s\_response}}\left(\mathrm{conc}\left(\mathrm{o2}\right),\, \left(1-\mathrm{wd}\right)\cdot \mathrm{phyt\_ox\_th},\, \left(1+\mathrm{wd}\right)\cdot \mathrm{phyt\_ox\_th},\, \mathrm{phyt\_death\_anox},\, 1\right) \\ \mathrm{phyt\_turnover}\cdot \mathrm{phyt}\cdot \mathrm{o2\_factor}
+$$
+
+#### **Layer O₂ photosynthesis**
+
+Source: out
+
+Target: layer.water.o2
+
+Unit: kg day⁻¹
+
+Value:
+
+$$
+\mathrm{aggregate}\left(\mathrm{phyt}.\mathrm{fix}\right)\cdot \frac{\mathrm{o2\_mol\_mass}}{\mathrm{c\_mol\_mass}}
 $$
 
 ---
 
 ## EasyChem
 
-Version: 0.0.5
+Version: 0.0.6
 
-File: [modules/easychem.txt](https://github.com/NIVANorge/Mobius2/tree/main/models/modules/easychem.txt)
+File: [modules/easychem_new.txt](https://github.com/NIVANorge/Mobius2/tree/main/models/modules/easychem_new.txt)
 
 ### Description
 
 This is a simple lake biogeochemical model for CNP and O₂ made to fit with EasyLake.
 
-More description to be written.
+Includes microbial retention.
 
 Many of the equations are inspired by [Selma](https://github.com/fabm-model/fabm/tree/master/src/models/selma), but with simplifications. 
 
@@ -353,38 +670,26 @@ Authors: François Clayer, Magnus D. Norling
 
 | Name | Symbol | Type |
 | ---- | ------ | ---- |
-| Atmosphere | **air** | compartment |
 | Total organic carbon | **toc** | property |
+| O₂ saturation concentration | **o2satconc** | property |
 | Epilimnion | **epi** | compartment |
 | Hypolimnion | **hyp** | compartment |
 | Organic nitrogen | **on** | quantity |
 | Water | **water** | quantity |
-| Wind speed | **wind** | property |
 | Temperature | **temp** | property |
 | Organic carbon | **oc** | quantity |
 | Phytoplankton | **phyt** | quantity |
 | O₂ | **o2** | quantity |
-| Ice | **ice** | quantity |
 | Inorganic nitrogen | **din** | quantity |
 | Total nitrogen | **tn** | property |
 | Inorganic phosphorous | **phos** | quantity |
 | Organic phosphorous | **op** | quantity |
 | Particles | **sed** | quantity |
-| Precipitation | **precip** | property |
 | Total dissolved phosphorous | **tdp** | property |
 | Shortwave radiation | **sw** | property |
-| Ice indicator | **indicator** | property |
 | Total phosphorous | **tp** | property |
 | Chlorophyll-a | **chl_a** | property |
 | Surface area | **area** | property |
-
-### Constants
-
-| Name | Symbol | Unit | Value |
-| ---- | ------ | ---- | ----- |
-| Fraction of PAR in SW radiation | **f_par** |  | 0.45 |
-| Phytoplankton increased death rate from anoxicity | **phyt_death_anox** |  | 10 |
-| Anoxicity threshold | **anox_threshold** | mg l⁻¹ | 2 |
 
 ### Parameters
 
@@ -395,7 +700,6 @@ Authors: François Clayer, Magnus D. Norling
 | Initial lake DOC concentration | **init_c** | mg l⁻¹ |  |
 | Initial lake DIN concentration | **init_in** | mg l⁻¹ |  |
 | Initial lake DIP concentration | **init_ip** | mg l⁻¹ |  |
-| Initial phytoplankton concentration | **init_phyt** | mg l⁻¹ |  |
 | Direct lake DIN deposition | **din_dep** | kg ha⁻¹ year⁻¹ |  |
 | **Oxygen** | | | Distributes like: `epi` |
 | Piston velocity scaler for O₂ | **pvel_scaler** |  |  |
@@ -408,18 +712,7 @@ Authors: François Clayer, Magnus D. Norling
 | N mineralization rel rate | **relrate_n** |  |  |
 | Denitrification rate | **denit** | m⁻² year⁻¹ | Rate at 20°C |
 | Denitrification Q10 | **denitQ10** |  | Adjustment of rate with 10°C change in temperature |
-| **Phytoplankton** | | |  |
-| Chl-a of phyto at equilibrium | **phyt_eq_20** | mg l⁻¹ | Assuming 20°C and no nutrient or light limitations. |
-| Q10 of Phyto equilibrium | **phyt_q10** |  |  |
-| Phytoplankton turnover rate | **phyt_turnover** | day⁻¹ |  |
-| Excretion rate | **excr** | day⁻¹ |  |
-| Optimal PAR intensity | **iopt** | W m⁻² |  |
-| Half-saturation for nutrient uptake | **halfsat** | mmol m⁻³ |  |
-| Molar C/N ratio in Phytoplankton | **phyt_cn** |  |  |
-| Molar C/P ratio in Phytoplankton | **phyt_cp** |  |  |
-| Chl-a fraction | **chl_a_f** | % | How large a fraction of the phytoplankton mass is chlorophyll a |
-| **Lake specific phytoplankton** | | | Distributes like: `epi` |
-| Phytoplankton amenability | **phyt_a** |  | Adjustment factor to account for shallow lakes being better for plankton, after taking nutrients and light into consideration |
+| **Lake specific denitrification** | | | Distributes like: `epi` |
 | Lake specific denitrification | **denit_a** |  |  |
 
 ### State variables
@@ -435,7 +728,7 @@ Conc. unit: mg l⁻¹
 Initial value (concentration):
 
 $$
-\left(\href{stdlib.html#sea-oxygen}{\mathrm{o2\_saturation}}\left(\mathrm{temp},\, 0\right)\cdot \mathrm{init\_O2}\cdot \mathrm{o2\_mol\_mass}\rightarrow \mathrm{kg}\,\right)
+\left(\href{stdlib.html#sea-oxygen}{\mathrm{o2\_saturation\_concentration}}\left(\mathrm{temp},\, 0\right)\cdot \mathrm{init\_O2}\cdot \mathrm{o2\_mol\_mass}\rightarrow \mathrm{kg}\,\right)
 $$
 
 #### **Hypolimnion O₂**
@@ -449,7 +742,7 @@ Conc. unit: mg l⁻¹
 Initial value (concentration):
 
 $$
-\left(\href{stdlib.html#sea-oxygen}{\mathrm{o2\_saturation}}\left(\mathrm{temp},\, 0\right)\cdot \mathrm{init\_O2}\cdot \mathrm{o2\_mol\_mass}\rightarrow \mathrm{kg}\,\right)
+\left(\href{stdlib.html#sea-oxygen}{\mathrm{o2\_saturation\_concentration}}\left(\mathrm{temp},\, 0\right)\cdot \mathrm{init\_O2}\cdot \mathrm{o2\_mol\_mass}\rightarrow \mathrm{kg}\,\right)
 $$
 
 #### **Epilimnion DOC**
@@ -640,20 +933,6 @@ Location: **hyp.water.sed.op**
 
 Unit: kg
 
-#### **Epilimnion Phytoplankton**
-
-Location: **epi.water.phyt**
-
-Unit: kg
-
-Conc. unit: mg l⁻¹
-
-Initial value (concentration):
-
-$$
-\mathrm{init\_phyt}
-$$
-
 #### **Hypolimnion Phytoplankton**
 
 Location: **hyp.water.phyt**
@@ -662,34 +941,16 @@ Unit: kg
 
 Conc. unit: mg l⁻¹
 
-Initial value (concentration):
-
-$$
-\mathrm{init\_phyt}
-$$
-
-#### **O₂ piston velocity**
-
-Location: **epi.water.p_vel**
-
-Unit: cm hr⁻¹
-
-Value:
-
-$$
-\mathrm{pvel\_scaler}\cdot \href{stdlib.html#sea-oxygen}{\mathrm{o2\_piston\_velocity}}\left(\mathrm{air}.\mathrm{wind},\, \mathrm{temp}\right)
-$$
-
 #### **O₂ saturation concentration**
 
-Location: **epi.water.o2sat**
+Location: **epi.water.o2satconc**
 
 Unit: mg l⁻¹
 
 Value:
 
 $$
-\left(\href{stdlib.html#sea-oxygen}{\mathrm{o2\_saturation}}\left(\mathrm{temp},\, 0\right)\cdot \mathrm{o2\_mol\_mass}\rightarrow \mathrm{mg}\,\mathrm{l}^{-1}\,\right)
+\left(\href{stdlib.html#sea-oxygen}{\mathrm{o2\_saturation\_concentration}}\left(\mathrm{temp},\, 0\right)\cdot \mathrm{o2\_mol\_mass}\rightarrow \mathrm{mg}\,\mathrm{l}^{-1}\,\right)
 $$
 
 #### **Sediment O₂ consumption rate**
@@ -717,94 +978,6 @@ This series is externally defined. It may be an input series.
 Location: **hyp.water.resp**
 
 Unit: day⁻¹
-
-This series is externally defined. It may be an input series.
-
-#### **Chlorophyll-a**
-
-Location: **epi.water.chl_a**
-
-Unit: mg l⁻¹
-
-Value:
-
-$$
-\left(\mathrm{conc}\left(\mathrm{phyt}\right)\cdot \mathrm{chl\_a\_f}\rightarrow \mathrm{mg}\,\mathrm{l}^{-1}\,\right)
-$$
-
-#### **Light limitation**
-
-Location: **epi.water.phyt.light_lim**
-
-Unit: 
-
-Value:
-
-$$
-\mathrm{par\_sw} = \mathrm{sw}\cdot \left(1-\mathrm{f\_par}\right) \\ \mathrm{f} = \frac{\mathrm{par\_sw}}{\mathrm{max}\left(0.5\cdot \mathrm{par\_sw},\, \mathrm{iopt}\right)} \\ \mathrm{f}\cdot e^{1-\mathrm{f}}
-$$
-
-#### **Nitrogen limitation**
-
-Location: **epi.water.phyt.N_lim**
-
-Unit: 
-
-Value:
-
-$$
-\mathrm{cmol} = \left(\frac{\mathrm{conc}\left(\mathrm{water}.\mathrm{din}\right)}{\mathrm{n\_mol\_mass}}\rightarrow \mathrm{mmol}\,\mathrm{m}^{-3}\,\right) \\ \frac{\mathrm{cmol}^{2}}{\left(\frac{\mathrm{halfsat}}{\mathrm{phyt\_cn}}\right)^{2}+\mathrm{cmol}^{2}}
-$$
-
-#### **Phosphorus limitation**
-
-Location: **epi.water.phyt.P_lim**
-
-Unit: 
-
-Value:
-
-$$
-\mathrm{cmol} = \left(\frac{\mathrm{conc}\left(\mathrm{water}.\mathrm{phos}\right)}{\mathrm{p\_mol\_mass}}\rightarrow \mathrm{mmol}\,\mathrm{m}^{-3}\,\right) \\ \frac{\mathrm{cmol}^{2}}{\left(\frac{\mathrm{halfsat}}{\mathrm{phyt\_cp}}\right)^{2}+\mathrm{cmol}^{2}}
-$$
-
-#### **Phytoplankton equilibrium concentration**
-
-Location: **epi.water.phyt.equi**
-
-Unit: mg l⁻¹
-
-Value:
-
-$$
-\mathrm{phyt\_eq} = \frac{\href{stdlib.html#response}{\mathrm{q10\_adjust}}\left(\mathrm{phyt\_eq\_20},\, 20 \mathrm{°C}\,,\, \mathrm{temp},\, \mathrm{phyt\_q10}\right)}{\left(\mathrm{chl\_a\_f}\rightarrow 1\right)} \\ \mathrm{phyt\_eq}\cdot \mathrm{phyt\_a}\cdot \mathrm{min}\left(\mathrm{light\_lim},\, \mathrm{min}\left(\mathrm{N\_lim},\, \mathrm{P\_lim}\right)\right)
-$$
-
-#### **Photosynthetic C fixation**
-
-Location: **epi.water.phyt.fix**
-
-Unit: kg day⁻¹
-
-Value:
-
-$$
-\left(\mathrm{phyt\_turnover}\cdot \mathrm{epi}.\mathrm{water}.\mathrm{phyt}.\mathrm{equi}\cdot \mathrm{water}\rightarrow \mathrm{kg}\,\mathrm{day}^{-1}\,\right)
-$$
-
-#### **Phytoplankton death rate (epi)**
-
-Location: **epi.water.phyt.death**
-
-Unit: kg day⁻¹
-
-This series is externally defined. It may be an input series.
-
-#### **Phytoplankton death rate (hyp)**
-
-Location: **hyp.water.phyt.death**
-
-Unit: kg day⁻¹
 
 This series is externally defined. It may be an input series.
 
@@ -869,34 +1042,6 @@ $$
 $$
 
 ### Fluxes
-
-#### **Precipitation O₂**
-
-Source: out
-
-Target: epi.water.o2
-
-Unit: kg day⁻¹
-
-Value:
-
-$$
-\mathrm{cnc} = \left(0.9\cdot \href{stdlib.html#sea-oxygen}{\mathrm{o2\_saturation}}\left(\mathrm{air}.\mathrm{temp},\, 0\right)\cdot \mathrm{o2\_mol\_mass}\rightarrow \mathrm{mg}\,\mathrm{l}^{-1}\,\right) \\ \left(\mathrm{air}.\mathrm{precip}\cdot \mathrm{area}\cdot \mathrm{cnc}\rightarrow \mathrm{kg}\,\mathrm{day}^{-1}\,\right)
-$$
-
-#### **O₂ gas exchange at surface**
-
-Source: out
-
-Target: epi.water.o2
-
-Unit: kg day⁻¹
-
-Value:
-
-$$
-\left(\;\text{not}\;\mathrm{ice}.\mathrm{indicator}\cdot \mathrm{p\_vel}\cdot \left(\mathrm{o2sat}-\mathrm{conc}\left(\mathrm{o2}\right)\right)\cdot \mathrm{area}\rightarrow \mathrm{kg}\,\mathrm{day}^{-1}\,\right)
-$$
 
 #### **O₂ sediment consumption (epi)**
 
@@ -1094,158 +1239,18 @@ $$
 \mathrm{denit\_a}\cdot \mathrm{din}\cdot \href{stdlib.html#response}{\mathrm{q10\_adjust}}\left(\mathrm{denit},\, 20 \mathrm{°C}\,,\, \mathrm{temp},\, \mathrm{denitQ10}\right)\cdot \frac{\mathrm{area}}{365 \mathrm{day}\,\mathrm{year}^{-1}\,}
 $$
 
-#### **Epilimnion photosynthetic C fixation**
-
-Source: out
-
-Target: epi.water.phyt
-
-Unit: kg day⁻¹
-
-Value:
-
-$$
-\mathrm{fix}
-$$
-
-#### **Phytoplankton death DOC release (epi)**
-
-Source: epi.water.phyt
-
-Target: out
-
-Unit: kg day⁻¹
-
-Value:
-
-$$
-\mathrm{phyt}.\mathrm{death}
-$$
-
-#### **Phytoplankton death DOC release (hypo)**
+#### **Phytoplankton death (hyp)**
 
 Source: hyp.water.phyt
 
-Target: out
+Target: hyp.water.oc
 
 Unit: kg day⁻¹
 
 Value:
 
 $$
-\mathrm{phyt}.\mathrm{death}
-$$
-
-#### **Epilimnion O₂ photosynthesis**
-
-Source: out
-
-Target: epi.water.o2
-
-Unit: kg day⁻¹
-
-Value:
-
-$$
-\mathrm{phyt}.\mathrm{fix}\cdot \frac{\mathrm{o2\_mol\_mass}}{\mathrm{c\_mol\_mass}}
-$$
-
-#### **Phytoplankton N uptake**
-
-Source: epi.water.din
-
-Target: out
-
-Unit: kg day⁻¹
-
-Value:
-
-$$
-\frac{\mathrm{phyt}.\mathrm{fix}}{\href{stdlib.html#chemistry}{\mathrm{cn\_molar\_to\_mass\_ratio}}\left(\mathrm{phyt\_cn}\right)}
-$$
-
-#### **Phytoplankton P uptake**
-
-Source: epi.water.phos
-
-Target: out
-
-Unit: kg day⁻¹
-
-Value:
-
-$$
-\frac{\mathrm{phyt}.\mathrm{fix}}{\href{stdlib.html#chemistry}{\mathrm{cp\_molar\_to\_mass\_ratio}}\left(\mathrm{phyt\_cp}\right)}
-$$
-
-#### **Phytoplankton C excretion**
-
-Source: epi.water.phyt
-
-Target: epi.water.oc
-
-Unit: kg day⁻¹
-
-Value:
-
-$$
-\mathrm{phyt}\cdot \mathrm{excr}
-$$
-
-#### **Phytoplankton N excretion**
-
-Source: epi.water.phyt
-
-Target: epi.water.on
-
-Unit: kg day⁻¹
-
-Value:
-
-$$
-\mathrm{phyt}\cdot \frac{\mathrm{excr}}{\href{stdlib.html#chemistry}{\mathrm{cn\_molar\_to\_mass\_ratio}}\left(\mathrm{phyt\_cn}\right)}
-$$
-
-#### **Phytoplankton P excretion**
-
-Source: epi.water.phyt
-
-Target: epi.water.op
-
-Unit: kg day⁻¹
-
-Value:
-
-$$
-\mathrm{phyt}\cdot \frac{\mathrm{excr}}{\href{stdlib.html#chemistry}{\mathrm{cp\_molar\_to\_mass\_ratio}}\left(\mathrm{phyt\_cp}\right)}
-$$
-
-#### **Pytoplankton death P release (epi)**
-
-Source: out
-
-Target: epi.water.sed.op
-
-Unit: kg day⁻¹
-
-Value:
-
-$$
-\frac{\mathrm{phyt}.\mathrm{death}}{\href{stdlib.html#chemistry}{\mathrm{cp\_molar\_to\_mass\_ratio}}\left(\mathrm{phyt\_cp}\right)}
-$$
-
-#### **Pytoplankton death P release (hyp)**
-
-Source: out
-
-Target: hyp.water.sed.op
-
-Unit: kg day⁻¹
-
-Value:
-
-$$
-\frac{\mathrm{phyt}.\mathrm{death}}{\href{stdlib.html#chemistry}{\mathrm{cp\_molar\_to\_mass\_ratio}}\left(\mathrm{phyt\_cp}\right)}
+\mathrm{wd} = 0.5 \\ \mathrm{o2\_factor} = \href{stdlib.html#response}{\mathrm{s\_response}}\left(\mathrm{conc}\left(\mathrm{o2}\right),\, \left(1-\mathrm{wd}\right)\cdot \mathrm{phyt\_ox\_th},\, \left(1+\mathrm{wd}\right)\cdot \mathrm{phyt\_ox\_th},\, \mathrm{phyt\_death\_anox},\, 1\right) \\ \mathrm{phyt\_turnover}\cdot \mathrm{phyt}\cdot \mathrm{o2\_factor}
 $$
 
 ---
@@ -1254,7 +1259,7 @@ $$
 
 Version: 0.0.3
 
-File: [modules/easychem.txt](https://github.com/NIVANorge/Mobius2/tree/main/models/modules/easychem.txt)
+File: [modules/easychem_new.txt](https://github.com/NIVANorge/Mobius2/tree/main/models/modules/easychem_new.txt)
 
 ### Description
 
