@@ -45,10 +45,6 @@ TODO: Maybe we want a simpler biochemistry model for this one, not the entire NI
 		module("NIVAFjord tox sediment-water", sediment, layer, water, oc, tox, area, dz, phys)
 	)
 	
-	# Could maybe go into NIVAFjord base..
-	load("modules/nivafjord/point_sources.txt",
-		module("NIVAFjord extraction", layer, water))
-	
 	load("modules/nivafjord/horizontal_fluxes.txt",
 		module("NIVAFjord simple realignment", basin, layer, water, dz, vert, dims))
 	

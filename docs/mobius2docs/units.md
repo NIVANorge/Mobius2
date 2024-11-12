@@ -37,6 +37,7 @@ The following derived units are also available (and can be expressed in terms of
 | Percent | `perc` |
 | Volt | `V` |
 | Ohm | `ohm` |
+| Ton (metric) | `ton` |
 
 (More derived units could be added if they are needed).
 

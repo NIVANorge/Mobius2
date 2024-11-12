@@ -122,17 +122,17 @@ Unit_Data::set_standard_form() {
 			standard_form.powers[(int)Base_Unit::g] += part.power;
 			standard_form.powers[(int)Base_Unit::m] += part.power;
 			standard_form.powers[(int)Base_Unit::s] -= 2*part.power;
-			standard_form.magnitude += 3*part.power;  // Newton = 10^3 g m s^-2
+			standard_form.magnitude += 3*part.power;  // Newton = (10^3 g) m s^-2
 		} else if(part.unit == Compound_Unit::J) {
 			standard_form.powers[(int)Base_Unit::g] += part.power;
 			standard_form.powers[(int)Base_Unit::m] += 2*part.power;
 			standard_form.powers[(int)Base_Unit::s] -= 2*part.power;
-			standard_form.magnitude += 3*part.power;  // Joule = 10^3 g m^2 s^-2
+			standard_form.magnitude += 3*part.power;  // Joule = (10^3 g) m^2 s^-2
 		} else if(part.unit == Compound_Unit::W) {
 			standard_form.powers[(int)Base_Unit::g] += part.power;
 			standard_form.powers[(int)Base_Unit::m] += 2*part.power;
 			standard_form.powers[(int)Base_Unit::s] -= 3*part.power;
-			standard_form.magnitude += 3*part.power;  // Watt = 10^3 g m^2 s^-3
+			standard_form.magnitude += 3*part.power;  // Watt = (10^3 g) m^2 s^-3
 		} else if(part.unit == Compound_Unit::l) {
 			standard_form.powers[(int)Base_Unit::m] += 3*part.power;
 			standard_form.magnitude -= 3*part.power;   // liter = 10^-3 m^3
@@ -143,18 +143,18 @@ Unit_Data::set_standard_form() {
 			standard_form.powers[(int)Base_Unit::g] += part.power;
 			standard_form.powers[(int)Base_Unit::m] -= part.power;
 			standard_form.powers[(int)Base_Unit::s] -= 2*part.power;
-			standard_form.magnitude += 3*part.power;  // Pascal = 10^3 g m^-1 s^-2
+			standard_form.magnitude += 3*part.power;  // Pascal = (10^3 g) m^-1 s^-2
 		} else if(part.unit == Compound_Unit::bar) {
 			standard_form.powers[(int)Base_Unit::g] += part.power;
 			standard_form.powers[(int)Base_Unit::m] -= part.power;
 			standard_form.powers[(int)Base_Unit::s] -= 2*part.power;
-			standard_form.magnitude += 8*part.power;  // bar = 10^5*10^3 g m^-1 s^-2
+			standard_form.magnitude += 8*part.power;  // bar = 10^5*(10^3 g) m^-1 s^-2
 		} else if(part.unit == Compound_Unit::V) {
 			standard_form.powers[(int)Base_Unit::g] += part.power;
 			standard_form.powers[(int)Base_Unit::m] += 2*part.power;
 			standard_form.powers[(int)Base_Unit::s] -= 3*part.power;
 			standard_form.powers[(int)Base_Unit::A] -= part.power;
-			standard_form.magnitude += 3*part.power;  // Volt = 10^3 g m^2 s^-3 A^-1
+			standard_form.magnitude += 3*part.power;  // Volt = (10^3 g) m^2 s^-3 A^-1
 		} else if(part.unit == Compound_Unit::ohm) {
 			standard_form.powers[(int)Base_Unit::g] += part.power;
 			standard_form.powers[(int)Base_Unit::m] += 2*part.power;
@@ -163,6 +163,9 @@ Unit_Data::set_standard_form() {
 			standard_form.magnitude += 3*part.power;  // Ohm = (10^3 g) m^2 s^-3 A^-2
 		} else if(part.unit == Compound_Unit::perc) {
 			standard_form.magnitude -= 2*part.power;  // % = 1/100
+		} else if(part.unit == Compound_Unit::ton) {
+			standard_form.powers[(int)Base_Unit::g] += part.power;
+			standard_form.magnitude += 6*part.power;  // ton = 10^6 g
 		} else {
 			if(part.power.denom != 1)
 				fatal_error(Mobius_Error::internal, "Unit standard form: can't handle roots of certain types.");

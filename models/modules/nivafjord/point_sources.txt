@@ -17,10 +17,10 @@ This is a module for point source inputs to NIVAFjord.
 
 	par_group("Point sources", layer) {
 		eff_q  : par_real("Water point source", [m 3, year-1], 0)
-		eff_in : par_real("DIN point source", [M g, year-1], 0)    #Maybe we should introduce the shorthand ton for M g.
-		eff_on : par_real("DON point source", [M g, year-1], 0)
-		eff_p  : par_real("DIP point source", [M g, year-1], 0)
-		eff_ss : par_real("SS point source", [M g, year-1], 0)
+		eff_in : par_real("DIN point source", [ton, year-1], 0) 
+		eff_on : par_real("DON point source", [ton, year-1], 0)
+		eff_p  : par_real("DIP point source", [ton, year-1], 0)
+		eff_ss : par_real("SS point source", [ton, year-1], 0)
 		ss_c   : par_real("SS point source C fraction", [g, k g-1], 0)
 		o2sat  : par_real("Point source water O2 saturation", [], 1)
 	}
