@@ -1,0 +1,10 @@
+
+# What modules to document in the docgen. The first string is what page to put the document in, the second is what model to load, the last is what modules to document from that model.
+
+"SimplyCNP", "simplycnp_model.txt", "SimplyQ land", "SimplyQ river", "SimplyC land", "SimplyC river", "SimplyN", "SimplyP", "SimplySed";
+
+"EasyLake", "easylake_simplycnp_model_new.txt", "EasyLake", "Phytoplankton parameters Lake", "Phytoplankton Lake", "EasyChem", "EasyChem-Particulate";
+
+"NIVAFjord", "nivafjord_simplycnp_model.txt", "NIVAFjord dimensions", "NIVAFjord basin", "NIVAFjord chemistry rates", "NIVAFjord chemistry", "NIVAFjord sediments";
+
+"Auxiliary", "easylake_simplycnp_model.txt", "Degree-day PET", "HBVSnow", "Simply soil temperature", "RiverTemperature", "Atmospheric", "AirSea Lake", "AirSeaGas Lake", "Simple river TOC", "Organic CNP land", "Simple organic NP";

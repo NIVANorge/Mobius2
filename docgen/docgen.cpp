@@ -670,7 +670,7 @@ document_module(std::stringstream &ss, Mobius_Model *model, std::string &module_
 }
 
 void
-generate_docs(int navorder, std::vector<const char *> &tuple) {
+generate_docs(int navorder, std::vector<std::string> &tuple) {
 	
 	std::cout << "Documenting " << tuple[0] << std::endl;
 	
@@ -683,7 +683,7 @@ generate_docs(int navorder, std::vector<const char *> &tuple) {
 	std::stringstream ss;
 	
 	std::string head = preamble;
-	replace(head, "_TITLE_", tuple[0]);
+	replace(head, "_TITLE_", tuple[0].c_str());
 	auto navorderstr = std::to_string(navorder);
 	replace(head, "_NAVORDER_", navorderstr.c_str());
 	{
@@ -694,7 +694,7 @@ generate_docs(int navorder, std::vector<const char *> &tuple) {
 		std::string datestr = date.str();
 		replace(head, "_DATE_", datestr.c_str());
 	}
-	replace(head, "_MODELFILE_", tuple[1]);
+	replace(head, "_MODELFILE_", tuple[1].c_str());
 	
 	ss << head;
 	
@@ -793,12 +793,32 @@ int
 main() {
 	
 	// TODO: Read these from a file:
-	std::vector<std::vector<const char *>> models = {
-		{"SimplyCNP", "simplycnp_model.txt", "SimplyQ land", "SimplyQ river", "SimplyC land", "SimplyC river", "SimplyN", "SimplyP", "SimplySed"},
-		{"EasyLake", "easylake_simplycnp_model_new.txt", "EasyLake", "Phytoplankton parameters Lake", "Phytoplankton Lake", "EasyChem", "EasyChem-Particulate"},
-		{"NIVAFjord", "nivafjord_simplycnp_model.txt", "NIVAFjord dimensions", "NIVAFjord basin", "NIVAFjord chemistry rates", "NIVAFjord chemistry", "NIVAFjord sediments"},
-		{"Auxiliary", "easylake_simplycnp_model.txt", "Degree-day PET", "HBVSnow", "Simply soil temperature", "RiverTemperature", "Atmospheric", "AirSea Lake", "AirSeaGas Lake", "Simple river TOC", "Organic CNP land", "Simple organic NP"},
-	};
+	std::vector<std::vector<std::string>> models;
+	
+	const char *filename = "module_list.txt";
+	auto file_data = read_entire_file(filename);
+	Token_Stream stream(filename, file_data);
+	
+	std::vector<std::string> models_line;
+	while(true) {
+		
+		auto name = stream.expect_quoted_string();
+		
+		models_line.push_back(std::string(name));
+		
+		auto token = stream.read_token();
+		if((char)token.type == ';') {
+			models.push_back(models_line);
+			models_line.clear();
+		} else if((char)token.type != ',') {
+			token.print_error_header();
+			fatal_error("Expected comma or semicolon.");
+		}
+		
+		auto peek = stream.peek_token();
+		if(peek.type == Token_Type::eof) break;
+	}
+	
 	
 	for(int i = 0; i < models.size(); ++i)
 		generate_docs(i, models[i]);
