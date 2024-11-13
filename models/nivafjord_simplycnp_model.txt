@@ -31,7 +31,7 @@ model("NIVAFjord-SimplyCNP") {
 		module("NIVAFjord simple realignment", basin, layer, water, dz, vert, dims)
 	)
 	
-	load("modules/easychem.txt",
+	load("modules/easylake/easychem.txt",
 		module("Simple River O₂", river, water, o2, temp))
 	
 	wb_index : index_set("Water body") @union(sc, basin_idx)

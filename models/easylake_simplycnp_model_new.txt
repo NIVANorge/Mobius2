@@ -19,7 +19,7 @@ model("EasyLake-SimplyCNP") {
 		module("AirSeaGas", "AirSeaGas Lake", air, epi, o2, co2, ch4, temp, wind, precip, o2satconc, pressure, loc(epi.ice.indicator), loc(epi.water), loc(epi.area), loc(constant(false)))
 	) 
 	
-	load("modules/easychem_new.txt",
+	load("modules/easylake/easychem_new.txt",
 		module("Simple River O₂", river, water, o2, temp),
 		module("EasyChem", epi, hyp, water, oc, phyt, o2, din, phos, on, op, sed, temp, sw, tp, tdp, tn, toc, chl_a, o2satconc, area, om_cnp, phyt_par_lake),
 		module("EasyChem-Particulate", air, epi, hyp, water, sed, wind, area, downstream, loc(out)),

@@ -8,7 +8,7 @@ model("EasyTox") {
 	
 	solve(sol, lake_sed.water, lake_sed.sed)
 	
-	load("modules/easychem.txt",
+	load("modules/easylake/easychem.txt",
 		module("EasyChem-Particulate", air, epi, hyp, water, sed, wind, area, downstream, loc(lake_sed.sed)),  #Note: the last location is the target of particle settling
 		module("SuperEasyC", epi, hyp, water, oc, sed, temp, toc),
 		sedpars : preamble("SuperEasyC-Sediments dimensions"),#, lake_sed),
@@ -21,7 +21,7 @@ model("EasyTox") {
 		module("SimplyTox air-water",    "SimplyTox lake air-water", air, epi, water, tox, temp, wind, loc(epi.area), phys),
 		module("SimplyTox partitioning", "SimplyTox lake sediments", lake_sed, water, oc, tox, temp, loc(lake_sed.sed.oc), [n g, m-2], constant(false), phys)
 	)
-	load("modules/easytox.txt",
+	load("modules/easylake/easytox.txt",
 		module("EasyTox", air, epi, hyp, lake_sed, ice, water, oc, tox, indicator, sw, temp, area, loc(epi.area), phys, sedpars))
 		
 	unit_conversion(epi.water.sed, lake_sed.sed) { 1/epi.area }

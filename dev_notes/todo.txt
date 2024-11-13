@@ -1,6 +1,12 @@
 
 
 	*** High pri ***
+	
+		Update language documentation with latest additions
+			option, option_group
+			@formerly
+			There were more, just look through everything to see what is missing.
+		Document how to use connections, and some more of the advanced concepts.
 		
 		Got an (internal) error in the following case
 			flux(bnd.water, layer.water[vert.specific]) ...
@@ -17,8 +23,6 @@
 			However, when it is slow it still produces correct results!
 			Is this just due to high memory usage / random bad cache behaviour??
 		
-		water_temp_to_heat should just be water_temp_to_heat_conc, then refactor everywhere.
-
 		Specific models
 		
 			Use options to combine airsea_fpv and airsea_fpv_simple

@@ -27,6 +27,8 @@ For a better understanding of how to build a practical model using the declarati
 
 Here we specify how these declarations work in model, module, preamble and library files. [Declarations in data_set files function differently](../datafiledocs/new_project.html).
 
+*This document is not entirely up to date as there have been later additions that are not yet covered. The information should be correct (just not complete).*
+
 ## Signatures
 {: .no_toc }
 
@@ -350,14 +352,14 @@ par_group(name:quoted_string, distributes_like:(compartment|quantity)...) { <dec
 Optional notes:
 
 ```python
-@index_with(distribution:index_set...)
+@distribute_fully
 ```
 
 A parameter group is created to embody a collection of parameters. It determines how the parameters within it can be distributed.
 
 If a parameter group `distributes_like` one or more components, it will have a maximal distribution that is the union of the distributions of these components. Whether or not the group will have that full distribution in a particular model application depends on the [data set](../datafiledocs/new_project.html#parameter-groups).
 
-The optional note `@index_with` can be used to set the maximal distribution directly, but this should only be used in rare instances where the default way to do it doesn't work.
+The optional note `@distribute_fully` can be used to force the user to always use all available index sets for the data for this parameter group. This is only necessary in some very rare instances when predictability of the distribution of the group is necessary.
 
 ## par_real, par_int, par_bool, par_enum
 

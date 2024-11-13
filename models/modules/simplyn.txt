@@ -32,7 +32,8 @@ Authors: Leah A. Jackson-Blake, Magnus D. Norling
 	
 	par_group("Soil DIN params varying by land use", soil) {
 		sw_din_init        : par_real("Initial soilwater DIN concentration", [m g, l-1], 0.0, 0.0, 10.0)
-		net_annual_N_input : par_real("Net annual DIN input to soil", [k g, ha-1, year-1], 0.0, 0.0, 1000.0, "(name outdated, should be changed) These are the gross DIN inputs to soil disregarding fertilizer inputs. Represents atmospheric deposition and fixation.")
+		net_annual_N_input : par_real("Annual non-agricultural DIN input to soil", [k g, ha-1, year-1], 0.0, 0.0, 1000.0, "This represents atmospheric deposition and fixation.")
+			@formerly("SimplyN\Soil DIN params varying by land use\Net annual DIN input to soil")
 		fert_day           : par_int("Fertilizer addition day", [day], 60, 1, 365)
 		fert_n             : par_real("Fertilizer N", [k g, ha-1], 0, 0, 100)
 		fert_rel           : par_real("Fertilizer DIN release", [m m-1], 0, 0, 1, "Per mm of soil water input (giving less dissolution in dry years)")

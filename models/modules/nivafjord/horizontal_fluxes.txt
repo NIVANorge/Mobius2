@@ -91,8 +91,6 @@ This one is for if there is a boundary compartment and river inputs
 	# Should we index this one over basin or connection?
 	par_group("Horizontal exchange") {
 		alpha_u : par_real("Pressure difference flow coefficient", [], 0.5, 0.1, 1)
-		
-		#align_rate : par_real("Vertical realignment rate", [], 0.1, 0, 1)
 	}
 	
 	par_group("Fjord horizontal boundary", edge_layer) {

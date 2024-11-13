@@ -30,7 +30,7 @@ It is also currently without horizontal exchange between basins, so it only work
 		FPV_gas	   : par_real("Reduction in gas exchange due to FPV", [], 0.5, 0, 1)
 	}
 	
-	load("modules/airsea_fpv_simple.txt",
+	load("modules/airsea_fpv.txt",
 		module("AirSea FPV Simple", air, basin, fpv, cov, ice, heat, temp, precip, wind, g_rad, pressure, rho, a_hum, lwd, sw, attn, indicator,
 			evap, cos_z, loc(basin.freeze_t), loc(basin.area), loc(layer.water[vert.top]), loc(layer.water.heat[sw_vert.top])))
 			

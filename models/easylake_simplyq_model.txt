@@ -49,7 +49,7 @@ model("EasyLake-SimplyQ") {
 						wind, g_rad, pressure, rho, a_hum, lwd, sw, attn, indicator, 
 						evap, cos_z, loc(freeze_temp), loc(epi.area), loc(epi.water), loc(epi.water.heat) ))
 						
-	load("modules/easylake.txt",       module("EasyLake", epi, hyp, water, heat, temp, z, area, loc(downstream)))
+	load("modules/easylake/easylake.txt",       module("EasyLake", epi, hyp, water, heat, temp, z, area, loc(downstream)))
 	
 	solve(sol, epi.water, hyp.water, epi.ice)
 	solve(sol, air.cos_z)
