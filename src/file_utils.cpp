@@ -76,10 +76,11 @@ is_relative_path(String_View file_name) {
 String_View
 make_path_relative_to(String_View file_name, String_View relative_to) {
 	// TODO: don't rewind past a directory name (in that case there should be an error).
+	// Would probably be better to tokenize the paths first?
 	
 	if(!is_relative_path(file_name)) return file_name;
 	
-	constexpr int maxpath = 1024;  // TODO: Should be system dependent?
+	constexpr int maxpath = 1024;  //TODO: Should be system dependent?
 	static char new_path[maxpath]; //TODO make a string builder instead?
 	
 	int pos = 0;
@@ -118,7 +119,7 @@ make_path_relative_to(String_View file_name, String_View relative_to) {
 		}
 		if(cursor >= file_name.count) break;
 		c = file_name[cursor];
-		if(is_slash(c)) { start_dir = true; c = '\\'; }
+		if(is_slash(c)) { start_dir = true; c = '/'; }
 		else start_dir = false;
 		new_path[pos] = c;
 		++cursor;
@@ -176,4 +177,18 @@ File_Data_Handler::load_file(String_View file_name, Source_Location from, String
 	if(normalized_path_out) *normalized_path_out = load_name;
 	
 	return data;
+}
+
+std::string
+standardize_base_path(String_View path) {
+	// Note correctness checks happen in user code.
+	
+	std::string new_path = std::string(path);
+	
+	if(new_path.empty()) return new_path;
+	
+	if(!is_slash(new_path.back()))
+		new_path += '/';
+	
+	return new_path;
 }

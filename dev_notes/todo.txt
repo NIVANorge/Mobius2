@@ -149,6 +149,11 @@
 	
 	*** Intermediate-pri ***
 	
+		It may be confusing to users what arguments are available as 'option'. This is because if you use a declared identifier that has not been processed yet, it will say that it doesn't recognize the identifier. It is legitimate that there is an error, but the error can't (for resons) acknowledge that the identifier exists but is not usable in this context.
+		
+	
+		We could probably simplify a lot of things by switching from our custom String_View to std::string_view ??
+	
 		MobiView
 			We could allow editing option_group parameters in MobiView
 				Use a similar recompile system as for constant parameters.
@@ -162,12 +167,12 @@
 		Make par_aggregate work the same as regular_aggregate.
 	
 	
-		Make option() also available inside modules. Unify some of the airsea FPV stuff this way? Also try to unify some of the NIVAFjord models to not have that many files.
-	
 		Make something like
 		
+			# Possible to assign to (property) state variables here. Takes responsibility for that state variable just like a result() in an
+			# external_computation
 			computation("A computation", soil) {
-				soil.conc_so4 <- something, # Possible to assign to (property) state variables here. Takes responsibility for that state variable just like a result() in an external_computation
+				soil.conc_so4 <- something,
 			}
 			This way we could port all of MAGIC to Mobius2 and not call out to a C++ external_computation for it.
 				Although it would be annoying to do the equilibrium constants without array syntax..
@@ -224,8 +229,9 @@
 			2d plot: The plot won't make sense at all unless the selected indexes is one single contiguous interval (that ideally starts at 0).
 				Make MobiView print an error if it isn't?
 				
-			Make model reloads work better wrt 'quick select'.
+			Make model reloads work better wrt 'quick_select'.
 				If the quick_select tab is open, it should choose the right thing back.
+			Ideally quick_select should disable separate selection of input series.
 								
 			Seasonal aggregation.
 				I.e. the mean for jan, feb, ... across multiple years.
@@ -237,16 +243,13 @@
 	
 		
 		For sub-indexed index sets, don't allocate the entire max size for each instance (for data blocks).
-			Complicates indexing computations somewhat.
-		For additional_series data it is very wasteful that it allocates the max vector even though most of it is going to be nan. Esp. for fjord data.
+			Complicates indexing computations somewhat, but can be a huge memory saver in some NIVAFjord setups.
+			
+		For additional_series data it is very wasteful that it allocates the max vector even though most of it is going to be nan. Esp. for fjord data that has many empty layers.
 			Could make an entire separate system for how these are stored, but a lot of work, esp. taking into account that it has to fit into how MobiView works.
 			
 			
 		Ideally we should always (automatically) check if an entity we reference has_been_processed (unless we expect it not to be as during the construction step).
-	
-		If several loc() refer to one another in the wrong order, that is probably broken since they are resolved in order of declaration?
-			Very unlikely that it would happen in practice.
-			It is now detected with an error at least. But hard for users to understand.
 	
 		process_series_data	
 					

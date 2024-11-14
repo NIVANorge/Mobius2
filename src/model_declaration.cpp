@@ -1751,7 +1751,7 @@ load_config(String_View file_name) {
 		if(item == "Mobius2 base path") {
 			match_declaration(decl, {{Token_Type::quoted_string, Token_Type::quoted_string}}, false);
 			
-			config.mobius_base_path = single_arg(decl, 1)->string_value;
+			config.mobius_base_path = standardize_base_path(single_arg(decl, 1)->string_value);
 			struct stat info;
 			if(stat(config.mobius_base_path.data(), &info) != 0 || !(info.st_mode & S_IFDIR)) {
 				single_arg(decl, 0)->print_error_header();

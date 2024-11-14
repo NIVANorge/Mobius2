@@ -31,8 +31,8 @@ TODO: Maybe we want a simpler biochemistry model for this one, not the entire NI
 	river_lake : connection("River-lake") @directed_graph { river+ layer } @no_cycles
 	
 	load("modules/nivafjord/horizontal_fluxes.txt",
-		#module("NIVAFjord river inputs", river, layer, water, salt, temp, salinity, rho, flow, river_lake, vert)
-		module("NIVAFjord simplified river inputs", river, layer, water, flow, river_lake, vert)
+		module("NIVAFjord river inputs", river, layer, water, salt, temp, salinity, rho, flow, river_lake, vert)
+		#module("NIVAFjord simplified river inputs", river, layer, water, flow, river_lake, vert)
 	)
 	
 	load("modules/nivafjord/lake_discharge.txt",

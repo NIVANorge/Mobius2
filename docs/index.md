@@ -24,7 +24,7 @@ The Mobius2 framework comes with several [existing modules and models](existingm
 
 Most Mobius2 models can be coupled to one another in larger transport networks.
 
-![Catchment](img/catchment_3d_plot.png)
+![Catchment](img/catchment_3d_plot_rescaled.png)
 
 Figure: Example of a Mobius2 model application at the [Vannsjø-Moss watershed](https://en.wikipedia.org/wiki/Vansj%C3%B8). The drainage basin of the river is delineated into subcatchments (light green) and lakes (dark blue). The outlet is connected to a fjord basin (purple). The subcatchments are subdivided into land use, shown in one of the subcatchments with urban (red), agricultural (yellow) and semi-natural (green). (The visualization is not a part of Mobius2, it was created using [pygmt](https://www.pygmt.org/latest/) and [OpenStreetMap](https://www.openstreetmap.org/copyright) - ©OpenStreetMap contributors).
 
