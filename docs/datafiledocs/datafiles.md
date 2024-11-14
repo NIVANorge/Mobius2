@@ -33,11 +33,11 @@ The sampling step is both the main time step of the model run and the step size 
 time_step([4, hr])  # 4 hour time step.
 ```
 
-Each series value is held constant over a single sampling step even if the model uses ODE solvers that evaluate at fractional steps, so you should set the sampling step to the frequency you want to have in the input data.
+Each input series value is held constant over a single sampling step even if the model uses ODE solvers that evaluate at fractional steps, so you should set the sampling step to the frequency you want the input data to vary with.
 
-If more than one series value is provided for the same series and sampling step, only the last value will be used. This could happen if the series data has a higher frequency than the sampling step. We may implement automatic aggregation in these instances later, but for now you have to do that yourself before you prepare the input file.
+If more than one series value is provided for the same series and time, only the last processed value will be used. This could happen if the series data has a higher frequency than the sampling step so that two time stamps are rounded to the same model sampling step. We may implement automatic aggregation in these instances later, but for now you have to do that yourself before you prepare the input file.
 
-If some of the series have a lower frequency than the desired sampling step, you could use interpolation (see below).
+If some of the series have a lower frequency than the desired sampling step, you could use interpolation to fill the gaps (see below).
 
 ## Datetime format
 
@@ -62,17 +62,17 @@ A given data set can cut this interval down by specifying a `series_interval` in
 series_interval(2000-01-01, 2020-01-01)
 ```
 
-Series values outside this specified interval are then discarded. This can be useful if the loaded source data is is very large and you only want to run the model for shorter intervals.
+Series values outside this specified interval are then discarded. This can be useful to save memory if the source data is very large and you only want to run the model for shorter intervals.
 
 ## Missing values
 
 If a model input series is not provided with data, it is filled as 0. If it is provided with some values and you don't interpolate (see below), missing values are also filled with 0. You should avoid this unless 0 is actually a legitimate value for this input. 
 
-Comparison series are filled with nan (non-numbers). Missing values in observation series are ignored when e.g. computing goodness-of-fit stats.
+Missing values in comparison series are filled with nan (non-numbers). Missing values in observation series are ignored when e.g. computing goodness-of-fit stats, allowing you to only compare at the dates where you have observation data.
 
 ## Series indexing
 
-A given input series can either have a single instance, or can be distributed over a tuple of one or more [index sets](../mobius2docs/central_concepts.html#index-sets-and-distributions). This can be used e.g. to provide separate meteorological data for different sub-areas of the model domain.
+A given input series can either have a single instance, or can be distributed over a tuple of one or more [index sets](../mobius2docs/central_concepts.html#index-sets-and-distributions). This can e.g. be used to provide separate meteorological data for different sub-areas of the model domain.
 
 What index sets you are allowed to distribute a model input series over depends on the components forming the *location* of the series and what index sets they are distributed over in the model. Comparison series can be distributed over any combination of index sets that exist in the model.
 
@@ -89,7 +89,7 @@ Both series formats allow you to specify flags. A flag is either a [unit declara
 	- `linear_interpolate`. Uses linear interpolation to fill missing values between valid values.
 	- `spline_interpolate`. Uses [cubic spline interpolation](https://en.wikipedia.org/wiki/Spline_interpolation) to fill missing values between valid values. This is the smoothest option.
 	- `inside`. If this flag is provided, any interpolation will only fill in values between missing values. If the flag is not present, interpolation will also expand the first and last valid values to fill the entire *series interval*.
-- `repeat_yearly`. In this case the first year of the time series is repeated yearly to fill the entire *series interval*.
+- `repeat_yearly`. With this flag the first year of the time series is repeated yearly to fill the entire *series interval*.
 
 To put multiple flags they can be listed after one another separated by spaces.
 

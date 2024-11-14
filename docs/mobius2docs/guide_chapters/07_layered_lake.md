@@ -9,7 +9,7 @@ comment: "While we use python markup for code snippets, they are not actually py
 
 # Simple layered lake
 
-In this chapter we will set up the model complexity a notch and work with a 1-dimensional model of a lake. That it is 1-dimensional means that we will consider the state of the lake (temperature, various concentrations, etc.) to be homogenous across each horizontal layer for any given depth $$z$$, but will vary as you vary $$z$$. 1-dimensional models are often good approximations for smaller lakes.
+In this chapter we will turn up the model complexity a notch and work with a 1-dimensional model of a lake. That it is 1-dimensional means that we will consider the state of the lake (temperature, various concentrations, etc.) to be homogenous across each horizontal layer for any given depth $$z$$, but will vary as you vary $$z$$. 1-dimensional models can often give good approximations of smaller lakes.
 
 We will base ourselves on a simplified version of the formulation of the MyLake model \[SalorantaAndersen07\]. In this first chapter we will just make a basin with precipitation inputs and discharge outputs. It will not be connected to a catchment that it receives river discharge from yet. The power of Mobius2's ability to couple different modules will be shown in the next chapter, where we will connect the lake to our existing catchment model. The biochemistry of the lake will also be added in a later chapter, for now we will just consider water balance and heat transfer.
 
@@ -35,7 +35,7 @@ vert    : connection("Lake vertical") @grid1d(layer, layer_idx)
 sw_vert : connection("Shortwave vertical") @grid1d(layer, layer_idx)
 ```
 
-Note that we have also defined a compartment called `lake` which is a convenient place to put state variables that are the same for the entire lake (such as things that only pertain to the lake surface, like ice). We have also added a separate vertical connection for shortwave radiation. This is just a technical solution that allows us to separately track transfer of shortwave heat energy from other transfer of heat energy along the vertical connection.
+Note that we have also defined a compartment called `lake` which is a convenient place to put state variables that are not distributed over the layers (such as things that only pertain to the lake surface, like ice). We have also added a separate vertical connection for shortwave radiation. This is just a technical solution that allows us to separately track transfer of shortwave heat energy from other transfer of heat energy along the vertical connection.
 
 For the parametrization of the lake, we allow every lake layer to have a separate surface area and thickness with the top layer having varying thickness depending on water level.
 
@@ -128,11 +128,11 @@ The particular implementation in that module is based on the [GOTM model](https:
 
 Unlike other heat fluxes, shortwave radiation can be passed down through multiple layers. The AirSea module is loaded in a way that specifies the surface incoming shortwave radiation to be passed to the top layer of the lake along the `sw_vert` connection. This is because the location target for the shortwave is specified as `loc(layer.water.heat[sw_vert.top])` (see the load arguments for AirSea in the model).
 
-Doing it this way, we can access the amount of incoming heat along this connection and pass some of it along to connections below. The amount of `heat` coming to the `water` along the `sw_vert` connection can be accessed using `in_flux(sw_vert, water.heat)`.
+Doing it this way, we can access the amount of incoming heat along this connection and pass some of it along to layers below. The amount of `heat` coming to the `water` along the `sw_vert` connection can be accessed using `in_flux(sw_vert, water.heat)`.
 
 ```python
 # We store layer.sw as a separate variable because it can be used 
-# in biochemical modules for light availability for plankton etc.
+# in biochemical modules to compute light availability for plankton etc.
 var(layer.sw, [W, m-2], "Layer shortwave radiation") {
 	in_flux(sw_vert, water.heat)/A ->>
 }
@@ -152,7 +152,8 @@ flux(layer.water.heat, out, [J, day-1], "Shortwave to sediments") {
 
 var(layer.water.attn, []) {
 	cz := max(0.01, refract(air.cos_z, refraction_index_water)),
-	# Length traveled through the layer by a sun beam taking zenith angle into account.
+	# 'th' is the length traveled through the layer by a sun beam taking 
+	# the solar zenith angle into account.
 	th := dz / cz,
 	1 - exp(-att_c*th)
 }
@@ -164,11 +165,13 @@ The ligh attenuation uses a constant light extinction coefficient `att_c` (param
 
 We add discharge from the lake top layer. This is important even though we haven't connected the catchment yet, because otherwise precipitation alone would make the lake volume go up over time.
 
-There are many ways one could do the lake water balance, for instance one could distribute water so that all layers have the same thickness as one another. But in this example we have opted for a much simpler solution where only the top layer changes in thickness while the others stay constant. Of course, this may not be as good for reservoirs where the level could vary by many meters, but it works for a non-regulated lake where the surface level stays fairly constant.
+There are many ways one could do the lake water balance, for instance one could redistribute the water so that all layers have the same thickness as one another. But in this example we have opted for a much simpler solution where only the top layer changes in thickness while the others stay constant. Of course, this may not be as good for reservoirs where the level could vary by many meters, but it works for a non-regulated lake where the surface level never drops too much.
 
 ```python
-# We need this separate property because we can't use the 'below' access inside "Layer discharge" for implementation reasons. Can maybe be fixed later
-# Note that since it is @initial and @no_store without a main code block, it will only be computed once at the start of the model run.
+# We need this separate property because we can't use the 'below' access inside
+# "Layer discharge" for implementation reasons. This can maybe be fixed later.
+# Note that since it is @initial and @no_store without a main code block, 
+# it will only be computed once at the start of the model run.
 # Exercise: Take into account that the top area would expand if 
 # the water expanded, along the same shore shape.
 aavg : property("Area average")

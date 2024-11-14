@@ -7,21 +7,23 @@ nav_order: 0
 
 # Central concepts
 
-Mobius2 models are built around some central concepts like state variables, fluxes, parameters, etc. These are important both for understanding how existing models work and for builiding new models with the language.
+Mobius2 models are built around some central concepts like state variables, fluxes, parameters, etc. These are important to understand both for knowing how existing models work and for builiding new models with the language.
 
-This is an overview. More detailed documentation of how to create the below entities in the model language will be documented later.
+This is an overview. More detailed documentation of how to specify the below entities in the model language is documented on separate pages.
 
 ## Names and identifiers
 
 Most entities in the model can have identifiers and names.
-- Identifiers (some times called symbols) are short strings that identify the given entity. An example is `gw_denitr`. These are used to refer to the entity inside the model (and also in [mobipy](../mobipydocs/mobipy.html)).
+- Identifiers (some times called symbols) are short strings that identify the given entity. Examples are `soil`, `water`, and `gw_denitr`. These are used to refer to the entity inside the model (and also in [mobipy](../mobipydocs/mobipy.html)).
 - Names are typically more descriptive, e.g. "Groundwater denitrification rate at 20 degrees Celsius". These are often used to refer to the entity in contexts outside the model code, for instance in [data files](../datafiledocs/datafiles.html) or in [MobiView2](../mobiviewdocs/mobiview.html).
 
 ## Modules
 
 A module is a collection of parameters, state variables and other model components that are tightly related to one another. Each model is a composition of one or more modules.
 
-For instance one module could specify how water is transported out of the soil layer (runoff, recharge, evapotranspiration), another the groundwater and so on. Modules are formally independent of one another, but can be connected in the model by directing the outgoing fluxes from one module to a quantity described by another module. A single module can also be applied to different subsystems in the model (such as using the same module for air-sea heat fluxes or phytoplankton for both a lake and a lagoon basin).
+For instance one module could specify how water is transported out of the soil layer (runoff, recharge, evapotranspiration), another the groundwater and so on. Modules are formally independent of one another, but can be connected in the model by directing the outgoing fluxes from one module to a quantity described by another module.
+
+A single module can also be applied to different subsystems in the model (such as using the same module for air-sea heat fluxes or phytoplankton for both a lake and a lagoon basin).
 
 A module does for the most part not need to know about how the system it describes is distributed. So you could use the same soil water module for both a fully and a semi-distributed hydrology model.
 
@@ -33,7 +35,7 @@ These are just examples, the framework is very general and flexible, and is not 
 
 In order to model multiple units of the same type of object (parameter, state variable, ..), one can distribute them over index sets. For instance you can have several river sections in your catchment, and you typically want to model them using the same equations, just with different parametrization per section.
 
-An object can be distributed over multiple index sets, which means you get a copy per tuple of elements from these index sets. (I.e. in a formal mathematical sense it is distributed over the Cartesian product of the index sets). So for instance, if `soil` is distributed over `subcatchment` and `landscape_units` you get one copy of the soil compartment per pair of subcatchment and landscape unit.
+An object can be distributed over multiple index sets, which means you get a copy per tuple of elements from these index sets. (I.e. in a formal mathematical sense it is distributed over the Cartesian product of the index sets). So for instance, if `soil` is distributed over `subcatchment` and `landscape_units` you get one copy of the soil compartment per subcatchment - landscape unit pair.
 
 ## Parameters
 
@@ -43,21 +45,21 @@ Parameters are always organized into parameter groups, and it is the group that 
 
 ## Components and locations
 
-We use the term *location* to refer to what may be thought of as the address of a state variable. A location is a `.`-separated chain of component identifiers, e.g. `soil.water.temp`. The types of components are
-- **Compartment**. The first item (and only the first) component of a location is always a compartment. This typically represents a physical location, such as the soil layer, a lake, the heart of a fish, etc.
-- **Property**. The last (and only the last) component of a location can be a property. These are used to address values that are computed from the state of the rest of the system (and can be referenced in other equations), but is not subject to mass balance.
+We use the term *location* to refer to what may be thought of as the "address" of a state variable. A location is a `.`-separated chain of component identifiers, e.g. `soil.water.temp`. The types of components are
+- **Compartment**. The first (and only the first) component of a location is always a compartment. This typically represents a physical location, such as the soil layer, a lake, the heart of a fish, etc.
+- **Property**. The last (and only the last) component of a location can be a property. Properties are used to address values that are computed from the state of the rest of the system (and can be referenced in other equations), but are not subject to mass balance.
 - **Quantity**. These are used to form the location of state variables that are subject to automatic mass balance. See more about this below.
 
-A compartment can be distributed so that you get multiple copies of the same compartment. This will usually also cause a distribution of associated state variables (the details are complicated, and will be documented separately). (You can also distributed a quantity component to get multiple types of the same quantity, for instance you can have several contaminants that are modeled with the same equations, but are parametrized differently).
+A compartment can be distributed, so that you get multiple copies of the same compartment. This will usually also cause a distribution of associated state variables (the details are complicated, and will be documented separately). (You can also distributed a quantity component to get multiple types of the same quantity, for instance you can have several contaminants that are modeled with the same equations, but are parametrized differently).
 
 ## State variables
 
-In Mobius2 we call all variables that can change over time for a State Variable (this does not include local variables that are used inside just one single equation). State variables can represent the state of a part of the system, such as the amount of water in the soil column, or it can be a rate of change of another variable, such as a transport rate, or any other value that is used for computing other state variables or provide diagnostics of the system.
+In Mobius2 we call any variable that can change over time for a State Variable (this does not include local variables that are used inside just one single equation). State variables can represent the state of a part of the system, such as the amount of water in the soil column, or it can be a rate of change of another variable, such as a transport rate, or any other value that is used for computing other state variables or provide diagnostics of the system.
 
 Most state variables are available for plotting in [MobiView2](../mobiviewdocs/plots.html) or for extraction in [mobipy](../mobipydocs/mobipy#series). (Some are hidden by default - separate documentation will be writen about how to access the hidden ones).
 
 State variables can either be declared or generated
-- **Declared** state variables are explicitly declared in the source code of one of the modules.
+- **Declared** state variables are explicitly declared in the source code of the modules.
 - **Generated** state variables are constructed by the framework to automatically compute things like
 	- Concentrations of dissolved variables
 	- Transport fluxes of dissolved variables
@@ -67,7 +69,7 @@ Declared state variables can either be primary variables or fluxes.
 
 ### Primary variables
 
-Primary variables have a single *location*, e.g. `soil.water` or `river.water.oc`. This can be thought of as the address of the variable, and is used to refer to it in several contexts, including in math expressions.
+A primary variable has a single *location*, e.g. `soil.water` or `river.water.oc`. This can be thought of as the address of the variable, and is used to refer to it in several contexts, including in math expressions.
 
 We say that the type of the variable is the same as the type of the last component of the location, e.g. `soil.water` is a quantity if `water` is a quantity, and `soil.water.temp` is a property if `temp` is a property.
 

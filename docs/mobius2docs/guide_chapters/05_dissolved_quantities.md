@@ -112,7 +112,7 @@ load("din_module.txt",
 	module("DIN processes", air, soil, gw, river, water, in, temp))
 ```
 
-When you have a `var` with a *location* like `soil.water.in` that consists of a quantity `water` followed by another quantity `din` we say that the second quantity is *dissolved* in the first. When the `var` is declared, we can provide two units for it. The first is the mass (or volume) unit, and the second the concentration unit.
+When you have a `var` with a *location* like `soil.water.in` that contains a quantity `water` followed by another quantity `in` we say that the second quantity is *dissolved* in the first. When the `var` is declared, we can provide two units for it. The first is the mass (or volume) unit, and the second the concentration unit.
 
 The concentration unit must always be [convertible](../units.html#conversion) to the mass unit divided by the unit of the water (or whatever quantity you dissolve in). For instance, in our soil DIN example, the mass unit is `[k g, m-2]`, the concentration unit is `[m g, l-1]`, and the water unit is `[m m]`. Since
 
@@ -124,9 +124,9 @@ can be converted to $$\mathrm{mg}/\mathrm{l}$$ with a factor of $$10^{-6}$$, thi
 
 The `@initial_conc` note is similar to `@initial`, but instead of the initial mass you provide the initial concentration. Mobius2 computes the initial mass of the variable by multiplying the initial concentration with the initial volume of water (and the appropriate scaling factor).
 
-Note how we haven't explicitly done a `solve()` declaration to make the model treat the new variables as ODE variables. This is because any quantity is automatically given the same solver as what it is dissolved in.
+Note how we haven't explicitly done a `solve()` declaration to make the model treat the new variables as ODE variables. This is because any quantity is automatically given the same solver as the quantity it is dissolved in. For instance `soil.water` is already on a solver, so `soil.water.in` will be put on the same solver.
 
-If you run the model now, you will notice how you get a nonzero concentration of DIN in the groundwater and river even though you didn't explicitly put any there. This is because all fluxes in Mobius2 will automatically transport dissolved quantities. Aggregation will also be applied in a similar way. This means that all you runoff and discharge fluxes will carry DIN proportionally to the concentration in the source compartments.
+If you run the model now, you will notice how you get a nonzero concentration of DIN in the groundwater and river even though you didn't explicitly put any there. This is because all fluxes in Mobius2 will automatically transport dissolved quantities. Aggregation will also be applied in a similar way. This means that all your runoff and discharge fluxes will carry DIN proportionally to the concentration in the source compartments.
 
 The concentration currently drops off quickly. This is because any new water coming in (precipitation) doesn't carry DIN, and so this clean water replaces the water with DIN over time. Let's provide some DIN sources to ameliorate it
 
@@ -146,11 +146,11 @@ flux(soil.water.in, out, [k g, m-2, day-1], "Soil water DIN loss") {
 }
 ```
 
-The loss rate follows a simple [Q10](https://en.wikipedia.org/wiki/Q10_(temperature_coefficient))-like process where it is higher with higher temperatures. This is common because it is typically driven by plant uptake and microbes that are more active during higher temperatures. Ideally this should follow soil temperature and not air temperature, but we won't make a soil temperature module in this tutorial.
+The loss rate follows a simple [Q10](https://en.wikipedia.org/wiki/Q10_(temperature_coefficient))-like temperature response where it is higher with higher temperatures. This is common because it is typically driven by plant uptake and microbes that are more active during higher temperatures. Ideally this should follow soil temperature and not air temperature, but we won't make a soil temperature module in this tutorial.
 
 Feel free to experiment with different formulations, adding removal processes in the groundwater and river if you want to. Also experiment with how changing the hydrology will affect river DIN concentrations.
 
-As a final example, we will provide you with an example of a timed process of fertilizer addition.
+As a final example, we will add a timed process of fertilizer addition.
 
 ```python
 # Fertilization is land-specific since you want to be able to turn it off for
@@ -176,9 +176,9 @@ flux(soil.in, soil.water.in, [k g, m-2, day-1], "Fertilizer N dissolution") {
 }
 ```
 
-Here we add fertilizer N to `soil.in`, which represents N that is not yet dissolved into the soil water. The `time` structure contains several variables that can [tell you what the model time is](../math_format.html#identifier).
+Here we add fertilizer N to `soil.in`, which represents N that is not yet dissolved into the soil water. The fertilizer N is then slowly dissolved into the soil water proportionally to the amount of water entering the soil (if you use the hydrology module from the previous chapters, that is only precipitation, but it could also include e.g. snow melt in other hydrology modules). The `in_flux` directive sums up all incoming fluxes of the given quantity.
 
-The fertilizer N is then slowly dissolved into the soil water proportionally to the amount of water entering the soil (if you use the hydrology module from the previous chapters, that is only precipitation, but it could also include e.g. snow melt in other hydrology modules). The `in_flux` directive sums up all incoming fluxes of the given quantity.
+The `time` structure contains several variables that can [tell you what the model time is](../math_format.html#identifier), and is here used to check if the current day is the day that the parameters say the fertilizers should be added.
 
 [Full code for chapter 05](https://github.com/NIVANorge/Mobius2/tree/main/guide/05).
 

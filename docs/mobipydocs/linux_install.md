@@ -24,7 +24,7 @@ sudo apt install cmake
 
 ## 1. Install OpenXLSX
 
-Clone the git repository https://github.com/troldal/OpenXLSX using e.g.
+Clone the git repository [https://github.com/troldal/OpenXLSX](https://github.com/troldal/OpenXLSX) using e.g.
 
 ```shell
 git clone https://github.com/troldal/OpenXLSX.git

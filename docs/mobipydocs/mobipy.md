@@ -53,7 +53,7 @@ def run_model_instance(app) :
 	data = app.copy()
 	#modify_some_parameters(data)
 	data.run()
-	#do_something_with_the_data(data)
+	#do_something_with_the_results(data)
 	del data
 ```
 
@@ -66,7 +66,7 @@ Entities are accessed using one of the following methods
 - `scope.identifier` where `identifier` is the [Mobius2 language identifier](../mobius2docs/declaration_format.html#entities-and-identifiers) of the entity in the given model scope.
 - `scope["Name"]` where `"Name"` is the Mobius2 language name of the entity in the given model scope.
 
-The `app` is itself the model top scope. You can then scope into modules from it using e.g.
+The `app` acts as the model top scope. You can then scope into modules from it using e.g.
 
 ```python
 app["Module name"]
@@ -97,7 +97,7 @@ You can also access any model series (result or input) using
 app.var("Series name")
 ```
 
-where `"Series name"` is the name (either series serial name or declared name) of the series in the current application.
+where `"Series name"` is the name (either series serialized name or declared name) of the series in the current application. (Note that the declared name - from the `var` declaration - does not always identify the series uniquely, but usually it does).
 
 ### Parameters
 
@@ -113,7 +113,9 @@ However if the parameter indexes over one or more index sets, you have to provid
 app["SimplyQ land"].tc_s["Agricultural"] = 3
 ```
 
-Remember that you must rerun the model for the parameter edit to take effect in the results.
+Here "Agricultural" is an index of the index set that this parameter is distributed over.
+
+Remember that you must re-run the model for the parameter edit to take effect in the results.
 
 To read the value you must always provide an index even if it doesn't index over anything. If there are no index sets, use `[()]`.
 
@@ -121,7 +123,7 @@ To read the value you must always provide an index even if it doesn't index over
 print("The start date is %s" % app.start_date[()])
 ```
 
-Parameters also have the `min()`, `max()`, `unit()` and `description()` member functions that let you extract this information from their declaration in the model. These must be called on the Entity, not on the value access (i.e. don't index it)
+Parameters also have the `min()`, `max()`, `unit()` and `description()` member functions that let you extract this information from their declaration in the model. These must be called on the Entity, not on the value access (i.e. don't index it).
 
 ### Series
 
@@ -129,9 +131,9 @@ When you read the values of a series, you must access it using its indexes. If t
 
 ![notebook minimal](../img/notebook_minimal.png)
 
-You can also construct a `pandas.DataFrame` from several such series, which is one of the most common ways to organize scientific data in python.
+You can also construct a `pandas.DataFrame` from several such series (using pandas.concat), which is one of the most common ways to organize scientific data in python.
 
-If a series indexes over several indexes you can also read out a slice. We only support slicing one index set at a time for now, and no custom strides. When slicing, instead of a ´pd.Series´ you get a tuple `(values, position, dates)`, where `values` is a `numpy.ndarray` with dimensions `(time_steps, n_indexes)`. Here `n_indexes` is the amount of indexes in the slice range. Example
+If a series indexes over several indexes you can read out a slice. We only support slicing one index set at a time for now, and no custom strides. When slicing, instead of a ´pd.Series´ you get a tuple `(values, position, dates)`, where `values` is a `numpy.ndarray` with dimensions `(time_steps, n_indexes)`. Here `n_indexes` is the amount of indexes in the slice range. Example
 
 ```python
 temps, pos, dates = app.layer.water.temp["Drammensfjorden", 4:10]
@@ -156,8 +158,10 @@ The conc and transport operations must be called on the `mobipy.Series` object, 
 ```python
 # Correct:
 fig, (ax0, ax1) = plt.subplots(2, 1, figsize=(8, 8))
-app.river.water.oc.conc()["Kråkstadelva"].plot(ax=ax0) # Plot the concentration of organic carbon in the river water.
-app.var("Reach flow flux").oc["Kråkstadelva"].plot(ax=ax1) # Plot the transport flux of organic carbon with the river discharge.
+# Plot the concentration of organic carbon in the river water.
+app.river.water.oc.conc()["Kråkstadelva"].plot(ax=ax0)
+# Plot the transport flux of organic carbon with the river discharge.
+app.var("Reach flow flux").oc["Kråkstadelva"].plot(ax=ax1)
 
 # Wrong:
 app.river.water.oc["Kråkstadelva"].conc()

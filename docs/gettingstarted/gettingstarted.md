@@ -23,7 +23,7 @@ You can also download a zip archive of the repository from its github front page
 
 ### 2. Get the MobiView2 program.
 
-For now we only support MobiView2 on Windows. It is theoretically possible to compile it on Linux, so if you need that, please contact us.
+For now we only support MobiView2 on Windows. It is theoretically possible to compile it on Linux, so if you need that, please contact us. The python and Julia packages mobipy and mobius.jl can also be used to run the models on Linux. See below.
 
 Open ftp://mobiserver.niva.no/Mobius2 in a file explorer (not a web browser), then download the entire MobiView2 folder by copying it over to somewhere on your machine.
 
@@ -67,7 +67,7 @@ The mobipy python package allows you to dynamically set parameter values and inp
 - Script your own sensitivity analysis or autocalibration.
 - Run the models in the backend of a web page with a custom web interface.
 
-To be able to run mobipy you need to download mobipy/c_abi.dll from ftp://mobiserver.niva.no/Mobius2 and put it in your local Mobius2/mobipy folder.
+If you are on Windows, to be able to run mobipy you need to download mobipy/c_abi.dll from ftp://mobiserver.niva.no/Mobius2 and put it in your local Mobius2/mobipy folder. If you are on Linux, see the [Linux installation guide](../mobipydocs/linux_install.html).
 
 See [the full documentation](../mobipydocs/mobipy.html).
 
