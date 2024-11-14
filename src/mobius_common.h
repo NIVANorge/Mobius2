@@ -120,25 +120,29 @@ fatal_error(V... tail) {
 
 
 //NOTE: we use the intrin header for __rdtsc(); The intrinsic is in different headers for different compilers. If you compile with a different compiler than what is already set up you have to add in some lines below.
+/*
 #if defined(__GNUC__) || defined(__GNUG__)
 	#include <x86intrin.h>
 #elif defined(_MSC_VER)
 	#include <intrin.h>
 #endif
+*/
 
 struct
 Timer {
 	std::chrono::time_point<std::chrono::high_resolution_clock> begin;
-	s64 cycle_begin;
+	//s64 cycle_begin;
 	
 	Timer() {
 		begin = std::chrono::high_resolution_clock::now();
-		cycle_begin = (s64)__rdtsc();
+		//cycle_begin = (s64)__rdtsc();
 	}
 	
+	/*
 	s64 get_cycles() {
 		return (s64)__rdtsc() - cycle_begin;
 	}
+	*/
 	
 	s64 get_milliseconds() {
 		auto   end = std::chrono::high_resolution_clock::now();
