@@ -23,21 +23,23 @@ Units in Mobius2 are roughly [SI-based](https://en.wikipedia.org/wiki/Internatio
 | Kelvin | `K` |
 | Ampere | `A` |
 
+Note that it differs from SI in that we use gram as the base instead of kilogram.
+
 The following derived units are also available (and can be expressed in terms of the base units).
 
-| Name | Symbol |
-| ---- | ------ |
-| Liter | `l` |
-| Hectare | `ha` |
-| Pascal | `Pa` |
-| Newton | `N` |
-| Joule | `J` |
-| Watt | `W` |
-| Bar | `bar` |
-| Percent | `perc` |
-| Volt | `V` |
-| Ohm | `ohm` |
-| Ton (metric) | `ton` |
+| Name | Symbol | In base units |
+| ---- | ------ | ------------- |
+| Liter | `l` | `10⁻³ m³` |
+| Hectare | `ha` | `10⁴ m²` |
+| Pascal | `Pa` | `10³ g m⁻¹ s⁻²` |
+| Newton | `N` | `10³ g m s⁻²` |
+| Joule | `J` | `10³ g m² s⁻²` |
+| Watt | `W` | `10³ g m² s⁻³` |
+| Bar | `bar` | `10⁸ g m⁻¹ s⁻²` |
+| Percent | `perc` | `10⁻²` |
+| Volt | `V` | `10³ g m² s⁻³ A⁻¹` |
+| Ohm | `ohm` | `10³ g m² s⁻³ A⁻²` |
+| Ton (metric) | `ton` | `10⁶ g` |
 
 (More derived units could be added if they are needed).
 
@@ -92,7 +94,7 @@ Examples:
 
 Mobius2 internally converts all units down to a standard form which is a single scaling factor followed by the unit expressed in base units only. This form is often what you see reported in error messages.
 
-For instance, the standard form of `[k W, m m]` is 10³ g m³ s⁻³.
+For instance, the standard form of `[k W, m m]` (kilowatt-millimeter) is 10³ g m³ s⁻³.
 
 ## Conversion
 

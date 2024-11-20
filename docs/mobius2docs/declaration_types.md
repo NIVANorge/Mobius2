@@ -54,7 +54,7 @@ If an argument is literally called `name:quoted_string`, it has the formal seman
 
 If an argument is specified as `argname:type...`, with trailing dots, it means you can pass multiple arguments of that type after one another
 
-If an argument type is `(type1|type2|..)` it means it can have any of those types.
+If an argument type is written as `(type1|type2|..)` it means it can have any of those types.
 
 If several signatures are listed, they are different alternatives.
 
@@ -64,7 +64,7 @@ If you see **Bind to identifier: yes** it means that the declaration creates an 
 soil : compartment("Soil")
 ```
 
-In this example, the declaration of the compartment with name "Soil" is bound to the identifier `soil`, which now refers to this entity in the rest of this scope. For instance, `soil` can be passed as an argument to another declaration if that argument is of type `compartment`.
+In this example, the declaration of the compartment with name "Soil" is bound to the identifier `soil`, which now refers to this entity in the rest of this scope. For instance, `soil` can be passed as an argument to another declaration if that argument is of type `par_group`.
 
 ## model
 
@@ -508,7 +508,7 @@ For instance, the function
 so_much_fun : function(a, b) { a*b + 3 }
 ```
 
-can in a different math body be evaluated using the syntax
+can in a different math expression be evaluated using the syntax
 
 ```python
 so_much_fun(20, 10)   # Evaluates to 20*10 + 3 = 203
@@ -733,7 +733,7 @@ Optional notes:
 
 ```python
 @grid1d(comp:compartment, set:index_set)
-@directed_graph() { <regex-body> }
+@directed_graph { <regex-body> }
 @directed_graph(edge_set:index_set) { <regex-body> }
 @no_cycles
 ```
@@ -904,4 +904,4 @@ If two discrete fluxes are not given an order relation by a discrete_order, thei
 
 ## external_computation
 
-This is a feature that for now is only (and can only be) used by NIVAFjord to call into some C++ code. It may be expanded at a later point.
+This is a feature that for now is only (and can only be) used by NIVAFjord and MAGIC to call into some custom C++ code. It may be expanded at a later point.
