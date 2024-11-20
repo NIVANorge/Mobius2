@@ -77,7 +77,10 @@
 				flux(blabla, something[vert.below], ...)				
 			means. Right now the location 'something' is not used, and we only need to declare it to allow [.top] or [.specific] etc on the secondary restriction.
 				Need this for NIVAFjord
-			Could later extend it to have different code depending on the target (for graph).
+			# (Could later extend it to have different code depending on the target (for graph).)
+					
+					Ideally we don't want this at all, the target should be specified in the connection data only. But that causes a problem for dynamically computed indexes of grid1d when grid1d is secondary restriction.
+						
 			
 			Check if it is valid to look up a value along a connection.
 				Done except for parameters.
@@ -149,7 +152,7 @@
 	
 	*** Intermediate-pri ***
 	
-		It may be confusing to users what arguments are available as 'option'. This is because if you use a declared identifier that has not been processed yet, it will say that it doesn't recognize the identifier. It is legitimate that there is an error, but the error can't (for resons) acknowledge that the identifier exists but is not usable in this context.
+		It may be confusing to users what arguments are available for 'option'. This is because if you use a declared identifier that has not been processed yet, it will say that it doesn't recognize the identifier. It is legitimate that there is an error, but the error can't (for resons) acknowledge that the identifier exists but is not usable in this context.
 		
 	
 		We could probably simplify a lot of things by switching from our custom String_View to std::string_view ??
@@ -422,9 +425,6 @@
 		Is there any way we could simplify 'aggregation_weight' and 'unit_conversion' so that they don't have to be declared like that?
 		
 		It can sometimes be very difficult to debug what is going on when one forgets to put a quantity on a solver and this doesn't give an error for dependency reasons.
-		
-		Capping of discrete fluxes from override variables not necessary?
-			I.e. don't have to check if a flux with the source in a variable that is 'override' overtaxes its source.
 		
 		Current override system of inputs on properties is not the best. Should be possible on a per-index basis (but that requires something like input_was_provided in Mobius1)
 			Similarly also want to allow inputs to override parameters.

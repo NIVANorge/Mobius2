@@ -23,11 +23,11 @@ comment: "While we use python markup for code snippets, they are not actually py
 
 In this document lists the specification of each declaration type. See the description of the [common declaration format](declaration_format.html).
 
-For a better understanding of how to build a practical model using the declarations, see the [guide](guide.html).
+For a better practical understanding of how to build a model using the declarations, see the [guide](guide.html).
 
 Here we specify how these declarations work in model, module, preamble and library files. [Declarations in data_set files function differently](../datafiledocs/new_project.html).
 
-*This document is not entirely up to date as there have been later additions that are not yet covered. The information should be correct (just not complete).*
+*This document may at some times be incomplete due to ongoing additions to the language. The information here should be correct just not complete, and will eventually be updated.*
 
 ## Signatures
 {: .no_toc }
@@ -95,9 +95,9 @@ module(name:quoted_string, v:version) { <declaration-body> }
 module(name:quoted_string, v:version, load_arguments:any...) { <declaration-body> } # (top scope only)
 ```
 
-Multiple modules and preambles can be declared in the same file.
+If a module is declared in the top scope of a file, it must instead be loaded into a model using a `load` declaration in that model. Multiple modules and preambles can be declared in the top scope of the same file.
 
-Load arguments can be provided if the module is *not* inline-declared. The load arguments are a list of identifiers that are passed to the module from the loading model, and must be specified as `identifier : type`. For instance, if the declaration is
+If a module is loaded it can be provided with load arguments. The load arguments are a list of identifiers that are passed to the module from the loading model, and must be specified as `identifier : type`. For instance, if the declaration is
 
 ```python
 module("A module", version(0, 0, 1),
@@ -115,17 +115,17 @@ q : quantity("Q")
 load("the_module_file.txt", module("A module", a, q))
 ```
 
-Internally, a `module` declaration creates a `module_template`. This template is then instantiated when it is loaded using a `load` declaration, and you can instantiate a `module` several times with different load arguments.
-
-An inlined module declaration is automatically loaded (instantiated), and can only have one instance.
+Internally, a `module` declaration creates a `module_template`. This template is then instantiated when it is loaded using a `load` declaration, and you can instantiate the same `module` several times with different load arguments.
 
 If a module has a `preamble` as a load argument, the declaration scope of the passed preamble is loaded into the module scope.
 
+If a module is declared directly inside the body of a model, it is called an *inlined* module. An inlined module is automatically loaded into the model, and will only be loaded as one single module instance. All symbols that are available in model scope are also available in the scope of the inlined module. Thus you don't pass load arguments to the inlined module. The exception is that you can pass a preamble to an inlined module in order to make the preamble scope available in that module.
+
 ## preamble
 
-Context: File top scope.
+Context: File top scope, model scope (inlined).
 
-Bind to identifier: no
+Bind to identifier: only if inlined.
 
 Signature:
 
@@ -336,7 +336,7 @@ The distribution given on the component is only the highest theoretical distribu
 
 If a property has a math body, that is called the "default code" for that property. If you create a state variable ([`var`](#var)) with that property as its last location component and the state variable itself doesn't have a math body, the default code will be used instead. Note that the default code will be resolved separately per state variable it is used for, using the state variable location as the [context location](math_format.html#the-context-location). However, the scope it is resolved in is still the scope it is declared in.
 
-## par_group
+## par_group, option_group
 
 Context: model, module or preamble.
 
@@ -347,6 +347,7 @@ Signature:
 ```python
 par_group(name:quoted_string) { <declaration-body> }
 par_group(name:quoted_string, distributes_like:(compartment|quantity)...) { <declaration-body> }
+option_group(name:quoted_string) { <declaration-body> }
 ```
 
 Optional notes:
@@ -360,6 +361,8 @@ A parameter group is created to embody a collection of parameters. It determines
 If a parameter group `distributes_like` one or more components, it will have a maximal distribution that is the union of the distributions of these components. Whether or not the group will have that full distribution in a particular model application depends on the [data set](../datafiledocs/new_project.html#parameter-groups).
 
 The optional note `@distribute_fully` can be used to force the user to always use all available index sets for the data for this parameter group. This is only necessary in some very rare instances when predictability of the distribution of the group is necessary.
+
+An `option_group` is like a `par_group`, but can only contain parameters of type `par_bool` and `par_enum`. Option groups can not distribute over index sets. Parameters inside an `option_group` can be used as arguments to `option` declarations.
 
 ## par_real, par_int, par_bool, par_enum
 
@@ -384,6 +387,12 @@ par_enum(name:quoted_string, default:identifier) { <special> }
 par_enum(name:quoted_string, default:identifier, description:quoted_string) { <special> }
 ```
 
+Optional notes
+
+```python
+@formerly(prev_name:quoted_string)
+```
+
 These entities are collectively known as "parameters". Parameters are values that are held constant through each single model run, but unlike `constant`s, their values can be configured by the model user in e.g. data files or MobiView2. Parameters can also be distributed over index sets (this is determined by the `par_group` they are in).
 
 - The `default` value is what you get for the parameter value if a specific value is not provided in the data set.
@@ -395,6 +404,8 @@ The body of a `par_enum` must be a space-separated list of identifiers giving th
 ```python
 cov_shape : par_enum("Vegetation cover curve shape", flat) [ flat triangular smooth ]
 ```
+
+A `@formerly` note can be used to make the model backwards compatible with older data sets after a parameter is renamed in the model. The string identifying the previous name must be a full serialized name of the parameter, i.e. "module name\par group name\parameter name". This also makes it possible to identify parameters that have moved between parameter groups or even modules (but it can still be a problem if the distributions of the parameter groups are different).
 
 ## constant
 
@@ -410,6 +421,67 @@ constant(value:boolean)
 ```
 
 A constant is a single value (can not be distributed) that can be referenced in math scope. It can be useful to put constants as named entities like this so that they don't appear as "magic value" literals directly in the code. This gives a form of documentation of what the constant is.
+
+## option
+
+Context: model, module, preamble.
+
+Bind to identifier: no
+
+Signature:
+
+```python
+option(argument:(par_bool|par_enum|constant|loc)) { <declaration-body> }
+```
+
+Optional notes:
+
+```
+@otherwise { <declaration-body> }
+```
+
+An `option` is used to allow parts of the model declaration to be omitted depending on configurations.
+
+If in the model scope, the arguments can not be a `loc`. If the argument is a parameter, it must have been declared in an `option_group`, and that option group must have been declared in the model top scope, not inside another `option` (but you can have `option`s nested within one another). A `constant` can only be the argument to an `option` if it is a boolean constant.
+
+An argument of type `par_enum` must be specified as `par.value`, where `par` is the parameter identifier, and `value` is one of the available values for that `par_enum`.
+
+If the argument of the `option` evaluates to `true`, the body of the option is included directly into the top scope of the model, otherwise it is discarded. The body of the `@otherwise` (if there is one) is included if the argument evaluates to `false`.
+
+Inside a module, you can also use load arguments as arguments to options inside the module scope, and it is in this context you can use a `loc` as an option argument as long as it is passed with an argument that refers to a `constant` or a `par_bool`.
+
+Examples:
+
+```python
+# model scope
+
+option_group("Configurations") {
+	compute_etp : par_bool("Compute evapotranspiration")
+}
+
+option(compute_etp) {
+	load("pet.txt", module("Potential evapotranspiration", air, water, temp))
+}
+```
+
+```python
+# This example allows an outer model to decide if the lake chemistry module 
+# should compute CO₂ amounts in the water or not (depending on the value of 
+# what is passed in the compute_dic loc).
+module("A lake chemistry module", version(0, 0, 0),
+	lake,
+	water,
+	co2,
+	#...
+	compute_dic : loc,
+) {
+	option(compute_dic) {
+		var(lake.water.co2, [k g], [m g, l-1], "Lake CO₂") #...
+		#...
+	}
+	#...
+}
+```
 
 ## function
 

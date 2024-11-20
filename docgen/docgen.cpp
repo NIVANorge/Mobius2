@@ -735,9 +735,6 @@ document_library(std::stringstream &ss, Mobius_Model *model, Entity_Id lib_id) {
 	
 	ss << "### Description\n\n";
 	ss << lib->doc_string << "\n\n";
-	// TODO: Print the docstring, and provide proper documentation in each library!.
-	
-	// Hmm, could factor this out from document_module:
 	
 	print_constants(ss, model, &lib->scope);
 	
@@ -792,7 +789,6 @@ generate_lib_docs(int navorder, const char *filename) {
 int
 main() {
 	
-	// TODO: Read these from a file:
 	std::vector<std::vector<std::string>> models;
 	
 	const char *filename = "module_list.txt";
