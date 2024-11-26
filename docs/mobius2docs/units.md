@@ -94,7 +94,7 @@ Examples:
 
 Mobius2 internally converts all units down to a standard form which is a single scaling factor followed by the unit expressed in base units only. This form is often what you see reported in error messages.
 
-For instance, the standard form of `[k W, m m]` (kilowatt-millimeter) is 10³ g m³ s⁻³.
+For instance, the standard form of `[k W, m m]` (kilowatt-millimeter) is `10³ g m³ s⁻³`.
 
 ## Conversion
 

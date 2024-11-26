@@ -326,7 +326,7 @@ mean_barometric_pressure : function(elevation : [m]) {
 
 ## Imperative constructs
 
-If you need to, there are some imperative programming constructs you can use. We recommend that you only use this if you need to compute an iterative solution to something.
+If necessary, there are some imperative programming constructs you can use. We recommend that you use this only if you have to compute an iterative solution to something.
 
 A \<block\> can be given an optional *iteration tag* by writing
 
@@ -344,7 +344,11 @@ You can also update the value of a local variable using the syntax
 
 where the identifier is that of the local variable. We recommend that you use this only when you need to because code is easier to read and the compiler can make better optimizations when variables are immutable.
 
-For instance, the below expression uses [Newton's method](https://en.wikipedia.org/wiki/Newton's_method) for approximating the solution to `sin(x)+e^x = 0`
+As an example, the below expression uses [Newton's method](https://en.wikipedia.org/wiki/Newton's_method) to compute an approximation of the solution to the equation
+
+$$
+\sin(x)+e^x = 0
+$$
 
 ```python
 solve_equation : function(eps, x0) {
@@ -357,3 +361,5 @@ solve_equation : function(eps, x0) {
 	}
 }
 ```
+
+{% include lib/mathjax.html %}

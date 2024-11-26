@@ -10,7 +10,7 @@ model("SimplyQ") {
 	sc       : index_set("Subcatchment")
 	lu       : index_set("Landscape units")
 	
-	air      : compartment("Atmosphere")
+	air      : compartment("Atmosphere",  sc)
 	snow_box : compartment("Snow layer",  sc)
 	soil     : compartment("Soil",        sc, lu)
 	gw       : compartment("Groundwater", sc)
