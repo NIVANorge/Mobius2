@@ -56,7 +56,7 @@ def xlsx_input_from_dataframe(file, df, sheet_name, indexes = {}, flags = None) 
 	
 	for i, index_set in enumerate(indexes) :
 		# The cell containing the name of the index set
-		cell0 = sheet.cell(row=i+1, column=1)
+		cell0 = sheet.cell(row=i+2, column=1)
 		cell0.value = index_set
 		# The cells containing the index names
 		for j in range(len(df.columns)) :

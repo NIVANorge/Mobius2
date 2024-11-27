@@ -25,7 +25,7 @@ $$
 A(z) = A_0 \left(\frac{z}{z_{max}}\right)^{\theta+1}
 $$
 
-where $$A(z)$$ is the area of the horizontal cross-section of the lake at level $$z$$ measuring up from the maximal depth $$z_{max}$$, $$A_0$$ is the surface area at the zero level of the outlet, and $$\theta$$ is a user-defined parameter.
+where $$A(z)$$ is the area of the horizontal cross-section of the lake at level $$z$$ measuring up from the maximal depth $$z_{max}$$, $$A_0$$ is the surface area at the zero level of the outlet, and $$\theta$$ is a user-defined parameter. For instance, with theta=1, the lake is approximately cone shaped.
 
 We also assume that the discharge is linearly proportional to the water level at the outlet.
 
