@@ -42,7 +42,11 @@ model("SimplyQ") {
 	
 	###### Import modules
 	load("modules/hbv_snow.txt",  module("HBVSnow", air, snow_box, snow, water, temp, precip, loc(soil.water)))
-	load("modules/simplyq.txt",   module("SimplyQ land", soil, gw, river, water, flow, pet, a_catch, loc(river.water), loc(river.water)))
+	#load("modules/simplyq.txt",   module("SimplyQ land", soil, gw, river, water, flow, pet, a_catch, loc(river.water), loc(river.water)))
+	load("modules/simplyq.txt",   
+		module("SimplyQ land", soil, gw, water, flow, pet, loc(river.water)),
+		module("SimplyQ groundwater", gw, river, water, flow, loc(river.water), a_catch)
+	)
 	
 	option(river_module.simple) {
 		load("modules/simplyq.txt", module("SimplyQ river", river, water, flow, loc(downstream)))

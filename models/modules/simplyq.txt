@@ -3,13 +3,13 @@
 module("SimplyQ land", version(0, 5, 0),
 	soil  : compartment,
 	gw    : compartment,
-	river : compartment,   # TODO: Should find a way to avoid passing river (and a_catch and maybe flow)
+	#river : compartment,   # TODO: Should find a way to avoid passing river (and a_catch and maybe flow)
 	water : quantity,
 	flow  : property,
 	pet   : property,
-	a_catch : par_real,
+	#a_catch : par_real,
 	runoff_target : loc,
-	gw_target     : loc
+	#gw_target     : loc
 ) {
 """
 This is an adaption of a hydrology module originally implemented in Python as a part of the model SimplyP, which was published as
@@ -23,7 +23,7 @@ Authors: James E. Sample, Leah A. Jackson-Blake, Magnus D. Norling
 """
 	load("stdlib/basic_math.txt", library("Response"))
 	
-	par_group("Hydrology general") {
+	par_group("Hydrology general", soil) {
 		bfi    : par_real("Baseflow index", [],                        0.6,  0,    1)
 		qqinfl : par_real("Quick flow inflection point", [m m, day-1], 160, 20,  2000)
 	}
@@ -32,18 +32,10 @@ Authors: James E. Sample, Leah A. Jackson-Blake, Magnus D. Norling
 		fc     : par_real("Field capacity", [m m],                     120,  0, 1000)
 		tc_s   : par_real("Soil water time constant", [day],             2,  1,   40)
 	}
-		
-	par_group("Groundwater", gw) {
-		tc_g    : par_real("Groundwater time constant", [day],          30,  1,  400)
-		gw_ret  : par_real("Groundwater retention volume", [m m],        0,  1, 1e4)
-	}
 	
 	var(soil.water, [m m], "Soil water volume")  @initial { fc }
-	var(gw.water,   [m m], "Groundwater volume") @initial {
-		gw_ret + (tc_g * river.water.flow / a_catch) -> [m m]  #TODO: Alternatively, access the init_flow parameter and cut the river.water.flow property entirely
-	}
 	
-	flux(soil.water, river.water, [m m, day-1], "Quick flow") {
+	flux(soil.water, runoff_target, [m m, day-1], "Quick flow") {
 		drylim := 0.9,		# Could be a parameter. Stops quick flow below drylim*fc
 		q_in   := in_flux(water)->>,
 		q_in * s_response(water, drylim*fc, fc, 0, 1) * atan(q_in/qqinfl)*2/pi
@@ -61,10 +53,29 @@ Authors: James E. Sample, Leah A. Jackson-Blake, Magnus D. Norling
 	flux(soil.water, runoff_target, [m m, day-1], "Soil runoff")            {   flow * (1 - bfi)   }
 	
 	flux(soil.water, gw.water, [m m, day-1], "Recharge")                    {   flow * bfi   }
-
-	flux(gw.water, gw_target, [m m, day-1], "Groundwater runoff")           {   max(0, water-gw_ret) / tc_g   }
 }
 
+module("SimplyQ groundwater", version(0, 5, 0),
+	gw : compartment,
+	river : compartment,
+	water : quantity,
+	flow : property,
+	gw_target : loc,
+	a_catch : par_real
+) {
+	par_group("Groundwater", gw) {
+		tc_g    : par_real("Groundwater time constant", [day],          30,  1,  400)
+			@formerly("SimplyQ land\Groundwater\Groundwater time constant")
+		gw_ret  : par_real("Groundwater retention volume", [m m],        0,  1, 1e4)
+			@formerly("SimplyQ land\Groundwater\Groundwater retention volume")
+	}
+	
+	var(gw.water,   [m m], "Groundwater volume") @initial {
+		gw_ret + (tc_g * river.water.flow / a_catch) -> [m m]  #TODO: Alternatively, access the init_flow parameter and cut the river.water.flow property entirely
+	}
+	
+	flux(gw.water, gw_target, [m m, day-1], "Groundwater runoff")           {   max(0, water-gw_ret) / tc_g   }
+}
 
 module("SimplyQ river", version(0, 5, 0),
 	river : compartment,
@@ -132,11 +143,28 @@ Authors: Magnus D. Norling
 	}
 	
 	Rh   : property("Hydraulic radius")
+	v    : property("Velocity")
+	T    : property("Residence time")
+	d    : property("Depth")
 	
 	var(river.Rh, [m]) {
 		A := water/len,
 		wetted_perimeter := wb + 2*sqrt( ( (wb*sb)^2 + 4*A*sb ) / (1 + sb^2) ),
 		A / wetted_perimeter
+	}
+	
+	var(river.v, [m, s-1], "River velocity") {
+		A := water/len,
+		water.flow / A
+	}
+	
+	var(river.T, [day], "River residence time") {
+		water / water.flow ->>
+	}
+	
+	var(river.d, [m], "River depth") {
+		A := water/len,
+		0.5*( -wb*sb + sqrt((wb*sb)^2 + 4*A*sb) )
 	}
 	
 	var(river.water, [m 3], "Reach water volume") @initial {

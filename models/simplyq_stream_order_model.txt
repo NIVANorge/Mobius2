@@ -20,6 +20,7 @@ model("SimplyQ") {
 	
 	snow     : quantity("Snow")
 	water    : quantity("Water")
+	heat     : quantity("Heat energy")
 	
 	temp     : property("Temperature")
 	precip   : property("Precipitation")
@@ -49,11 +50,15 @@ model("SimplyQ") {
 	load("modules/hbv_snow.txt",  module("HBVSnow", air, snow_box, snow, water, temp, precip, loc(soil.water)))
 	
 	load("modules/simplyq.txt",
-		module("SimplyQ land", soil, gw, river, water, flow, pet, a_catch, loc(s1_2.water), loc(s1_2.water)),
+		module("SimplyQ land", soil, gw, water, flow, pet, loc(s1_2.water)),
+		module("SimplyQ groundwater", gw, river, water, flow, loc(s1_2.water), a_catch),
 		module("SimplyQ river trapezoid", "1-2nd order streams", s1_2, water, flow, loc(s3_4.water)),
 		module("SimplyQ river trapezoid", "3-4th order streams", s3_4, water, flow, loc(river.water)),
 		module("SimplyQ river trapezoid", "Main river", river, water, flow, loc(downstream))
 	)
+	
+	load("modules/rivertemp.txt",      module("RiverTemperature", air, soil, river, water, heat, temp))
+	load("modules/simplysoiltemp.txt", module("Simply soil temperature", air, soil, snow_box, snow, temp))
 	
 	aggregation_weight(soil, gw)    { lu_prop }
 	aggregation_weight(soil, s1_2)  { lu_prop }
