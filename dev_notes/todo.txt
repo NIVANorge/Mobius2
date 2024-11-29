@@ -2,6 +2,10 @@
 
 	*** High pri ***
 	
+	
+		In mobipy you can't re-load a model (duplicate definition of symbol batch_function_1)
+			This means it is using the same underlying llvm module object. How??
+	
 		Update language documentation with latest additions
 			option, option_group
 			@formerly

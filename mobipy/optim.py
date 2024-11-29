@@ -145,26 +145,36 @@ def ll_wls(sim, obs, params) :
 	return np.nansum(vals)
 
 
-def residual_from_target(target, start_date, end_date) :
+def residual_from_target(target, start_date, end_date, normalize=False) :
 	# This is only for use with the least squares minimizer, which takes the entire residual vector
 	
 	sl = slice(start_date, end_date)
 	
+	def single_residual(data, target) :
+		sim = data.var(target[0])[target[1]].loc[sl].values
+		obs = data.var(target[2])[target[3]].loc[sl].values
+		
+		weight = 1 if len(target)==4 else target[4]
+		n_valid = 1 if not normalize else np.sum(~np.isnan(obs))
+		
+		return sim*np.sqrt(weight/n_valid), obs*np.sqrt(weight/n_valid)
+	
 	if isinstance(target, list) :
 		
 		def get_sim_obs(data) :
-			sim = np.concatenate([data.var(tar[0])[tar[1]].loc[sl].values*np.sqrt(tar[4]) for tar in target])
-			obs = np.concatenate([data.var(tar[2])[tar[3]].loc[sl].values*np.sqrt(tar[4]) for tar in target])
-			return sim, obs
+			sim = []
+			obs = []
+			for tar in target :
+				sm, ob = single_residual(data, tar)
+				sim.append(sm)
+				obs.append(ob)
+			return np.concatenate(sim), np.concatenate(obs)
 		
 		return get_sim_obs
 		
 	else :
-		simname, simidx, obsname, obsidx = target
 		def get_sim_obs(data) :
-			sim = data.var(simname)[simidx].loc[sl].values
-			obs = data.var(obsname)[obsidx].loc[sl].values
-			return sim, obs
+			return single_residual(data, target)
 			
 		return get_sim_obs
 	

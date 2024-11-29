@@ -125,7 +125,19 @@ module("SimplyQ river trapezoid", version(0, 1, 0),
 	river_target : loc
 ) {
 """
-Alternative version of the SimplyQ river module assuming trapezoid cross-section of the river.
+Alternative version of the SimplyQ river module assuming an (isosceles) trapezoid cross-section of the river, where there is a flat river bed in the middle of the river with width $$w_b$$, and where the top width of ther river $$w_t$$ depends on the river volume and is larger than $$w_b$$.
+
+The bank slope $$s_b$$ is at any time the depth $$d$$ of the river divided by the extrusion width $$(w_t - w_b)/2$$ of the sloped bank at one side of the river. In other words, it is the tangent of the angle the sloped bank makes against the horizontal plane. A higher $$s_b$$ means a steeper bank, with a rectangular cross-section being the limit as $$s_b$$ increases.
+
+The cross-section $$A$$ is
+
+$$
+A = frac{V}{L} = \frac{d}{2}(w_t + w_b).
+$$
+
+where $$V$$ and $$L$ are the reach volume and length. Since $$w_b$$, $$s_b$$ and $$L$$ are constant, these equations can be solved so that you can compute $$d$$ and the hydraulic radius as a functions of $$V$$.
+
+The reach discharge is then computed using the [Manning formula](https://en.wikipedia.org/wiki/Manning_formula).
 
 Authors: Magnus D. Norling
 """
@@ -142,28 +154,28 @@ Authors: Magnus D. Norling
 		init_flow      : par_real("Initial reach flow", [m 3, s-1],                  1,       0,     100)
 	}
 	
+	A    : property("Cross-section area")
 	Rh   : property("Hydraulic radius")
 	v    : property("Velocity")
 	T    : property("Residence time")
 	d    : property("Depth")
 	
+	var(river.A, [m 2]) { water/len } @no_store
+	
 	var(river.Rh, [m]) {
-		A := water/len,
 		wetted_perimeter := wb + 2*sqrt( ( (wb*sb)^2 + 4*A*sb ) / (1 + sb^2) ),
 		A / wetted_perimeter
 	}
 	
-	var(river.v, [m, s-1], "River velocity") {
-		A := water/len,
+	var(river.v, [m, s-1], "Reach velocity") {
 		water.flow / A
 	}
 	
-	var(river.T, [day], "River residence time") {
+	var(river.T, [day], "Reach residence time") {
 		water / water.flow ->>
 	}
 	
-	var(river.d, [m], "River depth") {
-		A := water/len,
+	var(river.d, [m], "Reach depth") {
 		0.5*( -wb*sb + sqrt((wb*sb)^2 + 4*A*sb) )
 	}
 	
@@ -172,7 +184,10 @@ Authors: Magnus D. Norling
 		len*(flow*c_mann*cbrt(wb^2)/sqrt(slope))^(3/5.)
 	}
 
-	var(river.water.flow, [m 3, s -1], "Reach flow")    {  (water/len)*Rh^(2/3.)*sqrt(slope)/c_mann  } @initial { init_flow } @no_store
+	var(river.water.flow, [m 3, s -1], "Reach flow")    {
+		(water/len)*Rh^(2/3.)*sqrt(slope)/c_mann
+	} @initial { init_flow } @no_store
+	
 	flux(river.water, river_target, [m 3, s-1], "Reach flow flux")     {  flow  }
 }
 

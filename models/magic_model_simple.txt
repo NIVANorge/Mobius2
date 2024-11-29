@@ -6,7 +6,7 @@ model("MAGIC (simple)") {
 	
 	comp : compartment("Compartment", ci)
 	
-	con : connection("Compartment connection") @directed_graph { comp+ out }
+	con : connection("Compartment connection") @directed_graph { comp+ out } @no_cycles
 	
 	par_group("Area", comp) {
 		rel_a : par_real("Relative area", [], 1, 0, 1)

@@ -67,7 +67,7 @@ def xlsx_input_from_dataframe(file, df, sheet_name, indexes = {}, flags = None) 
 				else : break
 			else :
 				idx = idxs
-			cell = sheet.cell(row=i+1, column=j+2)
+			cell = sheet.cell(row=i+2, column=j+2)
 			cell.value = idx
 			
 	if flags :

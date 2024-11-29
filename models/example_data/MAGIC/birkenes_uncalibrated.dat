@@ -116,16 +116,16 @@ data_set {
 			[ 0 0 ]
 			
 			par_real("Initial exchangeable Ca on soil as % of CEC") 
-			[ 16 0 ]
+			[ 5 0 ]
 			
 			par_real("Initial exchangeable Mg on soil as % of CEC") 
-			[ 10.13 0 ]
+			[ 2 0 ]
 			
 			par_real("Initial exchangeable Na on soil as % of CEC") 
 			[ 2 0 ]
 			
 			par_real("Initial exchangeable K on soil as % of CEC") 
-			[ 3 0 ]
+			[ 2 0 ]
 		
 		}
 	
@@ -136,7 +136,7 @@ data_set {
 		par_group("Climate parameters", ci) {
 			
 			par_real("Organic acid concentration") 
-			[ 52 26 ]
+			[ 52 10 ]
 			
 			par_bool("This is a surface compartment") 
 			[ true true ]
@@ -155,16 +155,16 @@ data_set {
 		par_group("Weathering", ci) {
 			
 			par_real("Ca weathering") 
-			[ 30 0 ]
+			[ 0 0 ]
 			
 			par_real("Mg weathering") 
-			[ -6.2 0 ]
+			[ 0 0 ]
 			
 			par_real("Na weathering") 
-			[ 23.15 0 ]
+			[ 0 0 ]
 			
 			par_real("K weathering") 
-			[ 0.5 0 ]
+			[ 0 0 ]
 			
 			par_real("NH4 weathering") 
 			[ 0 0 ]
@@ -230,7 +230,7 @@ data_set {
 			[ -100 -100 ]
 			
 			par_real("Denitrification") 
-			[ -92 0 ]
+			[ 0 0 ]
 		
 		}
 	
