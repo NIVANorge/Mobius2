@@ -1,6 +1,20 @@
 
 from .. import optim as opt
 
+def get_nh4_setup(app, calib_index='Soil', obs_index='River', obsname='Obs NH4') :
+	
+	par_dict = {
+		'nitr' : ('MAGIC-Forest CNP', 'nitr', [calib_index], -100, 0),
+	}
+	
+	target = ('NH4(+) ionic concentration', [obs_index], obsname, [])
+	
+	params, set_params = opt.params_from_dict(app, par_dict)
+
+	get_sim_obs = opt.residual_from_target(target, app.start_date[()], app.end_date[()])
+
+	return params, set_params, target, get_sim_obs
+
 def get_no3_setup(app, calib_index='Soil', obs_index='River', obsname='Obs NO3') :
 	
 	par_dict = {
