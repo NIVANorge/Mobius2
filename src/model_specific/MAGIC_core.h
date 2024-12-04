@@ -191,14 +191,14 @@ SetEquilibriumConstants(const magic_param &Param, magic_coeff &CoeffOut, bool Is
 	// Correct equilibrium coeeficients for Al-hydroxide dissociation using standard coefficient & enthalpy of reactions
 	for(int Idx = 0; Idx < 4; ++Idx)
 	{
-		int J = abs(Idx - 2);
+		int J = std::abs(Idx - 2);
 		CoeffOut.K_Al[Idx] = std::pow(10.0, StAlOH[Idx] + dHAlOH[Idx]*Tmtr + G[3] - G[J] - (double)(Idx+1)*G[1]);
 	}
 	
 	// Correct equilibrium coeeficients for Al-F complexation using standard coefficient & enthalpy of reactions
 	for(int Idx = 0; Idx < 6; ++Idx)
 	{
-		int J = abs(Idx - 2);
+		int J = std::abs(Idx - 2);
 		CoeffOut.K_F[Idx] = std::pow(10.0, StAlF[Idx] + dAlF[Idx]*Tmtr + G[3] - G[J] + (double)(Idx+1)*G[1]);
 	}
 	
@@ -232,7 +232,7 @@ inline double
 Sign(double A, double B)
 {
 	// Return the value of A with the sign of B
-	return B > 0.0 ? abs(A) : -abs(A);
+	return B > 0.0 ? std::abs(A) : -std::abs(A);
 	
 	/*
 	//TODO: More efficient implementation of this?
@@ -270,7 +270,7 @@ SolveFreeFluoride(const magic_coeff &Coeff, double all_F, double conc_Al)
 		}
 		double Term3 = conc_Al*Term1 + Term2;
 		double Term4 = all_F - Term3;
-		if((abs(Term4) / all_F)*100.0 < 0.1) break;   // Stop when resolution among species < 0.1%
+		if((std::abs(Term4) / all_F)*100.0 < 0.1) break;   // Stop when resolution among species < 0.1%
 		double Df = Term4*Term2/Term3;
 		Term2 += Df;
 	}
@@ -316,10 +316,10 @@ SolveAqueousSO4(const magic_coeff &Coeff, double total_SO4, double conc_Al, doub
 	{
 		// Real, posiive value for free SO4 ion concentration (mmol/m3) - calculate and return
 		CC = std::sqrt(CC);
-		double AA = pow(10.0, std::log10(abs(-BB2/2.0 + CC)*1e15)/3.0);
+		double AA = pow(10.0, std::log10(std::abs(-BB2/2.0 + CC)*1e15)/3.0);
 		AA2 = -BB2/2.0 + CC;
 		AA = Sign(AA, AA2);
-		double BB = pow(10.0, std::log10(abs(-BB2/2.0 + CC)*1e15)/3.0);
+		double BB = pow(10.0, std::log10(std::abs(-BB2/2.0 + CC)*1e15)/3.0);
 		BB2 = -BB2/2.0 - CC;
 		BB = Sign(BB, BB2);
 		double xSO4 = AA + BB - PP/3.0;
@@ -642,7 +642,7 @@ MagicCore(const magic_input &Input, const magic_param &Param, magic_output &Resu
 	double ChargeBalance = Result.SumBaseCationConc + NetAlCharge + Result.conc_H + Result.conc_NH4 - Result.SumAcidAnionConc - Result.all_DIC - Result.all_DOC - Coeff.K_W/Result.conc_H;
 	
 	int Iter = 0;
-	if(abs(ChargeBalance) >= Conv)  // If charge balance is within convergence criterion, the solution has converged. Otherwise, do an iterative solution loop
+	if(std::abs(ChargeBalance) >= Conv)  // If charge balance is within convergence criterion, the solution has converged. Otherwise, do an iterative solution loop
 	{
 		// Set increment for changing pH and begin the iterative solution loop
 		double dpH = (ChargeBalance < 0.0) ? -0.02 : 0.02;
@@ -735,7 +735,7 @@ MagicCore(const magic_input &Input, const magic_param &Param, magic_output &Resu
 			double ChargeBalance0 = Result.SumBaseCationConc + NetAlCharge + Result.conc_H + Result.conc_NH4 - Result.SumAcidAnionConc - Result.all_DIC - Result.all_DOC - Coeff.K_W/Result.conc_H;
 			
 			// If charge balance is within convergence criterion the solution is complete - leave iteration loop
-			if(abs(ChargeBalance0) < Conv) break;
+			if(std::abs(ChargeBalance0) < Conv) break;
 			
 			// If solution has overshot, reduce step size and change increment direction
 			double ChargeSgn = ChargeBalance0 / ChargeBalance;
@@ -905,7 +905,7 @@ MagicCoreInitial(const magic_init_input &Input, const magic_param &Param, magic_
 	
 	//log_print("Initial state: CBAL: ", ChargeBalance, " SBC: ", SumBaseCationConc, " NetAl: ", NetAlCharge, " H: ", Result.conc_H, " NH4: ", Input.conc_NH4, " SAA: ", SumAcidAnionConc, " DIC: ", all_DIC, " DOC: ", all_DOC, " KH/H: ", Coeff.K_W/Result.conc_H, "\n", "Ca: ", Input.conc_Ca, " Mg: ", Input.conc_Mg, " Na: ", Input.conc_Na, " K: ", Input.conc_K, " SO4: ", Result.conc_SO4, " Cl: ", Input.conc_Cl, " NO3: ", Input.conc_NO3, "\n");
 	
-	if(abs(ChargeBalance) >= Conv)  // If charge balance is within convergence criterion, the solution has converged. Otherwise, do an iterative solution loop
+	if(std::abs(ChargeBalance) >= Conv)  // If charge balance is within convergence criterion, the solution has converged. Otherwise, do an iterative solution loop
 	{
 		// Set increment for changing pH and begin the iterative solution loop
 		double dpH = (ChargeBalance < 0.0) ? -0.02 : 0.02;
@@ -934,7 +934,7 @@ MagicCoreInitial(const magic_init_input &Input, const magic_param &Param, magic_
 			NetAlCharge = CalculateNetAlCharge(Coeff, Result.conc_H, conc_Al, Result.conc_SO4, Result.conc_F, conc_A3M);
 			double ChargeBalance0 = SumBaseCationConc + NetAlCharge + Result.conc_H + Input.conc_NH4 - SumAcidAnionConc - all_DIC - all_DOC - Coeff.K_W/Result.conc_H;
 			
-			if(abs(ChargeBalance0) < Conv) break;
+			if(std::abs(ChargeBalance0) < Conv) break;
 			
 			// If solution has overshot, reduce step size and change increment direction
 			double ChargeSgn = ChargeBalance0 / ChargeBalance;

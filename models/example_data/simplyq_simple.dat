@@ -46,6 +46,16 @@ You can have a docstring to describe the dataset. This gets saved when you save 
 	
 	}
 	
+	option_group("SimplyQ configuration") {
+		
+		par_enum("PET module") 
+		[ degree_day ]
+		
+		par_enum("River discharge module") 
+		[ simple ]
+	
+	}
+	
 	module("HBVSnow", version(1, 0, 0)) {
 		
 		par_group("Snow") {
@@ -107,16 +117,6 @@ You can have a docstring to describe the dataset. This gets saved when you save 
 			[ 8 ]
 		
 		}
-		
-		par_group("Groundwater") {
-			
-			par_real("Groundwater time constant") 
-			[ 200 ]
-			
-			par_real("Groundwater retention volume") 
-			[ 0 ]
-		
-		}
 	
 	}
 	
@@ -135,6 +135,20 @@ You can have a docstring to describe the dataset. This gets saved when you save 
 			
 			par_real("Initial reach flow") 
 			[ 0.5 ]
+		
+		}
+	
+	}
+	
+	module("SimplyQ groundwater", version(0, 5, 0)) {
+		
+		par_group("Groundwater", sc) {
+			
+			par_real("Groundwater time constant") 
+			[ 30 ]
+			
+			par_real("Groundwater retention volume") 
+			[ 0 ]
 		
 		}
 	
