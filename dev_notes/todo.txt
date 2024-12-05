@@ -1,13 +1,7 @@
 
 
 	*** High pri ***
-	
-		If you use a token that is not int or string for index_set data you get an internal error.
 		
-		Autocalib notebook is wrong since SimplyQ refactor (groundwater)
-		
-		MobiView : reload when no model is loaded, it can't find stdlib (is mobius_base_path not set?).
-	
 		In mobipy you can't re-load a model (duplicate definition of symbol batch_function_1)
 			This means it is using the same underlying llvm module object. How??
 			Really need to fix this. Happens when app is not explicitly deleted, I think.

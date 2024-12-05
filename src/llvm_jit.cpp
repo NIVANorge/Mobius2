@@ -95,8 +95,12 @@ create_llvm_module() {
 	
 	LLVM_Module_Data *data = new LLVM_Module_Data();
 	
+	// This isn't super robust..
+	static int module_index = 0;
+	std::string module_name = std::string("Mobius2 batch JIT ") + std::to_string(module_index++);
+	
 	data->context = std::make_unique<llvm::LLVMContext>();
-	data->module  = std::make_unique<llvm::Module>("Mobius2 batch JIT", *data->context);
+	data->module  = std::make_unique<llvm::Module>(module_name, *data->context);
 	data->module->setDataLayout(global_jit->getDataLayout());
 
 	// Create a new builder for the module.

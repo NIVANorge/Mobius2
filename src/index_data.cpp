@@ -194,8 +194,10 @@ Index_Data::set_indexes(Entity_Id index_set_id, const std::vector<Token> &names,
 		type = Index_Record::Type::numeric1;
 	else if(names[0].type == Token_Type::quoted_string)
 		type = Index_Record::Type::named;
-	else
-		fatal_error(Mobius_Error::internal, "Unhandled token type for setting index data.");
+	else {
+		names[0].print_error_header();
+		fatal_error("Unsupported token type for index data. Expected a quoted string or integer.");
+	}
 	
 	initialize(index_set_id, parent_idx, type, names[0].source_loc);
 	
