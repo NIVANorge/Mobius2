@@ -105,6 +105,9 @@ def load_dll() :
 	if os.name == 'posix' : shared_ext = 'so'
 	dll_file = str(pathlib.Path(__file__).parent / ('c_abi.%s'%shared_ext))
 	
+	if not pathlib.Path.exists(dll_file) :
+		raise RuntimeError('mobipy is not properly installed. Please see instructions at https://nivanorge.github.io/Mobius2/mobipydocs/mobipy.html#installation .')
+	
 	dll = ctypes.CDLL(dll_file)
 	
 	dll.mobius_encountered_error.argtypes = [ctypes.c_char_p, ctypes.c_int64]
