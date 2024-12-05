@@ -142,7 +142,7 @@ You can have a docstring to describe the dataset. This gets saved when you save 
 	
 	module("SimplyQ groundwater", version(0, 5, 0)) {
 		
-		par_group("Groundwater", sc) {
+		par_group("Groundwater") {
 			
 			par_real("Groundwater time constant") 
 			[ 30 ]

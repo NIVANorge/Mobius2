@@ -4,6 +4,7 @@ data_set {
 You can have a docstring to describe the dataset. This gets saved when you save the file from e.g. MobiView2 (which does not happen to comments).
 """
 	
+	series("tarland_series.xlsx")
 	
 	lu : index_set("Landscape units") [ "Arable" "Improved grasslands" "Semi-natural" ]
 	
@@ -17,8 +18,6 @@ You can have a docstring to describe the dataset. This gets saved when you save 
 			r[ "Coull" ] -> out
 		]
 	}
-	
-	series("tarland_series.xlsx")
 	
 	par_group("System") {
 		
@@ -41,6 +40,16 @@ You can have a docstring to describe the dataset. This gets saved when you save 
 		
 		par_real("Catchment area") 
 		[ 51.7 ]
+	
+	}
+	
+	option_group("SimplyQ configuration") {
+		
+		par_enum("PET module") 
+		[ degree_day ]
+		
+		par_enum("River discharge module") 
+		[ simple ]
 	
 	}
 	
@@ -103,16 +112,6 @@ You can have a docstring to describe the dataset. This gets saved when you save 
 			
 			par_real("Soil water time constant") 
 			[ 2 3 10 ]
-		
-		}
-		
-		par_group("Groundwater") {
-			
-			par_real("Groundwater time constant") 
-			[ 70 ]
-			
-			par_real("Groundwater retention volume") 
-			[ 0 ]
 		
 		}
 	
@@ -181,7 +180,7 @@ You can have a docstring to describe the dataset. This gets saved when you save 
 	
 	}
 	
-	module("SimplyP", version(0, 6, 0)) {
+	module("SimplyP", version(0, 7, 0)) {
 		
 		par_group("P general") {
 			
@@ -226,6 +225,20 @@ You can have a docstring to describe the dataset. This gets saved when you save 
 			
 			par_real("Effluent TDP inputs") 
 			[ 0.670560131654759 ]
+		
+		}
+	
+	}
+	
+	module("SimplyQ groundwater", version(0, 5, 0)) {
+		
+		par_group("Groundwater") {
+			
+			par_real("Groundwater time constant") 
+			[ 30 ]
+			
+			par_real("Groundwater retention volume") 
+			[ 0 ]
 		
 		}
 	
