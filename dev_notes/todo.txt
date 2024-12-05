@@ -10,11 +10,9 @@
 	
 		In mobipy you can't re-load a model (duplicate definition of symbol batch_function_1)
 			This means it is using the same underlying llvm module object. How??
-	
-		Update language documentation with latest additions
-			option, option_group
-			@formerly
-			There were more, just look through everything to see what is missing.
+			Really need to fix this. Happens when app is not explicitly deleted, I think.
+				Could generate unique function names for each app.
+			
 		Document how to use connections, and some more of the advanced concepts.
 		
 		Got an (internal) error in the following case

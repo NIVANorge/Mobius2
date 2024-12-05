@@ -3,13 +3,11 @@
 module("SimplyQ land", version(0, 5, 0),
 	soil  : compartment,
 	gw    : compartment,
-	#river : compartment,   # TODO: Should find a way to avoid passing river (and a_catch and maybe flow)
 	water : quantity,
 	flow  : property,
 	pet   : property,
-	#a_catch : par_real,
 	runoff_target : loc,
-	#gw_target     : loc
+	is_top_box : constant,
 ) {
 """
 This is an adaption of a hydrology module originally implemented in Python as a part of the model SimplyP, which was published as
@@ -23,27 +21,35 @@ Authors: James E. Sample, Leah A. Jackson-Blake, Magnus D. Norling
 """
 	load("stdlib/basic_math.txt", library("Response"))
 	
-	par_group("Hydrology general", soil) {
-		bfi    : par_real("Baseflow index", [],                        0.6,  0,    1)
-		qqinfl : par_real("Quick flow inflection point", [m m, day-1], 160, 20,  2000)
+	option(is_top_box) {
+		par_group("Hydrology general", soil) {
+			bfi    : par_real("Baseflow index", [],                        0.6,  0,    1, "Proportion of runoff that goes to the groundwater")
+			qqinfl : par_real("Quick flow inflection point", [m m, day-1], 160, 20,  2000)
+		}
+	} @otherwise {
+		par_group("Hydrology general", soil) {
+			bfi    : par_real("Baseflow index", [],                        0.6,  0,    1, "Proportion of runoff that goes to the groundwater")
+		}
 	}
 	
 	par_group("Hydrology land", soil) {
-		fc     : par_real("Field capacity", [m m],                     120,  0, 1000)
+		fc     : par_real("Field capacity", [m m],                     120,  0, 1000, "The retention volume below which no runoff occurs.")
 		tc_s   : par_real("Soil water time constant", [day],             2,  1,   40)
 	}
 	
 	var(soil.water, [m m], "Soil water volume")  @initial { fc }
 	
-	flux(soil.water, runoff_target, [m m, day-1], "Quick flow") {
-		drylim := 0.9,		# Could be a parameter. Stops quick flow below drylim*fc
-		q_in   := in_flux(water)->>,
-		q_in * s_response(water, drylim*fc, fc, 0, 1) * atan(q_in/qqinfl)*2/pi
+	option(is_top_box) {
+		flux(soil.water, runoff_target, [m m, day-1], "Quick flow") {
+			drylim := 0.9,		# Could be a parameter. Stops quick flow below drylim*fc
+			q_in   := in_flux(water)->>,
+			q_in * s_response(water, drylim*fc, fc, 0, 1) * atan(q_in/qqinfl)*2/pi
+		}
+		
+		flux(soil.water, out, [m m, day-1], "Evapotranspiration") {
+			s_response(water, 0.5*fc, fc, 0, pet) # smoothly turn the etp on when water level is between 1/2 field capacity and field capacity.
+		} @no_carry   # Don't carry dissolved substances in the evapotranspiration
 	}
-	
-	flux(soil.water, out, [m m, day-1], "Evapotranspiration") {
-		s_response(water, 0.5*fc, fc, 0, pet) # smoothly turn the etp on when water level is between 1/2 field capacity and field capacity.
-	} @no_carry   # Don't carry dissolved substances in the evapotranspiration
 	
 	var(soil.water.flow, [m m, day -1], "Soil water flow") {
 		rate := (water - fc)/tc_s,

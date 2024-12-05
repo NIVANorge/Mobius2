@@ -12,6 +12,7 @@ model("SimplyQ") {
 	air      : compartment("Atmosphere",  sc)
 	snow_box : compartment("Snow layer",  sc)
 	soil     : compartment("Soil",        sc, lu)
+	soil2    : compartment("Deep soil",   sc, lu)
 	gw       : compartment("Groundwater", sc)
 	river    : compartment("River",       sc)
 	
@@ -50,7 +51,8 @@ model("SimplyQ") {
 	load("modules/hbv_snow.txt",  module("HBVSnow", air, snow_box, snow, water, temp, precip, loc(soil.water)))
 	
 	load("modules/simplyq.txt",
-		module("SimplyQ land", soil, gw, water, flow, pet, loc(s1_2.water)),
+		module("SimplyQ land", soil, soil2, water, flow, pet, loc(s1_2.water), constant(true)),
+		module("SimplyQ land", "SimplyQ deep soil", soil2, gw, water, flow, pet, loc(s1_2.water), constant(false)),
 		module("SimplyQ groundwater", gw, river, water, flow, loc(s1_2.water), a_catch),
 		module("SimplyQ river trapezoid", "1-2nd order streams", s1_2, water, flow, loc(s3_4.water)),
 		module("SimplyQ river trapezoid", "3-4th order streams", s3_4, water, flow, loc(river.water)),
@@ -60,10 +62,12 @@ model("SimplyQ") {
 	load("modules/rivertemp.txt",      module("RiverTemperature", air, soil, river, water, heat, temp))
 	load("modules/simplysoiltemp.txt", module("Simply soil temperature", air, soil, snow_box, snow, temp))
 	
-	aggregation_weight(soil, gw)    { lu_prop }
+	aggregation_weight(soil2, gw)    { lu_prop }
+	aggregation_weight(soil2, s1_2)  { lu_prop }
 	aggregation_weight(soil, s1_2)  { lu_prop }
 	
 	unit_conversion(soil.water, s1_2.water) { a_catch / n1_2 }
+	unit_conversion(soil2.water, s1_2.water) { a_catch / n1_2 }
 	unit_conversion(gw.water, s1_2.water)   { a_catch / n1_2 }
 	
 	unit_conversion(s1_2.water, s3_4.water) { n1_2 / n3_4 }
@@ -99,7 +103,7 @@ model("SimplyQ") {
 
 	sol : solver("Simply solver", inca_dascru, [2, hr], 1e-2)
 	
-	solve(sol, soil.water, gw.water, river.water, s1_2.water, s3_4.water)
+	solve(sol, soil2.water, soil.water, gw.water, river.water, s1_2.water, s3_4.water)
 	
 }
 
