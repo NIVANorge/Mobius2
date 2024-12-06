@@ -1,13 +1,11 @@
 
-module("SimplyQ groundwater", version(0, 0, 2),
-	soil  : compartment,
+module("SimplyQ layered groundwater", version(0, 0, 2),
 	gw    : compartment,
 	water : quantity,
 	flow  : property,
 	pet   : property,
 	vert  : connection,
-	runoff_target : loc,
-	gw_target     : loc
+	gw_target : loc
 ) {
 """
 SimplyQ but with deep layered groundwater.
@@ -16,16 +14,6 @@ SimplyQ but with deep layered groundwater.
 #The problem is just that this will cause a lot of refactoring work in different saved parameter files.
 
 	load("stdlib/basic_math.txt", library("Response"))
-	
-	par_group("Hydrology general") {
-		bfi    : par_real("Baseflow index", [],                        0.6,  0,    1)
-		qqinfl : par_real("Quick flow inflection point", [m m, day-1], 160, 20,  2000)
-	}
-	
-	par_group("Hydrology land", soil) {
-		fc     : par_real("Field capacity", [m m],                     120,  0, 1000)
-		tc_s   : par_real("Soil water time constant", [day],             2,  1,   40)
-	}
 		
 	par_group("Groundwater", gw) {
 		#porosity : par_real("Porosity", [], 0.2, 0, 1)
@@ -39,27 +27,7 @@ SimplyQ but with deep layered groundwater.
 		h_loss    : par_real("Net horizontal loss fraction", [], 0, 0, 0.1)
 	}
 	
-	var(soil.water, [m m], "Soil water volume")  @initial { fc }
 	var(gw.water,   [m m], "Groundwater volume") @initial { cap }
-	
-	flux(soil.water, runoff_target, [m m, day-1], "Quick flow") {
-		drylim := 0.9,		# Could be a parameter. Stops quick flow below drylim*fc
-		flow   := in_flux(water)->>,
-		flow * s_response(water, drylim*fc, fc, 0, 1) * atan(flow/qqinfl)*2/pi
-	}
-	
-	flux(soil.water, out, [m m, day-1], "Evapotranspiration") {
-		s_response(water, 0.5*fc, fc, 0, pet) # smoothly turn the etp on when water level is between 1/2 field capacity and field capacity.
-	} @no_carry   # Don't carry dissolved substances in the evapotranspiration
-	
-	var(soil.water.flow, [m m, day -1], "Soil water flow") {
-		rate := (water - fc)/tc_s,
-		s_response(water, fc, 1.01*fc, 0, rate) # smoothly turn the flow rate on between water volumes of fc and 1.01*fc
-	}
-	
-	flux(soil.water, runoff_target, [m m, day-1], "Soil runoff")         {   flow * (1 - bfi)   }
-	
-	flux(soil.water, gw.water[vert.top], [m m, day-1], "Recharge")       {   flow * bfi   }
 
 	h : property("Hydraulic head")
 	
@@ -81,6 +49,8 @@ SimplyQ but with deep layered groundwater.
 		lim * maxperc * s_response(water[vert.below]/cap_below, 0.95, 1, 1, 0) # Slowly turn off percolation when layer below goes above 95% of capacity
 	}
 	
+	runoff : property("Runoff")
+	
 	var(gw.runoff, [m m, day-1], "Groundwater runoff") {
 		flow2 := max(max_rate*(water.h - cap), 0),
 		water.lim * flow2 * h_loss
@@ -95,9 +65,4 @@ SimplyQ but with deep layered groundwater.
 	var(gw.water.ext, [m m, day-1])
 	
 	flux(gw.water, out, [m m, day-1], "Groundwater extraction") {   ext + ext_c   }
-	
-	runoff : property("Total runoff")
-	var(soil.runoff, [m m, day-1]) {
-		water.flow * (1 - bfi) + aggregate(gw.runoff) # + quick!?
-	}
 }

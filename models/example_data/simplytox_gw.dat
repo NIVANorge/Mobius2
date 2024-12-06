@@ -77,7 +77,7 @@ data_set {
 	
 	}
 	
-	module("SimplyQ groundwater", version(0, 0, 2)) {
+	module("SimplyQ layered groundwater", version(0, 0, 2)) {
 		
 		par_group("Hydrology general") {
 			

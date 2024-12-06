@@ -46,8 +46,10 @@ This is a specialized version of SimplyQ where there are several groundwater lay
 	
 	gw_vert : connection("Groundwater vertical") @grid1d(gw, gw_layer)
 	
+	load("modules/simplyq.txt",
+		module("SimplyQ land", soil, water, flow, pet, loc(gw.water[gw_vert.top]), loc(out), constant(true)))
 	load("modules/simplyq_layered_gw.txt", 
-		module("SimplyQ groundwater", soil, gw, water, flow, pet, gw_vert, loc(out), loc(out)))
+		module("SimplyQ layered groundwater", gw, water, flow, pet, gw_vert, loc(out)))
 	load("modules/simplyc.txt",
 		module("SimplyC land", air, soil, gw, water, oc, temp))
 	

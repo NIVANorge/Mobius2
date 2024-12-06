@@ -2,10 +2,13 @@
 
 	*** High pri ***
 		
-		In mobipy you can't re-load a model (duplicate definition of symbol batch_function_1)
-			This means it is using the same underlying llvm module object. How??
-			Really need to fix this. Happens when app is not explicitly deleted, I think.
-				Could generate unique function names for each app.
+		Loading a second model without properly deleting the first one gives name clashes in the LLVM code.
+			Having separate names for the llvm modules did not work.
+			Problematic in mobipy, because if an app instance is not explicitly deleted (e.g. there was an error), it floats in background and prevents reloading without restarting the notebook.
+				Separate but related issue __enter__ __exit__ for Model_Application doesn't work properly.
+			
+			Could also have separate function names and data names per llvm module?
+				But why is the name not scoped to the module?
 			
 		Document how to use connections, and some more of the advanced concepts.
 		

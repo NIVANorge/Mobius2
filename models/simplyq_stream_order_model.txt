@@ -51,8 +51,8 @@ model("SimplyQ") {
 	load("modules/hbv_snow.txt",  module("HBVSnow", air, snow_box, snow, water, temp, precip, loc(soil.water)))
 	
 	load("modules/simplyq.txt",
-		module("SimplyQ land", soil, soil2, water, flow, pet, loc(s1_2.water), constant(true)),
-		module("SimplyQ land", "SimplyQ deep soil", soil2, gw, water, flow, pet, loc(s1_2.water), constant(false)),
+		module("SimplyQ land", soil, water, flow, pet, loc(soil2.water), loc(s1_2.water), constant(true)),
+		module("SimplyQ land", "SimplyQ deep soil", soil2, water, flow, pet, loc(gw.water), loc(s1_2.water), constant(false)),
 		module("SimplyQ groundwater", gw, river, water, flow, loc(s1_2.water), a_catch),
 		module("SimplyQ river trapezoid", "1-2nd order streams", s1_2, water, flow, loc(s3_4.water)),
 		module("SimplyQ river trapezoid", "3-4th order streams", s3_4, water, flow, loc(river.water)),

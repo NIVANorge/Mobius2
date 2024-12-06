@@ -2,10 +2,10 @@
 
 module("SimplyQ land", version(0, 5, 0),
 	soil  : compartment,
-	gw    : compartment,
 	water : quantity,
 	flow  : property,
 	pet   : property,
+	gw_water : loc,
 	runoff_target : loc,
 	is_top_box : constant,
 ) {
@@ -58,7 +58,7 @@ Authors: James E. Sample, Leah A. Jackson-Blake, Magnus D. Norling
 	
 	flux(soil.water, runoff_target, [m m, day-1], "Soil runoff")            {   flow * (1 - bfi)   }
 	
-	flux(soil.water, gw.water, [m m, day-1], "Recharge")                    {   flow * bfi   }
+	flux(soil.water, gw_water, [m m, day-1], "Recharge")                    {   flow * bfi   }
 }
 
 module("SimplyQ groundwater", version(0, 5, 0),

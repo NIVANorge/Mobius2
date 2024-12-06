@@ -169,7 +169,7 @@ model("A model") {
 		# Note that we can bind the preamble load to an identifier,
 		# just not the preamble declaration above.
 		r:preamble("A preamble", s),
-		module("A module, r))
+		module("A module", r))
 }
 ```
 
@@ -242,6 +242,12 @@ A library will be processed once if it is loaded at least one place (it can be l
 Loads do not cascade, so if a library loads another library, the identifiers declared in the second library are not visible to someone else who loads the first library (unless they also directly load the second library). Library loads are allowed to be circular (two libraries are allowed to load one another for instance).
 
 The library path is usually relative to the path of the file the declaration is in, but if the first directory in the library path is "stdlib", the path is relative to "Mobius2/stdlib".
+
+If you are in a library and want to load another library from the same file, you can omit the file name and just write
+
+```python
+load(library("Library name"))
+```
 
 ### Module and preamble loads
 
