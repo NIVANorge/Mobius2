@@ -219,10 +219,7 @@ Authors: Leah A. Jackson-Blake
     init_flow : constant("Initial reach flow", [m 3, s-1], 0)
 	
 	var(river.water, [m 3], "Reach water volume") @initial {
-        q := init_flow => [],   # Force it as dimensionless since it doesn't make sense to take fractional powers of it otherwise
-		depth := 0.349[m] * q^0.34,
-		width := 2.71[m] * q^0.557,
-		width * depth * length
+        init_flow * length / velocity
 	}
 
     var(river.water.tc_reach, [s], "Reach travel time") { length / velocity }

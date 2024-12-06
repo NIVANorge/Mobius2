@@ -1,5 +1,5 @@
 
-module("SimplyN", version(0, 0, 5),
+module("SimplyN", version(0, 0, 6),
 	soil   : compartment,
 	gw     : compartment,
 	river  : compartment,
@@ -39,9 +39,9 @@ Authors: Leah A. Jackson-Blake, Magnus D. Norling
 		fert_rel           : par_real("Fertilizer DIN release", [m m-1], 0, 0, 1, "Per mm of soil water input (giving less dissolution in dry years)")
 	}
 	
-	par_group("River DIN", river) {
-		eff_din            : par_real("Reach effluent DIN inputs", [k g, day-1], 0.0, 0.0, 100.0)		
-	}
+	#par_group("River DIN", river) {
+	#	eff_din            : par_real("Reach effluent DIN inputs", [k g, day-1], 0.0, 0.0, 100.0)		
+	#}
 	
 	var(soil.sn, [k g, k m-2], "Soil undissolved fertilizer N")
 	
@@ -81,7 +81,7 @@ Authors: Leah A. Jackson-Blake, Magnus D. Norling
 	
 	# Reach fluxes
 	
-	flux(out, river.water.din, [k g, day-1], "River effluent DIN") { eff_din }
+	#flux(out, river.water.din, [k g, day-1], "River effluent DIN") { eff_din }
 	
 	flux(river.water.din, out, [k g, day-1], "River DIN denitrification loss") {
 		rate := q10_adjust(reach_denit_rate, 20.0[deg_c], temp, reach_denit_q10),

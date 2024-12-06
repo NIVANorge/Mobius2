@@ -9,9 +9,13 @@ model("SimplyN") {
 	heat : quantity("Heat energy")
 	tn   : property("Total nitrogen")
 	
+	pt : compartment("River point source buffer", sc)
+	
 	load("modules/simplysoiltemp.txt", module("Simply soil temperature", air, soil, snow_box, snow, temp))
 	load("modules/rivertemp.txt",      module("RiverTemperature", air, soil, river, water, heat, temp))
 	load("modules/simplyn.txt",        module("SimplyN", soil, gw, river, water, din, sn, temp, tn))
 	
-	solve(sol, soil.sn)
+	load("modules/river_point_source.txt", module("River point source inputs", "River point source DIN", river, pt, water, flow, din))
+	
+	solve(sol, soil.sn, pt.din)
 }

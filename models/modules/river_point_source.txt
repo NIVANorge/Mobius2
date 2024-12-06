@@ -1,0 +1,39 @@
+
+module("River point source inputs", version(0, 0, 0),
+	river : compartment,
+	pt : compartment,
+	water : quantity,
+	flow : property,
+	s : quantity
+) {
+"""
+The purpose of this module is to reduce point source inputs to the river during low flow.
+
+Constant point source inputs to the river often cause spikes in concentrations during low flow
+that don't correspond to observations.
+
+Authors: Magnus Dahler Norling
+"""
+
+	s_u : unit_of(river.water.s)
+	s_rate_u_d : compose_unit(s_u, [day-1])
+
+	par_group("River point source inputs", river) {
+		# TODO: It should be able to see the outer scope!
+		inrate : par_real("Point source input rate", [k g, day-1], 0)
+	}
+	
+	par_group("Point source apportionment parameters") {
+		a : par_real("Point source flow mobilization scaler", [day-1], 0.1)
+	}
+	
+	var(pt.s, s_u, "Point source buffer")
+	
+	flux(out, pt.s, s_rate_u_d, "Point source buffer inputs") { inrate }
+	
+	flux(pt.s, river.water.s, s_rate_u_d, "River point source input rate") {
+		q := (river.water.flow->[m 3, s-1]) => [],
+		a*q*pt.s
+	}
+	
+}

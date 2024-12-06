@@ -1,6 +1,8 @@
 
 
 	*** High pri ***
+	
+		par_group scope can't see units declared in the outer module scope.
 		
 		Loading a second model without properly deleting the first one gives name clashes in the LLVM code.
 			Having separate names for the llvm modules did not work.
