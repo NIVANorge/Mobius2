@@ -98,6 +98,7 @@ def get_base_cation_combined_setup(app, calib_index='Soil', obs_index='River', o
 		'init_emg' : ('MAGIC core', 'init_emg', [calib_index], 0, 20),
 		'init_ena' : ('MAGIC core', 'init_ena', [calib_index], 0, 20),
 		'init_ek' : ('MAGIC core', 'init_ek', [calib_index], 0, 20),
+		'oa' : ('MAGIC-Forest drivers', 'oa', [calib_index], 0, 200),
 	}
 	
 	target = [
@@ -109,6 +110,7 @@ def get_base_cation_combined_setup(app, calib_index='Soil', obs_index='River', o
 		('Exchangeable Na on soil as % of CEC', [calib_index], obsname_bs%'Mg', [], 10),
 		('Exchangeable Mg on soil as % of CEC', [calib_index], obsname_bs%'Na', [], 10),
 		('Exchangeable K on soil as % of CEC', [calib_index], obsname_bs%'K', [], 10),
+		('pH', [calib_index], 'Observed soil pH', []) # Hmm, this name should be passed in
 	]
 	
 	params, set_params = opt.params_from_dict(app, par_dict)

@@ -27,7 +27,7 @@ def plot_targets(app, targets, sl, width=10, height_per=5) :
 		
 		ymin, ymax = ax.get_ylim()
 		if ymin > 0 :
-			ax.set_ylim(0, ymax)
+			ax.set_ylim(0, ymax*1.1)
 		
 		ax.legend()
 	
