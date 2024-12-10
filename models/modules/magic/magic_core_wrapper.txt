@@ -48,6 +48,10 @@ This module is for now just for testing calling the MAGIC core from Mobius2. Wil
 		init_ek   : par_real("Initial exchangeable K on soil as % of CEC", [perc], 0, 0, 100, "Only relevant for soils")
 	}
 	
+	assert("Base saturation must sum to less than 90", comp.ca) {
+		init_eca + init_emg + init_ena + init_ek < 90[perc]
+	}
+	
 	water : property("Water")
 	var(comp.water, [m]) {
 		depth*porosity if is_soil,

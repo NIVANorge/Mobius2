@@ -34,6 +34,11 @@ model("NIVAFjord-EasyLake-SimplyCNP") {
 		chl_a : property,
 		z : property,
 		area : property,
+		tn : property,
+		tp : property,
+		o2satconc : property,
+		co2 : quantity,
+		ch4 : quantity,
 		wb_index : index_set,
 		sol : solver
 	)

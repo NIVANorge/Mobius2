@@ -1,6 +1,13 @@
 
 
 	*** High pri ***
+		
+		
+		LLVM: Linking to C++ functions (external computation) does not work on Linux.
+	
+		mobipy input util should create the file if it doesn't exist.
+	
+		When a parameter changes name, the old one is not deleted from the par file.
 	
 		par_group scope can't see units declared in the outer module scope.
 		

@@ -23,6 +23,7 @@ Authors: Magnus Dahler Norling
 		inrate : par_real("Point source input rate", [k g, day-1], 0)
 	}
 	
+	# TODO: This group could be in a preamble and shared between different applications of this module.
 	par_group("Point source apportionment parameters") {
 		a : par_real("Point source flow mobilization scaler", [day-1], 0.1)
 	}

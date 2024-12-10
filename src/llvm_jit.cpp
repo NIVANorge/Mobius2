@@ -642,6 +642,10 @@ get_linked_function(LLVM_Module_Data *data, const std::string &fun_name, llvm::T
 	
 	auto *funty = llvm::FunctionType::get(ret_ty, arguments_ty, false);
 	fun = llvm::Function::Create(funty, llvm::Function::ExternalLinkage, fun_name, data->module.get());
+	
+	if(!fun)
+		fatal_error(Mobius_Error::internal, "Failed to link with function \"", fun_name, "\".");
+	
 	return fun;
 }
 
