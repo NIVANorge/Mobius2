@@ -28,8 +28,8 @@ def xlsx_input_from_dataframe(file, df, sheet_name, indexes = {}, flags = None) 
 		if not os.path.isfile(file) :
 			# We need to open it in mode='a' to be able to do modifications, but that doesn't work if it doesn't exist!
 			w = pd.ExcelWriter(file)
-			df = pd.DataFrame()
-			df.to_excel(w)
+			d = pd.DataFrame()
+			d.to_excel(w)
 			w.close()
 			created_new = True
 		writer = pd.ExcelWriter(file, engine='openpyxl', if_sheet_exists='replace', mode='a')
