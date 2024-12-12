@@ -4,15 +4,16 @@
 	
 		Can't load mobipy from Anaconda
 		
+		Check if Mobius crashes if trying to load inputs from an xlsx file with no valid sheets!
 		
 		Magic: 
 			Initial concentrations in lake does not take into account inflow from soil.
 		
 		LLVM: Linking to C++ functions (external computation) does not work on Linux.
-			Try fixes here
-			https://stackoverflow.com/questions/57612173/llvm-jit-symbols-not-found
-	
-		mobipy input util should create the file if it doesn't exist.
+			Made workaround, but it is very inelegant, only for MAGIC for now.
+		Linux: Can't load certain model files on Linux, but it is fine with others.
+		
+		
 	
 		When a parameter changes name, the old one is not deleted from the par file.
 	

@@ -24,10 +24,7 @@ def xlsx_input_from_dataframe(file, df, sheet_name, indexes = {}, flags = None) 
 	
 	if isinstance(file, str) :
 		opened_here = True
-		mode = 'w'
-		if os.path.isfile(file) :
-			mode = 'a'
-		writer = pd.ExcelWriter(file, engine='openpyxl', if_sheet_exists='replace', mode=mode)
+		writer = pd.ExcelWriter(file, engine='openpyxl', if_sheet_exists='replace', mode='a')
 	else :
 		opened_here = False
 		writer = file
