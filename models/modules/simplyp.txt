@@ -66,6 +66,9 @@ Jackson-Blake LA, Sample JE, Wade AJ, Helliwell RC, Skeffington RA. 2017. Are ou
 
 #### Changelog
 
+0.7 :
+- Move point sources to new point source module.
+
 0.6 (First Mobius2 version):
 - The model has been ported to Mobius2. Everything is solved as one large coupled ODE system, so transport between land and river and between different river sections is more precise.
 
@@ -100,10 +103,6 @@ Authors: Leah A. Jackson-Blake, Magnus D. Norling
 	par_group("Groundwater P", gw) {
 		gw_tdp : par_real("Groundwater TDP concentration", [m g, l-1], 0, 0, 10)
 		#gw_type : par_enum("Groundwater TDP computation type", const) { const mass_bal }
-	}
-	
-	par_group("River P", river) {
-		eff_tdp   : par_real("Effluent TDP inputs", [k g, day-1], 0, 0, 10)
 	}
 	
 	epc0 : property("EPC0")
@@ -161,8 +160,6 @@ Authors: Leah A. Jackson-Blake, Magnus D. Norling
 	}
 	
 	var(river.water.phos, [k g], [m g, l-1], "River DIP") @initial_conc { gw_tdp }
-	
-	flux(out, river.water.phos, [k g, day-1], "River effluent DIP") { eff_tdp }
 	
 	var(river.water.sed.phos, [k g], "River PP")
 	@show_conc(river.water, [m g, l-1])      # The default concentration displayed is the conc of phos in sed. We want conc of phos in water.

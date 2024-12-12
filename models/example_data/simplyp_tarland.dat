@@ -188,7 +188,7 @@ You can have a docstring to describe the dataset. This gets saved when you save 
 			[ 95 ]
 			
 			par_real("Phosphorous sorption coefficient") 
-			[ 0.00817141029650812 ]
+			[ 0.0102858087859381 ]
 			
 			par_real("Particulate P enrichment factor") 
 			[ 1.2 ]
@@ -201,7 +201,7 @@ You can have a docstring to describe the dataset. This gets saved when you save 
 		par_group("Soil P", lu) {
 			
 			par_real("Initial soil TDP concentration and EPC0") 
-			[ 0.0111916131920129 0.0111916131920129 0 ]
+			[ 0.0286393242384001 0.0111916131920129 0 ]
 			
 			par_real("Initial total soil P content") 
 			[ 1458 1458 873 ]
@@ -217,14 +217,7 @@ You can have a docstring to describe the dataset. This gets saved when you save 
 		par_group("Groundwater P") {
 			
 			par_real("Groundwater TDP concentration") 
-			[ 0.00860255285789444 ]
-		
-		}
-		
-		par_group("River P") {
-			
-			par_real("Effluent TDP inputs") 
-			[ 0.670560131654759 ]
+			[ 0.0136649862934087 ]
 		
 		}
 	
@@ -239,6 +232,24 @@ You can have a docstring to describe the dataset. This gets saved when you save 
 			
 			par_real("Groundwater retention volume") 
 			[ 0 ]
+		
+		}
+	
+	}
+	
+	module("River point source TDP", version(0, 0, 0)) {
+		
+		par_group("River point source inputs", sc) {
+			
+			par_real("Point source input rate") 
+			[ 0.572460060543937 ]
+		
+		}
+		
+		par_group("Point source apportionment parameters") {
+			
+			par_real("Point source flow mobilization scaler") 
+			[ 0.2 ]
 		
 		}
 	

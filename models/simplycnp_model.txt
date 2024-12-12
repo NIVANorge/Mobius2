@@ -3,7 +3,9 @@ model("SimplyCNP") {
 
 	extend("simplyc_model.txt")
 	extend("simplyn_model.txt") @exclude(heat : quantity) # Exclude it to not clash with the one in SimplyC
-	extend("simplyp_model.txt") @exclude(phos : quantity) # To be able to rename it
+	extend("simplyp_model.txt") @exclude(
+		phos : quantity,    # We rename it
+		pt : compartment)   # We have it in simplyn_model already
 
 	phos : quantity("Inorganic phosphorous")
 	on   : quantity("Organic nitrogen")

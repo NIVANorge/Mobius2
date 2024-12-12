@@ -67,6 +67,25 @@ initialize_llvm() {
 	else
 		fatal_error(Mobius_Error::internal, "Failed to initialize LLVM.");
 	
+	// Trying to fix symbol lookup on Linux
+	auto &jd = global_jit->getMainJITDylib();
+	auto mangle = llvm::orc::MangleAndInterner(jd.getExecutionSession(), global_jit->getDataLayout());
+	
+	llvm::orc::SymbolMap symbol_map;
+	
+	#define ADD_SYMBOL(sym) \
+	symbol_map[mangle(#sym)] = llvm::orc::ExecutorSymbolDef( \
+		llvm::orc::ExecutorAddr::fromPtr(&sym), \
+		llvm::JITSymbolFlags());
+	ADD_SYMBOL(magic_core)
+	ADD_SYMBOL(magic_core_initial)
+	#undef ADD_SYMBOL
+	
+	auto materializer = llvm::orc::absoluteSymbols(symbol_map);
+	
+	// TODO: Handle error
+	llvm::Error err = jd.define(materializer);
+	
 	llvm_initialized = true;
 }
 

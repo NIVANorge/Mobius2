@@ -7,5 +7,11 @@ model("SimplyP") {
 	tp : property("Total phosphorous")
 	tdp : property("Total dissolved phosphorous")
 	
+	pt : compartment("River point source buffer", sc)
+	
 	load("modules/simplyp.txt", module("SimplyP", soil, gw, river, water, phos, plab, sed, e_fact, tp, tdp, a_catch))
+	
+	load("modules/river_point_source.txt", module("River point source inputs", "River point source TDP", river, pt, water, flow, phos))
+	
+	solve(sol, pt.phos)
 }

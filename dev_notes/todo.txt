@@ -1,6 +1,8 @@
 
 
 	*** High pri ***
+	
+		Can't load mobipy from Anaconda
 		
 		
 		Magic: 

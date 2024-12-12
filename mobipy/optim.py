@@ -283,8 +283,14 @@ def run_minimizer(app, params, set_params, residual_fun, method='nelder', use_in
 			sim, obs = residual_fun(data)
 			resid = sim - obs
 		else :
-			resid = np.inf
+			resid = np.array([np.inf])
 		del data
+		
+		# There is currently a bug in lmfit where it can't find the correct result if there is only one valid residual!
+		# So we have to fake add another one.
+		if sum(~np.isnan(resid)) < 2 :
+			resid = np.append(resid, 0)
+			
 		
 		return resid
 	
@@ -296,5 +302,7 @@ def run_minimizer(app, params, set_params, residual_fun, method='nelder', use_in
 	if use_init : init = params
 	
 	res = mi.minimize(method=method, params=init, options=options)
+	
+	set_params(app, res.params)
 	
 	return res

@@ -1,5 +1,6 @@
 
 import pandas as pd
+import os
 
 def xlsx_input_from_dataframe(file, df, sheet_name, indexes = {}, flags = None) :
 	'''
@@ -23,7 +24,10 @@ def xlsx_input_from_dataframe(file, df, sheet_name, indexes = {}, flags = None) 
 	
 	if isinstance(file, str) :
 		opened_here = True
-		writer = pd.ExcelWriter(file, engine='openpyxl', if_sheet_exists='replace', mode='a')
+		mode = 'w'
+		if os.path.isfile(file) :
+			mode = 'a'
+		writer = pd.ExcelWriter(file, engine='openpyxl', if_sheet_exists='replace', mode=mode)
 	else :
 		opened_here = False
 		writer = file
@@ -33,12 +37,14 @@ def xlsx_input_from_dataframe(file, df, sheet_name, indexes = {}, flags = None) 
 	
 	book = writer.book
 	
-	# Remove the sheet if it already exists
-	#if sheet_name in book.sheetnames :
-	#	sheet = book[sheet_name]
-	#	book.remove(sheet)
+	# If some dates are before 1900-03-01 we have to use string format for the dates, otherwise the excel formatting is broken
+	df2 = df
+	if any(df.index < '1900-03-01') :
+		df2 = df.copy()
+		df2.index = df2.index.strftime('%Y-%m-%d')  # TODO: Do we need to handle h:m:s also?
 	
-	df.to_excel(writer, sheet_name=sheet_name)
+	
+	df2.to_excel(writer, sheet_name=sheet_name)
 	
 	# Find the book we wrote to
 	sheet = book[sheet_name]

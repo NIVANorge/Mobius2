@@ -36,7 +36,7 @@ This module is for now just for testing calling the MAGIC core from Mobius2. Wil
 		so4_hs    : par_real("Soil sulfate adsorption capacity, half saturation", [m eq, m-3], 0, 0, 1000, "Only relevant for soils")
 		so4_max   : par_real("Soil sulfate adsorption max capacity", [m eq, k g-1], 0, 0, 1, "Only relevant for soils")
 		k_al      : par_real("(log10) Al(OH)3 dissociation equilibrium constant", [], 0, -10, 10)
-		s_al      : par_real("Al(OH)3 dissociation equation exponent", [], 3, 1, 5)
+		e_al      : par_real("Al(OH)3 dissociation equation exponent", [], 3, 1, 5)
 		pk1_doc   : par_real("(-log10) pK 1st equilibrium constant for triprotic organic acid", [], 0, -10, 10)
 		pk2_doc   : par_real("(-log10) pK 2nd equilibrium constant for triprotic organic acid", [], 0, -10, 10)
 		pk3_doc   : par_real("(-log10) pK 3rd equilibrium constant for triprotic organic acid", [], 0, -10, 10)
@@ -130,10 +130,7 @@ This module is for now just for testing calling the MAGIC core from Mobius2. Wil
 	conc_h    : property("H(+) ionic concentration")
 	ionic_str : property("Ionic strength")
 	
-	s_al_ca : property("Al-Ca selectivity coefficient")
-	s_al_mg : property("Al-Mg selectivity coefficient")
-	s_al_na : property("Al-Na selectivity coefficient")
-	s_al_k  : property("Al-K selectivity coefficient")
+	s_al : property("Log10 Al selectivity coefficient")
 	
 	min_init_conc : constant("Minimal initial concentration", [m eq, m-3], 1e-6)
 	
@@ -200,11 +197,12 @@ This module is for now just for testing calling the MAGIC core from Mobius2. Wil
 	var(comp.conc_h, [m mol, m-3]) 
 	var(comp.ionic_str, [])
 	
-	#TODO: @no_store these
-	var(comp.s_al_ca, []) { last(s_al_ca) } #TODO: Using 'last' here should not be necessary.
-	var(comp.s_al_mg, []) { last(s_al_mg) }
-	var(comp.s_al_na, []) { last(s_al_na) }
-	var(comp.s_al_k, []) { last(s_al_k) }
+	#TODO: Using 'last' here should not be necessary.
+	# We should make it possible to tell the framework that this variable won't change after the initial state.
+	var(comp.ca.s_al, [], "Log10 Ca/Al selectivity coefficient") { last(s_al) }
+	var(comp.mg.s_al, [], "Log10 Mg/Al selectivity coefficient") { last(s_al) }
+	var(comp.na.s_al, [], "Log10 Na/Al selectivity coefficient") { last(s_al) }
+	var(comp.k.s_al, [], "Log10 K/Al selectivity coefficient") { last(s_al) }
 
 	external_computation("MAGIC Core", "magic_core", comp) {
 		result(comp.ca.concn)
@@ -252,7 +250,7 @@ This module is for now just for testing calling the MAGIC core from Mobius2. Wil
 		pco2
 		comp.conc_oa
 		k_al
-		s_al
+		e_al
 		pk1_doc
 		pk2_doc
 		pk3_doc
@@ -263,18 +261,18 @@ This module is for now just for testing calling the MAGIC core from Mobius2. Wil
 		cec
 		so4_hs
 		so4_max
-		comp.s_al_ca
-		comp.s_al_mg
-		comp.s_al_na
-		comp.s_al_k
+		comp.ca.s_al
+		comp.mg.s_al
+		comp.na.s_al
+		comp.k.s_al
 	} @initial("magic_core_initial") {
 		result(comp.so4.concn)
 		result(comp.f.concn)
 		result(comp.conc_h)
-		result(comp.s_al_ca)
-		result(comp.s_al_mg)
-		result(comp.s_al_na)
-		result(comp.s_al_k)
+		result(comp.ca.s_al)
+		result(comp.mg.s_al)
+		result(comp.na.s_al)
+		result(comp.k.s_al)
 		result(comp.ph)
 		result(comp.ionic_str)
 		result(comp.exch_so4)
@@ -299,7 +297,7 @@ This module is for now just for testing calling the MAGIC core from Mobius2. Wil
 		pco2
 		comp.conc_oa
 		k_al
-		s_al
+		e_al
 		pk1_doc
 		pk2_doc
 		pk3_doc

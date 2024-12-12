@@ -604,3 +604,10 @@ mobius_index_names(Model_Data *data, Entity_Id index_set_id, Mobius_Index_Value 
 		
 	} catch(int) {}
 }
+
+
+#if (defined(_WIN32) || defined(_WIN64))
+bool DllMain() {
+	return true;
+}
+#endif

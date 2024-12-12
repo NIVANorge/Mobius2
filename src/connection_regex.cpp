@@ -212,7 +212,7 @@ match_regex(Model_Application *app, Entity_Id conn_id, Source_Location data_loc)
 		//   TODO: how does it work if it is between different components? Could we get unintended behaviour in the model solver if that is ordered wrong?
 		if(connection->no_cycles && (target_idx != -1) && (source_idx >= target_idx) && (nodes[source_idx].id == nodes[target_idx].id)) {
 			data_loc.print_error_header(Mobius_Error::model_building);
-			error_print("The directed_graph connection \"", connection->name, "\" is marked as @no_cycles. Because of this, for technical reasons, we require every arrow in the graph to go from a lower index to a higher index. The following arrow violates this:\n");
+			error_print("The directed_graph connection \"", connection->name, "\" is marked as @no_cycles. Because of this, for technical reasons, we require every arrow in the graph to go from an earlier index to a later index (in terms of order of declaration in the 'index_set' data). The following arrow violates this:\n");
 			error_print_node(app, scope, nodes, source_idx);
 			error_print(" -> ");
 			error_print_node(app, scope, nodes, target_idx);
