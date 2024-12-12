@@ -26,10 +26,10 @@ def xlsx_input_from_dataframe(file, df, sheet_name, indexes = {}, flags = None) 
 	if isinstance(file, str) :
 		opened_here = True
 		if not os.path.isfile(file) :
-			# We need to open it in mode='a' to be able to do modifications, but that doesn't work if it doesn't exist!
+			# We need to open it in mode='a' to be able to do modifications, but that doesn't work if the file doesn't exist!
 			w = pd.ExcelWriter(file)
 			d = pd.DataFrame()
-			d.to_excel(w)
+			d.to_excel(w, sheet_name=sheet_name)
 			w.close()
 			created_new = True
 		writer = pd.ExcelWriter(file, engine='openpyxl', if_sheet_exists='replace', mode='a')
@@ -50,10 +50,6 @@ def xlsx_input_from_dataframe(file, df, sheet_name, indexes = {}, flags = None) 
 	
 	
 	df2.to_excel(writer, sheet_name=sheet_name)
-	
-	# If we created a new workbook we have to remove the default sheet.
-	if created_new and sheet_name != 'Sheet1' :
-		book.remove(book['Sheet1']) # TODO: Is it always called that, and how could we check it?
 	
 	# Find the book we wrote to
 	sheet = book[sheet_name]
