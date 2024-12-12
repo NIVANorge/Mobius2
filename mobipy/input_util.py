@@ -22,8 +22,16 @@ def xlsx_input_from_dataframe(file, df, sheet_name, indexes = {}, flags = None) 
 	if not isinstance(df.index, pd.DatetimeIndex) :
 		raise ValueError('A pandas.DataFrame that is indexed by datetimes is expected.')
 	
+	creaded_new = False
 	if isinstance(file, str) :
 		opened_here = True
+		if os.path.isfile(file) :
+			# We need to open it in mode='a' to be able to do modifications, but that doesn't work if it doesn't exist!
+			w = pd.ExcelWriter(file)
+			df = pd.DataFrame()
+			df.to_excel(w)
+			w.close()
+			created_new = True
 		writer = pd.ExcelWriter(file, engine='openpyxl', if_sheet_exists='replace', mode='a')
 	else :
 		opened_here = False
@@ -42,6 +50,10 @@ def xlsx_input_from_dataframe(file, df, sheet_name, indexes = {}, flags = None) 
 	
 	
 	df2.to_excel(writer, sheet_name=sheet_name)
+	
+	# If we created a new workbook we have to remove the default sheet.
+	if created_new and sheet_name != 'Sheet1' :
+		book.remove(book['Sheet1']) # TODO: Is it always called that, and how could we check it?
 	
 	# Find the book we wrote to
 	sheet = book[sheet_name]
