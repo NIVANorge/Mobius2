@@ -20,7 +20,7 @@ import pickle as pkl
 #        return Parallel(n_jobs=-1, verbose=0, backend='threading')(builtins.map(delayed(fn), args))
 
 
-def run_mcmc(app, params, set_params, log_likelihood, burn, steps, walkers, run_timeout=-1, report_interval=-1, plot_file='chains.png', result_file='result.pkl') :
+def run_mcmc(app, params, set_params, log_likelihood, burn, steps, walkers, run_timeout=-1, report_interval=-1, plot_file='chains.png', result_file='result.pkl', progress=False) :
 
 	def ll_fun(params) :
 		
@@ -48,7 +48,7 @@ def run_mcmc(app, params, set_params, log_likelihood, burn, steps, walkers, run_
 	#return mcmc.emcee(params=params, pos=starting_guesses, burn=burn, steps=steps, nwalkers=walkers, workers=Thread_Pool(), float_behavior='posterior') #This doesn't work, no idea why.
 	
 	if report_interval < 0 :
-		return mcmc.emcee(params=params, pos=starting_guesses, burn=burn, steps=steps, nwalkers=walkers, float_behavior='posterior')
+		return mcmc.emcee(params=params, pos=starting_guesses, burn=burn, steps=steps, nwalkers=walkers, float_behavior='posterior', progress=progress)
 	else :
 		steps_left = steps
 		use_steps = min(steps_left, report_interval)
@@ -65,6 +65,7 @@ def run_mcmc(app, params, set_params, log_likelihood, burn, steps, walkers, run_
 				steps=use_steps, 
 				nwalkers=walkers, 
 				float_behavior='posterior', 
+				progress = False,   #Doesn't make much sense in this use case since there is an outer progress report?
 				reuse_sampler=reuse_sampler, 
 				run_mcmc_kwargs=run_mcmc_kwargs)
 			reuse_sampler=True
@@ -134,11 +135,17 @@ def update_mcmc_results(result, nburn, thin=1):
 
 
 
-def ll_wls(sim, obs, params) :
+def ll_wls(sim, obs, params, err_sym=None) :
 	l2pi = 1.83787706641 #np.log(2*np.pi)
 	
-	mu  = params["__mu"].value
-	sig = params["__sigma"].value
+	muname = '__mu'
+	siname = '__sigma'
+	if err_sym :
+		muname = '__mu_%s' % err_sym
+		siname = '__sigma_%s' % err_sym
+	
+	mu = params[muname].value
+	sig = params[siname].value
 	st  = mu + sig*sim
 	
 	vals = 0.5*(-np.log(st**2) - l2pi - ((sim-obs)**2)/(st**2) )
@@ -179,7 +186,7 @@ def residual_from_target(target, start_date, end_date, normalize=False) :
 		return get_sim_obs
 	
 
-def ll_from_target(target, start_date, end_date, ll_fun=ll_wls) :
+def ll_from_target(target, start_date, end_date, ll_fun=ll_wls, err_syms=None) :
 	
 	sl = slice(start_date, end_date)
 	
@@ -193,7 +200,11 @@ def ll_from_target(target, start_date, end_date, ll_fun=ll_wls) :
 				sim = data.var(simname)[simidx].loc[sl].values
 				obs = data.var(obsname)[obsidx].loc[sl].values
 				
-				sum += ll_fun(sim, obs, params)*wgt
+				err_sym = None
+				if err_syms :
+					err_sym = err_syms[obsname]
+				
+				sum += ll_fun(sim, obs, params, err_sym)*wgt
 			return sum
 		
 		return log_likelihood
@@ -206,7 +217,11 @@ def ll_from_target(target, start_date, end_date, ll_fun=ll_wls) :
 			sim = data.var(simname)[simidx].loc[sl].values
 			obs = data.var(obsname)[obsidx].loc[sl].values
 			
-			res = ll_fun(sim, obs, params)
+			err_sym = None
+			if err_syms :
+				err_sym = err_syms[obsname]
+			
+			res = ll_fun(sim, obs, params, err_sym)
 			
 			return res
 		
@@ -235,11 +250,16 @@ def params_from_dict(app, dict) :
 	return params, set_params
 
 # Hmm, not that transferable to multitarget...
-def add_wls_params(params, muinit, mumin, mumax, siminit, simin, simax) :
-	params.add(name='__mu', min=mumin, max=mumax, value=muinit)
-	params.add(name='__sigma', min=simin, max=simax, value=siminit)
-	params['__mu'].user_data = {}
-	params['__sigma'].user_data = {}
+def add_wls_params(params, muinit, mumin, mumax, siminit, simin, simax, sym=None) :
+	muname = '__mu'
+	signame = '__sigma'
+	if sym :
+		muname = '__mu_%s'%sym
+		signame = '__sigma_%s'%sym
+	params.add(name=muname, min=mumin, max=mumax, value=muinit)
+	params.add(name=signame, min=simin, max=simax, value=siminit)
+	params[muname].user_data = {}
+	params[signame].user_data = {}
 
 def run_latin_hypercube_sample(app, params, set_params, target_stat, n_samples, run_timeout=-1, verbose=1) :
 	
