@@ -19,8 +19,7 @@ Authors: Magnus Dahler Norling
 	s_rate_u_d : compose_unit(s_u, [day-1])
 
 	par_group("River point source inputs", river) {
-		# TODO: It should be able to see the outer scope!
-		inrate : par_real("Point source input rate", [k g, day-1], 0)
+		inrate : par_real("Point source input rate", s_rate_u_d, 0)
 	}
 	
 	# TODO: This group could be in a preamble and shared between different applications of this module.

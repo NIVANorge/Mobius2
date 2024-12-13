@@ -440,6 +440,9 @@ Par_Group_Registration::process_declaration(Catalog *catalog) {
 	set_serial_name(catalog, this);
 	scope.parent_id = id;
 	
+	// To make it see outer unit declarations.
+	scope.import(*parent_scope);
+	
 	// TODO: Don't allow duplicate components.
 	
 	if(which >= 1) {

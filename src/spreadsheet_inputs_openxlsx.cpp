@@ -373,6 +373,7 @@ read_series_data_from_spreadsheet(Data_Set *data_set, Series_Data *series, Strin
 	using namespace OpenXLSX;
 	
 	XLDocument doc;
+	doc.suppressWarnings();
 	
 	try {
 		doc.open(std::string(file_name));
