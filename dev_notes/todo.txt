@@ -4,11 +4,13 @@
 	
 		Can't load mobipy from Anaconda (doesn't find vcredist dependencies probably)
 		
+		Setting parameter values doesn't work in mobipy for the MAGIC model on Linux, but it works for other models!!
+		
 		Magic: 
 			Initial concentrations in lake does not take into account inflow from soil.
 		
 		LLVM: Linking to C++ functions (external computation) does not work on Linux.
-			Made workaround, but it is very inelegant, only for MAGIC for now.
+			Made workaround, but it is very inelegant, and only for MAGIC for now.
 		
 		
 		When a parameter changes name, the old one is not deleted from the par file.

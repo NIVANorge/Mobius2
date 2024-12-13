@@ -30,6 +30,11 @@ This assumes you have already followed the [getting started guide](../gettingsta
 - Windows: To be able to run mobipy on Windows you need to download mobipy/c_abi.dll from ftp://mobiserver.niva.no/Mobius2 and put it in your local Mobius2/mobipy folder.
 - Linux: See the [separate document](linux_install.html)
 
+## Known issues
+
+- It can be problematic to use mobipy from an Anaconda environment (including Pycharm).
+- Some models (MAGIC, NIVAFjord) can have problems on Linux.
+
 ## Basic usage
 
 It is useful to look at the [central model concepts](../mobius2docs/central_concepts.html) to understand what we mean by certain terms below like ("parameter", "state variable", "identifier", etc.).
