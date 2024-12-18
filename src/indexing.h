@@ -22,12 +22,11 @@ Multi_Array_Structure<Handle_T>::check_index_bounds(Model_Application *app, Hand
 	if(index.index < 0 || index.index >= app->index_data.get_max_count(index_set).index)
 		fatal_error(Mobius_Error::internal, "Index out of bounds for the index set ", app->model->index_sets[index_set]->name, " in one of the get_offset functions while looking up ", get_handle_name(app, handle));
 }
-	
-// Theoretically this version of the code is more vectorizable, but we should probably also align the memory and explicitly add vectorization passes in llvm
-//  (not seeing much of a difference in run speed at the moment)
 
 template<typename Handle_T> s64
 Multi_Array_Structure<Handle_T>::get_stride(Handle_T handle) {
+	// NOTE: Before we had another test implementation where the organization was different, so
+	// the stride was not always 1. We could maybe remove the concept of the stride entirely now.
 	return 1;
 }
 
@@ -71,19 +70,14 @@ Multi_Array_Structure<Handle_T>::get_offset_code(Handle_T handle, Index_Exprs &i
 	for(int idx = 0; idx < index_sets.size(); ++idx) {
 		auto &index_set = index_sets[idx];
 		
-		Entity_Id actual_index_set;
-		Math_Expr_FT *index = indexes.get_index(app, index_set, &actual_index_set);
+		Math_Expr_FT *index = indexes.get_index(app, index_set);
 		
 		if(!index) {
 			err_idx_set_out = index_set;
 			return nullptr;
 		}
 		
-		//NOTE: It was not correct to multiply with count of the union member, because what we are actually indexing is the union itself!!
-		// TODO: Clean up this code once we have verified that nothing is broken (get_index doesn't seem to need to pass back the 'actual index set').
-		actual_index_set = index_set;
-		
-		result = make_binop('*', result, make_literal((s64)app->index_data.get_max_count(actual_index_set).index));
+		result = make_binop('*', result, make_literal((s64)app->index_data.get_max_count(index_set).index));
 		result = make_binop('+', result, index);
 	}
 	result = make_binop('+', result, make_literal((s64)begin_offset));
@@ -104,17 +98,16 @@ Multi_Array_Structure<Handle_T>::get_special_offset_stride_code(Handle_T handle,
 	for(int idx = 0; idx < sz; ++idx) {
 		auto &index_set = index_sets[idx];
 		
-		Entity_Id actual_index_set;
-		auto index = indexes.get_index(app, index_set, &actual_index_set);
+		auto index = indexes.get_index(app, index_set);
 		
-		result.offset = make_binop('*', result.offset, make_literal((s64)app->index_data.get_max_count(actual_index_set).index));
+		result.offset = make_binop('*', result.offset, make_literal((s64)app->index_data.get_max_count(index_set).index));
 		
 		if(index) {
 			result.offset = make_binop('+', result.offset, index);
 			
 			//if(!undetermined_found)
 			if(undetermined_found)
-				stride *= app->index_data.get_max_count(actual_index_set).index;
+				stride *= app->index_data.get_max_count(index_set).index;
 			
 		} else {
 			// treat the index as 0.

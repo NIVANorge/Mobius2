@@ -1834,6 +1834,9 @@ validate_batch_structure(Model_Application *app, const std::vector<Batch> &batch
 	
 }
 
+
+static int llvm_module_instance = 0; //TODO: This may not be the best way to do it
+
 void
 Model_Application::compile(bool store_code_strings) {
 	
@@ -1972,10 +1975,12 @@ Model_Application::compile(bool store_code_strings) {
 		log_print(" ", constants.index_count_data[idx]);
 	log_print("\n");
 #endif
-	jit_add_global_data(llvm_data, &constants);
+	jit_add_global_data(llvm_data, &constants, llvm_module_instance);
+	
+	std::string instance_sub = std::string("_") + std::to_string(llvm_module_instance);
 	
 	this->initial_batch.run_code = generate_run_code(this, &initial_batch, initial_instructions, true);
-	jit_add_batch(this->initial_batch.run_code, "initial_values", llvm_data);
+	jit_add_batch(this->initial_batch.run_code, std::string("initial_values") + instance_sub, llvm_data);
 
 	int batch_idx = 0;
 	for(auto &batch : batches) {
@@ -2002,7 +2007,7 @@ Model_Application::compile(bool store_code_strings) {
 			}
 		}
 		
-		std::string function_name = std::string("batch_function_") + std::to_string(batch_idx);
+		std::string function_name = std::string("batch_function_") + std::to_string(batch_idx) + instance_sub;
 		jit_add_batch(new_batch.run_code, function_name, llvm_data);
 		
 		this->batches.push_back(new_batch);
@@ -2033,12 +2038,14 @@ Model_Application::compile(bool store_code_strings) {
 		ir_string = &this->llvm_ir;
 	}
 	
+	++llvm_module_instance;
+	
 	jit_compile_module(llvm_data, ir_string);
 	
-	this->initial_batch.compiled_code = get_jitted_batch_function("initial_values");
+	this->initial_batch.compiled_code = get_jitted_batch_function(std::string("initial_values") + instance_sub);
 	batch_idx = 0;
 	for(auto &batch : this->batches) {
-		std::string function_name = std::string("batch_function_") + std::to_string(batch_idx);
+		std::string function_name = std::string("batch_function_") + std::to_string(batch_idx) + instance_sub;
 		batch.compiled_code = get_jitted_batch_function(function_name);
 		++batch_idx;
 	}

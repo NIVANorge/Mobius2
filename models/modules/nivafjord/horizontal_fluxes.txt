@@ -192,7 +192,7 @@ module("NIVAFjord simple realignment", version(0, 0, 1),
 This module realigns layers so that they stay at the same thickness, and only the top one varies.
 """
 	par_group("Layer realignment") {
-		align_rate : par_real("Vertical realignment rate", [], 10, 0, 100)
+		align_rate : par_real("Vertical realignment rate", [], 50, 0, 100)
 	}
 
 	external_computation("Layer vertical realignment computation", "nivafjord_vertical_realignment_slow", basin) {

@@ -127,6 +127,15 @@ Optimization_Model::evaluate(const std::vector<double> &values) {//double *value
 	return agg;
 }
 
+s64
+Optimization_Model::get_n_active() {
+	s64 n_active = 0;
+	for(auto &expr : parameters->exprs) {
+		if(!expr) ++n_active;
+	}
+	return n_active;
+}
+
 void
 gather_dependencies(Math_Expr_FT *expr, std::set<int> &dependencies_out) {
 	if(!expr) return;

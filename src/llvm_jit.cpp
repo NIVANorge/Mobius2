@@ -67,6 +67,7 @@ initialize_llvm() {
 	else
 		fatal_error(Mobius_Error::internal, "Failed to initialize LLVM.");
 	
+	/*
 	// Trying to fix symbol lookup on Linux
 	auto &jd = global_jit->getMainJITDylib();
 	auto mangle = llvm::orc::MangleAndInterner(jd.getExecutionSession(), global_jit->getDataLayout());
@@ -85,6 +86,7 @@ initialize_llvm() {
 	
 	// TODO: Handle error
 	llvm::Error err = jd.define(materializer);
+	*/
 	
 	llvm_initialized = true;
 }
@@ -271,8 +273,8 @@ typedef Scope_Local_Vars<llvm::Value *, llvm::BasicBlock *> Scope_Data;
 llvm::Value *build_expression_ir(Math_Expr_FT *expr, Scope_Data *scope, std::vector<llvm::Value *> &args, LLVM_Module_Data *data);
 
 llvm::GlobalVariable *
-jit_create_constant_array(LLVM_Module_Data *data, s32 *vals, s64 count, const char *name) {
-	auto int_32_ty      = llvm::Type::getInt32Ty(*data->context);
+jit_create_constant_array(LLVM_Module_Data *data, s32 *vals, s64 count, const std::string &name) {
+	auto int_32_ty     = llvm::Type::getInt32Ty(*data->context);
 	auto conn_array_ty = llvm::ArrayType::get(int_32_ty, count);
 	std::vector<llvm::Constant *> values(count);
 	for(s64 idx = 0; idx < values.size(); ++idx)
@@ -287,9 +289,11 @@ jit_create_constant_array(LLVM_Module_Data *data, s32 *vals, s64 count, const ch
 }
 
 void
-jit_add_global_data(LLVM_Module_Data *data, LLVM_Constant_Data *constants) {
-	data->global_connection_data  = jit_create_constant_array(data, constants->connection_data, constants->connection_data_count, "global_connection_data");
-	data->global_index_count_data = jit_create_constant_array(data, constants->index_count_data, constants->index_count_data_count, "global_index_count_data");
+jit_add_global_data(LLVM_Module_Data *data, LLVM_Constant_Data *constants, int llvm_module_instance) {
+	std::string conn_name = std::string("global_connection_data_") + std::to_string(llvm_module_instance);
+	std::string count_name = std::string("global_index_count_data_") + std::to_string(llvm_module_instance);
+	data->global_connection_data  = jit_create_constant_array(data, constants->connection_data, constants->connection_data_count, conn_name);
+	data->global_index_count_data = jit_create_constant_array(data, constants->index_count_data, constants->index_count_data_count, count_name);
 }
 
 void

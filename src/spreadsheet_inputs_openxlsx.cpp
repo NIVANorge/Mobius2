@@ -398,7 +398,9 @@ read_series_data_from_spreadsheet(Data_Set *data_set, Series_Data *series, Strin
 			
 			read_series_data_from_sheet(data_set, series, file_name, sheet, doc, tab);
 			
+			
 		} catch (XLInternalError err) {
+			log_print("WARNING: In file ", file_name, " Unable to open sheet: ", err.what(), "\n");
 			// Can happen if the sheet was dynamically deleted from e.g. python code.
 			// TODO: Should we log that this happened?
 			continue;

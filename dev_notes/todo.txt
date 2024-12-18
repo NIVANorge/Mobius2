@@ -2,28 +2,21 @@
 
 	*** High pri ***
 	
-		Can't load mobipy from Anaconda (doesn't find vcredist dependencies probably)
+		Can't load mobipy from Anaconda
+			It is probably more complex than it not finding vcredist dependencies.
 		
-		Setting parameter values doesn't work in mobipy for the MAGIC model on Linux, but it works for other models!!
+		Setting parameter values doesn't work in mobipy for the MAGIC model on Linux, but it works for other models (and it works on Windows)!!
 		
-		Magic: 
-			Initial concentrations in lake does not take into account inflow from soil.
-		
-		LLVM: Linking to C++ functions (external computation) does not work on Linux.
+		LLVM: Linking to C++ functions (external_computation) does not work on Linux.
 			Made workaround, but it is very inelegant, and only for MAGIC for now.
-		
+				Disabled it again. Need better solution.
 		
 		When a parameter changes name, the old one is not deleted from the par file.
-	
-		Loading a second model without properly deleting the first one gives name clashes in the LLVM code.
-			Having separate names for the llvm modules did not work.
-			Problematic in mobipy, because if an app instance is not explicitly deleted (e.g. there was an error), it floats in background and prevents reloading without restarting the notebook.
-				Separate but related issue __enter__ __exit__ for Model_Application doesn't work properly.
-			
-			Could also have separate function names and data names per llvm module?
-				But why is the name not scoped to the module?
 			
 		Document how to use connections, and some more of the advanced concepts.
+		
+		mobipy
+			__enter__ __exit__ causes crash.
 		
 		Got an (internal) error in the following case
 			flux(bnd.water, layer.water[vert.specific]) ...
@@ -42,7 +35,10 @@
 		
 		Specific models
 		
-			Use options to combine airsea_fpv and airsea_fpv_simple
+			MAGIC: 
+				Initial concentrations in lake does not take into account inflow from soil.
+		
+			Use 'option's to combine airsea_fpv and airsea_fpv_simple
 				Put them in the main airsea file.
 			
 			Lots of duplication between the different airsea things in general.
@@ -52,7 +48,12 @@
 				Due to having made certain assumptions about N and C balance of these. Too much POC and PON from phyto.
 			
 			NIVAFjord
-			
+				
+				Vertical wind mixing using B-V. See page 45 in report 4.
+				
+				Add wind induced horizontal transport. (Original model: 3% of wind component along the normal of the boundary. Decreases linearly in depth to a given depth)
+					(Need 2 wind components as inputs. The current 'ecosystem' of other modules is not configured for that.)
+				
 				DIC in nivafjord boundary (when DIC is enabled).
 						
 				Need a complete rethink of horizontal fluxes. They cause too much numerical instability when there is large in/outflow for small layers.
@@ -75,13 +76,11 @@
 					A bit difficult to integrate it into the existing framework.
 				
 			EasyChem + SimplyCNP
-			
-				Figure out how to do effluents to not cause concentration problems during low flow.
 							
 				Shading effect on phyto light availability (light should be more like an average in the epilimnion taking into account attenuation).
 					But that would also be problematic since it is quite uneven but the resulting phyto conc isn't.
 			
-		Finish connection system
+		Improve connection system
 		
 			Properly test the flux restriction refactoring.  (e.g. having [.below] in source etc. )
 				Maybe broken if we have grid1d of the same connection in both source and target (?)

@@ -13,7 +13,7 @@ run_optimization(Dlib_Optimization_Model &opt_model, double *min_vals, double *m
 	
 	//TODO: make multithreading work somehow.
 	
-	int len = opt_model.parameters->parameters.size();
+	int len = opt_model.get_n_active();//parameters->parameters.size();
 	
 	std::vector<dlib::function_evaluation> initial_evals;
 	if(!opt_model.initial_pars.empty()) {

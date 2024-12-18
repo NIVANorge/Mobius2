@@ -51,6 +51,8 @@ Optimization_Model {
 	
 	double evaluate(const std::vector<double> &values);//const double *values);
 	
+	s64                               get_n_active();
+	
 	bool                              maximize;
 	s64                               ms_timeout, n_timeouts, n_evals;
 	double                            best_score, initial_score;

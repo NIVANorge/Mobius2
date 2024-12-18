@@ -29,7 +29,7 @@ void
 free_llvm_module(LLVM_Module_Data *data);
 
 void
-jit_add_global_data(LLVM_Module_Data *data, LLVM_Constant_Data *constants);
+jit_add_global_data(LLVM_Module_Data *data, LLVM_Constant_Data *constants, int llvm_module_instance);
 
 void
 jit_add_batch(Math_Expr_FT *expr, const std::string &function_name, LLVM_Module_Data *data);

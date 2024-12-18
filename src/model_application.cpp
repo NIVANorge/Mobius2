@@ -29,12 +29,10 @@ add_exprs(Math_Expr_FT *lhs, Math_Expr_FT *rhs) {
 }
 
 Math_Expr_FT *
-Index_Exprs::get_index(Model_Application *app, Entity_Id index_set, Entity_Id *index_set_out) {
+Index_Exprs::get_index(Model_Application *app, Entity_Id index_set) {
 	
 	Math_Expr_FT *result = nullptr;
 	
-	if(index_set_out)
-		*index_set_out = index_set;
 	if(indexes[index_set.id]) {
 		result = ::copy(indexes[index_set.id]);
 	} else {
@@ -44,8 +42,6 @@ Index_Exprs::get_index(Model_Application *app, Entity_Id index_set, Entity_Id *i
 		for(auto ui_id : set->union_of) {
 			if(indexes[ui_id.id]) {
 				result = add_exprs(result, ::copy(indexes[ui_id.id]));
-				if(index_set_out)
-					*index_set_out = ui_id;
 				found = true;
 				break;
 			} else
@@ -1112,11 +1108,13 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 		set_up_series_structure(Var_Id::Type::additional_series, &metadata);
 		
 		s64 time_steps = 0;
-		if(metadata.any_data_at_all)
+		if(metadata.any_data_at_all || data_set->series_interval_was_provided) {
 			time_steps = steps_between(metadata.start_date, metadata.end_date, time_step_size) + 1; // NOTE: if start_date == end_date we still want there to be 1 data point (dates are inclusive)
-		else if(vars.count(Var_Id::Type::series) != 0) {
+		} else if(vars.count(Var_Id::Type::series) != 0) {
 			//TODO: use the model run start and end date.
 			// Or better yet, we could just bake in series default values as literals in the code. in this case.
+			
+			log_print("WARNING: Unable to allocate input series since no data on input start and end date was provided.\n");
 		}
 	
 		allocate_series_data(time_steps, metadata.start_date);
