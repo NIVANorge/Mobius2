@@ -13,9 +13,8 @@ import pickle as pkl
 # Note: we can't use multiprocessing for this, only multithreading, since a Model_Application object that is allocated from C++ on one process
 # can't be accessed from a different python process.
 
-# Oooops, this doesn't work as intended. Why??
 #class Thread_Pool :
-    
+#    
 #    def map(self, fn, args) :
 #        return Parallel(n_jobs=-1, verbose=0, backend='threading')(builtins.map(delayed(fn), args))
 
@@ -44,11 +43,14 @@ def run_mcmc(app, params, set_params, log_likelihood, burn, steps, walkers, run_
 	starting_guesses = np.minimum(starting_guesses, maxs)
 	
 	mcmc = lmfit.Minimizer(ll_fun, params, nan_policy='omit', kws={'moves':emcee.moves.StretchMove(), 'skip_initial_state_check':True})
-
-	#return mcmc.emcee(params=params, pos=starting_guesses, burn=burn, steps=steps, nwalkers=walkers, workers=Thread_Pool(), float_behavior='posterior') #This doesn't work, no idea why.
 	
 	if report_interval < 0 :
 		return mcmc.emcee(params=params, pos=starting_guesses, burn=burn, steps=steps, nwalkers=walkers, float_behavior='posterior', progress=progress)
+		#Threading doesn't work, no idea why.
+		# It works to run this with a non-Mobius ll function, and it also works to run a Mobius2 model separately in a Thread_Pool, but the combination causes very
+		# low acceptance rate in the chains it looks like..
+		#pool = Thread_Pool()
+		#return mcmc.emcee(params=params, pos=starting_guesses, burn=burn, steps=steps, nwalkers=walkers, workers=pool, float_behavior='posterior') 
 	else :
 		steps_left = steps
 		use_steps = min(steps_left, report_interval)

@@ -2,10 +2,15 @@
 
 	*** High pri ***
 	
-		Can't load mobipy from Anaconda
+	
+		If you load different modules using the same load name, you don't get a name clash!
+			Fixed if the module template is different, but should also be fixed when template is same but load arguments are different.
+	
+	
+		Can't load mobipy from Anaconda on Windows
 			It is probably more complex than it not finding vcredist dependencies.
 		
-		Setting parameter values doesn't work in mobipy for the MAGIC model on Linux, but it works for other models (and it works on Windows)!!
+		Setting parameter values doesn't work in mobipy on Linux, but it works on Windows..
 		
 		LLVM: Linking to C++ functions (external_computation) does not work on Linux.
 			Made workaround, but it is very inelegant, and only for MAGIC for now.
@@ -16,7 +21,7 @@
 		Document how to use connections, and some more of the advanced concepts.
 		
 		mobipy
-			__enter__ __exit__ causes crash.
+			with ... as app :    doesn't work.
 		
 		Got an (internal) error in the following case
 			flux(bnd.water, layer.water[vert.specific]) ...

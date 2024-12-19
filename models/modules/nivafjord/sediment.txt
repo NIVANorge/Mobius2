@@ -39,6 +39,8 @@ module("NIVAFjord sediments", version(0, 0, 4),
 	par_group("Initial chem", sediment) {
 		init_c   : par_real("Initial sediment C fraction", [g, k g-1], 10, 0, 1)
 		init_p   : par_real("Initial sediment IP fraction", [g, k g-1], 1, 0, 1)
+		init_cn  : par_real("Initial sediment C/N molar fraction", [], 6, 0, 50)
+		init_cp  : par_real("Initial sediment (organic) C/P molar fraction", [], 106, 0, 500)
 		sed_doc  : par_real("Sediment pore water DOC concentration", [m g, l-1], 5, 0, 100)
 	}
 	
@@ -71,11 +73,6 @@ module("NIVAFjord sediments", version(0, 0, 4),
 		sediment.area*(layer.water.temp->[K] - sediment.temp->[K])*sed_k/dz_ ->>
 	}
 	
-	
-	sed_cn : constant("Sediment C/N", [], 6.25)
-	sed_cp : constant("Sediment C/P", [], 106)
-	
-	
 	# The sediment area of a water layer is the area of the layer minus the area of the water layer below.
 	var(sediment.area, [m 2], "Sediment area") {   A - A[vert.below]   }
 	
@@ -87,11 +84,11 @@ module("NIVAFjord sediments", version(0, 0, 4),
 		var(sediment.sed.ch4, [k g], [g, k g-1], "Sediment CH4")
 	}
 	
-	var(sediment.sed.on, [k g], [g, k g-1], "Sediment organic N") @initial_conc { init_c / cn_molar_to_mass_ratio(sed_cn) }
+	var(sediment.sed.on, [k g], [g, k g-1], "Sediment organic N") @initial_conc { init_c / cn_molar_to_mass_ratio(init_cn) }
 	
 	var(sediment.sed.phos, [k g], [g, k g-1], "Sediment IP") @initial_conc { init_p }
 	
-	var(sediment.sed.op, [k g], [g, k g-1], "Sediment OP") @initial_conc { init_c / cp_molar_to_mass_ratio(sed_cp) }
+	var(sediment.sed.op, [k g], [g, k g-1], "Sediment OP") @initial_conc { init_c / cp_molar_to_mass_ratio(init_cp) }
 	
 	# The below is currently only used when we have contaminant partitioning for the sediments. Could also use the same system for other sediment interactions below...
 	var(sediment.water, [m 3], "Sediment pore water") @override { area*th*porosity }

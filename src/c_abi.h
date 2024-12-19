@@ -134,8 +134,14 @@ Parameter_Value_Simple {
 	s64    val_int;
 };
 
+// NOTE: ctypes on Linux doesn't support passing unions as arguments, so we had to split up the function below.
+//  Union as return type still seems to work fine.
+
 DLLEXPORT void
-mobius_set_parameter_numeric(Model_Data *data, Entity_Id par_id, Mobius_Index_Value *indexes, s64 indexes_count, Parameter_Value_Simple value);
+mobius_set_parameter_int(Model_Data *data, Entity_Id par_id, Mobius_Index_Value *indexes, s64 indexes_count, s64 value);
+
+DLLEXPORT void
+mobius_set_parameter_real(Model_Data *data, Entity_Id par_id, Mobius_Index_Value *indexes, s64 indexes_count, double value);
 
 DLLEXPORT Parameter_Value_Simple
 mobius_get_parameter_numeric(Model_Data *data, Entity_Id par_id, Mobius_Index_Value *indexes, s64 indexes_count);

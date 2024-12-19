@@ -1287,14 +1287,38 @@ process_module_load(Mobius_Model *model, Model_Options *options, Token *load_nam
 	
 	auto model_scope = &model->top_scope;
 
-	auto module_id = model_scope->deserialize(spec_name, Reg_Type::module);
+	auto module_id = model_scope->deserialize(spec_name, Reg_Type::unrecognized);
 	
-	if(is_valid(module_id)) return module_id; // It has been specialized with this name already, so just return the one that was already created.
+	if(is_valid(module_id)) {
+		if(module_id.reg_type != Reg_Type::module) {
+			spec_name_token->source_loc.print_error_header();
+			fatal_error("The name \"", spec_name, "\" already refers to another entity in this scope which is not a module.");
+		}
+		
+		auto module2 = model->modules[module_id];
+		if(module2->template_id != template_id) {
+			spec_name_token->print_error_header();
+			error_print("The name \"", spec_name, "\" has already been used for another module load of a different module template. See the declaration here:\n");
+			module2->source_loc.print_error();
+			mobius_error_exit();
+		}
+		
+		// TODO: We need to check that the previous load did not load with different load arguments!
+		//   In that case this should be an error!
+		// The below is too strict, because it rules out local 'loc', unit or constant declarations (others?) that have equal values. So these would have to be resolved too!
+		/*
+		if(module2->load_args != load_args) {
+			// ..
+		}
+		*/
+		return module_id; // It has been specialized with this name already, so just return the one that was already created.
+	}
 	
 	module_id = model->modules.create_internal(model_scope, identifier, spec_name, mod_temp->decl_type);
 	
 	auto module = model->modules[module_id];
 	module->source_loc = mod_temp->source_loc;
+	module->load_args = load_args;
 	
 	if(load_name)
 		module->full_name = mod_temp->name + " (" + module->name + ")";

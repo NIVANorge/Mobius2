@@ -26,7 +26,8 @@ get_series_data_h   = dlsym(mobius_dll, "mobius_get_series_data")
 deserialize_entity_h = dlsym(mobius_dll, "mobius_deserialize_entity")
 deserialize_var_h   = dlsym(mobius_dll, "mobius_deserialize_var")
 get_value_type_h    = dlsym(mobius_dll, "mobius_get_value_type")
-set_parameter_numeric_h = dlsym(mobius_dll, "mobius_set_parameter_numeric")
+set_parameter_int_h = dlsym(mobius_dll, "mobius_set_parameter_int")
+set_parameter_real_h = dlsym(mobius_dll, "mobius_set_parameter_real")
 get_parameter_numeric_h = dlsym(mobius_dll, "mobius_get_parameter_numeric")
 set_parameter_string_h = dlsym(mobius_dll, "mobius_set_parameter_string")
 get_parameter_string_h = dlsym(mobius_dll, "mobius_get_parameter_string")
@@ -285,7 +286,7 @@ function set_parameter(ref::Entity_Ref, indexes::Vector{Any}, value::Float64)
 		throw(ErrorException("Tried to set a non-float parameter with float value."))
 	end
 	idxs = make_indexes(indexes)
-	ccall(set_parameter_numeric_h, Cvoid, (Ptr{Cvoid}, Entity_Id, Ptr{Mobius_Index_Value}, Clonglong, Cdouble),
+	ccall(set_parameter_real_h, Cvoid, (Ptr{Cvoid}, Entity_Id, Ptr{Mobius_Index_Value}, Clonglong, Cdouble),
 		ref.data, ref.entity_id, idxs, length(idxs), value)
 	check_error()
 end
@@ -297,10 +298,10 @@ function set_parameter(ref::Entity_Ref, indexes::Vector{Any}, value::Int64)
 	end
 	idxs = make_indexes(indexes)
 	if type == 0
-		ccall(set_parameter_numeric_h, Cvoid, (Ptr{Cvoid}, Entity_Id, Ptr{Mobius_Index_Value}, Clonglong, Cdouble),
+		ccall(set_parameter_real_h, Cvoid, (Ptr{Cvoid}, Entity_Id, Ptr{Mobius_Index_Value}, Clonglong, Cdouble),
 			ref.data, ref.entity_id, idxs, length(idxs), convert(Float64, value))
 	else
-		ccall(set_parameter_numeric_h, Cvoid, (Ptr{Cvoid}, Entity_Id, Ptr{Mobius_Index_Value}, Clonglong, Clonglong),
+		ccall(set_parameter_int_h, Cvoid, (Ptr{Cvoid}, Entity_Id, Ptr{Mobius_Index_Value}, Clonglong, Clonglong),
 			ref.data, ref.entity_id, idxs, length(idxs), value)
 	end
 	check_error()
@@ -312,7 +313,7 @@ function set_parameter(ref::Entity_Ref, indexes::Vector{Any}, value::Bool)
 		throw(ErrorException("Tried to set a non-bool parameter with bool value."))
 	end
 	idxs = make_indexes(indexes)
-	ccall(set_parameter_numeric_h, Cvoid, (Ptr{Cvoid}, Entity_Id, Ptr{Mobius_Index_Value}, Clonglong, Clonglong),
+	ccall(set_parameter_int_h, Cvoid, (Ptr{Cvoid}, Entity_Id, Ptr{Mobius_Index_Value}, Clonglong, Clonglong),
 		ref.data, ref.entity_id, idxs, length(idxs), value)
 	check_error()
 end

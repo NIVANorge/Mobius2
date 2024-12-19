@@ -176,7 +176,9 @@ def load_dll() :
 	dll.mobius_get_value_type.argtypes = [ctypes.c_void_p, Entity_Id]
 	dll.mobius_get_value_type.restype = ctypes.c_int64
 
-	dll.mobius_set_parameter_numeric.argtypes = [ctypes.c_void_p, Entity_Id, ctypes.POINTER(Mobius_Index_Value), ctypes.c_int64, Parameter_Value]
+	dll.mobius_set_parameter_int.argtypes = [ctypes.c_void_p, Entity_Id, ctypes.POINTER(Mobius_Index_Value), ctypes.c_int64, ctypes.c_int64]
+	
+	dll.mobius_set_parameter_real.argtypes = [ctypes.c_void_p, Entity_Id, ctypes.POINTER(Mobius_Index_Value), ctypes.c_int64, ctypes.c_double]
 
 	dll.mobius_get_parameter_numeric.argtypes = [ctypes.c_void_p, Entity_Id, ctypes.POINTER(Mobius_Index_Value), ctypes.c_int64]
 	dll.mobius_get_parameter_numeric.restype  = Parameter_Value
@@ -319,12 +321,10 @@ def _set_par_value(data_ptr, entity_id, indexes, value) :
 	
 	type = dll.mobius_get_value_type(data_ptr, entity_id)
 	if type <= 2 :
-		val = Parameter_Value()
 		if type == 0 :
-			val.val_real = value
+			dll.mobius_set_parameter_real(data_ptr, entity_id, _pack_indexes(indexes), _len(indexes), value)
 		else :
-			val.val_int = value
-		dll.mobius_set_parameter_numeric(data_ptr, entity_id, _pack_indexes(indexes), _len(indexes), val)
+			dll.mobius_set_parameter_int(data_ptr, entity_id, _pack_indexes(indexes), _len(indexes), value)
 	elif type <= 4 :
 		# TODO: If argument is of datetime type, decode it first
 		if type == 4 :

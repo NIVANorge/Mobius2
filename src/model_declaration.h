@@ -31,6 +31,7 @@ Module_Registration : Registration_Base {
 	Entity_Id      template_id = invalid_entity_id;
 	Decl_Scope     scope;
 	std::string    full_name;
+	std::vector<Entity_Id> load_args;
 	
 	void process_declaration(Catalog *catalog);
 };

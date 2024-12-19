@@ -442,12 +442,23 @@ mobius_get_value_type(Model_Data *data, Entity_Id id) {
 
 // TODO: For some parameters we need to check if they are baked, and then set a flag on the Model_Application telling it it has to be recompiled before further use.
 //   This must then be reflected in mobipy so that it actually does the recompilation.
+
+// TODO: These should maybe check that the parameter is indeed of that type..
 DLLEXPORT void
-mobius_set_parameter_numeric(Model_Data *data, Entity_Id par_id, Mobius_Index_Value *indexes, s64 indexes_count, Parameter_Value_Simple value) {
+mobius_set_parameter_int(Model_Data *data, Entity_Id par_id, Mobius_Index_Value *indexes, s64 indexes_count, s64 value) {
 	auto app = data->app;
 	try {
 		s64 offset = get_offset_by_index_values(app, &app->parameter_structure, par_id, indexes, indexes_count);
-		(*data->parameters.get_value(offset)).val_real = value.val_real; // Again, shouldn't matter what type we copy since the bytes will be correct.
+		(*data->parameters.get_value(offset)).val_integer = value; // Again, shouldn't matter what type we copy since the bytes will be correct.
+	} catch(int) {}
+}
+
+DLLEXPORT void
+mobius_set_parameter_real(Model_Data *data, Entity_Id par_id, Mobius_Index_Value *indexes, s64 indexes_count, double value) {
+	auto app = data->app;
+	try {
+		s64 offset = get_offset_by_index_values(app, &app->parameter_structure, par_id, indexes, indexes_count);
+		(*data->parameters.get_value(offset)).val_real = value; // Again, shouldn't matter what type we copy since the bytes will be correct.
 	} catch(int) {}
 }
 
