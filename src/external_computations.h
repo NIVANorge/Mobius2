@@ -20,6 +20,9 @@ Value_Access {
 	inline double &at(s64 idx) { return val[idx*stride]; }
 	inline u64    &bool_at(s64 idx) { return ((u64*)val)[idx*stride]; }
 	inline s64    &int_at(s64 idx) { return ((s64*)val)[idx*stride]; }
+	
+	double &operator[](s64 idx) { return val[idx*stride]; }
+	double &operator*() { return *val; }
 };
 
 #endif // MOBIUS_SPECIAL_COMPUTATION_H

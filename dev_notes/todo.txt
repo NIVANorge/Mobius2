@@ -5,13 +5,6 @@
 		If you load different modules using the same load name, you don't get a name clash!
 			This is as intended if the two loads are identical (so that you can extend two models that load the same module)
 			Fixed if the module template is different, but should also be fixed when template is same but load arguments are different.
-	
-		LLVM: Linking to C++ functions (external_computation) does not work on Linux.
-			Made workaround, but it is very inelegant, and only for MAGIC for now.
-				Disabled it again. Need better solution.
-				
-		external_computation should just take an array of Value_Access as a single argument. So that the function signature isn't so hopeless.
-			Also makes the Linux workaround cleaner.
 		
 		When a parameter changes name, the old one is not deleted from the par file.
 			
@@ -32,10 +25,6 @@
 				It is a bit tricky for the framework to predetermine this.. But there is maybe something like this for graph aggregates already that could be applied here too.
 		
 		Add forums on github page? (github Discussions)
-			
-		NIVAFjord-simplycnp seems to be randomly slow at Varna setup (can change between reloads of the model)
-			However, when it is slow it still produces correct results!
-			Is this just due to high memory usage / random bad cache behaviour??
 		
 		Specific models
 		
