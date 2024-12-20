@@ -361,9 +361,9 @@ print_equation(Print_Equation_Context &context, Math_Expr_AST *ast, bool outer =
 			print_equation(context, fun->exprs[0]);
 			context.ss << "}";
 		} else if (fun->name.string_value == "log10") {
-			context.ss << "\\mathrm{log}_{10}\left(";
+			context.ss << "\\mathrm{log}_{10}\\left(";
 			print_equation(context, fun->exprs[0]);
-			context.ss << "\right)";
+			context.ss << "\\right)";
 		} else if (fun->name.string_value == "abs") {
 			context.ss << "\\left|";
 			print_equation(context, fun->exprs[0]);

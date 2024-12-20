@@ -2,16 +2,10 @@
 
 	*** High pri ***
 	
-	
 		If you load different modules using the same load name, you don't get a name clash!
+			This is as intended if the two loads are identical (so that you can extend two models that load the same module)
 			Fixed if the module template is different, but should also be fixed when template is same but load arguments are different.
 	
-	
-		Can't load mobipy from Anaconda on Windows
-			It is probably more complex than it not finding vcredist dependencies.
-		
-		Setting parameter values doesn't work in mobipy on Linux, but it works on Windows..
-		
 		LLVM: Linking to C++ functions (external_computation) does not work on Linux.
 			Made workaround, but it is very inelegant, and only for MAGIC for now.
 				Disabled it again. Need better solution.
@@ -21,7 +15,9 @@
 		Document how to use connections, and some more of the advanced concepts.
 		
 		mobipy
-			with ... as app :    doesn't work.
+			
+			Can't load mobipy from Anaconda on Windows
+				It is probably more complex than it not finding vcredist dependencies.
 		
 		Got an (internal) error in the following case
 			flux(bnd.water, layer.water[vert.specific]) ...
@@ -41,7 +37,8 @@
 		Specific models
 		
 			MAGIC: 
-				Initial concentrations in lake does not take into account inflow from soil.
+				Initial concentrations in lake do not take into account inflow from soil.
+					Would require computation of in_flux at initial step, which again would require computation of fluxes in initial step (at least the ones that are looked up by in_flux). Technically possible, but a bit of work.
 		
 			Use 'option's to combine airsea_fpv and airsea_fpv_simple
 				Put them in the main airsea file.
@@ -175,7 +172,6 @@
 	
 		It may be confusing to users what arguments are available for 'option'. This is because if you use a declared identifier that has not been processed yet, it will say that it doesn't recognize the identifier. It is legitimate that there is an error, but the error can't (for resons) acknowledge that the identifier exists but is not usable in this context.
 		
-	
 		We could probably simplify a lot of things by switching from our custom String_View to std::string_view ??
 	
 		MobiView
@@ -189,6 +185,7 @@
 				aggregation_weight depends on compartment. Make it work like unit_conversion instead?
 					See other suggestion about merging unit_conversion and aggregation_weight.
 		Make par_aggregate work the same as regular_aggregate.
+			This one is actually kind of important.
 	
 	
 		Make something like
@@ -222,23 +219,25 @@
 		Would like to be able to use in_flux in initial code (for e.g. setting initial steady states easily), but then we also need to be able to compute initial values for fluxes. With in_flux_connection it could be tricky to determine what initial fluxes must be computed (Not tricky, maybe, but a lot of work.. ?).
 	
 		Merge unit_conversion and aggregation_weight to just "weight" (?)
+			Not necessarily a good idea. You may want to look up an aggregate value that is not a flux (and so does not need unit conversion).
 	
 		Would be very useful to be able to turn on an option to store out what variables are causing error control to reduce step size.
 		Also, get the average step size through the time step, not just the last one.	
 			Requires a lot of extra infrastructure for this to be possible though.
-			
-			
 	
 		Make it possible to directly overload a concentration through an input series, not requiring it to be a separate 'property' declaration.
 			Turned out to be very difficult due to how things are organized, and caused a totally unrelated series to become NaN.
-			May have messed up indexing of series values?
+				May have messed up indexing of series values?
 	
-		Multiple return values from functions (tuples).
+		Multiple return values from functions (tuples). Needed if we want to implement MAGIC entirely in Mobius2 code for instance.
 			Only annoying thing is that we then have to introduce 'tuple(N)' to the type system and check against it everywhere it is not allowed.
+				A possible solution is to force it to be unpacked immediately at the call location of the function. I.e. if a function returns a tuple, you can only call it using something like
+					a, b := fun(),
 	
 		Position_Map
 			There can be problems if the max depth doesn't exactly match a boundary of two widths.
 				See for instance Breiangen in nivafjord_moss
+			Was this solved?
 		The way positioned indexes are named in get_index_names is not going to work for serialization.
 			May need to separate between serialization name and display name for these.
 				Actually, right now indexes are serialized by number and not name any way, so it is not a problem?
@@ -255,22 +254,21 @@
 				
 			Make model reloads work better wrt 'quick_select'.
 				If the quick_select tab is open, it should choose the right thing back.
-			Ideally quick_select should disable separate selection of input series.
+			Maybe quick_select should disable separate selection of input series.
 								
 			Seasonal aggregation.
 				I.e. the mean for jan, feb, ... across multiple years.
 				Maybe with box plot.
 				
 			Make it so that editing map based parameters works when the last index is not position based (?)
-			
-			plot is strange for all-negative series.
 	
 		
 		For sub-indexed index sets, don't allocate the entire max size for each instance (for data blocks).
-			Complicates indexing computations somewhat, but can be a huge memory saver in some NIVAFjord setups.
+			This would require a very large system rewrite of the storage system.
+			Complicates indexing computations, but can be a huge memory saver in some NIVAFjord setups.
 			
 		For additional_series data it is very wasteful that it allocates the max vector even though most of it is going to be nan. Esp. for fjord data that has many empty layers.
-			Could make an entire separate system for how these are stored, but a lot of work, esp. taking into account that it has to fit into how MobiView works.
+			Could make an entire separate system for how these are stored, but a lot of work, esp. taking into account that it has to fit into how MobiView/mobipy work.
 			
 			
 		Ideally we should always (automatically) check if an entity we reference has_been_processed (unless we expect it not to be as during the construction step).
@@ -293,7 +291,7 @@
 	
 		Should have better processing of docstrings.
 			Right now they must be tabbed entirely to the left or otherwise the tabs inside the string is recorded.
-				Should be easy since we can do it when they are copied over to std::string.
+				Should be easy since we can do it when they are copied over to std::string. Just keep track of the indentation of the first line and subtract it from subsequent ones (assuming they are indented with the same method).
 	
 	
 		Data_Set
@@ -317,6 +315,8 @@
 		Allow index sets to be empty (needed for above to work).
 			Invalidate state variables that are dependent on empty index sets.
 			e.g. allows you to run EasyLake-SimplyCNP without lakes, which can be useful if you are working with a data set subset.
+			
+			Probably a lot of work, will introduce bugs everywhere.
 		
 		
 		@no_store :
@@ -343,7 +343,7 @@
 		What to do with discrete fluxes when varying step size.
 			They are currently not step size independent.
 			Should they be re-scaled somehow if the step size is different from the one that is declared in the flux?
-				That would only be correct if the flux is of the form dx/dt = -b*x
+				That would only be correct if the flux is linear in the state variables.
 			
 		What to do about things like (computed) global radiation that should really have an hourly variation with low step sizes but should be averaged with higher?
 		

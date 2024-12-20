@@ -1,21 +1,18 @@
 
 model("Giblet-Thrasher test model") {
 	
-	habitat : compartment("Habitat")
+	habitat : compartment("Habitat", hi)
 	pred : quantity("Thrashers")
 	prey : quantity("Giblets")
 	
 	solve(solver("LV-Solver", inca_dascru, [2, hr]), habitat.pred, habitat.prey)
-	
-	distribute(habitat, hi)
 	
 	hi : index_set("Habitat index")     #TODO: There is an error if this is inline-declared in the distribute() declaration.
 	route : index_set("Migration route index") @sub(hi)
 	
 	mig : connection("Migration route connection") @directed_graph(route) { habitat* }
 	
-	migr : compartment("Migration route")
-	distribute(migr, hi, route)
+	migr : compartment("Migration route", hi, route)
 	
 	module("Giblet-Thrasher", version(1, 1, 0)) {
 		

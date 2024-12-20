@@ -1428,6 +1428,9 @@ report_instruction_cycle(Model_Application *app, std::vector<Model_Instruction> 
 		error_print(instructions[instr_id].debug_string(app), '\n');
 		first = false;
 	}
+	if(!initial) {
+		error_print("Note that circular dependencies most often (but not always) happen when a quantity is not put on a solver and a flux that transports that quantity depends directly on the current value of that quantity.");
+	}
 	fatal_error("\n");
 }
 
