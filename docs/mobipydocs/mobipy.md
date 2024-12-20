@@ -32,8 +32,7 @@ This assumes you have already followed the [getting started guide](../gettingsta
 
 ## Known issues
 
-- It can be problematic to use mobipy from an Anaconda environment (including Pycharm).
-- Some models (MAGIC, NIVAFjord) can have problems on Linux.
+- It can be problematic to use mobipy from an Anaconda environment (including through Pycharm).
 
 ## Basic usage
 
