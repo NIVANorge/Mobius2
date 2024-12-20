@@ -1,0 +1,10 @@
+
+ADD_EXT_COMP(_special_test_)
+ADD_EXT_COMP(nivafjord_place_river_flux)
+ADD_EXT_COMP(nivafjord_place_horizontal_fluxes)
+ADD_EXT_COMP(nivafjord_compute_pressure_difference)
+ADD_EXT_COMP(nivafjord_vertical_realignment)
+ADD_EXT_COMP(nivafjord_vertical_realignment_even_distrib)
+ADD_EXT_COMP(nivafjord_vertical_realignment_slow)
+ADD_EXT_COMP(magic_core)
+ADD_EXT_COMP(magic_core_initial)

@@ -9,6 +9,9 @@
 		LLVM: Linking to C++ functions (external_computation) does not work on Linux.
 			Made workaround, but it is very inelegant, and only for MAGIC for now.
 				Disabled it again. Need better solution.
+				
+		external_computation should just take an array of Value_Access as a single argument. So that the function signature isn't so hopeless.
+			Also makes the Linux workaround cleaner.
 		
 		When a parameter changes name, the old one is not deleted from the par file.
 			

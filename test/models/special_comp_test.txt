@@ -2,12 +2,10 @@
 
 model("Special computation test") {
 
-	a : compartment("A")
+	a : compartment("A", i)
 	p : property("P")
 	
 	i : index_set("I")
-	
-	distribute(a, i)
 	
 	module("Special test", version(0, 0, 1)) {
 	
@@ -17,7 +15,7 @@ model("Special computation test") {
 			q : par_real("A par", [], 0)
 		}
 	
-		special_computation("Special test", "_special_test_") {
+		external_computation("Special test", "_special_test_") {
 			result(a.p)
 			q
 		}

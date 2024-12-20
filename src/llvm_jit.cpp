@@ -49,6 +49,10 @@ _test_fun_(double a) {
 }
 
 
+#define ADD_EXT_COMP(name) extern "C" DLLEXPORT void name(Value_Access *values);
+#include "model_specific/all_externals.incl"
+#undef ADD_EXT_COMP
+
 
 static bool llvm_initialized = false;
 static std::unique_ptr<llvm::orc::KaleidoscopeJIT> global_jit;
@@ -67,26 +71,25 @@ initialize_llvm() {
 	else
 		fatal_error(Mobius_Error::internal, "Failed to initialize LLVM.");
 	
-	/*
-	// Trying to fix symbol lookup on Linux
+// Unfortunately, automatic symbol lookup doesn't work on Linux
+#ifdef __unix__
 	auto &jd = global_jit->getMainJITDylib();
 	auto mangle = llvm::orc::MangleAndInterner(jd.getExecutionSession(), global_jit->getDataLayout());
 	
 	llvm::orc::SymbolMap symbol_map;
 	
-	#define ADD_SYMBOL(sym) \
+	#define ADD_EXT_COMP(sym) \
 	symbol_map[mangle(#sym)] = llvm::orc::ExecutorSymbolDef( \
 		llvm::orc::ExecutorAddr::fromPtr(&sym), \
 		llvm::JITSymbolFlags());
-	ADD_SYMBOL(magic_core)
-	ADD_SYMBOL(magic_core_initial)
-	#undef ADD_SYMBOL
+	#include "model_specific/all_externals.incl"
+	#undef ADD_EXT_COMP
 	
 	auto materializer = llvm::orc::absoluteSymbols(symbol_map);
 	
 	// TODO: Handle error
 	llvm::Error err = jd.define(materializer);
-	*/
+#endif
 	
 	llvm_initialized = true;
 }
@@ -714,12 +717,33 @@ build_external_computation_ir(Math_Expr_FT *expr, Scope_Data *locals, std::vecto
 	auto struct_ty = llvm::StructType::get(*data->context, member_types);
 	auto struct_ptr_ty = llvm::PointerType::getUnqual(struct_ty);
 	
-	std::vector<llvm::Type *> arguments_ty(n_call_args, struct_ptr_ty);
+	std::vector<llvm::Type *> arguments_ty = {struct_ptr_ty};
 	
 	auto external_fun = get_linked_function(data, external->function_name, void_ty, arguments_ty);
 	
+	auto arg_count = llvm::ConstantInt::get(*data->context, llvm::APInt(64, n_call_args, true));
 	// Construct the struct arguments
 	std::vector<llvm::Value *> arguments;
+	auto alloc = data->builder->CreateAlloca(struct_ty, arg_count);
+	
+	auto p0 = llvm::ConstantInt::get(*data->context, llvm::APInt(64, 0, true));
+	auto p1 = llvm::ConstantInt::get(*data->context, llvm::APInt(64, 1, true));
+	auto p2 = llvm::ConstantInt::get(*data->context, llvm::APInt(64, 2, true));
+	
+	for(int idx = 0; idx < n_call_args; ++idx) {
+		auto pidx = llvm::ConstantInt::get(*data->context, llvm::APInt(64, idx, true));
+		auto elem = data->builder->CreateGEP(struct_ty, alloc, pidx);
+		
+		auto val = data->builder->CreateStructGEP(struct_ty, elem, 0);
+		data->builder->CreateStore(valptrs[idx], val);
+		auto stride = data->builder->CreateStructGEP(struct_ty, elem, 1);
+		data->builder->CreateStore(strides[idx], stride);
+		auto count = data->builder->CreateStructGEP(struct_ty, elem, 2);
+		data->builder->CreateStore(counts[idx], count);
+	}
+	
+	arguments.push_back(alloc);
+	/*
 	for(int idx = 0; idx < n_call_args; ++idx) {
 		auto alloc = data->builder->CreateAlloca(struct_ty);
 		auto val = data->builder->CreateStructGEP(struct_ty, alloc, 0);
@@ -730,6 +754,7 @@ build_external_computation_ir(Math_Expr_FT *expr, Scope_Data *locals, std::vecto
 		data->builder->CreateStore(counts[idx], count);
 		arguments.push_back(alloc);
 	}
+	*/
 	
 	data->builder->CreateCall(external_fun, arguments);
 	

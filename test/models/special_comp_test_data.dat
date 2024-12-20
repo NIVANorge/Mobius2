@@ -1,4 +1,6 @@
-index_set("I") [ 5 ]
+
+data_set {
+i : index_set("I") [ 5 ]
 
 par_group("System") {
 	par_datetime("Start date")
@@ -9,9 +11,10 @@ par_group("System") {
 }
 
 module("Special test", version(0, 0, 1)) {
-	par_group("Pars") [ "I" ] {
+	par_group("Pars", i) {
 		par_real("A par")
 		[ 0 1 2 3 4 ]
 	}
 }
 
+}

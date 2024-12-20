@@ -76,8 +76,8 @@ def get_base_cation_exchangeable_fractions_setup(app, calib_index='Soil', obsnam
 	
 	target = [
 		('Exchangeable Ca on soil as % of CEC', [calib_index], obsname%'Ca', [], 1),
-		('Exchangeable Na on soil as % of CEC', [calib_index], obsname%'Mg', [], 1),
-		('Exchangeable Mg on soil as % of CEC', [calib_index], obsname%'Na', [], 1),
+		('Exchangeable Mg on soil as % of CEC', [calib_index], obsname%'Mg', [], 1),
+		('Exchangeable Na on soil as % of CEC', [calib_index], obsname%'Na', [], 1),
 		('Exchangeable K on soil as % of CEC', [calib_index], obsname%'K', [], 1),
 	]
 	
@@ -108,8 +108,8 @@ def get_base_cation_combined_setup(app, calib_index='Soil', obs_index='River', o
 		('Na(+) ionic concentration', [obs_index], obsname_c%'Na', [], 1),
 		('K(+) ionic concentration', [obs_index], obsname_c%'K', [], 1),
 		('Exchangeable Ca on soil as % of CEC', [calib_index], obsname_bs%'Ca', [], 10),
-		('Exchangeable Na on soil as % of CEC', [calib_index], obsname_bs%'Mg', [], 10),
-		('Exchangeable Mg on soil as % of CEC', [calib_index], obsname_bs%'Na', [], 10),
+		('Exchangeable Mg on soil as % of CEC', [calib_index], obsname_bs%'Mg', [], 10),
+		('Exchangeable Na on soil as % of CEC', [calib_index], obsname_bs%'Na', [], 10),
 		('Exchangeable K on soil as % of CEC', [calib_index], obsname_bs%'K', [], 10),
 	]
 	if obsname_ph :
