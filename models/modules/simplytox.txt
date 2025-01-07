@@ -220,6 +220,10 @@ Soil-specific contaminant processes that are not covered by the partitioning mod
 		0=>> otherwise
 	}
 	
+	flux(soil.oc.tox, dsoil.oc.tox, [n g, m-2, day-1], "Fast-slow SOC contaminant exchange") {
+		rfs*soil.oc*(conc(soil.oc.tox) - conc(dsoil.oc.tox))
+	}
+	
 	flux(soilair.tox, out, [n g, m-2, day-1], "Soil atmosphere contaminant exchange") {
 		concair := soilair.tox/Vsa -> [n g, m-3],
 		raa*(concair - air.tox.atmconc)
