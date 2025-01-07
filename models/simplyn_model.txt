@@ -8,12 +8,13 @@ model("SimplyN") {
 	sn   : quantity("Undissolved fertilizer nitrogen")
 	heat : quantity("Heat energy")
 	tn   : property("Total nitrogen")
+	din_dep : property("DIN deposition")
 	
 	pt : compartment("River point source buffer", sc)
 	
 	load("modules/simplysoiltemp.txt", module("Simply soil temperature", air, soil, snow_box, snow, temp))
 	load("modules/rivertemp.txt",      module("RiverTemperature", air, soil, river, water, heat, temp))
-	load("modules/simplyn.txt",        module("SimplyN", soil, gw, river, water, din, sn, temp, tn))
+	load("modules/simplyn.txt",        module("SimplyN", air, soil, gw, river, water, din, sn, din_dep, temp, tn))
 	
 	load("modules/river_point_source.txt", module("River point source inputs", "River point source DIN", river, pt, water, flow, din))
 	

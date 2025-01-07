@@ -1,11 +1,13 @@
 
 module("SimplyN", version(0, 0, 6),
+	air    : compartment,
 	soil   : compartment,
 	gw     : compartment,
 	river  : compartment,
 	water  : quantity,
 	din    : quantity,
 	sn     : quantity,
+	din_dep : property,
 	temp   : property,
 	tn     : property
 ) {
@@ -39,9 +41,7 @@ Authors: Leah A. Jackson-Blake, Magnus D. Norling
 		fert_rel           : par_real("Fertilizer DIN release", [m m-1], 0, 0, 1, "Per mm of soil water input (giving less dissolution in dry years)")
 	}
 	
-	#par_group("River DIN", river) {
-	#	eff_din            : par_real("Reach effluent DIN inputs", [k g, day-1], 0.0, 0.0, 100.0)		
-	#}
+	var(air.din_dep, [k g, ha-1, year-1], "DIN deposition") #Input series
 	
 	var(soil.sn, [k g, k m-2], "Soil undissolved fertilizer N")
 	
@@ -67,7 +67,7 @@ Authors: Leah A. Jackson-Blake, Magnus D. Norling
 	# Soil water fluxes
 	
 	flux(out, soil.water.din, [k g, k m-2, day-1], "Non-agricultural soil water DIN addition") {
-		net_annual_N_input / time.days_this_year ->>
+		(net_annual_N_input + air.din_dep)/ time.days_this_year ->>
 	}
 	
 	flux(soil.water.din, out, [k g, k m-2, day-1], "Soil water DIN uptake") {

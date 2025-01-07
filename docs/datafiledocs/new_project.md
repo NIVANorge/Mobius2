@@ -82,7 +82,7 @@ connection("Downstream") {
 	
 	directed_graph [
 		r["Kråkstadelva"] -> r["Kure"]
-		l["Våg"] -> r["Kure"] -> r["Vaaler"] -> l["Vanem"] -> l["Store"]
+		l["Våg"] -> r["Kure"] -> r["Vaaler"] -> l["Vanem"] -> l["Store"] -> out
 	]
 }
 ```
@@ -90,6 +90,8 @@ connection("Downstream") {
 The first part of the graph data consists of declaring the node types and what they index over, in this case `r` ("River") indexing over `sc` ("Subcatchment") and `l` ("Lake") indexing over `lk` ("Lake index"). You should not change this part since it must match objects in the model declaration.
 
 What you edit is the `directed_graph` block. You must make the node indexes match whatever you put in the index sets. Whenever you put an arrow `->` between two node instances it creates a directed edge (arrow, path) of the current connection between these (and in the "Downstream" example you can assume that discharge will be directed along that edge).
+
+The arrow to `out` is necessary if a component is to discharge out of the modeled system (otherwise what you are transporting would accumulate in the last node).
 
 ## Parameter groups
 

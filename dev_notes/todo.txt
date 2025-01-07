@@ -10,6 +10,8 @@
 			
 		Document how to use connections, and some more of the advanced concepts.
 		
+		Figure out if there is a memory leak when running MCMC in python.
+		
 		mobipy
 			
 			Can't load mobipy from Anaconda on Windows
