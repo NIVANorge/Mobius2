@@ -27,7 +27,7 @@ Authors: Leah A. Jackson-Blake, Magnus D. Norling
 		din_immob_q10    : par_real("Soilwater DIN retention rate response to 10°C change (Q10)", [], 1.0, 1.0, 5.0)
 			@formerly("SimplyN\DIN universal params\Soilwater DIN uptake rate response to 10°C change (Q10)")
 		gw_conc_type     : par_enum("Groundwater DIN computation type", const) { const soil_avg mass_bal }
-		gw_din_conc      : par_real("Groundwater DIN concentration", [m g, l-1], 0.0, 0.0, 30.0, "Only used if type is const")
+		gw_din_conc      : par_real("Groundwater DIN concentration", [m g, l-1], 0.0, 0.0, 30.0, "If type is not const, this is the initial concentration")
 		reach_denit_rate : par_real("Reach denitrification rate at 20°C", [day-1], 0.0, 0.0, 0.1)
 		reach_denit_q10  : par_real("(Q10) Reach denitrification rate response to 10°C change in temperature", [], 1.0, 1.0, 5.0)
 	}

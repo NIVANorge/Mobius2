@@ -248,7 +248,7 @@ data_set {
 			[ 0.05 ]
 			
 			par_real("Fast-Slow rate coefficient") 
-			[ 5e-05 ]
+			[ 0.005 ]
 			
 			par_real("Contaminant half life") 
 			[ 2000 ]
@@ -323,11 +323,11 @@ data_set {
 		par_group("Soil carbon and air", sc, lu) {
 			
 			par_real("Soil organic carbon, fast accessible") [
-				30 
+				3 
 			]
 			
 			par_real("Soil organic carbon, slow accessible") [
-				3 
+				30 
 			]
 			
 			par_real("Soil air volume") [
