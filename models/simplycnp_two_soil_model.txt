@@ -5,7 +5,6 @@ model("SimplyCNP two box") {
 	
 	din  : quantity("Inorganic nitrogen")
 	sn   : quantity("Undissolved fertilizer nitrogen")
-	#heat : quantity("Heat energy")
 	tn   : property("Total nitrogen")
 	din_dep : property("DIN deposition")
 	
@@ -21,7 +20,14 @@ model("SimplyCNP two box") {
 	
 	module("SimplyN deep soil", version(0,0,0)) {
 		var(soil2.water.din, [k g, k m-2], [m g, l-1], "Deep soil DIN") @initial_conc { conc(soil.water.din) }
-		# Don't do any processes here for the moment.
+		
+		# Not sure if we need the deep soil loss ..
+		
+		par_group("DIN deep soil") {
+			din_loss : par_real("Deep soil DIN loss rate", [day-1], 0)
+		}
+		
+		flux(soil2.water.din, out, [k g, k m-2, day-1], "Deep soil DIN loss") { din*din_loss }
 	}
 
 }

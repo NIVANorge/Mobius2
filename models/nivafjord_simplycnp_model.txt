@@ -2,7 +2,7 @@
 
 model("NIVAFjord-SimplyCNP") {
 	
-	extend("nivafjord_chem_base.txt")
+	extend("nivafjord_chem_base.txt") @exclude(air : compartment)
 	
 	extend("simplycnp_model.txt") @exclude(
 		downstream : connection, 
@@ -19,8 +19,19 @@ model("NIVAFjord-SimplyCNP") {
 		precip : property,
 		tn : property,
 		tp : property,
+		wind : property,
+		g_rad : property,
+		pressure : property,
+		a_hum : property,
+		lwd : property,
+		cos_z : property,
+		a_vap : property,
+		s_vap : property,
+		rho : property,
 		sol : solver
 	)
+	
+	air        : compartment("Atmosphere", wb_index)
 	
 	edge       : compartment("Basin edge",       basin_idx, e_idx)
 	edge_layer : compartment("Basin edge layer", basin_idx, e_idx, layer_idx)

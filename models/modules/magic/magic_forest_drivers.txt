@@ -23,6 +23,11 @@ module("MAGIC-Forest drivers", version(0, 0, 2),
 	con       : connection
 ) {
 	
+	par_group("Overall climate parameters") {
+		pr_par: par_real("Precipitation", [m, year-1], 1, 0, 5000, "Used when time series is not available")
+		ro_par: par_real("Runoff", [m, year-1], 1, 0, 5000, "Used when time series is not available")
+		tm_par: par_real("Air temperature", [deg_c], 4, 0, 50, "Used when time series is not available")
+	}
 	
 	par_group("Climate parameters", comp) {
 		is_top: par_bool("This is a surface compartment", true, "If true it receives deposition")
@@ -45,7 +50,18 @@ module("MAGIC-Forest drivers", version(0, 0, 2),
 		w_po4 : par_real("PO4 weathering", [m eq, m-2, year-1], 0)
 	}
 	
-	precip : property("Precipitation")
+	par_group("Sink parameters", comp) {
+		u_ca  : par_real("Ca sink", [m eq, m-2, year-1], 0, -100, 100, "Negative rate sets value as % of inputs")
+		u_mg  : par_real("Mg sink", [m eq, m-2, year-1], 0, -100, 100, "Negative rate sets value as % of inputs")
+		u_na  : par_real("Na sink", [m eq, m-2, year-1], 0, -100, 100, "Negative rate sets value as % of inputs")
+		u_k   : par_real("K sink", [m eq, m-2, year-1], 0, -100, 100, "Negative rate sets value as % of inputs")
+		u_nh4 : par_real("NH4 sink", [m eq, m-2, year-1], 0, -100, 100, "Negative rate sets value as % of inputs")
+		u_so4 : par_real("SO4 sink", [m eq, m-2, year-1], 0, -100, 100, "Negative rate sets value as % of inputs")
+		u_cl  : par_real("Cl sink", [m eq, m-2, year-1], 0, -100, 100, "Negative rate sets value as % of inputs")
+		u_no3 : par_real("NO3 sink", [m eq, m-2, year-1], 0, -100, 100, "Negative rate sets value as % of inputs")
+		u_f   : par_real("F sink", [m eq, m-2, year-1], 0, -100, 100, "Negative rate sets value as % of inputs")
+		u_po4 : par_real("PO4 sink", [m eq, m-2, year-1], 0, -100, 100, "Negative rate sets value as % of inputs")
+	}
 	
 	par_group("Deposition parameters") {
 		d_ca  : par_real("Ca conc in precipitation", [m eq, m-3], 0, 0, 200, "Used when time series is not available")
@@ -58,6 +74,7 @@ module("MAGIC-Forest drivers", version(0, 0, 2),
 		d_no3 : par_real("NO3 conc in precipitation", [m eq, m-3], 0, 0, 200, "Used when time series is not available")
 		d_f   : par_real("F conc in precipitation", [m eq, m-3], 0, 0, 200, "Used when time series is not available")
 		d_po4 : par_real("PO4 conc in precipitation", [m eq, m-3], 0, 0, 200, "Used when time series is not available")
+		sea_salt : par_bool("Sea salt deposition", true, "If on, wet deposition scale only scales non-marine deposition")
 	}
 	
 	var(comp.conc_oa, [m mol, m-3], "Organic acid concentration") {
@@ -69,8 +86,13 @@ module("MAGIC-Forest drivers", version(0, 0, 2),
 	}
 	
 	air_t : property("Air temperature")
+	precip : property("Precipitation")
+	qout : property("Runoff")
 	
-	var(comp.air_t, [deg_c], "Air temperature")
+	# NOTE: These three can be overridden with input series
+	var(comp.air_t, [deg_c], "Air temperature") { tm_par }
+	var(comp.qout, [m m, month-1]) { ro_par*ts ->> }
+	var(comp.precip, [m m, month-1]) { pr_par*ts ->> }
 	
 	var(comp.temp, [deg_c], "Temperature") {
 		max(air_t, min_t)
@@ -80,14 +102,9 @@ module("MAGIC-Forest drivers", version(0, 0, 2),
 		time.step_length_in_seconds*1[month-1] / (time.days_this_year * 86400[s, day-1])
 	}
 	
-	qout : property("Runoff")
-	var(comp.qout, [m m, month-1])
-	
 	var(comp.rel_runoff, [m, month-1]) {
 		qout / rel_area ->>
 	}
-	
-	var(comp.precip, [m m, month-1])
 	
 	tot_dep : property("Total deposition")
 	
@@ -115,98 +132,79 @@ module("MAGIC-Forest drivers", version(0, 0, 2),
 	var(comp.f.wetds, [], "F wet deposition scale") @clear_nan
 	var(comp.po4.wetds, [], "PO4 wet deposition scale") @clear_nan
 	
-	
-	#TODO: also dry deposition scale
 	dep : property("Deposition")
 	
-	var(comp.ca.dep, [m eq, m-2, month-1], "Ca deposition") {
-		wet := precip*d_ca->>,
+	#TODO: also apply a dry deposition scale
+	
+	compute_deposition : function(wet, wet_scale, tot_dep, is_top) {
 		{
 			tot_dep       if is_finite(tot_dep),
-			wetds*wet     if is_finite(wetds),
+			wet_scale*wet if is_finite(wet_scale),
 			wet           otherwise
 		} * is_top
+	}
+	
+	compute_deposition_sea_salt : function(wet, wet_scale, tot_dep, is_top, cl_wet, ss_scale) {
+		{
+			tot_dep if is_finite(tot_dep),
+			{
+				ss := min(wet, cl_wet*ss_scale),  # Sea salt deposition
+				ex := wet-ss,                     # Non-marine deposition
+				ex*wet_scale + ss   # Only applying wet_deposition scale to non-marine deposition
+			}       if is_finite(wet_scale),
+			wet     otherwise
+		} * is_top
+	}
+	
+	#TODO: These should only take into account cl wet deposition too in case we introduce dry dep later.
+	var(comp.ca.dep, [m eq, m-2, month-1], "Ca deposition") {
+		wet := precip*d_ca->>,
+		compute_deposition_sea_salt(wet, wetds, tot_dep, is_top, comp.cl.dep, 0.0376) if sea_salt,
+		compute_deposition(wet, wetds, tot_dep, is_top) otherwise
 	}
 	
 	var(comp.mg.dep, [m eq, m-2, month-1], "Mg deposition") {
 		wet := precip*d_mg->>,
-		{
-			tot_dep       if is_finite(tot_dep),
-			wetds*wet     if is_finite(wetds),
-			wet           otherwise
-		} * is_top
+		compute_deposition_sea_salt(wet, wetds, tot_dep, is_top, comp.cl.dep, 0.1920) if sea_salt,
+		compute_deposition(wet, wetds, tot_dep, is_top) otherwise
 	}
 	
 	var(comp.na.dep, [m eq, m-2, month-1], "Na deposition") {
 		wet := precip*d_na->>,
-		{
-			tot_dep       if is_finite(tot_dep),
-			wetds*wet     if is_finite(wetds),
-			wet           otherwise
-		} * is_top
+		compute_deposition_sea_salt(wet, wetds, tot_dep, is_top, comp.cl.dep, 0.8580) if sea_salt,
+		compute_deposition(wet, wetds, tot_dep, is_top) otherwise
 	}
 	
 	var(comp.k.dep, [m eq, m-2, month-1], "K deposition") {
 		wet := precip*d_k->>,
-		{
-			tot_dep       if is_finite(tot_dep),
-			wetds*wet     if is_finite(wetds),
-			wet           otherwise
-		} * is_top
+		compute_deposition_sea_salt(wet, wetds, tot_dep, is_top, comp.cl.dep, 0.0188) if sea_salt,
+		compute_deposition(wet, wetds, tot_dep, is_top) otherwise
 	}
 	
 	var(comp.nh4.dep, [m eq, m-2, month-1], "NH4 deposition") {
-		wet := precip*d_nh4->>,
-		{
-			tot_dep       if is_finite(tot_dep),
-			wetds*wet     if is_finite(wetds),
-			wet           otherwise
-		} * is_top
+		compute_deposition(precip*d_nh4->>, wetds, tot_dep, is_top)
 	}
 	
 	var(comp.so4.dep, [m eq, m-2, month-1], "SO4 deposition") {
 		wet := precip*d_so4->>,
-		{
-			tot_dep       if is_finite(tot_dep),
-			wetds*wet     if is_finite(wetds),
-			wet           otherwise
-		} * is_top
+		compute_deposition_sea_salt(wet, wetds, tot_dep, is_top, comp.cl.dep, 0.1040) if sea_salt,
+		compute_deposition(wet, wetds, tot_dep, is_top) otherwise
 	}
 	
 	var(comp.cl.dep, [m eq, m-2, month-1], "Cl deposition") {
-		wet := precip*d_cl->>,
-		{
-			tot_dep       if is_finite(tot_dep),
-			wetds*wet     if is_finite(wetds),
-			wet           otherwise
-		} * is_top
+		compute_deposition(precip*d_cl->>, wetds, tot_dep, is_top)
 	}
 	
 	var(comp.no3.dep, [m eq, m-2, month-1], "NO3 deposition") {
-		wet := precip*d_no3->>,
-		{
-			tot_dep       if is_finite(tot_dep),
-			wetds*wet     if is_finite(wetds),
-			wet           otherwise
-		} * is_top
+		compute_deposition(precip*d_no3->>, wetds, tot_dep, is_top)
 	}
 	
 	var(comp.f.dep, [m eq, m-2, month-1], "F deposition") {
-		wet := precip*d_f->>,
-		{
-			tot_dep       if is_finite(tot_dep),
-			wetds*wet     if is_finite(wetds),
-			wet           otherwise
-		} * is_top
+		compute_deposition(precip*d_f->>, wetds, tot_dep, is_top)
 	}
 	
 	var(comp.po4.dep, [m eq, m-2, month-1], "PO4 deposition") {
-		wet := precip*d_po4->>,
-		{
-			tot_dep       if is_finite(tot_dep),
-			wetds*wet     if is_finite(wetds),
-			wet           otherwise
-		} * is_top
+		compute_deposition(precip*d_po4->>, wetds, tot_dep, is_top)
 	}
 	
 	var(comp.ca.ext_in, [m eq, m-2, month-1]) { w_ca*ts + dep } @no_store
@@ -232,7 +230,6 @@ module("MAGIC-Forest drivers", version(0, 0, 2),
 	var(comp.f.bal, [m eq, m-2, month-1]) { ext_in } @no_store
 	var(comp.po4.bal, [m eq, m-2, month-1]) { ext_in } @no_store
 	
-	
 	flux(out, comp.ca,  [m eq, m-2, month-1], "Ca external inputs")  { ext_in }
 	flux(out, comp.mg,  [m eq, m-2, month-1], "Mg external inputs")  { ext_in }
 	flux(out, comp.na,  [m eq, m-2, month-1], "Na external inputs")  { ext_in }
@@ -243,6 +240,24 @@ module("MAGIC-Forest drivers", version(0, 0, 2),
 	flux(out, comp.no3, [m eq, m-2, month-1], "NO3 external inputs") { ext_in }
 	flux(out, comp.f,   [m eq, m-2, month-1], "F external inputs")   { ext_in }
 	flux(out, comp.po4, [m eq, m-2, month-1], "PO4 external inputs") { ext_in }
+	
+	#TODO: Should this take into account flow inputs as well, not just external inputs?
+	# In that case it is more difficult because we can't use in_flux in @initial blocks yet.
+	compute_uptake : function(u, ext_in, ts) {
+		u*ts           if u > 0,
+		-ext_in*(u=>[])*0.01 otherwise
+	}
+	
+	flux(comp.ca, out, [m eq, m-2, month-1], "Ca sinks") { compute_uptake(u_ca, ext_in, ts) }
+	flux(comp.mg, out, [m eq, m-2, month-1], "Mg sinks") { compute_uptake(u_mg, ext_in, ts) }
+	flux(comp.na, out, [m eq, m-2, month-1], "Na sinks") { compute_uptake(u_na, ext_in, ts) }
+	flux(comp.k, out, [m eq, m-2, month-1], "K sinks") { compute_uptake(u_k, ext_in, ts) }
+	flux(comp.nh4, out, [m eq, m-2, month-1], "NH4 sinks") { compute_uptake(u_nh4, ext_in, ts) }
+	flux(comp.so4, out, [m eq, m-2, month-1], "SO4 sinks") { compute_uptake(u_so4, ext_in, ts) }
+	flux(comp.cl, out, [m eq, m-2, month-1], "Cl sinks") { compute_uptake(u_cl, ext_in, ts) }
+	flux(comp.no3, out, [m eq, m-2, month-1], "NO3 sinks") { compute_uptake(u_no3, ext_in, ts) }
+	flux(comp.f, out, [m eq, m-2, month-1], "F sinks") { compute_uptake(u_f, ext_in, ts) }
+	flux(comp.po4, out, [m eq, m-2, month-1], "PO4 sinks") { compute_uptake(u_po4, ext_in, ts) }
 	
 	#TODO: Would be nice to use automatic transport, but it would require more framework functionality
 	# This is because the transported concentration is not the total mass divided by water for all these

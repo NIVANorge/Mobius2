@@ -22,6 +22,7 @@ Missing a lot of functionality, only the basics for now
 		nitr*ts                   if nitr > 0.0,
 		ext_in*(-(nitr=>[])*0.01) otherwise
 	} @no_store
+	
 	denit : property("Denitrification rate")
 	var(comp.no3.denit, [m eq, m-2, month-1]) {
 		denitr*ts                         if denitr > 0.0,

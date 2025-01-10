@@ -2,6 +2,8 @@
 
 	*** High pri ***
 	
+		If an input series is provided indexed over "subcatchment", but should be indexed over "water body" and "subcatchment" is a union member of "water body", that should be made to work. (and all similar cases) Just re-map the index.
+	
 		If you load different modules using the same load name, you don't get a name clash!
 			This is as intended if the two loads are identical (so that you can extend two models that load the same module)
 			Fixed if the module template is different, but should also be fixed when template is same but load arguments are different.
@@ -17,7 +19,7 @@
 			Can't load mobipy from Anaconda on Windows
 				It is probably more complex than it not finding vcredist dependencies.
 		
-		Got an (internal) error in the following case
+		Got an (internal) error in the following case (nivafjord pipe boundary model)
 			flux(bnd.water, layer.water[vert.specific]) ...
 			
 			bnd.water.tox can be distributed over tox_index, but that dependency was ruled out due to lack of differing parametrization
@@ -38,7 +40,7 @@
 				Put them in the main airsea file.
 			
 			Lots of duplication between the different airsea things in general.
-				The FPV versions should be able to reuse some of what is in the plain versions.
+				The FPV versions should be able to reuse some of what is in the plain versions without code duplication.
 			
 			The combining of phytoplankton module for NIVAFjord and EasyLake does not work that well in the Vansjø setup
 				Due to having made certain assumptions about N and C balance of these. Too much POC and PON from phyto.
@@ -48,7 +50,7 @@
 				Vertical wind mixing using B-V. See page 45 in report 4.
 				
 				Add wind induced horizontal transport. (Original model: 3% of wind component along the normal of the boundary. Decreases linearly in depth to a given depth)
-					(Need 2 wind components as inputs. The current 'ecosystem' of other modules is not configured for that.)
+					(Need 2 wind components as inputs. The current 'ecosystem' of other modules is not configured for that. But should be easy to fix. Just make a air.wind that computes the vector length of the two components in the case where you load this module.)
 				
 				DIC in nivafjord boundary (when DIC is enabled).
 						

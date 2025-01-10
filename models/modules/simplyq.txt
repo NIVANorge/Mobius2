@@ -25,6 +25,7 @@ Authors: James E. Sample, Leah A. Jackson-Blake, Magnus D. Norling
 		par_group("Hydrology general", soil) {
 			bfi    : par_real("Baseflow index", [],                        0.6,  0,    1, "Proportion of runoff that goes to the groundwater")
 			qqinfl : par_real("Quick flow inflection point", [m m, day-1], 160, 20,  2000)
+			pwp    : par_real("Permanent wilting point as fraction of field capacity", [], 0.5, 0, 1, "Fraction of fc at where no evapotranspiration is possible")
 		}
 	} @otherwise {
 		par_group("Hydrology general", soil) {
@@ -47,7 +48,8 @@ Authors: James E. Sample, Leah A. Jackson-Blake, Magnus D. Norling
 		}
 		
 		flux(soil.water, out, [m m, day-1], "Evapotranspiration") {
-			s_response(water, 0.5*fc, fc, 0, pet) # smoothly turn the etp on when water level is between 1/2 field capacity and field capacity.
+			# Smoothly turn the etp on when water level is between permanent wilting point and field capacity.
+			s_response(water, pwp*fc, max(pwp*fc, fc), 0, pet) 
 		} @no_carry   # Don't carry dissolved substances in the evapotranspiration
 	}
 	
@@ -75,6 +77,14 @@ module("SimplyQ groundwater", version(0, 5, 0),
 		gw_ret  : par_real("Groundwater retention volume", [m m],        0,  1, 1e4)
 			@formerly("SimplyQ land\Groundwater\Groundwater retention volume")
 	}
+	
+	par_group("Groundwater extraction", gw) {
+		gw_ext   : par_real("Groundwater extraction", [m m, day-1], 0, 0, 500)
+	}
+	
+	load("stdlib/basic_math.txt", library("Response"))
+	
+	flux(gw.water, out, [m m, day-1], "Groundwater extraction rate") { gw_ext*s_response(gw.water, 0, 10[m m], 0, 1) }
 	
 	var(gw.water,   [m m], "Groundwater volume") @initial {
 		gw_ret + (tc_g * river.water.flow / a_catch) -> [m m]  #TODO: Alternatively, access the init_flow parameter and cut the river.water.flow property entirely

@@ -71,14 +71,14 @@ model("SimplyQ") {
 		s_vap    : property("Saturation vapor pressure")
 		a_vap    : property("Actual vapor pressure")
 		cos_z    : property("Cosine of the solar zenith angle")
-		dens     : property("Density")
+		rho      : property("Density")
 		a_hum    : property("Actual specific humidity")
 		
 		load("modules/simplysoiltemp.txt",
 			module("Simply soil temperature", air, soil, snow_box, snow, temp))
 		
 		load("modules/atmospheric.txt",
-			module("Atmospheric", air, temp, wind, g_rad, pressure, a_hum, dens, lwd, cos_z, a_vap, s_vap))
+			module("Atmospheric", air, temp, wind, g_rad, pressure, a_hum, rho, lwd, cos_z, a_vap, s_vap))
 		
 		load("modules/pet.txt",
 			module("Penman-Monteith PET daily", air, soil, snow_box, snow, temp, pet, pressure, lwd, g_rad, wind, s_vap, a_vap))
