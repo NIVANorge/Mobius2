@@ -7,16 +7,28 @@ model("SimplyCNP two box") {
 	sn   : quantity("Undissolved fertilizer nitrogen")
 	tn   : property("Total nitrogen")
 	din_dep : property("DIN deposition")
+	sed    : quantity("Particles")
+	e_fact : property("Erosion factor")
+	phos  : quantity("Phosphorous")
+	plab  : quantity("Labile phosphorous")
+	tp : property("Total phosphorous")
+	tdp : property("Total dissolved phosphorous")
+	
+	
 	
 	pt : compartment("River point source buffer", sc)
 	
 	load("modules/simplysoiltemp.txt", module("Simply soil temperature", air, soil, snow_box, snow, temp))
 	load("modules/rivertemp.txt",      module("RiverTemperature", air, soil, river, water, heat, temp))
 	load("modules/simplyn.txt",        module("SimplyN", air, soil, gw, river, water, din, sn, din_dep, temp, tn))
+	load("modules/simplysed.txt", module("SimplySed", soil, river, water, sed, e_fact, a_catch))
 	
 	load("modules/river_point_source.txt", module("River point source inputs", "River point source DIN", river, pt, water, flow, din))
+	load("modules/simplyp.txt", module("SimplyP", soil, gw, river, water, phos, plab, sed, e_fact, tp, tdp, a_catch))
+	load("modules/river_point_source.txt", module("River point source inputs", "River point source TDP", river, pt, water, flow, phos))
 	
 	solve(sol, soil.sn, pt.din)
+	solve(sol, pt.phos)
 	
 	module("SimplyN deep soil", version(0,0,0)) {
 		var(soil2.water.din, [k g, k m-2], [m g, l-1], "Deep soil DIN") @initial_conc { conc(soil.water.din) }
@@ -28,6 +40,14 @@ model("SimplyCNP two box") {
 		}
 		
 		flux(soil2.water.din, out, [k g, k m-2, day-1], "Deep soil DIN loss") { din*din_loss }
+	}
+	
+	module("SimplyP deep soil", version(0, 0, 0)) {
+	
+		# TODO: Could set a different conc here?
+		var(soil2.water.phos, [k g, k m-2], [m g, l-1], "Deep soil DIP") @override_conc { 
+			conc(soil.water.phos)
+		}
 	}
 
 }

@@ -13,6 +13,7 @@
 		Document how to use connections, and some more of the advanced concepts.
 		
 		Figure out if there is a memory leak when running MCMC in python.
+			Or otherwise why it crashes on very large runs
 		
 		mobipy
 			

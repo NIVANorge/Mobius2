@@ -641,12 +641,12 @@ MagicCore(const magic_input &Input, const magic_param &Param, magic_output &Resu
 	// Calculate charge balance for all aqueous ions
 	double ChargeBalance = Result.SumBaseCationConc + NetAlCharge + Result.conc_H + Result.conc_NH4 - Result.SumAcidAnionConc - Result.all_DIC - Result.all_DOC - Coeff.K_W/Result.conc_H;
 	
-	int Iter = 0;
-	if(std::abs(ChargeBalance) >= Conv)  // If charge balance is within convergence criterion, the solution has converged. Otherwise, do an iterative solution loop
+	// If charge balance is within convergence criterion, the solution has converged. Otherwise, do an iterative solution loop
+	if(std::abs(ChargeBalance) >= Conv)
 	{
 		// Set increment for changing pH and begin the iterative solution loop
 		double dpH = (ChargeBalance < 0.0) ? -0.02 : 0.02;
-		while(true)
+		for(int Iter = 0; Iter < 100; ++Iter)
 		{
 			//NOTE: It could be possible to factor out some of the below since it repeats what is done above, but it is a little tricky since some small details are done differently.
 			
@@ -747,7 +747,8 @@ MagicCore(const magic_input &Input, const magic_param &Param, magic_output &Resu
 			
 			// TODO: Have to come up with a specific way to signal an error in an
 			// external_computation, because we can't throw exceptions
-			//if(Iter++ > 100)
+			
+			//if(Iter == 99)
 			//	fatal_error(Mobius_Error::model_specific, "(timestep: ", Timestep, ", compartment: ", CompartmentIdx, ") Core solution ion balance failed to converge in 100 iterations\n CBAL: ", ChargeBalance0, " SBC: ", Result.SumBaseCationConc, " NetAl: ", NetAlCharge, " H: ", Result.conc_H, " NH4: ", Result.conc_NH4, " SAA: ", Result.SumAcidAnionConc, " DIC: ", Result.all_DIC, " DOC: ", Result.all_DOC, " KH/H: ", Coeff.K_W/Result.conc_H, "\n", "Ca: ", Result.conc_Ca, " Mg: ", Result.conc_Mg, " Na: ", Result.conc_Na, " K: ", Result.conc_K, " SO4: ", Result.conc_SO4, " Cl: ", Result.conc_Cl, " NO3: ", Result.conc_NO3, "\n");
 		}
 	}
@@ -905,12 +906,14 @@ MagicCoreInitial(const magic_init_input &Input, const magic_param &Param, magic_
 	
 	//log_print("Initial state: CBAL: ", ChargeBalance, " SBC: ", SumBaseCationConc, " NetAl: ", NetAlCharge, " H: ", Result.conc_H, " NH4: ", Input.conc_NH4, " SAA: ", SumAcidAnionConc, " DIC: ", all_DIC, " DOC: ", all_DOC, " KH/H: ", Coeff.K_W/Result.conc_H, "\n", "Ca: ", Input.conc_Ca, " Mg: ", Input.conc_Mg, " Na: ", Input.conc_Na, " K: ", Input.conc_K, " SO4: ", Result.conc_SO4, " Cl: ", Input.conc_Cl, " NO3: ", Input.conc_NO3, "\n");
 	
-	if(std::abs(ChargeBalance) >= Conv)  // If charge balance is within convergence criterion, the solution has converged. Otherwise, do an iterative solution loop
+	// If charge balance is within convergence criterion, the solution has converged. Otherwise, do an iterative solution loop
+	if(std::abs(ChargeBalance) >= Conv)
 	{
 		// Set increment for changing pH and begin the iterative solution loop
+		
+		// TODO: dpH should ideally decrease if it detects that we swap back and forth
 		double dpH = (ChargeBalance < 0.0) ? -0.02 : 0.02;
-		int Iter = 0;
-		while(true)
+		for(int Iter = 0; Iter < 100; ++Iter)
 		{
 			Result.pH += dpH;
 			
@@ -942,8 +945,7 @@ MagicCoreInitial(const magic_init_input &Input, const magic_param &Param, magic_
 		
 			ChargeBalance = ChargeBalance0;
 			
-			//if(Iter++ > 1000)
-			//	fatal_error(Mobius_Error::model_specific, "Core solution ion balance failed to converge in 1000 iterations (initial value step).\n");
+			// TODO: Error if it reached end of iteration!
 		}
 	}
 	
