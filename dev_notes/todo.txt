@@ -36,7 +36,13 @@
 			MAGIC: 
 				Initial concentrations in lake do not take into account inflow from soil.
 					Would require computation of in_flux at initial step, which again would require computation of fluxes in initial step (at least the ones that are looked up by in_flux). Technically possible, but a bit of work.
-		
+					- This is not that important in itself, but it would be important if we were to chain several soil compartments
+				SolveFreeFluoride can go into an infinite loop if F is small, but depends on Al.
+				Should be more careful that concentrations don't go negative.
+				
+				
+				
+				
 			Use 'option's to combine airsea_fpv and airsea_fpv_simple
 				Put them in the main airsea file.
 			

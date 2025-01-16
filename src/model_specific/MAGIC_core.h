@@ -228,27 +228,12 @@ SolveQuadratic(double A, double B, double C)
 	return (-B + std::sqrt(B*B - 4.0*A*C))/(2.0*A);
 }
 
+// TODO: Could be replaced with std::copysign
 inline double
 Sign(double A, double B)
 {
 	// Return the value of A with the sign of B
 	return B > 0.0 ? std::abs(A) : -std::abs(A);
-	
-	/*
-	//TODO: More efficient implementation of this?
-	//The following should work. Not that the speed of this is going to matter anyway, though, so....
-	
-	double C;
-
-	u64* AA = (u64*)&A;
-	u64* BB = (u64*)&B;
-	u64* CC = (u64*)&C;
-
-	u64 Msk = ((u64)1) << 63;
-	*CC = (*BB & Msk) | (*AA & (Msk-1));
-	
-	return C;
-	*/
 }
 
 double
@@ -261,6 +246,8 @@ SolveFreeFluoride(const magic_coeff &Coeff, double all_F, double conc_Al)
 	
 	// Iteratively solve the nested set of 6 simultaneous equilibrium equations for AL-F complexes
 	double Term2 = all_F / (1.0 + conc_Al*Coeff.K_F[0]);
+	
+	// TODO: This can still go into infinite loops!
 	while(true)
 	{
 		double Term1 = 0;
@@ -507,7 +494,7 @@ MagicCore(const magic_input &Input, const magic_param &Param, magic_output &Resu
 	
 	double SoilCationExchange;
 	double WaterVolume;
-	double SO4AdsorptionCap;
+	double SO4AdsorptionCap = 0.0;
 	if(IsSoil)
 	{
 		// Calculate soil water volume (m) (m3/m2) - from soil depth (m) and porosity (frac) - this is pore water volume for soils
@@ -517,7 +504,8 @@ MagicCore(const magic_input &Input, const magic_param &Param, magic_output &Resu
 		SoilCationExchange = Param.Depth * Param.BulkDensity * Param.CationExchangeCapacity;
 		
 		// Calculate soil total SO4 adsorption capacity (meq/m2) - from depth (m), bulk density (kg/m3), maximum SO4 adsorption capacity (meq/kg)
-		SO4AdsorptionCap = Param.Depth * Param.BulkDensity * Param.SO4MaxCap;
+		if(Param.SO4HalfSat > 0.0 && Param.SO4MaxCap > 0.0)
+			SO4AdsorptionCap = Param.Depth * Param.BulkDensity * Param.SO4MaxCap;
 	}
 	else
 	{

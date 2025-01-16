@@ -133,6 +133,7 @@ module("MAGIC-Forest drivers", version(0, 0, 2),
 	var(comp.po4.wetds, [], "PO4 wet deposition scale") @clear_nan
 	
 	dep : property("Deposition")
+	ext_sink : property("Sink")
 	
 	#TODO: also apply a dry deposition scale
 	
@@ -159,25 +160,29 @@ module("MAGIC-Forest drivers", version(0, 0, 2),
 	#TODO: These should only take into account cl wet deposition too in case we introduce dry dep later.
 	var(comp.ca.dep, [m eq, m-2, month-1], "Ca deposition") {
 		wet := precip*d_ca->>,
-		compute_deposition_sea_salt(wet, wetds, tot_dep, is_top, comp.cl.dep, 0.0376) if sea_salt,
+		clwet := precip*d_cl->>,
+		compute_deposition_sea_salt(wet, wetds, tot_dep, is_top, clwet, 0.0376) if sea_salt,
 		compute_deposition(wet, wetds, tot_dep, is_top) otherwise
 	}
 	
 	var(comp.mg.dep, [m eq, m-2, month-1], "Mg deposition") {
 		wet := precip*d_mg->>,
-		compute_deposition_sea_salt(wet, wetds, tot_dep, is_top, comp.cl.dep, 0.1920) if sea_salt,
+		clwet := precip*d_cl->>,
+		compute_deposition_sea_salt(wet, wetds, tot_dep, is_top, clwet, 0.1920) if sea_salt,
 		compute_deposition(wet, wetds, tot_dep, is_top) otherwise
 	}
 	
 	var(comp.na.dep, [m eq, m-2, month-1], "Na deposition") {
 		wet := precip*d_na->>,
-		compute_deposition_sea_salt(wet, wetds, tot_dep, is_top, comp.cl.dep, 0.8580) if sea_salt,
+		clwet := precip*d_cl->>,
+		compute_deposition_sea_salt(wet, wetds, tot_dep, is_top, clwet, 0.8580) if sea_salt,
 		compute_deposition(wet, wetds, tot_dep, is_top) otherwise
 	}
 	
 	var(comp.k.dep, [m eq, m-2, month-1], "K deposition") {
 		wet := precip*d_k->>,
-		compute_deposition_sea_salt(wet, wetds, tot_dep, is_top, comp.cl.dep, 0.0188) if sea_salt,
+		clwet := precip*d_cl->>,
+		compute_deposition_sea_salt(wet, wetds, tot_dep, is_top, clwet, 0.0188) if sea_salt,
 		compute_deposition(wet, wetds, tot_dep, is_top) otherwise
 	}
 	
@@ -187,7 +192,8 @@ module("MAGIC-Forest drivers", version(0, 0, 2),
 	
 	var(comp.so4.dep, [m eq, m-2, month-1], "SO4 deposition") {
 		wet := precip*d_so4->>,
-		compute_deposition_sea_salt(wet, wetds, tot_dep, is_top, comp.cl.dep, 0.1040) if sea_salt,
+		clwet := precip*d_cl->>, # not comp.cl.dep, should not take into account cl dep sequence it looks like (?)
+		compute_deposition_sea_salt(wet, wetds, tot_dep, is_top, clwet, 0.1040) if sea_salt,
 		compute_deposition(wet, wetds, tot_dep, is_top) otherwise
 	}
 	
@@ -219,16 +225,16 @@ module("MAGIC-Forest drivers", version(0, 0, 2),
 	var(comp.po4.ext_in, [m eq, m-2, month-1]) { w_po4*ts + dep } @no_store
 	
 	#NOTE: other modules can add to this value
-	var(comp.ca.bal, [m eq, m-2, month-1]) { ext_in } @no_store
-	var(comp.mg.bal, [m eq, m-2, month-1]) { ext_in } @no_store
-	var(comp.na.bal, [m eq, m-2, month-1]) { ext_in } @no_store
-	var(comp.k.bal, [m eq, m-2, month-1]) { ext_in } @no_store
-	var(comp.nh4.bal, [m eq, m-2, month-1]) { ext_in } @no_store
-	var(comp.so4.bal, [m eq, m-2, month-1]) { ext_in } @no_store
-	var(comp.cl.bal, [m eq, m-2, month-1]) { ext_in } @no_store
-	var(comp.no3.bal, [m eq, m-2, month-1]) { ext_in } @no_store
-	var(comp.f.bal, [m eq, m-2, month-1]) { ext_in } @no_store
-	var(comp.po4.bal, [m eq, m-2, month-1]) { ext_in } @no_store
+	var(comp.ca.bal, [m eq, m-2, month-1]) { ext_in - ext_sink } @no_store
+	var(comp.mg.bal, [m eq, m-2, month-1]) { ext_in - ext_sink } @no_store
+	var(comp.na.bal, [m eq, m-2, month-1]) { ext_in - ext_sink } @no_store
+	var(comp.k.bal, [m eq, m-2, month-1]) { ext_in - ext_sink } @no_store
+	var(comp.nh4.bal, [m eq, m-2, month-1]) { ext_in - ext_sink } @no_store
+	var(comp.so4.bal, [m eq, m-2, month-1]) { ext_in - ext_sink } @no_store
+	var(comp.cl.bal, [m eq, m-2, month-1]) { ext_in - ext_sink } @no_store
+	var(comp.no3.bal, [m eq, m-2, month-1]) { ext_in - ext_sink } @no_store
+	var(comp.f.bal, [m eq, m-2, month-1]) { ext_in - ext_sink } @no_store
+	var(comp.po4.bal, [m eq, m-2, month-1]) { ext_in - ext_sink } @no_store
 	
 	flux(out, comp.ca,  [m eq, m-2, month-1], "Ca external inputs")  { ext_in }
 	flux(out, comp.mg,  [m eq, m-2, month-1], "Mg external inputs")  { ext_in }
@@ -248,16 +254,56 @@ module("MAGIC-Forest drivers", version(0, 0, 2),
 		-ext_in*(u=>[])*0.01 otherwise
 	}
 	
-	flux(comp.ca, out, [m eq, m-2, month-1], "Ca sinks") { compute_uptake(u_ca, ext_in, ts) }
-	flux(comp.mg, out, [m eq, m-2, month-1], "Mg sinks") { compute_uptake(u_mg, ext_in, ts) }
-	flux(comp.na, out, [m eq, m-2, month-1], "Na sinks") { compute_uptake(u_na, ext_in, ts) }
-	flux(comp.k, out, [m eq, m-2, month-1], "K sinks") { compute_uptake(u_k, ext_in, ts) }
-	flux(comp.nh4, out, [m eq, m-2, month-1], "NH4 sinks") { compute_uptake(u_nh4, ext_in, ts) }
-	flux(comp.so4, out, [m eq, m-2, month-1], "SO4 sinks") { compute_uptake(u_so4, ext_in, ts) }
-	flux(comp.cl, out, [m eq, m-2, month-1], "Cl sinks") { compute_uptake(u_cl, ext_in, ts) }
-	flux(comp.no3, out, [m eq, m-2, month-1], "NO3 sinks") { compute_uptake(u_no3, ext_in, ts) }
-	flux(comp.f, out, [m eq, m-2, month-1], "F sinks") { compute_uptake(u_f, ext_in, ts) }
-	flux(comp.po4, out, [m eq, m-2, month-1], "PO4 sinks") { compute_uptake(u_po4, ext_in, ts) }
+	var(comp.ca.ext_sink, [m eq, m-2, month-1], "Ca external sinks") {
+		compute_uptake(u_ca, ext_in, ts)
+	} @no_store
+	
+	var(comp.mg.ext_sink, [m eq, m-2, month-1], "Mg external sinks") {
+		compute_uptake(u_mg, ext_in, ts)
+	} @no_store
+	
+	var(comp.na.ext_sink, [m eq, m-2, month-1], "Na external sinks") {
+		compute_uptake(u_na, ext_in, ts)
+	} @no_store
+	
+	var(comp.k.ext_sink, [m eq, m-2, month-1], "K external sinks") {
+		compute_uptake(u_k, ext_in, ts)
+	} @no_store
+	
+	var(comp.nh4.ext_sink, [m eq, m-2, month-1], "NH4 external sinks") {
+		compute_uptake(u_nh4, ext_in, ts)
+	} @no_store
+	
+	var(comp.so4.ext_sink, [m eq, m-2, month-1], "SO4 external sinks") {
+		compute_uptake(u_so4, ext_in, ts)
+	} @no_store
+	
+	var(comp.cl.ext_sink, [m eq, m-2, month-1], "Cl external sinks") {
+		compute_uptake(u_cl, ext_in, ts)
+	} @no_store
+	
+	var(comp.no3.ext_sink, [m eq, m-2, month-1], "NO3 external sinks") {
+		compute_uptake(u_no3, ext_in, ts)
+	} @no_store
+	
+	var(comp.f.ext_sink, [m eq, m-2, month-1], "F external sinks") {
+		compute_uptake(u_f, ext_in, ts)
+	} @no_store
+	
+	var(comp.po4.ext_sink, [m eq, m-2, month-1], "PO4 external sinks") {
+		compute_uptake(u_po4, ext_in, ts)
+	} @no_store
+	
+	flux(comp.ca, out, [m eq, m-2, month-1], "Ca sinks") { ext_sink }
+	flux(comp.mg, out, [m eq, m-2, month-1], "Mg sinks") { ext_sink }
+	flux(comp.na, out, [m eq, m-2, month-1], "Na sinks") { ext_sink }
+	flux(comp.k, out, [m eq, m-2, month-1], "K sinks") { ext_sink }
+	flux(comp.nh4, out, [m eq, m-2, month-1], "NH4 sinks") { ext_sink }
+	flux(comp.so4, out, [m eq, m-2, month-1], "SO4 sinks") { ext_sink }
+	flux(comp.cl, out, [m eq, m-2, month-1], "Cl sinks") { ext_sink }
+	flux(comp.no3, out, [m eq, m-2, month-1], "NO3 sinks") { ext_sink }
+	flux(comp.f, out, [m eq, m-2, month-1], "F sinks") { ext_sink }
+	flux(comp.po4, out, [m eq, m-2, month-1], "PO4 sinks") { ext_sink }
 	
 	#TODO: Would be nice to use automatic transport, but it would require more framework functionality
 	# This is because the transported concentration is not the total mass divided by water for all these
