@@ -31,6 +31,7 @@ module("MAGIC-Forest drivers", version(0, 0, 2),
 	
 	par_group("Climate parameters", comp) {
 		is_top: par_bool("This is a surface compartment", true, "If true it receives deposition")
+		ro_scale : par_real("Runoff scale", [], 1, 0, 1, "Scale runoff to per m-2 of this compartment")
 		min_t : par_real("Minimal compartment temperature", [deg_c], 0.4, -10, 10)
 		oa    : par_real("Organic acid concentration", [m mol, m-3], 0, 0, 200)
 		adjoa : par_bool("Adjust OA concentration", false, "Adjust based on SO4 concentration")
@@ -102,9 +103,15 @@ module("MAGIC-Forest drivers", version(0, 0, 2),
 		time.step_length_in_seconds*1[month-1] / (time.days_this_year * 86400[s, day-1])
 	}
 	
+	# TODO: It is not the best solution to make the user input the ro_scale
+	# (even more complicated if you have more chained parameters)
+	# (scale is sum of rel_area of compartments before it including itself, divided by rel_area of itself)
+	# (before only counts those sideways, not those in a layer above)
 	var(comp.rel_runoff, [m, month-1]) {
-		qout / rel_area ->>
-	}
+		qout*ro_scale->>
+		#(qout / rel_area)->>   if is_finite(qout) & qout > 1e-6[m m, month-1],
+		#ro_par*ts              otherwise
+	} @no_store
 	
 	tot_dep : property("Total deposition")
 	

@@ -1,6 +1,6 @@
 
 
-module("SimplyQ land", version(0, 5, 0),
+module("SimplyQ land", version(0, 5, 1),
 	soil  : compartment,
 	water : quantity,
 	flow  : property,

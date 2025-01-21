@@ -634,7 +634,7 @@ MagicCore(const magic_input &Input, const magic_param &Param, magic_output &Resu
 	{
 		// Set increment for changing pH and begin the iterative solution loop
 		double dpH = (ChargeBalance < 0.0) ? -0.02 : 0.02;
-		for(int Iter = 0; Iter < 100; ++Iter)
+		for(int Iter = 0; Iter < 10000; ++Iter)
 		{
 			//NOTE: It could be possible to factor out some of the below since it repeats what is done above, but it is a little tricky since some small details are done differently.
 			
@@ -729,8 +729,6 @@ MagicCore(const magic_input &Input, const magic_param &Param, magic_output &Resu
 			double ChargeSgn = ChargeBalance0 / ChargeBalance;
 			if(ChargeSgn < 0.0) dpH = -dpH/2.0;
 			
-			//printf("pH: %g, dpH: %g  charge balance: %g\n", Result.pH, dpH, ChargeBalance0);
-			
 			ChargeBalance = ChargeBalance0;
 			
 			// TODO: Have to come up with a specific way to signal an error in an
@@ -747,7 +745,7 @@ MagicCore(const magic_input &Input, const magic_param &Param, magic_output &Resu
 	// Calculate H neutralized by Al species in acidimetric titration (meq/m3)- from H, AL3+, SO4, F and organic acid trivalent anion concens (mmol/m3)
 	double AlTitration = ComputeAlHEquivalent(Coeff, Result.conc_H, Result.conc_Al, Result.conc_SO4, Result.conc_F, Result.conc_A3M);
 	
-	// Calulate weak acid alkalinity of solution (meq/m3) )limnological definition)
+	// Calulate weak acid alkalinity of solution (meq/m3) (limnological definition)
 	Result.WeakAcidAlk = Result.conc_HCO3 + 2.0*Result.conc_CO3 + Result.conc_H2AM + 3.0*Result.conc_A3M + Coeff.K_W/Result.conc_H - AlTitration - Result.conc_H;
 	
 	// Calculate total aqueous Al concen (free + F-SO4-DOC-complexed) (mmol/m3) - from H, AL3+, SO4, F and organic acid trivalent anion concens (mmol/m3)
@@ -899,9 +897,8 @@ MagicCoreInitial(const magic_init_input &Input, const magic_param &Param, magic_
 	{
 		// Set increment for changing pH and begin the iterative solution loop
 		
-		// TODO: dpH should ideally decrease if it detects that we swap back and forth
 		double dpH = (ChargeBalance < 0.0) ? -0.02 : 0.02;
-		for(int Iter = 0; Iter < 100; ++Iter)
+		for(int Iter = 0; Iter < 10000; ++Iter)
 		{
 			Result.pH += dpH;
 			
@@ -933,7 +930,8 @@ MagicCoreInitial(const magic_init_input &Input, const magic_param &Param, magic_
 		
 			ChargeBalance = ChargeBalance0;
 			
-			// TODO: Error if it reached end of iteration!
+			//if(Iter == 999)
+			//	log_print("WARNING: Initial solution failed to converge.\n");
 		}
 	}
 	
@@ -942,10 +940,7 @@ MagicCoreInitial(const magic_init_input &Input, const magic_param &Param, magic_
 	
 		double exchangeable_Al = 1.0 - Input.exchangeable_Ca - Input.exchangeable_Mg - Input.exchangeable_Na - Input.exchangeable_K;
 		
-		//if(exchangeable_Al < 0.0)
-		//	fatal_error(Mobius_Error::model_specific, "Initial exchangeable Ca, Mg, Na, and K sum to more than 100%\n");
-		
-		double Ratio =std:: log10(exchangeable_Al / conc_Al);
+		double Ratio = std::log10(exchangeable_Al / conc_Al);
 		
 		Result.Log10CaAlSelectCoeff = 2.0*Ratio + 3.0*std::log10(Input.conc_Ca / Input.exchangeable_Ca) - 6.0;
 		Result.Log10MgAlSelectCoeff = 2.0*Ratio + 3.0*std::log10(Input.conc_Mg / Input.exchangeable_Mg) - 6.0;

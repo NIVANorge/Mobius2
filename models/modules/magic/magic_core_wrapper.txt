@@ -60,7 +60,7 @@ This module is for now just for testing calling the MAGIC core from Mobius2. Wil
 	
 	var(comp.ca,  [m eq, m-2]) @initial {
 		scececa := {
-			(exch_ca->[])*cec*depth*bd if is_soil,
+			(exch->[])*cec*depth*bd if is_soil,
 			0                          otherwise
 		},
 		scececa + water*concn
@@ -68,7 +68,7 @@ This module is for now just for testing calling the MAGIC core from Mobius2. Wil
 	
 	var(comp.mg,  [m eq, m-2]) @initial {
 		scecemg := {
-			(exch_mg->[])*cec*depth*bd if is_soil,
+			(exch->[])*cec*depth*bd if is_soil,
 			0                          otherwise
 		},
 		scecemg + water*concn
@@ -76,7 +76,7 @@ This module is for now just for testing calling the MAGIC core from Mobius2. Wil
 	
 	var(comp.na,  [m eq, m-2]) @initial {
 		scecena := {
-			(exch_na->[])*cec*depth*bd if is_soil,
+			(exch->[])*cec*depth*bd if is_soil,
 			0                          otherwise
 		},
 		scecena + water*concn
@@ -84,7 +84,7 @@ This module is for now just for testing calling the MAGIC core from Mobius2. Wil
 	
 	var(comp.k,   [m eq, m-2]) @initial {
 		scecek := {
-			(exch_k->[])*cec*depth*bd if is_soil,
+			(exch->[])*cec*depth*bd if is_soil,
 			0                          otherwise
 		},
 		scecek + water*concn
@@ -94,7 +94,7 @@ This module is for now just for testing calling the MAGIC core from Mobius2. Wil
 	
 	var(comp.so4, [m eq, m-2]) @initial {
 		smeso4 := {
-			(exch_so4->[])*depth*bd*so4_max  if is_soil,
+			(exch->[])*depth*bd*so4_max  if is_soil,
 			0                                otherwise
 		},
 		smeso4 + water*conc_all
@@ -111,11 +111,7 @@ This module is for now just for testing calling the MAGIC core from Mobius2. Wil
 	
 	
 	ph        : property("pH")
-	exch_ca   : property("Exchangeable Ca on soil as % of CEC")
-	exch_mg   : property("Exchangeable Mg on soil as % of CEC")
-	exch_na   : property("Exchangeable Na on soil as % of CEC")
-	exch_k    : property("Exchangeable K on soil as % of CEC")
-	exch_so4  : property("Exchangeable SO4 on soil as % of max cap")
+	exch      : property("Exchangeable on soil as % of capacity")
 	bss       : property("Base saturation of soil (ECa + EMg + ENa + EK)")
 	
 	conc_hco3 : property("HCO3 (bicarbonate) ionic concentration")
@@ -181,11 +177,11 @@ This module is for now just for testing calling the MAGIC core from Mobius2. Wil
 	}
 	
 	var(comp.ph, [])
-	var(comp.exch_ca, [perc]) @initial { init_eca }
-	var(comp.exch_mg, [perc]) @initial { init_emg }
-	var(comp.exch_na, [perc]) @initial { init_ena }
-	var(comp.exch_k, [perc])  @initial { init_ek }
-	var(comp.exch_so4, [perc])
+	var(comp.ca.exch, [perc], "Exchangeable Ca on soil as % of CEC") @initial { init_eca }
+	var(comp.mg.exch, [perc], "Exchangeable Mg on soil as % of CEC") @initial { init_emg }
+	var(comp.na.exch, [perc], "Exchangeable Na on soil as % of CEC") @initial { init_ena }
+	var(comp.k.exch, [perc], "Exchangeable K on soil as % of CEC")  @initial { init_ek }
+	var(comp.so4.exch, [perc], "Exchangeable SO4 on soil as % of max cap")
 	var(comp.bss, [perc])
 	var(comp.conc_hco3, [m mol, m-3])
 	var(comp.conc_co3, [m mol, m-3])
@@ -220,11 +216,11 @@ This module is for now just for testing calling the MAGIC core from Mobius2. Wil
 		result(comp.so4.conc_all)
 		result(comp.f.conc_all)
 		result(comp.ph)
-		result(comp.exch_ca)
-		result(comp.exch_mg)
-		result(comp.exch_na)
-		result(comp.exch_k)
-		result(comp.exch_so4)
+		result(comp.ca.exch)
+		result(comp.mg.exch)
+		result(comp.na.exch)
+		result(comp.k.exch)
+		result(comp.so4.exch)
 		result(comp.bss)
 		result(comp.conc_hco3)
 		result(comp.conc_co3)
@@ -277,7 +273,7 @@ This module is for now just for testing calling the MAGIC core from Mobius2. Wil
 		result(comp.k.s_al)
 		result(comp.ph)
 		result(comp.ionic_str)
-		result(comp.exch_so4)
+		result(comp.so4.exch)
 		comp.ca.concn
 		comp.mg.concn
 		comp.na.concn
@@ -288,10 +284,10 @@ This module is for now just for testing calling the MAGIC core from Mobius2. Wil
 		comp.no3.concn
 		comp.f.conc_all
 		comp.po4.concn
-		comp.exch_ca
-		comp.exch_mg
-		comp.exch_na
-		comp.exch_k
+		comp.ca.exch
+		comp.mg.exch
+		comp.na.exch
+		comp.k.exch
 		max_diff
 		is_soil
 		depth

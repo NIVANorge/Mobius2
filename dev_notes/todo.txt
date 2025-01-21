@@ -2,6 +2,11 @@
 
 	*** High pri ***
 	
+	
+		Remember to update existing MAGIC setups with the new runoff scale mechanic.
+		
+		
+
 		If an input series is provided indexed over "subcatchment", but should be indexed over "water body" and "subcatchment" is a union member of "water body", that should be made to work. (and all similar cases) Just re-map the index.
 	
 		If you load different modules using the same load name, you don't get a name clash!
@@ -39,6 +44,19 @@
 					- This is not that important in itself, but it would be important if we were to chain several soil compartments
 				SolveFreeFluoride can go into an infinite loop if F is small, but depends on Al.
 				Should be more careful that concentrations don't go negative.
+				
+				How to fix it so that runoff is scaled correctly wrt rel_area automatically.
+				Difficult without some kind of sum_above or aggregate_above(rel_area, con) for graph connection.
+					But we could make that.
+					It is sort of like an in_flux_connection, except not for fluxes.
+					Importantly, this should not have the agg_weight applied, but that could be confusing??
+					It could be an aggregation for the edge compartment (if we make one)
+				Or make the user input a separate runoff scale.
+				Problematic to compute in cases where you have split runoff or if it is vertical, not horizontal.
+				
+				This happens if you try to access rel_area[con.below] in code (not in agg. weight)
+				ERROR (model_building): In file modules/magic/magic_forest_drivers.txt line 107 column 19:
+				A 'below' indexing can only be applied to a parameter in a context where it can be guaranteed that the source and target of the flux are the same node type of the graph.
 				
 				
 				
