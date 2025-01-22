@@ -1325,31 +1325,57 @@ Model_Application::get_all_fluxes_with_source_or_target(std::vector<Var_Id> &pus
 		auto agg_for = vars[var_id];
 		auto loc = Var_Location(agg_for->loc1);
 		
-		if(is_source)
-			fatal_error(Mobius_Error::internal, "Unimplemented code path.");
-		
 		//TODO: Will be wrong if we allow aggregation along quantities:
 		auto comp = loc.first();
 		
 		auto conn = model->connections[connection_id];
 		if(conn->type == Connection_Type::directed_graph) {
-			auto component = find_connection_component(connection_id, comp);
-			for(auto source_comp : component->possible_sources) {
-				for(auto flux_id : vars.all_fluxes()) {
-					auto flux_var = vars[flux_id];
-					if(flux_var->loc2.r1.connection_id != connection_id) continue;
-					if(flux_var->mixing_base) continue;
+			auto component = find_connection_component(connection_id, comp, false);
+			// TODO: Can it be legitimate that this one does not exist, or should we throw an error here?
+			//    Probably this could happen if somebody try to reference an in_flux that does not exist due to no arrows having been specified for that component?
+			if(!component) return;
+			
+			for(auto flux_id : vars.all_fluxes()) {
+				auto flux_var = vars[flux_id];
+				if(flux_var->loc2.r1.connection_id != connection_id) continue;
+				if(flux_var->mixing_base) continue;
+				
+				if(is_source) {
+					if(var_id != vars.id_of(flux_var->loc1)) continue;
+				} else {
+					//TODO: Will be wrong if we allow aggregation along quantities:
 					Var_Location target_loc = loc;
 					target_loc.components[0] = invalid_entity_id;
-					Var_Location flux_target_loc = flux_var->loc1;
-					flux_target_loc.components[0] = invalid_entity_id;
-					if(target_loc != flux_target_loc) continue;
+					Var_Location flux_loc = flux_var->loc1;
+					flux_loc.components[0] = invalid_entity_id;
+					if(target_loc != flux_loc) continue;
 					
-					push_to.push_back(flux_id);
+					// Also test if there is actually an arrow for that connection in the specific data we are setting up for now.
+					auto find = component->possible_sources.find(flux_var->loc1.first());
+					if(find == component->possible_sources.end()) continue;
 				}
+				
+				push_to.push_back(flux_id);
 			}
 		} else {
-			fatal_error(Mobius_Error::internal, "Unimplemented code path.");
+			
+			if(is_source)
+				// This should not be needed for anything since out_flux() does not (currently) exist in this case
+				fatal_error(Mobius_Error::internal, "Unimplemented code path for get_all_fluxes_with_source_or_target, did not expect out_flux for grid1d connection.");
+			
+			for(auto flux_id : vars.all_fluxes()) {
+				auto flux_var = vars[flux_id];
+				if(flux_var->loc2.r1.connection_id != connection_id) continue;
+				if(flux_var->mixing_base) continue;
+				
+				auto loc = flux_var->loc1;
+				if(!is_located(loc))
+					loc = flux_var->loc2;
+				
+				if(var_id != vars.id_of(loc)) continue;
+
+				push_to.push_back(flux_id);
+			}
 		}
 	}
 }

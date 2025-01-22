@@ -2,13 +2,6 @@
 
 	*** High pri ***
 	
-	
-		Remember to update existing MAGIC setups with the new runoff scale mechanic.
-		
-		
-		Finish the get_all_fluxes_with_source_or_target function and use it wherever it makes sense
-			For instance in compilation/codegen of connection_aggregate functionality.
-		
 		We need an all_in_flux and all_out_flux or similar.
 			For instance, SimplyP could be broken if it is used with soil discharge along a connection since it uses out_flux (and it can't know about the connections).
 		
@@ -45,13 +38,12 @@
 		Specific models
 		
 			MAGIC: 
-				Initial concentrations in lake do not take into account inflow from soil.
-					Would require computation of in_flux at initial step, which again would require computation of fluxes in initial step (at least the ones that are looked up by in_flux). Technically possible, but a bit of work.
-					- This is not that important in itself, but it would be important if we were to chain several soil compartments
-				SolveFreeFluoride can go into an infinite loop if F is small, but depends on Al.
-				Should be more careful that concentrations don't go negative.
 				
-				How to fix it so that runoff is scaled correctly wrt rel_area automatically.
+				SolveFreeFluoride can go into an infinite loop if F is small, but this depends on Al.
+				
+				We should be more careful that concentrations don't go negative.
+				
+				How to fix it so that runoff is scaled correctly wrt rel_area automatically, not relying on a separate user-set parameter.
 				Difficult without some kind of sum_above or aggregate_above(rel_area, con) for graph connection.
 					But we could make that.
 					It is sort of like an in_flux_connection, except not for fluxes.
@@ -63,9 +55,7 @@
 				This happens if you try to access rel_area[con.below] in code (not in agg. weight)
 				ERROR (model_building): In file modules/magic/magic_forest_drivers.txt line 107 column 19:
 				A 'below' indexing can only be applied to a parameter in a context where it can be guaranteed that the source and target of the flux are the same node type of the graph.
-				
-				
-				
+					In this case I think the reason it can't guarantee it because the below could be 'out'. But should that just default to a 0?
 				
 			Use 'option's to combine airsea_fpv and airsea_fpv_simple
 				Put them in the main airsea file.
@@ -241,9 +231,6 @@
 					We could do something like
 						@use(a, b2=b, c) ... # (requires new syntax type for the AST, but would also be nice to have for passing load arguments to modules).
 					and also require that when a module takes a preamble as an argument. So that the module can control what the symbols are called in its own scope (and also what symbols it expects to get from what preamble).
-	
-	
-		Would like to be able to use in_flux in initial code (for e.g. setting initial steady states easily), but then we also need to be able to compute initial values for fluxes. With in_flux_connection it could be tricky to determine what initial fluxes must be computed (Not tricky, maybe, but a lot of work.. ?).
 	
 		Merge unit_conversion and aggregation_weight to just "weight" (?)
 			Not necessarily a good idea. You may want to look up an aggregate value that is not a flux (and so does not need unit conversion).
@@ -606,7 +593,7 @@
 	
 		Consider just adding connection fluxes to derivatives as they are computed instead of having so many aggregates (except when these are actually needed, which would be only when we explicitly look up the in_flux).
 					This would be a major change, but could create some speedup.
-					Maybe not that needed now that they are @no_store by default.
+					Maybe not that necessary now that they are @no_store by default.
 	
 		System for specifying different display variants (along with the code in MobiView2 to make use of that).
 			E.g. say if a variable should not be displayed in MobiView2 (but have a display all checkbox button that re-enable them)

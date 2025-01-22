@@ -741,6 +741,7 @@ process_grid1d_connection_aggregation(Model_Application *app, std::vector<Model_
 	auto &components = app->connection_components[agg_var->connection].components;
 	auto source_comp = components[0].id;
 	
+	// TODO: This test seems overcomplicated. Why are we not just testing the first component??
 	bool found = false;
 	for(int idx = 0; idx < source.n_components; ++idx)
 		if(source.components[idx] == source_comp) found = true;
@@ -791,30 +792,9 @@ process_graph_connection_aggregation(Model_Application *app, std::vector<Model_I
 
 	// TODO: Some of this must be updated if we allow graphs to be over quantity components, not just compartment components.
 	
-	auto source_comp_id = flux_var->loc1.components[0];
+	auto source_comp_id = flux_var->loc1.first();
+	
 	auto find_source = app->find_connection_component(agg_var->connection, source_comp_id, false);
-	if(!find_source) return; // Can happen if it is not given in the graph data (if this is a graph connection).  .. although isn't the flux already disabled then?
-	if(!find_source->can_be_located_source) return;
-	
-	Entity_Id target_comp_id = invalid_entity_id;
-	Sub_Indexed_Component *find_target = nullptr;
-	
-	if(agg_var->is_out) {
-		if(agg_var->agg_for != app->vars.id_of(flux_var->loc1)) return;
-	} else {
-		// Check if this flux could point at the given aggregate location.
-		Var_Location loc = flux_var->loc1;
-		Var_Location target_loc = app->vars[agg_var->agg_for]->loc1;
-		loc.components[0] = invalid_entity_id;
-		target_loc.components[0] = invalid_entity_id;
-		if(loc != target_loc) return;
-		
-		// Also test if there is actually an arrow for that connection in the specific data we are setting up for now.
-		target_comp_id = app->vars[agg_var->agg_for]->loc1.components[0];
-		find_target = app->find_connection_component(agg_var->connection, target_comp_id);
-		auto find = find_target->possible_sources.find(source_comp_id);
-		if(find == find_target->possible_sources.end()) return;
-	}
 			
 	auto conn = model->connections[agg_var->connection];
 	auto var_solver = instructions[agg_id.id].solver;
@@ -827,7 +807,7 @@ process_graph_connection_aggregation(Model_Application *app, std::vector<Model_I
 		
 	auto add_to_aggr_instr = &instructions[add_to_aggr_id];
 		
-	instructions[agg_id.id].inherits_index_sets_from_instruction.insert(agg_var->agg_for.id); 
+	instructions[agg_id.id].inherits_index_sets_from_instruction.insert(agg_var->agg_for.id);
 	
 	for(auto index_set : find_source->index_sets)
 		insert_dependency(app, add_to_aggr_instr, index_set);
@@ -842,6 +822,9 @@ process_graph_connection_aggregation(Model_Application *app, std::vector<Model_I
 		// TODO: Make a better explanation of what is going on in this block and why it is needed (What is the failure case otherwise).
 		
 		// If the target compartment (not just what the connection indexes over) has an index set shared with the source compartment, we must index the target variable over that.
+		auto target_comp_id = app->vars[agg_var->agg_for]->loc1.first();
+		auto find_target = app->find_connection_component(agg_var->connection, target_comp_id);
+		
 		auto target_comp = model->components[target_comp_id];
 		auto target_index_sets = find_target->index_sets; // vector copy;
 		for(auto index_set : find_source->index_sets) {
@@ -874,28 +857,26 @@ set_up_connection_aggregation(Model_Application *app, std::vector<Model_Instruct
 	// agg_for  is the id of the quantity state variable for the target (or source).
 	
 	// Find all the connection fluxes pointing to the target (or going out from source)
-	for(auto flux_id : app->vars.all_fluxes()) {
+	
+	auto conn = model->connections[var2->connection];
 		
-		auto flux_var = app->vars[flux_id];
-		if(flux_var->mixing_base) continue;
+	std::vector<Var_Id> fluxes;
+	app->get_all_fluxes_with_source_or_target(fluxes, var2->agg_for, var2->is_out, var2->connection);
+	if(conn->type == Connection_Type::directed_graph) {
+		for(auto flux_id : fluxes)
+			process_graph_connection_aggregation(app, instructions, agg_id, flux_id, clear_id);
+	} else if (conn->type == Connection_Type::grid1d) {
+		for(auto flux_id : fluxes)
+			process_grid1d_connection_aggregation(app, instructions, agg_id, flux_id, clear_id, false);
 		
-		auto conn = model->connections[var2->connection];
-		
-		bool is_flux_source = false;
-		if(flux_var->loc1.r1.connection_id == var2->connection) {
-			if(conn->type != Connection_Type::grid1d)
-				fatal_error(Mobius_Error::internal, "Connection in the source of a flux only allowed for grid1d.");
-			process_grid1d_connection_aggregation(app, instructions, agg_id, flux_id, clear_id, true);
+		// TODO: This part may not be mirrored in the thing that assures existence of initial fluxes!
+		for(auto flux_id : app->vars.all_fluxes()) {
+			auto flux_var = app->vars[flux_id];
+			if(flux_var->loc1.r1.connection_id == var2->connection)
+				process_grid1d_connection_aggregation(app, instructions, agg_id, flux_id, clear_id, true);
 		}
-		if(flux_var->loc2.r1.connection_id == var2->connection) {
-			if(conn->type == Connection_Type::grid1d)
-				process_grid1d_connection_aggregation(app, instructions, agg_id, flux_id, clear_id, false);
-			else if(conn->type == Connection_Type::directed_graph)
-				process_graph_connection_aggregation(app, instructions, agg_id, flux_id, clear_id);
-			else
-				fatal_error(Mobius_Error::internal, "Unimplemented connection type for set_up_connection_aggregation");
-		}
-		
+	} else {
+		fatal_error(Mobius_Error::internal, "Unimplemented connection type for set_up_connection_aggregation");
 	}
 }
 
