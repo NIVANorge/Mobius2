@@ -151,10 +151,9 @@ Mobius2 will on its own scale the unit conversion so that the final units match.
 
 ![Calibrate](images/04_calibrate.png)
 
-[Full code for chapter 04](https://github.com/NIVANorge/Mobius2/tree/main/guide/04).
-
 The image shows how you can use MobiView2 to calibrate the model by looking at what calibration statistics improve or get worse when you change a parameter and re-run. (You can get a much better fit than this though!).
 
+[Full code for chapter 04](https://github.com/NIVANorge/Mobius2/tree/main/guide/04).
 
 ## Exercises
 

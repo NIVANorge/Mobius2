@@ -1322,7 +1322,35 @@ Model_Application::get_all_fluxes_with_source_or_target(std::vector<Var_Id> &pus
 			push_to.push_back(flux_id);
 		}
 	} else {
-		fatal_error(Mobius_Error::internal, "Unimplemented path.");
+		auto agg_for = vars[var_id];
+		auto loc = Var_Location(agg_for->loc1);
+		
+		if(is_source)
+			fatal_error(Mobius_Error::internal, "Unimplemented code path.");
+		
+		//TODO: Will be wrong if we allow aggregation along quantities:
+		auto comp = loc.first();
+		
+		auto conn = model->connections[connection_id];
+		if(conn->type == Connection_Type::directed_graph) {
+			auto component = find_connection_component(connection_id, comp);
+			for(auto source_comp : component->possible_sources) {
+				for(auto flux_id : vars.all_fluxes()) {
+					auto flux_var = vars[flux_id];
+					if(flux_var->loc2.r1.connection_id != connection_id) continue;
+					if(flux_var->mixing_base) continue;
+					Var_Location target_loc = loc;
+					target_loc.components[0] = invalid_entity_id;
+					Var_Location flux_target_loc = flux_var->loc1;
+					flux_target_loc.components[0] = invalid_entity_id;
+					if(target_loc != flux_target_loc) continue;
+					
+					push_to.push_back(flux_id);
+				}
+			}
+		} else {
+			fatal_error(Mobius_Error::internal, "Unimplemented code path.");
+		}
 	}
 }
 

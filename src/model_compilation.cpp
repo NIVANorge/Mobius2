@@ -575,31 +575,12 @@ ensure_has_initial_value(Model_Application *app, Var_Id var_id, std::vector<Mode
 		// TODO: Should factor out a function that retrieves all fluxes that could target a specific location along a connection (or not connection), or have that source etc.
 		auto var2 = as<State_Var::Type::connection_aggregate>(var);
 		auto conn = app->model->connections[var2->connection];
-		if(conn->type != Connection_Type::directed_graph) {
-			//TODO: Need better error message
-			fatal_error(Mobius_Error::internal, "Unimplemented initial value of in_flux of this connection type.");
-		}
 		
-		auto agg_for = app->vars[var2->agg_for];
-		auto loc = Var_Location(agg_for->loc1);
-		//TODO: Will be wrong if we allow aggregation along quantities:
-		auto comp = loc.first();
-		auto component = app->find_connection_component(var2->connection, comp);
-		if(var2->is_out)
-			fatal_error(Mobius_Error::internal, "Unimplemented out_flux aggregation.");
-		for(auto source_comp : component->possible_sources) {
-			for(auto flux_id : app->vars.all_fluxes()) {
-				auto flux_var = app->vars[flux_id];
-				if(flux_var->loc2.r1.connection_id != var2->connection) continue;
-				if(flux_var->mixing_base) continue;
-				Var_Location target_loc = loc;
-				target_loc.components[0] = invalid_entity_id;
-				Var_Location flux_target_loc = flux_var->loc1;
-				flux_target_loc.components[0] = invalid_entity_id;
-				if(target_loc != flux_target_loc) continue;
-				ensure_has_initial_value(app, flux_id, instructions);
-			}
-		}
+		std::vector<Var_Id> fluxes;
+		app->get_all_fluxes_with_source_or_target(fluxes, var2->agg_for, var2->is_out, var2->connection);
+		
+		for(auto flux_id : fluxes)
+			ensure_has_initial_value(app, flux_id, instructions);
 	}
 	
 	if(var->type == State_Var::Type::in_flux_aggregate) {

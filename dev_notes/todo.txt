@@ -6,6 +6,9 @@
 		Remember to update existing MAGIC setups with the new runoff scale mechanic.
 		
 		
+		Finish the get_all_fluxes_with_source_or_target function and use it wherever it makes sense
+			For instance in compilation/codegen of connection_aggregate functionality.
+		
 		We need an all_in_flux and all_out_flux or similar.
 			For instance, SimplyP could be broken if it is used with soil discharge along a connection since it uses out_flux (and it can't know about the connections).
 		
