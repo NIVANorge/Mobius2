@@ -471,6 +471,8 @@ Model_Application {
 	Var_Id                 find_base_flux(Var_Id dissolved_flux_id);
 	Var_Id                 find_flux_var_of_decl(Entity_Id flux_id);
 	
+	void                   get_all_fluxes_with_source_or_target(std::vector<Var_Id> &push_to, Var_Id var_id, bool is_target, Entity_Id connection_id = invalid_entity_id);
+	
 	void build_from_data_set(Data_Set *data_set);
 	void save_to_data_set(Model_Data *save_from=nullptr);
 	

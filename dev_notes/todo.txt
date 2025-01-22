@@ -6,6 +6,9 @@
 		Remember to update existing MAGIC setups with the new runoff scale mechanic.
 		
 		
+		We need an all_in_flux and all_out_flux or similar.
+			For instance, SimplyP could be broken if it is used with soil discharge along a connection since it uses out_flux (and it can't know about the connections).
+		
 
 		If an input series is provided indexed over "subcatchment", but should be indexed over "water body" and "subcatchment" is a union member of "water body", that should be made to work. (and all similar cases) Just re-map the index.
 	

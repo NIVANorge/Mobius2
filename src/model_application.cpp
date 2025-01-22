@@ -1306,6 +1306,26 @@ Model_Application::find_flux_var_of_decl(Entity_Id flux_id) {
 	return invalid_var;
 }
 
+void
+Model_Application::get_all_fluxes_with_source_or_target(std::vector<Var_Id> &push_to, Var_Id var_id, bool is_source, Entity_Id connection_id) {
+	
+	if(!is_valid(connection_id)) {
+		for(auto flux_id : vars.all_fluxes()) {
+			auto flux_var = vars[flux_id];
+			
+			auto &check_loc = is_source ? flux_var->loc1 : flux_var->loc2;
+			
+			if(is_source && flux_var->loc2.r1.type != Restriction::none) continue; // Case covered by out_flux(connection, ..)
+			
+			if(flux_var->mixing_base || check_loc.r1.type != Restriction::none || !is_located(check_loc) || vars.id_of(check_loc) != var_id) continue;
+			
+			push_to.push_back(flux_id);
+		}
+	} else {
+		fatal_error(Mobius_Error::internal, "Unimplemented path.");
+	}
+}
+
 std::string
 Model_Application::serialize(Var_Id id) {
 	

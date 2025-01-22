@@ -6,7 +6,6 @@ module("MAGIC-Forest CNP", version(0, 0, 0),
 	po4 : quantity,
 	ts : property,
 	ext_in : property,
-	bal : property
 ) {
 """
 Missing a lot of functionality, only the basics for now
@@ -31,8 +30,4 @@ Missing a lot of functionality, only the basics for now
 	
 	flux(comp.nh4, comp.no3, [m eq, m-2, month-1], "Nitrification") { nit }
 	flux(comp.no3, out, [m eq, m-2, month-1], "Denitrification") { denit }
-	
-	var(comp.nh4.bal, [m eq, m-2, month-1]) @add_to_existing { -nit }
-	var(comp.no3.bal, [m eq, m-2, month-1]) @add_to_existing { nh4.nit-denit }
-	
 }

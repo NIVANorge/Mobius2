@@ -1373,7 +1373,7 @@ process_state_var_code(Model_Application *app, Var_Id var_id, Code_Special_Looku
 		if(initial_is_conc)
 			res_data.expected_unit = app->vars[var2->conc]->unit.standard_form;
 		
-		res_data.allow_in_flux = false;
+		//res_data.allow_in_flux = false;
 		res_data.allow_last = !init_is_override; // NOTE: Only make an error for occurrences of 'last' if the block came from an @initial not an @override
 		
 		auto res = resolve_function_tree(init_ast, &res_data);

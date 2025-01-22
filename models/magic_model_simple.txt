@@ -43,7 +43,7 @@ model("MAGIC (simple)") {
 		module("MAGIC-Forest drivers", comp, ca, mg, na, k, nh4, so4, cl, no3, f, po4, ts, ext_in, bal, conc_oa, temp, concn, conc_all, rel_runoff, rel_a, con))
 		
 	load("modules/magic/magic_forest_cnp.txt",
-		module("MAGIC-Forest CNP", comp, nh4, no3, po4, ts, ext_in, bal))
+		module("MAGIC-Forest CNP", comp, nh4, no3, po4, ts, ext_in))
 	
 	par_group("Solver resolution") {
 		step : par_real("Solver step size", [month], 0.1, 0.0001, 1)

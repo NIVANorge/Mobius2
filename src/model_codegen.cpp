@@ -170,6 +170,30 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 	
 	for(auto &instr : instructions) {
 		
+		// Codegen for regular in_flux and out_flux (not connection in_flux):
+		if(instr.type == Model_Instruction::Type::compute_state_var) {
+			auto var = app->vars[instr.var_id];
+			
+			if(var->type == State_Var::Type::in_flux_aggregate) {
+				auto var2 = as<State_Var::Type::in_flux_aggregate>(var);
+				Math_Expr_FT *flux_sum = make_literal((double)0.0);
+				
+				//  find all fluxes that has the given target (or source) and sum them up.
+				std::vector<Var_Id> fluxes;
+				app->get_all_fluxes_with_source_or_target(fluxes, var2->in_flux_to, var2->is_out);
+				
+				for(auto flux_id : fluxes) {
+					auto flux_var = app->vars[flux_id];
+
+					auto flux_ref = make_possibly_time_scaled_ident(app, flux_id);
+					if(flux_var->unit_conversion_tree)
+						flux_ref = make_binop('*', flux_ref, copy(flux_var->unit_conversion_tree.get()));
+					flux_sum = make_binop('+', flux_sum, flux_ref);
+				}
+				instr.code = flux_sum;
+			}
+		}
+		
 		if(!initial && instr.type == Model_Instruction::Type::compute_state_var) {
 			auto var = app->vars[instr.var_id];
 			
@@ -219,29 +243,6 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 					auto source_ref = make_state_var_identifier(source_id);
 					instr.code = make_intrinsic_function_call(Value_Type::real, "min", instr.code, source_ref);
 				}
-			}
-			
-			// TODO: same problem as elsewhere: O(n) operation to look up all fluxes to or from a given state variable.
-			//   Make a lookup accelleration for this?
-			
-			// Codegen for regular in_flux and out_flux (not connection in_flux):
-			if(var->type == State_Var::Type::in_flux_aggregate) {
-				auto var2 = as<State_Var::Type::in_flux_aggregate>(var);
-				Math_Expr_FT *flux_sum = make_literal((double)0.0);
-				//  find all fluxes that has the given target and sum them up.
-				for(auto flux_id : app->vars.all_fluxes()) {
-					auto flux_var = app->vars[flux_id];
-					
-					auto &check_loc = var2->is_out ? flux_var->loc1 : flux_var->loc2;
-					
-					if(flux_var->mixing_base || check_loc.r1.type != Restriction::none || !is_located(check_loc) || app->vars.id_of(check_loc) != var2->in_flux_to) continue;
-					
-					auto flux_ref = make_possibly_time_scaled_ident(app, flux_id);
-					if(flux_var->unit_conversion_tree)
-						flux_ref = make_binop('*', flux_ref, copy(flux_var->unit_conversion_tree.get()));
-					flux_sum = make_binop('+', flux_sum, flux_ref);
-				}
-				instr.code = flux_sum;
 			}
 			
 			// Codegen for the derivative of ODE state variables:

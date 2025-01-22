@@ -508,6 +508,7 @@ make_safe_for_initial(Model_Application *app, Math_Expr_FT *expr) {
 		if(ident->has_flag(Identifier_FT::last_result))
 			ident->remove_flag(Identifier_FT::last_result);
 		
+		/*
 		if(ident->is_computed_series()) {
 			auto var = app->vars[ident->var_id];
 			if(var->type == State_Var::Type::connection_aggregate || var->type == State_Var::Type::in_flux_aggregate) {
@@ -515,6 +516,7 @@ make_safe_for_initial(Model_Application *app, Math_Expr_FT *expr) {
 				fatal_error("This code needs to be evaluated during the initial step, but 'in_flux' can't be accessed during the initial step. So a separate @initial block is needed for this variable.");
 			}
 		}
+		*/
 	}
 }
 
@@ -540,7 +542,7 @@ ensure_has_initial_value(Model_Application *app, Var_Id var_id, std::vector<Mode
 		auto var2 = as<State_Var::Type::declared>(var);
 		auto fun = var2->function_tree.get();
 		
-		if(fun) {			
+		if(fun) {
 			//instr->code = copy(fun);
 			instr->code = prune_tree(copy(fun));
 			make_safe_for_initial(app, instr->code);
@@ -567,6 +569,47 @@ ensure_has_initial_value(Model_Application *app, Var_Id var_id, std::vector<Mode
 		auto var2 = as<State_Var::Type::regular_aggregate>(var);
 		
 		ensure_has_initial_value(app, var2->agg_of, instructions);
+	}
+	
+	if(var->type == State_Var::Type::connection_aggregate) {
+		// TODO: Should factor out a function that retrieves all fluxes that could target a specific location along a connection (or not connection), or have that source etc.
+		auto var2 = as<State_Var::Type::connection_aggregate>(var);
+		auto conn = app->model->connections[var2->connection];
+		if(conn->type != Connection_Type::directed_graph) {
+			//TODO: Need better error message
+			fatal_error(Mobius_Error::internal, "Unimplemented initial value of in_flux of this connection type.");
+		}
+		
+		auto agg_for = app->vars[var2->agg_for];
+		auto loc = Var_Location(agg_for->loc1);
+		//TODO: Will be wrong if we allow aggregation along quantities:
+		auto comp = loc.first();
+		auto component = app->find_connection_component(var2->connection, comp);
+		if(var2->is_out)
+			fatal_error(Mobius_Error::internal, "Unimplemented out_flux aggregation.");
+		for(auto source_comp : component->possible_sources) {
+			for(auto flux_id : app->vars.all_fluxes()) {
+				auto flux_var = app->vars[flux_id];
+				if(flux_var->loc2.r1.connection_id != var2->connection) continue;
+				if(flux_var->mixing_base) continue;
+				Var_Location target_loc = loc;
+				target_loc.components[0] = invalid_entity_id;
+				Var_Location flux_target_loc = flux_var->loc1;
+				flux_target_loc.components[0] = invalid_entity_id;
+				if(target_loc != flux_target_loc) continue;
+				ensure_has_initial_value(app, flux_id, instructions);
+			}
+		}
+	}
+	
+	if(var->type == State_Var::Type::in_flux_aggregate) {
+		// Unfortunately we can't just use instr->code since it is not generated yet!
+		auto var2 = as<State_Var::Type::in_flux_aggregate>(var);
+		std::vector<Var_Id> fluxes;
+		app->get_all_fluxes_with_source_or_target(fluxes, var2->in_flux_to, var2->is_out);
+		for(auto flux_id : fluxes) {
+			ensure_has_initial_value(app, flux_id, instructions);
+		}
 	}
 }
 
@@ -1311,17 +1354,18 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			// TODO: we could generate one per variable that looks it up and prune them later if they have the same index set dependencies (?)
 			// TODO: we could also check if this is necessary at all any more?
 			auto agg_instr = &instructions[var_id.id];
-			//auto agg_to_comp = model->components[var2->agg_to_compartment];
-			
-			//for(auto index_set : agg_to_comp->index_sets)
-			//	insert_dependency(app, agg_instr, index_set);
+		
 			insert_dependecies(app, agg_instr, var2->agg_to_index_sets);
 			
 		} else if(var->type == State_Var::Type::connection_aggregate) {
 			
+			/*
 			if(initial)
 				fatal_error(Mobius_Error::internal, "Got a connection flux in the initial step.");
 			if(!is_valid(instr->solver))
+				fatal_error(Mobius_Error::internal, "Got aggregation variable for connection fluxes without a solver.");
+			*/
+			if(!initial && !is_valid(instr->solver))
 				fatal_error(Mobius_Error::internal, "Got aggregation variable for connection fluxes without a solver.");
 			
 			set_up_connection_aggregation(app, instructions, var_id);
