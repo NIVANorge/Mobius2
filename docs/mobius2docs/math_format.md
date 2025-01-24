@@ -237,7 +237,7 @@ The following intrinsic functions are visible in every function scope. They are 
 | `pow2(a)` | 2 to the power of a | a must be dimensionless, result is dimensionless  |
 | `ln(a)` | natural logarithm | a must be dimensionless, result is dimensionless  |
 | `log10(a)` | base-10 logarithm | a must be dimensionless, result is dimensionless  |
-| `ln2(a)` | base-2 logarithm | a must be dimensionless, result is dimensionless  |
+| `log2(a)` | base-2 logarithm | a must be dimensionless, result is dimensionless  |
 | `cos(a)` | cosine | a must be dimensionless, result is dimensionless  |
 | `sin(a)` | sine | a must be dimensionless, result is dimensionless  |
 | `tan(a)` | tangent | a must be dimensionless, result is dimensionless |

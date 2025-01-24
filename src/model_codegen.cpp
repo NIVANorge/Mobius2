@@ -258,6 +258,8 @@ instruction_codegen(Model_Application *app, std::vector<Model_Instruction> &inst
 				for(auto source_agg : var2->conn_source_aggs)
 					fun = make_binop('-', fun, make_state_var_identifier(source_agg));
 				
+				// TODO: Is it possible to reuse get_all_fluxes_with_source_or_target here?
+				//   Maybe not, because it omits all connection fluxes even those that don't have aggregation variables (and it has to).
 				for(Var_Id flux_id : app->vars.all_fluxes()) {
 					auto flux = app->vars[flux_id];
 					

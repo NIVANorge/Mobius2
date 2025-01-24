@@ -208,8 +208,8 @@ struct
 Code_Special_Lookups {
 	std::map<std::tuple<Var_Id, Entity_Id, bool>, std::vector<Var_Id>>     in_fluxes;
 	std::map<Var_Id, std::map<std::pair<Entity_Id, Index_Set_Tuple>, std::vector<Var_Id>>> aggregates;
-	
-	std::map<Entity_Id, std::pair<std::set<Entity_Id>, std::vector<Var_Id>>> par_aggregates;
+	std::map<Entity_Id, std::map<std::pair<Entity_Id, Index_Set_Tuple>, std::vector<Var_Id>>> par_aggregates;
+	//std::map<Entity_Id, std::pair<std::set<Entity_Id>, std::vector<Var_Id>>> par_aggregates;
 };
 
 void
@@ -233,10 +233,9 @@ find_identifier_flags(Model_Application *app, Math_Expr_FT *expr, Code_Special_L
 			
 			if(specials) {
 				if(ident->variable_type == Variable_Type::parameter) {
-					auto &agg_data = specials->par_aggregates[ident->par_id];
-					agg_data.first.insert(lookup_compartment);
+					auto &agg_data = specials->par_aggregates[ident->par_id][std::make_pair(lookup_compartment, lookup_indexes)];
 					if(is_valid(looked_up_by))
-						agg_data.second.push_back(looked_up_by);
+						agg_data.push_back(looked_up_by);
 				} else if (ident->is_computed_series()) {
 					auto &agg_data = specials->aggregates[ident->var_id][std::make_pair(lookup_compartment, lookup_indexes)];
 					if(is_valid(looked_up_by))
@@ -1801,8 +1800,6 @@ Model_Application::compose_and_resolve() {
 			Math_Expr_FT *agg_weight = get_aggregation_weight(this, loc1, to_compartment);
 			var->set_flag(State_Var::has_aggregate);
 			
-			//TODO: We also have to handle the case where the agg. variable was a series!
-			
 			sprintf(varname, "aggregate(%s, %s)", var->name.data(), model->components[to_compartment]->name.data());
 			Var_Id agg_id = register_state_variable<State_Var::Type::regular_aggregate>(this, invalid_entity_id, false, varname, true);
 			
@@ -1839,7 +1836,8 @@ Model_Application::compose_and_resolve() {
 					if(!is_located(lu->loc2))
 						fatal_error(Mobius_Error::internal, "We somehow allowed a non-located state variable to look up an aggregate.");
 				}
-
+				
+				// TODO: Don't we also have to check to_indexes here?
 				if(lu_compartment != to_compartment) continue;    //TODO: we could instead group these by the compartment in the structure?
 				
 				if(lu->function_tree)
@@ -1863,8 +1861,13 @@ Model_Application::compose_and_resolve() {
 			fatal_error(Mobius_Error::model_building, "Trying to declare an aggregate() of the parameter \"", par->name, "\", but it does not belong to a group that is attached to exactly 0 or 1 components.");
 		}
 		
-		for(auto to_compartment : need_agg.second.first) {
+		for(auto &to : need_agg.second) {
 			
+			Entity_Id to_compartment = to.first.first;
+			Index_Set_Tuple to_indexes = to.first.second;
+			
+			// TODO: Hmm, why did we do this?
+			// If there is a reason for not applying the weight in this case, it should be documented.
 			Math_Expr_FT *agg_weight = nullptr;
 			
 			if(par_group->components.size() > 0) {
@@ -1885,8 +1888,9 @@ Model_Application::compose_and_resolve() {
 			
 			// TODO: Set the unit of the agg_var (only relevant if it is displayed somewhere, it is not function critical).
 			agg_var->agg_to_compartment = to_compartment;
+			agg_var->agg_to_index_sets = to_indexes;
 			
-			for(auto looked_up_by : need_agg.second.second) {
+			for(auto looked_up_by : to.second) {
 				auto lu = as<State_Var::Type::declared>(vars[looked_up_by]);
 				
 				Entity_Id lu_compartment = lu->loc1.first();
@@ -1895,7 +1899,8 @@ Model_Application::compose_and_resolve() {
 					if(!is_located(lu->loc2))
 						fatal_error(Mobius_Error::internal, "We somehow allowed a non-located state variable to look up an aggregate.");
 				}
-
+				
+				// TODO: Don't we also have to check to_indexes here?
 				if(lu_compartment != to_compartment) continue;    //TODO: we could instead group these by the compartment in the structure?
 				
 				if(lu->function_tree)

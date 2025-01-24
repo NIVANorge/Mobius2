@@ -590,6 +590,10 @@ process_parameters(Model_Application *app, Data_Set *data_set, Entity_Id par_gro
 			if(find != former_names.end()) {
 				par_id = find->second;
 				log_print("Note: The parameter \"", serial, "\" has been renamed to \"", model->parameters[par_id]->name, "\". This will be automatically updated in the dataset if you save it.\n");
+				
+				// Mark the old version of the parameter for deletion from the dataset.
+				// The value will from now on be saved under the new name.
+				par_data->mark_for_deletion = true;
 			}
 		}
 		

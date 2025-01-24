@@ -556,12 +556,6 @@ ensure_has_initial_value(Model_Application *app, Var_Id var_id, std::vector<Mode
 			auto loc = remove_dissolved(var->loc1);
 			ensure_has_initial_value(app, app->vars.id_of(loc), instructions);
 		}
-		
-		// This should no longer be an issue, since in model_composition, if a var lacks an initial tree but has an override tree, the override tree is set as the initial tree, with initial_is_conc = override_is_conc.
-		/*
-		if(var2->function_tree && var2->override_is_conc)
-			fatal_error(Mobius_Error::internal, "Wanted to generate initial code for variable \"", var->name, "\", but it only has @override_conc code. This is not yet handled. (for now, you have to manually put @initial_conc on it.");
-		*/
 	}
 	
 	// If it is an aggregation variable, whatever it aggregates must also be computed.
@@ -592,6 +586,15 @@ ensure_has_initial_value(Model_Application *app, Var_Id var_id, std::vector<Mode
 			ensure_has_initial_value(app, flux_id, instructions);
 		}
 	}
+	
+	if(var->type == State_Var::Type::dissolved_flux) {
+		auto base_id = app->find_base_flux(var_id);
+		auto transp_id = app->vars.id_of(var->loc1);
+		ensure_has_initial_value(app, base_id, instructions);
+		ensure_has_initial_value(app, transp_id, instructions);
+	}
+	
+	// TODO: Do we need for dissolved_conc too in case somebody explicitly references conc() in initial code?
 }
 
 void
@@ -1341,10 +1344,12 @@ build_instructions(Model_Application *app, std::vector<Model_Instruction> &instr
 			make_add_to_par_aggregate_instr(app, instructions, var_id, var2->agg_of);
 			
 			auto agg_instr = &instructions[var_id.id];
-			auto agg_to_comp = model->components[var2->agg_to_compartment];
+			//auto agg_to_comp = model->components[var2->agg_to_compartment];
 			//log_print("*** Agg to compartment is ", agg_to_comp->name, " with ", agg_to_comp->index_sets.size(), " index sets. \n");
-			for(auto index_set : agg_to_comp->index_sets)
-				insert_dependency(app, agg_instr, index_set);
+			
+			//for(auto index_set : agg_to_comp->index_sets)
+			//	insert_dependency(app, agg_instr, index_set);
+			insert_dependecies(app, agg_instr, var2->agg_to_index_sets);
 		}
 		
 		if(initial) continue;

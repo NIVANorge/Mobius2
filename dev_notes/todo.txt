@@ -5,7 +5,6 @@
 		We need an all_in_flux and all_out_flux or similar.
 			For instance, SimplyP could be broken if it is used with soil discharge along a connection since it uses out_flux (and it can't know about the connections).
 		
-
 		If an input series is provided indexed over "subcatchment", but should be indexed over "water body" and "subcatchment" is a union member of "water body", that should be made to work. (and all similar cases) Just re-map the index.
 	
 		If you load different modules using the same load name, you don't get a name clash!
@@ -13,6 +12,7 @@
 			Fixed if the module template is different, but should also be fixed when template is same but load arguments are different.
 		
 		When a parameter changes name, the old one is not deleted from the par file.
+			Should be fixed, not tested.
 			
 		Document how to use connections, and some more of the advanced concepts.
 		
@@ -52,11 +52,6 @@
 				Or make the user input a separate runoff scale.
 				Problematic to compute in cases where you have split runoff or if it is vertical, not horizontal.
 				
-				This happens if you try to access rel_area[con.below] in code (not in agg. weight)
-				ERROR (model_building): In file modules/magic/magic_forest_drivers.txt line 107 column 19:
-				A 'below' indexing can only be applied to a parameter in a context where it can be guaranteed that the source and target of the flux are the same node type of the graph.
-					In this case I think the reason it can't guarantee it because the below could be 'out'. But should that just default to a 0?
-				
 			Use 'option's to combine airsea_fpv and airsea_fpv_simple
 				Put them in the main airsea file.
 			
@@ -82,7 +77,7 @@
 				Go to the simpler version from MyLake of parametrizing vertical mixing
 					Mathematically the same, just removes unnecessary parameters
 					Allows us to compare with MyLake setups.
-					See guide chapter 07
+					See guide chapter 07 for an implementation
 				
 				Finish biochemistry.
 					Relegated to if we need it in an application probably
@@ -90,23 +85,13 @@
 						Sulfate reduction?
 						Zooplankton?
 						Experiment with different phytoplankton formulation.
-					
-				Should really solve the advection/diffusion equation with Crank-Nicholson.
-					A bit difficult to integrate it into the existing framework.
 				
-			EasyChem + SimplyCNP
+			EasyChem
 							
 				Shading effect on phyto light availability (light should be more like an average in the epilimnion taking into account attenuation).
 					But that would also be problematic since it is quite uneven but the resulting phyto conc isn't.
 			
-		Improve connection system
-		
-			Properly test the flux restriction refactoring.  (e.g. having [.below] in source etc. )
-				Maybe broken if we have grid1d of the same connection in both source and target (?)
-			
-			Dependency system for connection aggregations is very error prone and complicated. Esp. wrt. 'top' and 'bottom'.
-				(in terms of how it is handled internally, not in terms of user-facing functionality)
-				Ideally the entire system should be re-thought or restructured.
+		Connection system
 		
 			Have to figure out what something like
 				flux(blabla, something[vert.below], ...)				
@@ -197,12 +182,11 @@
 				Difference is that you also need to reload the model in this case.
 	
 		Get rid of the idea of aggregating to a *compartment*. Instead, only aggregate to the index set tuple.
-			Difficulties:
-				Serialization name depends on compartment (should be easy to change)
+		This work has already been started.
+			Remaining issues:
+				Serialization name depends on compartment, should depend on index set tuple (should be easy to change)
 				aggregation_weight depends on compartment. Make it work like unit_conversion instead?
-					See other suggestion about merging unit_conversion and aggregation_weight.
-		Make par_aggregate work the same as regular_aggregate.
-			This one is actually kind of important.
+			Right now there may be a problem if you get two different aggregations to the same compartment but to different index set tuples.
 	
 	
 		Make something like

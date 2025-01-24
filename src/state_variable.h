@@ -124,6 +124,7 @@ template<> struct
 State_Var_Sub<State_Var::Type::parameter_aggregate> : State_Var {
 	Entity_Id      agg_of                    = invalid_entity_id;
 	Entity_Id      agg_to_compartment        = invalid_entity_id;
+	Index_Set_Tuple agg_to_index_sets;
 	owns_code      aggregation_weight_tree   = nullptr;
 	
 	State_Var_Sub() {}
