@@ -1,0 +1,26 @@
+
+model("SuperEasyC") {
+	
+	extend("simplyc_model.txt") @exclude(
+		downstream : connection,
+		air : compartment,
+	)
+	
+	lake_index : index_set("Lake index")
+	
+	wb_index : index_set("Water body") @union(sc, lake_index)
+	
+	air  : compartment("Atmosphere", wb_index)
+	lake : compartment("Lake", lake_index)
+	
+	load("modules/easylake/supereasylake.txt",
+		module("SuperEasyLake", air, lake, water, precip, temp, downstream),
+		module("SuperEasyC", lake, water, oc, temp)
+	)
+	
+	solve(sol, lake.water)
+	
+	downstream : connection("Downstream") @directed_graph {
+		(river|lake)+ out
+	} @no_cycles
+}

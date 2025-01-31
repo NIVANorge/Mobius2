@@ -1,0 +1,51 @@
+
+module("SuperEasyLake", version(0, 0, 0),
+	air : compartment,
+	lake : compartment,
+	water : quantity,
+	precip : property,
+	temp : property,
+	downstream : connection,
+) {
+	
+	par_group("Lake parameters", lake) {
+		V : par_real("Volume", [m 3], 1000, 0, 1e12)
+		A : par_real("Surface area", [m 2], 1000, 0, 1e12)
+	}
+	
+	var(lake.water, [m 3], "Lake water volume") @initial { V }
+	
+	flux(out, lake.water, [m 3, day-1], "Precipitation to surface") {
+		air.precip*A->>
+	}
+	# Evaporation?
+	
+	# Discharge the same amount that comes in
+	flux(lake.water, downstream, [m 3, day-1], "Lake outflow") {
+		(in_flux(water) + in_flux(downstream, water))->>
+	}
+	
+	#TODO: This may be too simple, could have alternatives?
+	var(lake.water.temp, [deg_c], "Lake temperature") { air.temp }
+}
+
+module("SuperEasyC", version(0, 0, 0),
+	lake : compartment,
+	water : quantity,
+	oc : quantity,
+	temp : property,
+) {
+
+	load("stdlib/basic_math.txt", library("Response"))
+
+	par_group("Lake C") {
+		minr   : par_real("Mineralization rate at 20°C", [day-1], 0, 0, 1)
+		minq10 : par_real("Mineralization Q10", [], 1, 0, 5)
+	}
+
+	var(lake.water.oc, [k g], [m g, l-1], "Lake DOC")
+	
+	flux(lake.water.oc, out, [k g, day-1], "Lake DOC mineralization") {
+		oc * q10_adjust(minr, 20[deg_c], temp, minq10)
+	}
+}

@@ -259,13 +259,20 @@ Index_Data::initialize_union(Entity_Id index_set_id, Source_Location source_loc)
 		fatal_error("Tried to initialize a non-union index set as a union.");
 	}
 	
+	data.type = Index_Record::Type::none;
 	for(auto ui_id : index_set->union_of) {
 		auto type = index_data[ui_id.id].type;
 		if(data.type == Index_Record::Type::none)
 			data.type = type;
 		if(type != data.type) {
 			source_loc.print_error_header();
-			fatal_error("It is not supported to have a union of index sets that have different index name type (e.g. numeric vs named)");
+			error_print("It is not supported to have a union of index sets that have different index name type (e.g. numeric vs named). The index sets in question are:\n");
+			for(auto id2 : index_set->union_of) {
+				auto set = catalog->index_sets[id2];
+				error_print("\"", set->name, "\" ");
+			}
+			error_print("\nThis error often happens if some index sets are not provided in the data set and are auto-generated. Try to provide data for all index sets in the data set. If data is provided for all, check that they are of the same data type.");
+			mobius_error_exit();
 		}
 	}
 	

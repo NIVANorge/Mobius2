@@ -2002,9 +2002,14 @@ Model_Application::compose_and_resolve() {
 		// NOTE: We have disallowed in_flux lookups in initial code and specific_target code for now.
 		auto replace_flag = is_out ? Identifier_FT::Flags::out_flux : Identifier_FT::Flags::in_flux;
 		for(auto rep_id : in_flux.second) {
+			auto var0 = vars[rep_id];
+			if(!var0->is_valid()) continue; // Can happen if a connection flux has no targets for instance
+			
 			auto var = as<State_Var::Type::declared>(vars[rep_id]);
 			if(var->function_tree)
 				replace_flagged(var->function_tree.get(), target_id, in_flux_id, replace_flag, connection);
+			if(var->initial_function_tree)
+				replace_flagged(var->initial_function_tree.get(), target_id, in_flux_id, replace_flag, connection);
 		}
 	}
 	
