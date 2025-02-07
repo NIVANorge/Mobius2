@@ -596,7 +596,7 @@ Index_Data::get_instance_count(const std::vector<Entity_Id> &index_sets) {
 }
 
 std::string
-Index_Data::get_index_name_base(Index_T index, Index_T index_of_super, bool *is_quotable) {
+Index_Data::get_index_name_base(Index_T index, Index_T index_of_super, bool *is_quotable, bool numeric_plain) {
 	auto &data = index_data[index.index_set.id];
 	
 	// TODO: Remove this once we fix MobiView2
@@ -611,8 +611,10 @@ Index_Data::get_index_name_base(Index_T index, Index_T index_of_super, bool *is_
 			if(index.index > 0)
 				from = data.pos_vals[index.index-1];
 			double to = data.pos_vals[index.index];
-			sprintf(buf, "%.15g-%.15g", from, to);
-			//sprintf(buf, ".15g", from);
+			if(numeric_plain)
+				sprintf(buf, "%.15g", from);
+			else
+				sprintf(buf, "%.15g-%.15g", from, to);
 			return buf;
 		} else
 			return std::to_string(index.index);
@@ -630,7 +632,7 @@ Index_Data::get_index_name_base(Index_T index, Index_T index_of_super, bool *is_
 }
 
 std::string
-Index_Data::get_index_name(Indexes &indexes, Index_T index, bool *is_quotable) {
+Index_Data::get_index_name(Indexes &indexes, Index_T index, bool *is_quotable, bool numeric_plain) {
 	
 	auto index_set = catalog->index_sets[index.index_set];
 	Index_T index_of_super = Index_T::no_index();
@@ -649,10 +651,10 @@ Index_Data::get_index_name(Indexes &indexes, Index_T index, bool *is_quotable) {
 	
 	if(!index_set->union_of.empty() && data.type == Index_Record::Type::named) {
 		Index_T below = lower(index, index_of_super);
-		return get_index_name_base(below, index_of_super, is_quotable);
+		return get_index_name_base(below, index_of_super, is_quotable, numeric_plain);
 	}
 	
-	return get_index_name_base(index, index_of_super, is_quotable);
+	return get_index_name_base(index, index_of_super, is_quotable, numeric_plain);
 }
 
 std::string

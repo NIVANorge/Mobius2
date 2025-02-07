@@ -107,7 +107,7 @@ Index_Data {
 	void check_valid_distribution(std::vector<Entity_Id> &index_sets, Source_Location source_loc);
 	s64 get_instance_count(const std::vector<Entity_Id> &index_sets);
 	
-	std::string get_index_name(Indexes &indexes, Index_T index, bool *is_quotable = nullptr);
+	std::string get_index_name(Indexes &indexes, Index_T index, bool *is_quotable = nullptr, bool numeric_plain = false);
 	std::string get_possibly_quoted_index_name(Indexes &indexes, Index_T index, bool quote = true);
 	void get_index_names(Indexes &indexes, std::vector<std::string> &names_out, bool quote = false);
 	
@@ -143,7 +143,7 @@ private :
 	
 	Index_T find_index_base(Entity_Id index_set, Token *idx_name, Index_T index_of_super = Index_T::no_index());
 	s32   get_count_base(Entity_Id index_set, Index_T index_of_super = Index_T::no_index());
-	std::string get_index_name_base(Index_T index, Index_T index_of_super, bool *is_quotable);
+	std::string get_index_name_base(Index_T index, Index_T index_of_super, bool *is_quotable, bool numeric_plain=false);
 	
 	void initialize(Entity_Id index_set_id, Index_T parent_idx, Index_Record::Type type, Source_Location source_loc);
 	

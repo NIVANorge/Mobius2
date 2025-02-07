@@ -131,7 +131,7 @@ def load_dll() :
 	dll.mobius_get_steps.argtypes = [ctypes.c_void_p, ctypes.c_int32]
 	dll.mobius_get_steps.restype = ctypes.c_int64
 
-	dll.mobius_run_model.argtypes = [ctypes.c_void_p, ctypes.c_int64]
+	dll.mobius_run_model.argtypes = [ctypes.c_void_p, ctypes.c_int64, ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_double)]
 	dll.mobius_run_model.restype = ctypes.c_bool
 
 	dll.mobius_get_time_step_size.argtypes = [ctypes.c_void_p]
@@ -201,14 +201,14 @@ def load_dll() :
 	
 	dll.mobius_index_names.argtypes = [ctypes.c_void_p, Entity_Id, ctypes.POINTER(Mobius_Index_Value)]
 	
-	#dll.mobius_allow_logging.argtypes = [ctypes.c_bool]
+	dll.mobius_allow_logging.argtypes = [ctypes.c_bool]
 	
 	return dll
 
 dll = load_dll()
 
-#def toggle_logging(allow) :
-#	dll.mobius_allow_logging(allow)
+def allow_logging(allow=True) :
+	dll.mobius_allow_logging(allow)
 
 def _check_for_errors() :
 	buflen = 1024
@@ -390,6 +390,11 @@ class Scope :
 		return [(id.decode('utf-8'), n.decode('utf-8')) for id, n in zip(idents, names)]
 		
 
+# TODO: Maybe make something nicer here.
+@ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_double)
+def _run_logger(_p, percent) :
+	print("Run progress: %g%%"%percent)
+
 class Model_Application(Scope) :
 	def __init__(self, data_ptr, is_main) :
 		super().__init__(data_ptr, invalid_entity_id)
@@ -431,8 +436,12 @@ class Model_Application(Scope) :
 		new_ptr = dll.mobius_copy_data(self.data_ptr, copy_results)
 		return Model_Application(new_ptr, False)
 		
-	def run(self, ms_timeout=-1) :
-		finished = dll.mobius_run_model(self.data_ptr, ms_timeout)
+	def run(self, ms_timeout=-1, log=False) :
+		if log :
+			finished = dll.mobius_run_model(self.data_ptr, ms_timeout, _run_logger)
+		else :
+			no_cb = ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_double)(0)
+			finished = dll.mobius_run_model(self.data_ptr, ms_timeout, no_cb)
 		_check_for_errors()
 		return finished
 		

@@ -1297,7 +1297,7 @@ write_component_ref(Data_Set *data_set, Scope_Writer *writer, Compartment_Ref &r
 			auto index_set = data_set->index_sets[index_set_id];
 			
 			bool quote;
-			std::string index_name = data_set->index_data.get_index_name(ref.indexes, ref.indexes.indexes[idx], &quote);
+			std::string index_name = data_set->index_data.get_index_name(ref.indexes, ref.indexes.indexes[idx], &quote, true);
 			maybe_quote(index_name, quote);
 			
 			writer->write(" %s", index_name.data());

@@ -1101,7 +1101,13 @@ get_unit_conversion(Model_Application *app, Var_Location &loc1, Var_Location &lo
 	
 	if(!found_conv && need_conv) {
 		// TODO: Better error if it is a connection_aggregate, not a flux.
-		fatal_error(Mobius_Error::model_building, "The units of the source and target of the flux \"", app->vars[flux_id]->name, "\" are not the same, but no unit conversion are provided between them in the model.");
+		begin_error(Mobius_Error::model_building);
+		error_print("A unit conversion is needed between the two following locations since there is a flux between them:\n");
+		error_print_location(model, loc1);
+		error_print("\n");
+		error_print_location(model, loc2);
+		mobius_error_exit();
+		//fatal_error(Mobius_Error::model_building, "The units of the source and target of the flux \"", app->vars[flux_id]->name, "\" are not the same, but no unit conversion are provided between them in the model.");
 	}
 	
 	auto ast   = found_conv->code;
@@ -1138,6 +1144,7 @@ add_connection_agg_weights(Model_Application *app, std::vector<Conversion_Data> 
 	Conversion_Data data;
 	data.source_id = app->vars.id_of(loc1);
 	data.weight = owns_code(get_aggregation_weight(app, loc1, target_comp, conn_id));
+	// TODO: It passes the target_var_id, but the function expects a flux_id. This only matters for the error message that is printed though.
 	data.unit_conv = owns_code(get_unit_conversion(app, loc1, loc2, target_var_id));
 	if(data.weight || data.unit_conv) conv_data.push_back(std::move(data));
 }

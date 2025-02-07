@@ -139,10 +139,10 @@ mobius_save_data_set(Model_Data *data, char *data_file) {
 }
 
 DLLEXPORT bool
-mobius_run_model(Model_Data *data, s64 ms_timeout) {
+mobius_run_model(Model_Data *data, s64 ms_timeout, run_callback_type run_callback) {
 	
 	try {
-		return run_model(data, ms_timeout);
+		return run_model(data, ms_timeout, false, run_callback);
 	} catch(int) {}
 	return false;
 }

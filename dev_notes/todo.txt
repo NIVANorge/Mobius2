@@ -2,6 +2,15 @@
 
 	*** High pri ***
 	
+		Make functionality to patch in data from a sub-model in a data set.
+			E.g. you have a setup for Simply+NIVAFjord and you want to patch in from a different file that just has the Simply part of the setup.
+			Should not be an "include" on file level, because that causes too much ambiguity about how this should be saved if overwritten.
+			Instead, make it an explicit operation accessible from API (thus MobiView2 and/or mobipy).
+			void patch(Data_Set *target, Data_Set *source); // Or something like that.
+			
+			This is useful because often you calibrate the catchment separately (runs much faster alone), then want to combine the new results with the full basin model.
+				Is currently done with text copy pasting, but can be a bit tiresome.
+			
 		Store name of expected model file in data sets (?)
 			Then allow loading that file only, and it infers the model it needs.
 				Would probably only work if it is in /Mobius2/models/

@@ -956,7 +956,8 @@ pre_process_connection_data(Model_Application *app, Data_Set *data_set, Entity_I
 		// NOTE: We still have to allow it to be edge indexed even if max outgoing <= 1 since that is dependent on the data, not on the model.
 	}
 	
-	match_regex(app, conn_id, connection_data->source_loc);
+	// TODO: This is broken, needs to be fixed.
+	//match_regex(app, conn_id, connection_data->source_loc);
 }
 
 void

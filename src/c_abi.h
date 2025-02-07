@@ -80,7 +80,7 @@ DLLEXPORT void
 mobius_save_data_set(Model_Data *data, char *data_file);
 
 DLLEXPORT bool
-mobius_run_model(Model_Data *data, s64 ms_timeout);
+mobius_run_model(Model_Data *data, s64 ms_timeout, run_callback_type run_callback);
 
 DLLEXPORT s64
 mobius_get_steps(Model_Data *data, Var_Id::Type type);

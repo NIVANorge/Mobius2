@@ -134,9 +134,10 @@ end
 
 finalize!(data::Model_Data) = free(data)
 
+# TODO: Could allow callback here too..
 function run_model(data::Model_Data, ms_timeout::Int64=-1)::Bool
-	result = ccall(run_model_h, Cint, (Ptr{Cvoid}, Clonglong),
-		data.ptr, ms_timeout)
+	result = ccall(run_model_h, Cint, (Ptr{Cvoid}, Clonglong, Ptr{Cvoid}),
+		data.ptr, ms_timeout, C_NULL)
 	check_error()
 	return result
 end

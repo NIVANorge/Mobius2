@@ -28,7 +28,8 @@ model("NIVAFjord-SimplyCNP") {
 		a_vap : property,
 		s_vap : property,
 		rho : property,
-		sol : solver
+		sol : solver,
+		gw_st : connection,
 	)
 	
 	air        : compartment("Atmosphere", wb_index)
@@ -54,5 +55,33 @@ model("NIVAFjord-SimplyCNP") {
 	horz : connection("Fjord horizontal") @directed_graph(e_idx) { 
 		(river? layer+ bnd_layer?) | river
 	} @no_cycles
+	
+	option(gw_module.karstic) {
+		
+		# Allow connecting subterranean groundwater flow directly to ocean/lake basins.
+		gw_st : connection("Groundwater subterranean") @directed_graph {
+			gw+ layer
+		} @no_cycles
+		
+		unit_conversion(gw.water, layer.water) { a_catch->> }
+		
+		# TODO: Maybe factor out
+		# Needed since we have direct discharge from gw to lake
+		module("Groundwater temp and O2", version(0,0,0)) {
+			
+			load("stdlib/physiochemistry.txt", library("Water utils"))
+			
+			var(gw.water.heat, [J, k m-2], "Groundwater heat") @override {
+				t := aggregate(soil.temp),
+				V := 1[k m 2]*gw.water -> [m 3],
+				(water_temp_to_heat(V, t) / 1[k m 2]) ->>
+			}
+			
+			var(gw.water.o2, [k g, k m-2], "Groundwater oxygen") @override_conc {
+				conc(river.water.o2) # TODO: do something else here?
+			}
+		}
+		
+	}
 }
 
