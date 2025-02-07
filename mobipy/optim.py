@@ -328,3 +328,14 @@ def run_minimizer(app, params, set_params, residual_fun, method='nelder', use_in
 	set_params(app, res.params)
 	
 	return res
+	
+def are_params_near_bounds(params, reltol=0.01, upper_only=True) :
+	
+	which = []
+	for name in params :
+		par = params[name]
+		tol = (par.max - par.min)*reltol
+		if np.abs(par.max - par.value)<=tol or ((not upper_only) and (np.abs(par.min - par.value)<=tol)) :
+			which.append(par.name)
+			
+	return which

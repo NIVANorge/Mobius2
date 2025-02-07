@@ -93,6 +93,37 @@ module("SimplyQ groundwater", version(0, 5, 0),
 	flux(gw.water, gw_target, [m m, day-1], "Groundwater runoff")           {   max(0, water-gw_ret) / tc_g   }
 }
 
+module("SimplyQ groundwater karstic", version(0, 0, 0),
+	gw : compartment,
+	river : compartment,
+	water : quantity,
+	flow : property,
+	gw_target : loc,
+	gw_st : connection,
+) {
+	par_group("Groundwater", gw) {
+		tc_g    : par_real("Groundwater time constant", [day],          30,  1,  400)
+		gw_ret  : par_real("Groundwater retention volume", [m m],        0,  1, 1e4)
+		gw_stf  : par_real("Groundwater subterranean flow fraction", [], 0, 0, 1)
+	}
+	
+	par_group("Groundwater extraction", gw) {
+		gw_ext   : par_real("Groundwater extraction", [m m, day-1], 0, 0, 500)
+	}
+	
+	load("stdlib/basic_math.txt", library("Response"))
+	
+	flux(gw.water, out, [m m, day-1], "Groundwater extraction rate") { gw_ext*s_response(gw.water, 0, 10[m m], 0, 1) }
+	
+	var(gw.water,   [m m], "Groundwater volume") @initial { gw_ret }
+	
+	var(gw.water.flow, [m m, day-1], "Groundwater flow") { max(0, water-gw_ret) / tc_g }
+	
+	flux(gw.water, gw_target, [m m, day-1], "Groundwater runoff") { (1-gw_stf)*flow }
+	
+	flux(gw.water, gw_st, [m m, day-1], "Groundwater subterranean flow") { gw_stf*flow }
+}
+
 module("SimplyQ river", version(0, 5, 0),
 	river : compartment,
 	water : quantity,

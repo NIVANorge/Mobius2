@@ -17,4 +17,29 @@ model("SimplyCNP") {
 	load("modules/organic_np.txt",
 		om_cnp : preamble("Organic CNP land"),
 		module("Simple organic NP", river, water, oc, sed, on, op, tn, tp, tdp, om_cnp))
+		
+	option(n_soil.two) {
+		
+		# This is a bit temporary to allow for using SimplyCNP with two soil boxes, but it is not that fleshed out.
+		# TODO: This should probably be refactored into a module file
+		
+		module("SimplyCNP deep soil", version(0,0,0)) {
+			var(soil2.water.din, [k g, k m-2], [m g, l-1], "Deep soil DIN") @initial_conc { conc(soil.water.din) }
+			
+			# Not sure if we need the deep soil loss ..
+			
+			par_group("DIN deep soil") {
+				din_loss : par_real("Deep soil DIN loss rate", [day-1], 0)
+			}
+			
+			flux(soil2.water.din, out, [k g, k m-2, day-1], "Deep soil DIN loss") { din*din_loss }
+			
+			# TODO: Could set a different conc here?
+			var(soil2.water.phos, [k g, k m-2], [m g, l-1], "Deep soil DIP") @override_conc { 
+				conc(soil.water.phos)
+			}
+			
+			var(soil2.water.oc, [k g, k m-2], [m g, l-1], "Deep soil DOC") # Hmm we actually call the groundwater in SimplyC for deep soil..
+		}
+	}
 }

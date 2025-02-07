@@ -18,6 +18,7 @@ typedef int16_t s16;
 typedef int8_t  s8;
 
 extern bool mobius_developer_mode;
+extern bool allow_logging;
 
 enum class
 Mobius_Error {
@@ -61,6 +62,7 @@ error_print(T value, V... tail) {
 
 template<typename T, typename... V> inline void
 log_print(T value, V... tail) {
+	if(!allow_logging) return;
 	global_log_stream << value;
 	log_print(tail...);
 }
@@ -82,6 +84,7 @@ error_print(T value, V... tail) {
 
 template<typename T, typename... V> inline void
 log_print(T value, V... tail) {
+	if(!allow_logging) return;
 	std::cout << value;
 	log_print(tail...);
 }
@@ -90,7 +93,6 @@ inline void
 mobius_error_exit() {
 	error_print("\n\n");
 	exit(1);
-	// TODO: For internal errors we should provide a stack trace here (if that is feasible).
 }
 #endif
 

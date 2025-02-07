@@ -201,10 +201,14 @@ def load_dll() :
 	
 	dll.mobius_index_names.argtypes = [ctypes.c_void_p, Entity_Id, ctypes.POINTER(Mobius_Index_Value)]
 	
+	#dll.mobius_allow_logging.argtypes = [ctypes.c_bool]
+	
 	return dll
 
 dll = load_dll()
 
+#def toggle_logging(allow) :
+#	dll.mobius_allow_logging(allow)
 
 def _check_for_errors() :
 	buflen = 1024

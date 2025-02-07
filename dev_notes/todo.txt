@@ -2,6 +2,11 @@
 
 	*** High pri ***
 	
+		Store name of expected model file in data sets (?)
+			Then allow loading that file only, and it infers the model it needs.
+				Would probably only work if it is in /Mobius2/models/
+			But mainly it is useful documentation.
+	
 		We need an all_in_flux and all_out_flux or similar.
 			For instance, SimplyP could be broken if it is used with soil discharge along a connection since it uses out_flux (and it can't know about the connections).
 		

@@ -1,5 +1,43 @@
 
 
+## How to make index set resizing API (including in mobipy.., where you would most often call it from).
+
+	data = mobipy.Data_Set.from_file('file.dat')
+	
+	data.resize({
+		'Subcatchment' : ['A', 'B'],
+	})
+	
+	# One difficulty is if some series data has index set dependencies
+	# What happens if you then save the data set. It should probably not be allowed to overwrite series data files by default
+	# Maybe if some files have dependencies on resized index sets, it requires you to provide an argument with new names for those files (which could be identical to the old names if you wish)
+	
+	# Sub-indexed index sets and unions are still tricky in this case. Probably not difficult exactly, but a lot of extra work.
+	
+	# What parameter values to put at new indexes
+	# The easiest is to just take the default value from the model at first.
+	# Could make an option to copy another existing value in the data set (index tuple provided at the call somehow)
+	
+	# How to update connections?
+	# Maybe best to pass in the new connection data to the resize function?
+		# Easiest to pass it as text?
+			, connections = {
+				'Downstream' : ('r['A']->r['B'] r['C']->out')
+			}
+		# etc.
+	# Easiest default (in case of no replacement data) is to delete all arrows that involve a missing index.
+	
+	
+	# In this call, detect the type of data (is it string or a Data_Set object) (should take ownership of it, invalidating the data object).
+	app = mobipy.Model_Application.from_model_and_data_file('model.txt', data)
+	
+	
+	# What about editing series data in the data_set, not just in the model app? (so that edits are saved).
+	# 	A bit problematic due to the many possible formats it could take.
+
+
+
+
 
 
 ## Model options (that compile in or out whole declaration paths)

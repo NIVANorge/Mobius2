@@ -61,6 +61,9 @@ mobius_encountered_error(char *msg_out, s64 buf_len);
 DLLEXPORT s64
 mobius_encountered_log(char *msg_out, s64 buf_len);
 
+DLLEXPORT void
+mobius_allow_logging(bool allow);
+
 DLLEXPORT Model_Data *
 mobius_build_from_model_and_data_file(char * model_file, char * data_file, char *base_path, Mobius_Base_Config *cfg);
 

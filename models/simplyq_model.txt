@@ -2,10 +2,11 @@
 model("SimplyQ") {
 
 	option_group("SimplyQ configuration") {
-		pet_module : par_enum("PET module", degree_day) { degree_day penman_monteith }
+		pet_module   : par_enum("PET module", degree_day) { degree_day penman_monteith }
 		river_module : par_enum("River discharge module", simple) { simple trapezoid manual }
+		gw_module    : par_enum("Groundwater module", simple) { simple karstic }
+		n_soil       : par_enum("N soil layers", one) { one two }
 	}
-
 
 	sc       : index_set("Subcatchment")
 	lu       : index_set("Landscape units")
@@ -43,10 +44,27 @@ model("SimplyQ") {
 	###### Import modules
 	load("modules/hbv_snow.txt",  module("HBVSnow", air, snow_box, snow, water, temp, precip, loc(soil.water)))
 	
-	load("modules/simplyq.txt",   
-		module("SimplyQ land", soil, water, flow, pet, loc(gw.water), loc(river.water), constant(true)),
-		module("SimplyQ groundwater", gw, river, water, flow, loc(river.water), a_catch)
-	)
+	option(n_soil.one) {
+		load("modules/simplyq.txt", module("SimplyQ land", soil, water, flow, pet, loc(gw.water), loc(river.water), constant(true)))
+	}
+	option(n_soil.two) {
+		soil2    : compartment("Deep soil",   sc, lu)
+		load("modules/simplyq.txt",
+			module("SimplyQ land", soil, water, flow, pet, loc(soil2.water), loc(river.water), constant(true)),
+			module("SimplyQ land", "SimplyQ deep soil", soil2, water, flow, pet, loc(gw.water), loc(river.water), constant(false))
+		)
+	}
+	
+	option(gw_module.simple) {
+		load("modules/simplyq.txt", module("SimplyQ groundwater", gw, river, water, flow, loc(river.water), a_catch))
+	}
+	option(gw_module.karstic) {
+		gw_st : connection("Groundwater subterranean") @directed_graph { gw+ out } @no_cycles
+		
+		aggregation_weight(gw, gw, gw_st) { a_catch / a_catch[below] }
+	
+		load("modules/simplyq.txt", module("SimplyQ groundwater karstic", gw, river, water, flow, loc(river.water), gw_st))
+	}
 	
 	option(river_module.simple) {
 		load("modules/simplyq.txt", module("SimplyQ river", river, water, flow, loc(downstream)))
@@ -93,7 +111,6 @@ model("SimplyQ") {
 	unit_conversion(soil.water, river.water) { a_catch }
 	unit_conversion(gw.water, river.water)   { a_catch }
 	
-	
 	###### Set ODE solvers
 	
 	#par_group("Solver configuration") {
@@ -105,6 +122,15 @@ model("SimplyQ") {
 	#sol : solver("Simply solver", euler, solver_h, solver_hmin)
 	
 	solve(sol, soil.water, gw.water, river.water)
+	
+	
+	option(n_soil.two) {
+		aggregation_weight(soil2, gw)    { lu_prop }
+		aggregation_weight(soil2, river)  { lu_prop }
+		unit_conversion(soil2.water, river.water) { a_catch }
+		
+		solve(sol, soil2.water)
+	}
 	
 }
 

@@ -12,6 +12,7 @@
 
 std::stringstream global_error_stream;
 std::stringstream global_log_stream;
+bool allow_logging = true;
 
 void
 check_index_set_amount(Model_Application *app, const std::vector<Entity_Id> &index_sets, s64 indexes_count) {
@@ -76,6 +77,11 @@ mobius_encountered_log(char *msg_out, s64 buf_len) {
 	global_log_stream.getline(msg_out, buf_len, 0);
 	global_log_stream.clear(); // NOTE: see comment in mobius_encountered_error
 	return strlen(msg_out);
+}
+
+DLLEXPORT void
+mobius_allow_logging(bool allow) {
+	allow_logging = allow;
 }
 
 DLLEXPORT Model_Data *
