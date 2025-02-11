@@ -65,20 +65,28 @@ model("NIVAFjord-SimplyCNP") {
 		
 		unit_conversion(gw.water, layer.water) { a_catch->> }
 		
-		# TODO: Maybe factor out
+		# TODO: Maybe factor out this module
 		# Needed since we have direct discharge from gw to lake
-		module("Groundwater temp and O2", version(0,0,0)) {
+		module("Groundwater temp and O2", version(0, 0, 0)) {
 			
 			load("stdlib/physiochemistry.txt", library("Water utils"))
+			load("stdlib/physiochemistry.txt", library("Chemistry"))
+			load("stdlib/seawater.txt", library("Sea oxygen"))
+			
+			#par_group("Groundwater temp and O2") {
+			#	t_gw     : par_real("Groundwater temperature", [deg_c], 12)
+			#	o2sat_gw : par_real("Groundwater O2 saturation", [], 0.5)
+			#}
 			
 			var(gw.water.heat, [J, k m-2], "Groundwater heat") @override {
-				t := aggregate(soil.temp),
+				t_gw := aggregate(soil.temp),
 				V := 1[k m 2]*gw.water -> [m 3],
-				(water_temp_to_heat(V, t) / 1[k m 2]) ->>
+				(water_temp_to_heat(V, t_gw) / 1[k m 2]) ->>
 			}
 			
-			var(gw.water.o2, [k g, k m-2], "Groundwater oxygen") @override_conc {
+			var(gw.water.o2, [k g, k m-2], [m g, l-1], "Groundwater oxygen") @override_conc {
 				conc(river.water.o2) # TODO: do something else here?
+				#o2sat_gw*o2_saturation_concentration(t_gw, 0) * o2_mol_mass ->>
 			}
 		}
 		
