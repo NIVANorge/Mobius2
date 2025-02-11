@@ -162,6 +162,18 @@ get_extension(String_View file_name, bool *success) {
 
 
 String_View
+get_file_name(String_View path) {
+	int len = path.count;
+	String_View file_name;
+	file_name.data = path.data + len;
+	file_name.count = 0;
+	while(!is_slash(*file_name.data) && path.data != file_name.data) { --file_name.data; ++file_name.count; }
+	if(is_slash(*file_name.data)) { ++file_name.data; --file_name.count; }
+	return file_name;
+}
+
+
+String_View
 File_Data_Handler::load_file(String_View file_name, Source_Location from, String_View relative_to, std::string *normalized_path_out) {
 	String_View load_name = file_name;
 	if(relative_to.count)

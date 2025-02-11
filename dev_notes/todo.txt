@@ -10,11 +10,6 @@
 			
 			This is useful because often you calibrate the catchment separately (runs much faster alone), then want to combine the new results with the full basin model.
 				Is currently done with text copy pasting, but can be a bit tiresome.
-			
-		Store name of expected model file in data sets (?)
-			Then allow loading that file only, and it infers the model it needs.
-				Would probably only work if it is in /Mobius2/models/
-			But mainly it is useful documentation.
 	
 		We need an all_in_flux and all_out_flux or similar.
 			For instance, SimplyP could be broken if it is used with soil discharge along a connection since it uses out_flux (and it can't know about the connections).
@@ -185,7 +180,12 @@
 	
 	
 	*** Intermediate-pri ***
-	
+		
+		Store name of expected model file in data sets (?)
+			Done now as a comment, for documentation purposes only.
+			Could make it more structural, allow loading that file only, and it infers the model it needs.
+				Would probably only work if it is in /Mobius2/models/
+		
 		It may be confusing to users what arguments are available for 'option'. This is because if you use a declared identifier that has not been processed yet, it will say that it doesn't recognize the identifier. It is legitimate that there is an error, but the error can't (for resons) acknowledge that the identifier exists but is not usable in this context.
 		
 		We could probably simplify a lot of things by switching from our custom String_View to std::string_view ??

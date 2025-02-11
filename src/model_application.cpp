@@ -1146,6 +1146,8 @@ Model_Application::save_to_data_set(Model_Data *save_from) {
 	// NOTE: This only saves parameter data. Other structural data should be edited in the data_set, not in the model_application
 	//   (not implemented yet).
 	
+	data_set->last_model_file = get_file_name(model->path);
+	
 	for(auto module_id : model->modules) {
 		auto module = model->modules[module_id];
 		auto module_data_id = map_id(model, data_set, module_id);

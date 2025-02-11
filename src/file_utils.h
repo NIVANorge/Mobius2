@@ -21,6 +21,9 @@ make_path_relative_to(String_View file_name, String_View relative_to);
 String_View
 get_extension(String_View file_name, bool *success);
 
+String_View
+get_file_name(String_View path);
+
 std::string
 standardize_base_path(String_View path);
 

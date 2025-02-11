@@ -1612,6 +1612,11 @@ Data_Set::write_to_file(String_View file_name) {
 		Scope_Writer writer;
 		writer.file = file;
 		
+		if(!last_model_file.empty()) {
+			writer.write("# Saved from model : \"%s\"", last_model_file.c_str());
+			writer.newline(2, false);
+		}
+		
 		writer.write("data_set ");
 		writer.open_scope('{');
 	

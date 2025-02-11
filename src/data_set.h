@@ -187,7 +187,7 @@ Data_Set : Catalog {
 	
 	Index_Data                      index_data;
 	
-	// NOTE: The step unit could be stored as a Registration, but we are ever only going to want to have one.
+	// NOTE: The step unit and series interval could be stored as a Registration, but we are ever only going to want to have one of each.
 	Source_Location                 unit_source_loc;
 	Unit_Data                       time_step_unit;
 	bool                            time_step_was_provided = false;
@@ -195,6 +195,8 @@ Data_Set : Catalog {
 	Date_Time                       series_begin;
 	Date_Time                       series_end;
 	bool                            series_interval_was_provided = false;
+	
+	std::string                     last_model_file = "";
 	
 	
 	void read_from_file(String_View file_name);
