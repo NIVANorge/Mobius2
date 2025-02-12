@@ -1,0 +1,30 @@
+
+model("NIVAFjord-SimplyCNP-Glacier") {
+
+	# Configure NIVAFjord to not have outer open boundaries (since we use it as a lake model here)
+	has_boundaries : constant(false)
+	
+	# We replace how the snow module is loaded because we want to fit a glacier in between
+	use_default_snow : constant(false)
+	
+	extend("../nivafjord_simplycnp_model.txt") @exclude(
+		has_boundaries : constant,
+		use_default_snow : constant,
+	)
+	
+	# Declare the glacier compartment and distribute it over subcatchment and landscape type.
+	glacier : compartment("Glacier", sc, lu)
+	
+	# Load the snow module, configured so that the glacier is between the snow and soil box.
+	load("modules/hbv_snow.txt",
+		module("HBVSnow", air, snow_box, snow, water, temp, precip, loc(glacier.water)))
+	
+	# Load the glacier module
+	load("modules/simply_glacier.txt", 
+		module("SimplyGlacier", air, glacier, snow_box, soil, river, ice, snow, water, temp, flow))
+	
+	unit_conversion(glacier.water, river.water) { a_catch }
+	
+	# Add a module for the lake to discharge out of the system.
+	load("modules/nivafjord/lake_discharge.txt", module("NIVAFjord lake discharge", basin, layer, water, dz, vert, dims))
+}
