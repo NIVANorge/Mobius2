@@ -1,4 +1,4 @@
-# Saved from model : "nivafjord_lake_simplyc_glacier.txt"
+# Saved from model : "nivafjord_lake_simplycnp_glacier.txt"
 
 data_set {
 	time_step([day])
@@ -392,7 +392,7 @@ data_set {
 		par_group("River erosion") {
 			
 			par_real("Erosion scaling factor") 
-			[ 15 ]
+			[ 1 ]
 			
 			par_real("Erosion power factor") 
 			[ 2 ]
