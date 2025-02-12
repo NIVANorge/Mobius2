@@ -12,7 +12,7 @@ model("SimplyQ") {
 	lu       : index_set("Landscape units")
 	
 	air      : compartment("Atmosphere",  sc)
-	snow_box : compartment("Snow layer",  sc)
+	snow_box : compartment("Snow layer",  sc, lu)
 	soil     : compartment("Soil",        sc, lu)
 	gw       : compartment("Groundwater", sc)
 	river    : compartment("River",       sc)
@@ -42,7 +42,13 @@ model("SimplyQ") {
 	} @no_cycles
 	
 	###### Import modules
-	load("modules/hbv_snow.txt",  module("HBVSnow", air, snow_box, snow, water, temp, precip, loc(soil.water)))
+	
+	# This can be overridden by extending models if they want to replace the snow module
+	use_default_snow : constant(true)
+	
+	option(use_default_snow) {
+		load("modules/hbv_snow.txt",  module("HBVSnow", air, snow_box, snow, water, temp, precip, loc(soil.water)))
+	}
 	
 	option(n_soil.one) {
 		load("modules/simplyq.txt", module("SimplyQ land", soil, water, flow, pet, loc(gw.water), loc(river.water), constant(true)))

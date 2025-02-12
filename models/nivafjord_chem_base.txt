@@ -11,9 +11,9 @@ This won't run as its own model, it is just a base for model extension.
 	phyt_type : index_set("Phytoplankton type") #Not currently used..
 	
 	option_group("FjordChem configurations") {
-		compute_dic : par_bool("Compute DIC (CO₂, CH₄)", true)
+		compute_dic   : par_bool("Compute DIC (CO₂, CH₄)", true)
 		point_sources : par_enum("Point sources type", none) { none constant dynamic }
-		phyt_module : par_enum("Phytoplankton module", equilibrium) { equilibrium exponential }
+		phyt_module   : par_enum("Phytoplankton module", equilibrium) { equilibrium exponential }
 		# Eventually we could have other configurations, like include zooplankton, type of phyto module, allow multiple phyto species etc.
 	}
 	

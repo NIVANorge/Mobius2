@@ -34,16 +34,21 @@ model("NIVAFjord-SimplyCNP") {
 	
 	air        : compartment("Atmosphere", wb_index)
 	
-	edge       : compartment("Basin edge",       basin_idx, e_idx)
-	edge_layer : compartment("Basin edge layer", basin_idx, e_idx, layer_idx)
+	option(has_boundaries) {
+		edge       : compartment("Basin edge",       basin_idx, e_idx)
+		edge_layer : compartment("Basin edge layer", basin_idx, e_idx, layer_idx)
+		
+		load("modules/nivafjord/horizontal_fluxes.txt",
+			module("NIVAFjord horizontal fluxes", basin, bnd_basin, layer, bnd_layer, edge, edge_layer, water, salt, temp, salinity, rho, pressure, dz, h, horz, vert, dims)
+		)
+	}
 	
 	load("modules/nivafjord/horizontal_fluxes.txt",
-		module("NIVAFjord horizontal fluxes", basin, bnd_basin, layer, bnd_layer, edge, edge_layer, water, salt, temp, salinity, rho, pressure, dz, h, horz, vert, dims),
 		module("NIVAFjord river inputs", river, layer, water, salt, temp, salinity, rho, flow, horz, vert),
 		module("NIVAFjord simple realignment", basin, layer, water, dz, vert, dims)
 	)
 	
-	load("modules/easylake/easychem.txt",
+	load("modules/rivertemp_o2.txt",
 		module("Simple River O₂", river, water, o2, temp))
 	
 	wb_index : index_set("Water body") @union(sc, basin_idx)
@@ -52,11 +57,18 @@ model("NIVAFjord-SimplyCNP") {
 		river+
 	} @no_cycles
 	
-	horz : connection("Fjord horizontal") @directed_graph(e_idx) { 
-		(river? layer+ bnd_layer?) | river
-	} @no_cycles
+	option(has_boundaries) {
+		horz : connection("Fjord horizontal") @directed_graph(e_idx) { 
+			(river? layer+ bnd_layer?) | river
+		} @no_cycles
+	} @otherwise {
+		horz : connection("Fjord horizontal") @directed_graph { 
+			(river? layer) | river
+		} @no_cycles
+	}
 	
 	option(gw_module.karstic) {
+		# This is a bit hastily thrown in for now, should be refactored
 		
 		# Allow connecting subterranean groundwater flow directly to ocean/lake basins.
 		gw_st : connection("Groundwater subterranean") @directed_graph {

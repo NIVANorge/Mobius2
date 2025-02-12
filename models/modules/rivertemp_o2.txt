@@ -40,3 +40,30 @@ Authors: Magnus D. Norling
 	}
 	
 }
+
+module("Simple River O₂", version(0, 1, 1),
+	river : compartment,
+	water : quantity,
+	o2    : quantity,
+	temp : property
+) {
+"""
+The purpose of this module is only to provide oxygen inputs to EasyChem and NIVAFjord.
+
+Authors: Magnus D. Norling
+"""
+	
+	load("stdlib/seawater.txt", library("Sea oxygen"))
+	load("stdlib/physiochemistry.txt", library("Chemistry"))
+	
+	par_group("River oxygen") {
+		f_o2sat    : par_real("Catchment O₂ saturation fraction", [], 0.9, 0, 1)
+	}
+
+	var(river.water.o2, [k g], [m g, l-1], "River oxygen") 
+	
+	flux(out, river.water.o2, [k g, day-1], "River oxygen from catchment") {
+		catch_conc := f_o2sat*o2_saturation_concentration(temp, 0) * o2_mol_mass,
+		in_flux(water)*catch_conc->>
+	}
+}

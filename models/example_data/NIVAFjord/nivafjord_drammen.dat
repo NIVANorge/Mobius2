@@ -1,3 +1,5 @@
+# Saved from model : "nivafjord_simplycnp_model.txt"
+
 data_set {
 	
 """
@@ -5,6 +7,8 @@ NOTE: Breiangen is set to be this shallow (12 m) because for boundary basins we 
 """
 	
 	time_step([day])
+	
+	series("nivafjord_drammen.xlsx")
 	
 	basin : index_set("Basin index") [ "Drammensfjorden" ]
 	
@@ -25,10 +29,7 @@ NOTE: Breiangen is set to be this shallow (12 m) because for boundary basins we 
 	
 	index_set("Water body") @union(sc, basin) 
 	
-	#position_map(layer) [!
-	#	0 : 1
-	#	20 : 5
-	#]
+	phyt_type : index_set("Phytoplankton type") [ 1 ]
 	
 	connection("Downstream") {
 		
@@ -46,8 +47,6 @@ NOTE: Breiangen is set to be this shallow (12 m) because for boundary basins we 
 			r[ "Drammenselva" ] -> l[ "Drammensfjorden" ] -> b[ "Breiangen" ]
 		]
 	}
-	
-	series("nivafjord_drammen.xlsx")
 	
 	par_group("System") {
 		
@@ -84,6 +83,42 @@ NOTE: Breiangen is set to be this shallow (12 m) because for boundary basins we 
 	
 	}
 	
+	option_group("SimplyQ configuration") {
+		
+		par_enum("PET module") 
+		[ degree_day ]
+		
+		par_enum("River discharge module") 
+		[ simple ]
+		
+		par_enum("Groundwater module") 
+		[ simple ]
+		
+		par_enum("N soil layers") 
+		[ one ]
+	
+	}
+	
+	option_group("NIVAFjord configurations") {
+		
+		par_bool("Allow extraction") 
+		[ false ]
+	
+	}
+	
+	option_group("FjordChem configurations") {
+		
+		par_bool("Compute DIC (CO₂, CH₄)") 
+		[ true ]
+		
+		par_enum("Point sources type") 
+		[ none ]
+		
+		par_enum("Phytoplankton module") 
+		[ equilibrium ]
+	
+	}
+	
 	preamble("NIVAFjord dimensions", version(0, 0, 0)) {
 		
 		par_group("Layer area", basin, layer) {
@@ -105,15 +140,12 @@ NOTE: Breiangen is set to be this shallow (12 m) because for boundary basins we 
 	
 	}
 	
-	module("NIVAFjord basin", version(0, 0, 2)) {
+	module("NIVAFjord basin", version(0, 0, 3)) {
 		
 		par_group("Mixing parameters") {
 			
 			par_real("Brunt-Väisälä frequency reference") 
 			[ 0.008 ]
-			
-			par_real("Mixing factor reference") 
-			[ 0.0001 ]
 			
 			par_real("Mixing non-linear coefficient") 
 			[ 1.4 ]
@@ -143,6 +175,18 @@ NOTE: Breiangen is set to be this shallow (12 m) because for boundary basins we 
 			]
 		
 		}
+		
+		par_group("Layer specific mixing", basin, layer) {
+			
+			par_real("Mixing factor reference") [
+				5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 
+			]
+			
+			par_real("Mixing factor reference under ice") [
+				5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 5e-05 
+			]
+		
+		}
 	
 	}
 	
@@ -155,6 +199,25 @@ NOTE: Breiangen is set to be this shallow (12 m) because for boundary basins we 
 			
 			par_real("Elevation") 
 			[ 0 ]
+			
+			par_real("Longitude") 
+			[ 10 ]
+			
+			par_real("GMT zone") 
+			[ 1 ]
+		
+		}
+		
+		par_group("Radiation") {
+			
+			par_real("Cloud absorption scaling factor") 
+			[ 0.75 ]
+			
+			par_real("Cloud absorption power factor") 
+			[ 3.4 ]
+			
+			par_bool("Use sub-daily precision") 
+			[ false ]
 		
 		}
 	
@@ -222,7 +285,7 @@ NOTE: Breiangen is set to be this shallow (12 m) because for boundary basins we 
 	
 	}
 	
-	module("SimplyQ land", version(0, 5, 0)) {
+	module("SimplyQ land", version(0, 5, 1)) {
 		
 		par_group("Hydrology general") {
 			
@@ -231,6 +294,9 @@ NOTE: Breiangen is set to be this shallow (12 m) because for boundary basins we 
 			
 			par_real("Quick flow inflection point") 
 			[ 1000 ]
+			
+			par_real("Permanent wilting point as fraction of field capacity") 
+			[ 0.5 ]
 		
 		}
 		
@@ -243,16 +309,6 @@ NOTE: Breiangen is set to be this shallow (12 m) because for boundary basins we 
 			par_real("Soil water time constant") [
 				6 
 			]
-		
-		}
-		
-		par_group("Groundwater") {
-			
-			par_real("Groundwater time constant") 
-			[ 70 ]
-			
-			par_real("Groundwater retention volume") 
-			[ 0 ]
 		
 		}
 	
@@ -310,15 +366,12 @@ NOTE: Breiangen is set to be this shallow (12 m) because for boundary basins we 
 	
 	}
 	
-	module("NIVAFjord horizontal fluxes", version(0, 0, 1)) {
+	module("NIVAFjord horizontal fluxes", version(0, 0, 2)) {
 		
 		par_group("Horizontal exchange") {
 			
 			par_real("Pressure difference flow coefficient") 
 			[ 0.1 ]
-			
-			par_real("Vertical realignment rate") 
-			[ 20 ]
 		
 		}
 		
@@ -382,15 +435,9 @@ NOTE: Breiangen is set to be this shallow (12 m) because for boundary basins we 
 	
 	}
 	
-	module("SimplyN", version(0, 0, 4)) {
+	module("SimplyN", version(0, 0, 6)) {
 		
 		par_group("DIN universal params") {
-			
-			par_real("Soilwater DIN uptake rate at 20°C") 
-			[ 0.01 ]
-			
-			par_real("Soilwater DIN uptake rate response to 10°C change (Q10)") 
-			[ 2 ]
 			
 			par_enum("Groundwater DIN computation type") 
 			[ mass_bal ]
@@ -403,6 +450,12 @@ NOTE: Breiangen is set to be this shallow (12 m) because for boundary basins we 
 			
 			par_real("(Q10) Reach denitrification rate response to 10°C change in temperature") 
 			[ 1 ]
+			
+			par_real("Soilwater DIN retention rate at 20°C") 
+			[ 0.01 ]
+			
+			par_real("Soilwater DIN retention rate response to 10°C change (Q10)") 
+			[ 2 ]
 		
 		}
 		
@@ -410,10 +463,6 @@ NOTE: Breiangen is set to be this shallow (12 m) because for boundary basins we 
 			
 			par_real("Initial soilwater DIN concentration") [
 				0 
-			]
-			
-			par_real("Net annual DIN input to soil") [
-				15 
 			]
 			
 			par_int("Fertilizer addition day") [
@@ -427,19 +476,16 @@ NOTE: Breiangen is set to be this shallow (12 m) because for boundary basins we 
 			par_real("Fertilizer DIN release") [
 				0.04 
 			]
-		
-		}
-		
-		par_group("River DIN", sc) {
 			
-			par_real("Reach effluent DIN inputs") 
-			[ 0 ]
+			par_real("Annual non-agricultural DIN input to soil") [
+				15 
+			]
 		
 		}
 	
 	}
 	
-	module("SimplyP", version(0, 6, 0)) {
+	module("SimplyP", version(0, 7, 0)) {
 		
 		par_group("P general") {
 			
@@ -483,13 +529,6 @@ NOTE: Breiangen is set to be this shallow (12 m) because for boundary basins we 
 			[ 0.01 ]
 		
 		}
-		
-		par_group("River P", sc) {
-			
-			par_real("Effluent TDP inputs") 
-			[ 0 ]
-		
-		}
 	
 	}
 	
@@ -504,37 +543,14 @@ NOTE: Breiangen is set to be this shallow (12 m) because for boundary basins we 
 			par_real("Initial DOC concentration") [
 				0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
 			]
-		
-		}
-		
-		par_group("Phytoplankton") {
 			
-			par_real("Chl-a of phyto at equilibrium") 
-			[ 0.01 ]
+			par_real("Initial suspended sediment concentration") [
+				0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
+			]
 			
-			par_real("Q10 of Phyto equilibrium") 
-			[ 2 ]
-			
-			par_real("Phytoplankton turnover rate") 
-			[ 0.2 ]
-			
-			par_real("Optimal PAR intensity") 
-			[ 100 ]
-			
-			par_real("Half-saturation for nutrient uptake") 
-			[ 1.65625 ]
-			
-			par_real("Chl-a fraction") 
-			[ 2 ]
-			
-			par_real("Phytoplankton excretion rate") 
-			[ 0.01 ]
-			
-			par_real("Molar C/N ratio in Phytoplankton") 
-			[ 6.625 ]
-			
-			par_real("Molar C/P ratio in Phytoplankton") 
-			[ 106 ]
+			par_real("Initial particle organic carbon content") [
+				0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
+			]
 		
 		}
 		
@@ -637,7 +653,7 @@ NOTE: Breiangen is set to be this shallow (12 m) because for boundary basins we 
 	
 	}
 	
-	module("NIVAFjord sediments", version(0, 0, 2)) {
+	module("NIVAFjord sediments", version(0, 0, 4)) {
 		
 		par_group("Sediments") {
 			
@@ -658,17 +674,44 @@ NOTE: Breiangen is set to be this shallow (12 m) because for boundary basins we 
 				10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 
 			]
 			
-			par_real("Initial sediment N fraction") [
-				1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 
-			]
-			
 			par_real("Initial sediment IP fraction") [
 				1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 
 			]
 			
-			par_real("Initial sediment OP fraction") [
-				0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 
+			par_real("Initial sediment C/N molar fraction") [
+				6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 
 			]
+			
+			par_real("Initial sediment (organic) C/P molar fraction") [
+				106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 106 
+			]
+			
+			par_real("Sediment pore water DOC concentration") [
+				5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 
+			]
+		
+		}
+		
+		par_group("Biochemistry") {
+			
+			par_real("Sediment relative microbial rate") 
+			[ 1 ]
+			
+			par_real("Sediment CH4 production scaler") 
+			[ 0.01 ]
+			
+			par_real("Bubble CH4 formation coefficient") 
+			[ 0.5 ]
+		
+		}
+		
+		par_group("Sediment temperature") {
+			
+			par_real("Thickness of thermally active sediment layer") 
+			[ 0.5 ]
+			
+			par_real("Deep sediment temperature") 
+			[ 8 ]
 		
 		}
 	
@@ -688,7 +731,7 @@ NOTE: Breiangen is set to be this shallow (12 m) because for boundary basins we 
 	
 	}
 	
-	preamble("NIVAFjord chemistry rates", version(0, 0, 0)) {
+	preamble("NIVAFjord chemistry rates", version(0, 0, 1)) {
 		
 		par_group("Oxygen") {
 			
@@ -735,6 +778,144 @@ NOTE: Breiangen is set to be this shallow (12 m) because for boundary basins we 
 			
 			par_real("PO4 sorption rate") 
 			[ 0.01 ]
+		
+		}
+	
+	}
+	
+	preamble("Phytoplankton parameters Fjord", version(0, 0, 0)) {
+		
+		par_group("Phytoplankton") {
+			
+			par_real("Chl-a of phyto at equilibrium") 
+			[ 0.01 ]
+			
+			par_real("Q10 of Phyto equilibrium") 
+			[ 2 ]
+			
+			par_real("Phytoplankton turnover rate") 
+			[ 0.2 ]
+			
+			par_real("Optimal PAR intensity") 
+			[ 100 ]
+			
+			par_real("Half-saturation for nutrient uptake") 
+			[ 1.65625 ]
+			
+			par_real("Molar C/N ratio in Phytoplankton") 
+			[ 16 ]
+			
+			par_real("Molar C/P ratio in Phytoplankton") 
+			[ 106 ]
+			
+			par_real("Phytoplankton excretion rate") 
+			[ 0.01 ]
+			
+			par_real("Chl-a fraction") 
+			[ 2 ]
+		
+		}
+		
+		par_group("Basin specific phytoplankton", basin) {
+			
+			par_real("Phytoplankton amenability") 
+			[ 1 ]
+		
+		}
+	
+	}
+	
+	module("SimplyQ groundwater", version(0, 5, 0)) {
+		
+		par_group("Groundwater", sc) {
+			
+			par_real("Groundwater time constant") 
+			[ 30 ]
+			
+			par_real("Groundwater retention volume") 
+			[ 0 ]
+		
+		}
+		
+		par_group("Groundwater extraction", sc) {
+			
+			par_real("Groundwater extraction") 
+			[ 0 ]
+		
+		}
+	
+	}
+	
+	module("River point source DIN", version(0, 0, 0)) {
+		
+		par_group("River point source inputs", sc) {
+			
+			par_real("Point source input rate") 
+			[ 0 ]
+		
+		}
+		
+		par_group("Point source apportionment parameters") {
+			
+			par_real("Point source flow mobilization scaler") 
+			[ 0.1 ]
+		
+		}
+	
+	}
+	
+	module("River point source TDP", version(0, 0, 0)) {
+		
+		par_group("River point source inputs", sc) {
+			
+			par_real("Point source input rate") 
+			[ 0 ]
+		
+		}
+		
+		par_group("Point source apportionment parameters") {
+			
+			par_real("Point source flow mobilization scaler") 
+			[ 0.1 ]
+		
+		}
+	
+	}
+	
+	module("NIVAFjord river inputs", version(0, 0, 0)) {
+		
+		par_group("River to fjord") {
+			
+			par_real("River max discharge layer") 
+			[ 10 ]
+		
+		}
+	
+	}
+	
+	module("NIVAFjord simple realignment", version(0, 0, 1)) {
+		
+		par_group("Layer realignment") {
+			
+			par_real("Vertical realignment rate") 
+			[ 50 ]
+		
+		}
+	
+	}
+	
+	module("NIVAFjord boundary chemistry", version(0, 0, 0)) {
+		
+		par_group("Boundary organic matter") {
+			
+			par_real("Molar C/N ratio in boundary OM") 
+			[ 6.625 ]
+			
+			par_real("Molar C/P ratio in boundary OM") 
+			[ 106 ]
+			
+			par_real("Particle organic carbon fraction") 
+			[ 0.5 ]
 		
 		}
 	
