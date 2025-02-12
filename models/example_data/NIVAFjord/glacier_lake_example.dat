@@ -374,7 +374,7 @@ data_set {
 			[ 0.65 0.65 ]
 			
 			par_real("Reduction of load in sediment") 
-			[ 0 0 ]
+			[ 0 1 ]
 			
 			par_enum("Cover factor shape") 
 			[ flat flat ]

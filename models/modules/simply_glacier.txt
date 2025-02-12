@@ -29,22 +29,22 @@ Authors: Leah A. Jackson-Blake, Magnus D. Norling
 		init_ice : par_real("Initial ice thickness", [m m], 0)
 	}
 	
-	ice_epsilon : constant("Ice epsilon", [m m], 1e-6)  # Just for safe testing of ice thickness > 0
+	ice_epsilon : constant("Ice epsilon", [m m], 1e-6)  # Just for numerically safe testing of ice thickness > 0
 	t_melt      : constant("Ice melt temperature", [deg_c], 0)  # Could be made a parameter
 	
 	# Variables
 	var(glacier.ice, [m m], "Glacier ice") @initial { init_ice }
 	
-	var(glacier.water, [m m], "Glacier compartment water")
+	var(glacier.water, [m m], "Glacier melt water")
 	
-	var(glacier.water.flow, [m m, day-1], "Glacier compartment inflow") {
+	var(glacier.water.flow, [m m, day-1], "Glacier melt water flow") {
 		in_flux(water)
 	}
 	
 	# Seibert et al. (2018) have a more complex version of this, varying with snow
 	# depth. However, don't have glacier melt unless snow is gone, so simplify for now
 	# https://hess.copernicus.org/articles/22/2211/2018/
-	#var(glacier.water.flow, [m m, day-1], "Glacier compartment flow") {
+	#var(glacier.water.flow, [m m, day-1], "Glacier melt water flow") {
 		#water * (K_min + K_range * exp(-A_G * aggregate(snow_box.snow)))            
 	#}
 	
