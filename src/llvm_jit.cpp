@@ -220,7 +220,6 @@ jit_compile_module(LLVM_Module_Data *data, std::string *output_string) {
 	pb.crossRegisterProxies(lam, fam, cgam, mam);
 
 	llvm::ModulePassManager mpm = pb.buildPerModuleDefaultPipeline(llvm::OptimizationLevel::O2);
-		
 	mpm.run(*data->module, mam);
 	
 	if(output_string) {
@@ -271,7 +270,13 @@ get_jitted_batch_function(const std::string &fun_name) {
 	return nullptr;
 }
 
-typedef Scope_Local_Vars<llvm::Value *, llvm::BasicBlock *> Scope_Data;
+struct
+LLVM_Local_Var {
+	llvm::Value *val;
+	Math_Expr_FT *expr;
+};
+
+typedef Scope_Local_Vars<LLVM_Local_Var, llvm::BasicBlock *> Scope_Data;
 
 llvm::Value *build_expression_ir(Math_Expr_FT *expr, Scope_Data *scope, std::vector<llvm::Value *> &args, LLVM_Module_Data *data);
 
@@ -639,7 +644,7 @@ build_for_loop_ir(Math_Expr_FT *n, Math_Expr_FT *body, Scope_Data *loop_local, s
 	// Create the iterator
 	llvm::PHINode *iter = data->builder->CreatePHI(llvm::Type::getInt64Ty(*data->context), 2, "index");
 	iter->addIncoming(start_val, pre_header_block);
-	loop_local->values[0] = iter;
+	loop_local->values[0] = {iter, nullptr};
 	
 	// Insert the loop body
 	build_expression_ir(body, loop_local, args, data);
@@ -743,18 +748,6 @@ build_external_computation_ir(Math_Expr_FT *expr, Scope_Data *locals, std::vecto
 	}
 	
 	arguments.push_back(alloc);
-	/*
-	for(int idx = 0; idx < n_call_args; ++idx) {
-		auto alloc = data->builder->CreateAlloca(struct_ty);
-		auto val = data->builder->CreateStructGEP(struct_ty, alloc, 0);
-		data->builder->CreateStore(valptrs[idx], val);
-		auto stride = data->builder->CreateStructGEP(struct_ty, alloc, 1);
-		data->builder->CreateStore(strides[idx], stride);
-		auto count = data->builder->CreateStructGEP(struct_ty, alloc, 2);
-		data->builder->CreateStore(counts[idx], count);
-		arguments.push_back(alloc);
-	}
-	*/
 	
 	data->builder->CreateCall(external_fun, arguments);
 	
@@ -789,9 +782,9 @@ build_expression_ir(Math_Expr_FT *expr, Scope_Data *locals, std::vector<llvm::Va
 				for(auto sub_expr : expr->exprs) {
 					if(sub_expr->expr_type == Math_Expr_Type::local_var) {
 						auto local = static_cast<Local_Var_FT *>(sub_expr);
-						if(local->is_used) { // Probably unnecessary since it should have been pruned away in that case.
+						if(local->is_used) { // Probably unnecessary since it should have been pruned away if unused
 							result = build_expression_ir(sub_expr, &new_locals, args, data);
-							new_locals.values[local->id] = result;
+							new_locals.values[local->id] = {result, sub_expr->exprs[0]};
 						}
 					} else
 						result = build_expression_ir(sub_expr, &new_locals, args, data);
@@ -813,7 +806,8 @@ build_expression_ir(Math_Expr_FT *expr, Scope_Data *locals, std::vector<llvm::Va
 		
 		case Math_Expr_Type::local_var_assignment : {
 			auto assign = static_cast<Assignment_FT *>(expr);
-			auto local = find_local_var(locals, assign->local_var);
+			auto loc = find_local_var(locals, assign->local_var);
+			auto local = loc.val;
 			if(!local->getType()->isPointerTy())
 				fatal_error(Mobius_Error::internal, "LLVM, trying to reassign a value to a local var that was not set up for it.");
 			auto value = build_expression_ir(expr->exprs[0], locals, args, data);
@@ -856,7 +850,8 @@ build_expression_ir(Math_Expr_FT *expr, Scope_Data *locals, std::vector<llvm::Va
 				result = data->builder->CreateLoad(double_ty, result, "var");
 		
 			} else if(ident->variable_type == Variable_Type::local) {
-				result = find_local_var(locals, ident->local_var);
+				auto local = find_local_var(locals, ident->local_var);
+				result = local.val;
 				if(!result)
 					fatal_error(Mobius_Error::internal, "A local var was not initialized in ir building.");
 				if(result->getType()->isPointerTy()) {
@@ -1011,6 +1006,39 @@ build_expression_ir(Math_Expr_FT *expr, Scope_Data *locals, std::vector<llvm::Va
 			data->builder->CreateBr(scope_up->scope_value);
 			return nullptr;
 		} break;
+		
+		case Math_Expr_Type::tuple : {
+			std::vector<llvm::Value *> elems;
+			std::vector<llvm::Type *> elem_types;
+			for(auto ex : expr->exprs) {
+				elem_types.push_back(get_llvm_type(ex->value_type, data));
+				elems.push_back(build_expression_ir(ex, locals, args, data));
+			}
+			auto struct_ty = llvm::StructType::get(*data->context, elem_types);
+			auto strct = data->builder->CreateAlloca(struct_ty, nullptr, "tuple");
+			for(int idx = 0; idx < elems.size(); ++idx) {
+				auto val = data->builder->CreateStructGEP(struct_ty, strct, idx);
+				data->builder->CreateStore(elems[idx], val);
+			}
+			return strct;
+		};
+		
+		case Math_Expr_Type::access_tuple_element : {
+			auto access = static_cast<Access_Tuple_Element_FT *>(expr);
+			auto local = find_local_var(locals, access->tuple_id);
+			auto strct = local.val;
+			auto tuple = find_tuple(local.expr);
+			
+			std::vector<llvm::Type *> elem_types;
+			for(auto ex : tuple->exprs) {
+				elem_types.push_back(get_llvm_type(ex->value_type, data));
+			}
+			auto struct_ty = llvm::StructType::get(*data->context, elem_types);
+			
+			auto val = data->builder->CreateStructGEP(struct_ty, strct, access->element_index);
+			auto argty = get_llvm_type(access->value_type, data);
+			return data->builder->CreateLoad(argty, val, "tuple_elem");
+		};
 		
 		case Math_Expr_Type::no_op : {
 			//auto *fun = llvm::Intrinsic::getDeclaration(data->module.get(), llvm::Intrinsic::donothing, {});

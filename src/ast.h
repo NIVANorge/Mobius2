@@ -190,6 +190,13 @@ Iterate_AST : Math_Expr_AST {
 	Iterate_AST() : Math_Expr_AST(Math_Expr_Type::iterate) {};
 };
 
+// TODO: should it be unified with Local_Var_AST ?
+struct
+Unpack_Tuple_AST : Math_Expr_AST {
+	std::vector<Token>  names;
+	Unpack_Tuple_AST() : Math_Expr_AST(Math_Expr_Type::unpack_tuple) {};
+};
+
 struct
 Regex_Body_AST : Body_AST {
 	Math_Expr_AST               *expr;

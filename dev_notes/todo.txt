@@ -14,7 +14,6 @@
 		We need an all_in_flux and all_out_flux or similar.
 			For instance, SimplyP could be broken if it is used with soil discharge along a connection since it uses out_flux (and it can't know about the connections).
 		
-		If an input series is provided indexed over "subcatchment", but should be indexed over "water body" and "subcatchment" is a union member of "water body", that should be made to work. (and all similar cases) Just re-map the index.
 	
 		If you load different modules using the same load name, you don't get a name clash!
 			This is as intended if the two loads are identical (so that you can extend two models that load the same module)
@@ -67,9 +66,6 @@
 			Lots of duplication between the different airsea things in general.
 				The FPV versions should be able to reuse some of what is in the plain versions without code duplication.
 			
-			The combining of phytoplankton module for NIVAFjord and EasyLake does not work that well in the Vansjø setup
-				Due to having made certain assumptions about N and C balance of these. Too much POC and PON from phyto.
-			
 			NIVAFjord
 				
 				Vertical wind mixing using B-V. See page 45 in report 4.
@@ -94,11 +90,6 @@
 						Sulfate reduction?
 						Zooplankton?
 						Experiment with different phytoplankton formulation.
-				
-			EasyChem
-							
-				Shading effect on phyto light availability (light should be more like an average in the epilimnion taking into account attenuation).
-					But that would also be problematic since it is quite uneven but the resulting phyto conc isn't.
 			
 		Connection system
 		
@@ -117,6 +108,9 @@
 			graph connections
 				
 				Regex
+					Maybe just remove this feature since it is too complex for the value we get out of it.
+						Just keep the necessary parts like checking what compartments are allowed and no cycles in case of no_cycles.
+				
 					Finish regex check in the general case (cycles case)
 					
 					Regex checking of fjord_horizontal regex is bugged for nivafjord_moss
@@ -180,6 +174,8 @@
 	
 	
 	*** Intermediate-pri ***
+	
+		If an input series is provided indexed over "subcatchment", but should be indexed over "water body" and "subcatchment" is a union member of "water body", that should be made to work. (and all similar cases) Just re-map the index.
 		
 		Store name of expected model file in data sets (?)
 			Done now as a comment, for documentation purposes only.
@@ -244,7 +240,11 @@
 		Multiple return values from functions (tuples). Needed if we want to implement MAGIC entirely in Mobius2 code for instance.
 			Only annoying thing is that we then have to introduce 'tuple(N)' to the type system and check against it everywhere it is not allowed.
 				A possible solution is to force it to be unpacked immediately at the call location of the function. I.e. if a function returns a tuple, you can only call it using something like
-					a, b := fun(),
+					a; b := fun(),
+				which de-sugars internally to
+					t := fun()
+					a := unpack(t, 0)
+					b := unpack(t, 1)
 	
 		Position_Map
 			There can be problems if the max depth doesn't exactly match a boundary of two widths.

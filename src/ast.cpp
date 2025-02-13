@@ -706,6 +706,25 @@ parse_math_block(Token_Stream *stream) {
 			stream->expect_token(',');
 			local_var->exprs.push_back(expr);
 			block->exprs.push_back(local_var);
+		} else if (token.type == Token_Type::identifier && ((char)token2.type == ';')) {
+			auto unpack = new Unpack_Tuple_AST();
+			unpack->names.push_back(token);
+			stream->read_token(); stream->read_token();
+			while(true) {
+				token = stream->expect_token(Token_Type::identifier);
+				token2 = stream->read_token();
+				unpack->names.push_back(token);
+				if(token2.type == Token_Type::def)
+					break;
+				else if((char)token2.type != ';') {
+					token2.print_error_header();
+					fatal_error("Expected a ';' to continue the naming of tuple elements, or a ':=' for the assignment.");
+				}
+			}
+			auto expr = parse_math_expr(stream);
+			stream->expect_token(',');
+			unpack->exprs.push_back(expr);
+			block->exprs.push_back(unpack);
 		} else {
 			auto expr = parse_potential_if_expr(stream);
 			block->exprs.push_back(expr);

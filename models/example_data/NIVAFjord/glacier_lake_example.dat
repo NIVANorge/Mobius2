@@ -522,7 +522,7 @@ data_set {
 		par_group("Light") {
 			
 			par_real("Diffuse attenuation coefficent (clear water)") 
-			[ 0.15 ]
+			[ 0.4 ]
 			
 			par_real("Shading factor") 
 			[ 0.003 ]

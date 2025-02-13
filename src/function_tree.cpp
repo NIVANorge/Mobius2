@@ -92,7 +92,7 @@ add_local_var(Math_Block_FT *scope, Math_Expr_FT *val) {
 	// NOTE: this should only be called on a block that is under construction.
 	auto local = new Local_Var_FT();
 	local->exprs.push_back(val);
-	local->value_type = val->value_type;
+	local->value_type = Value_Type::none;//val->value_type;
 	local->is_used = true;
 	s32 id = scope->n_locals;
 	local->id = id;
@@ -270,18 +270,83 @@ void fixup_intrinsic(Function_Call_FT *fun, Token *name) {
 	}
 }
 
+Tuple_FT *
+find_tuple(Math_Expr_FT *tuple) {
+	if(tuple->expr_type == Math_Expr_Type::block)
+		return find_tuple(tuple->exprs.back());
+	else if(tuple->expr_type == Math_Expr_Type::tuple)
+		return static_cast<Tuple_FT *>(tuple);
+	tuple->source_loc.print_error_header();
+	fatal_error(Mobius_Error::internal, "Unable to find tuple referenced by value.");
+	return nullptr;
+}
+
+void
+resolve_add_expr(Math_Expr_FT *parent, Math_Expr_FT *child, Standardized_Unit &unit, Function_Scope *scope, std::vector<Standardized_Unit> &units) {
+	
+	// If we get an "unpack tuple" we desugar it to a local var holding the tuple and other local vars accessing the elements of that tuple.
+	// TODO: Move this to a separate function to make it cleaner?
+	if(child->expr_type == Math_Expr_Type::unpack_tuple) {
+		// TODO: Assert the types are correct?
+		auto unpack = static_cast<Unpack_Tuple_FT *>(child);
+		auto tuple = find_tuple(unpack->exprs[0]);
+		
+		if(unpack->names.size() != tuple->exprs.size()) {
+			unpack->source_loc.print_error_header();
+			fatal_error("Incorrect number of elements in tuple unpacking. Expected ", tuple->exprs.size(), ".");
+		}
+		
+		auto tuple_local = new Local_Var_FT();
+		tuple_local->name = "_tuple_"; // This should only be relevant for debug printing. Maybe make a better name??
+		tuple_local->source_loc = unpack->source_loc;
+		tuple_local->value_type = Value_Type::none;//Value_Type::tuple;
+		tuple_local->is_used = true; // Protect it from being removed.
+		tuple_local->exprs.push_back(unpack->exprs[0]);
+		
+		Standardized_Unit no_unit = {};
+		resolve_add_expr(parent, tuple_local, no_unit, scope, units);
+		// The id of the tuple local should now have been resolved by the nested call to resolve_add_expr above.
+		Local_Var_Id tuple_id = { scope->block->unique_block_id, tuple_local->id };
+		
+		for(int idx = 0; idx < tuple->exprs.size(); ++idx) {
+			auto local = new Local_Var_FT();
+			auto access = new Access_Tuple_Element_FT();
+			
+			access->source_loc = unpack->source_loc;
+			access->value_type = tuple->exprs[idx]->value_type;
+			access->element_index = idx;
+			access->tuple_id = tuple_id;
+			
+			local->source_loc = unpack->source_loc;
+			local->value_type = Value_Type::none;//access->value_type;
+			local->name = unpack->names[idx];
+			local->exprs.push_back(access);
+			
+			resolve_add_expr(parent, local, tuple->element_units[idx], scope, units);
+		}
+		
+		unpack->exprs.clear(); // So that the tuple itself is not deleted recursively.
+		delete unpack; // This one is not used in itself.
+		
+		return;
+	}
+	
+	parent->exprs.push_back(child);
+	if(child->expr_type == Math_Expr_Type::local_var) {
+		auto local = static_cast<Local_Var_FT *>(child);
+		local->id = scope->block->n_locals++;
+		scope->local_var_units[local->id] = unit;
+	}
+	units.push_back(unit);
+}
+
 void
 resolve_arguments(Math_Expr_FT *ft, Math_Expr_AST *ast, Function_Resolve_Data *data, Function_Scope *scope, std::vector<Standardized_Unit> &units) {
 	//TODO allow error check on expected number of arguments
 	for(auto arg : ast->exprs) {
 		auto result = resolve_function_tree(arg, data, scope);
-		ft->exprs.push_back(result.fun);
-		if(result.fun->expr_type == Math_Expr_Type::local_var) {
-			auto local = static_cast<Local_Var_FT *>(result.fun);
-			local->id = scope->block->n_locals++;
-			scope->local_var_units[local->id] = result.unit;
-		}
-		units.push_back(std::move(result.unit));
+		
+		resolve_add_expr(ft, result.fun, result.unit, scope, units);
 	}
 }
 
@@ -578,7 +643,7 @@ arguments_must_be_values(Math_Expr_FT *expr, Function_Scope *scope) {
 	for(auto arg : expr->exprs) {
 		if(!is_value(arg->value_type)) {
 			arg->source_loc.print_error_header();
-			error_print("This expression argument must resolve to a value.");
+			error_print("This expression argument must resolve to a value, not '", name(arg->value_type), "'.");
 			fatal_error_trace(scope);
 		}
 	}
@@ -617,6 +682,7 @@ resolve_special_directive(Function_Call_AST *ast, Directive directive, Function_
 	
 	std::vector<Standardized_Unit> arg_units;
 	resolve_arguments(new_fun, ast, data, scope, arg_units);
+	
 	int allowed_arg_count = 1;
 	if(directive == Directive::in_flux || directive == Directive::out_flux)
 		allowed_arg_count = 2;
@@ -728,6 +794,17 @@ resolve_special_directive(Function_Call_AST *ast, Directive directive, Function_
 }
 
 void
+resolve_tuple(Function_Call_AST *ast, Function_Resolve_Data *data, Function_Scope *scope, Function_Resolve_Result &result) {
+	
+	auto new_tuple = new Tuple_FT();
+	new_tuple->source_loc = ast->source_loc;
+	new_tuple->value_type = Value_Type::tuple;
+	resolve_arguments(new_tuple, ast, data, scope, new_tuple->element_units);
+	
+	result.fun = new_tuple;
+}
+
+void
 resolve_function_call(Function_Call_AST *fun, Function_Resolve_Data *data, Function_Scope *scope, Function_Resolve_Result &result) {
 	
 	auto model = data->app->model;
@@ -824,7 +901,7 @@ resolve_function_call(Function_Call_AST *fun, Function_Resolve_Data *data, Funct
 			auto inlined_arg = new Local_Var_FT();
 			inlined_arg->exprs.push_back(arg);
 			inlined_arg->name = fun_decl->args[argidx];
-			inlined_arg->value_type = arg->value_type;
+			inlined_arg->value_type = Value_Type::none;//arg->value_type;
 			inlined_fun->exprs[argidx] = inlined_arg;
 			inlined_arg->id = argidx;
 			new_scope.local_var_units[argidx] = arg_units[argidx];
@@ -1146,6 +1223,8 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 			auto directive = get_special_directive(fun->name.string_value);
 			if(directive != Directive::none)
 				resolve_special_directive(fun, directive, data, scope, result);
+			else if(fun->name.string_value == "tuple")
+				resolve_tuple(fun, data, scope, result);
 			else
 				resolve_function_call(fun, data, scope, result);
 			
@@ -1245,11 +1324,18 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 				
 				if(new_type == Value_Type::real) value_type = Value_Type::real;
 				else if(new_type == Value_Type::integer && value_type == Value_Type::boolean) value_type = Value_Type::integer;
+				
+				if(new_type == Value_Type::tuple) {
+					new_if->exprs[idx]->source_loc.print_error_header();
+					error_print("The values in an 'if' expression can't be tuples currently. Instead, create the elements using separate if expressions, then pack them into a tuple after.");
+					fatal_error_trace(scope);
+				}
 			}
 			
 			if(value_type == Value_Type::iterate || value_type == Value_Type::none) {
 				ifexpr->source_loc.print_error_header();
 				error_print("At least one of the possible results of the 'if' expression must evaluate to a value.");
+				fatal_error_trace(scope);
 			}
 			
 			// Cast all possible result values up to the same type
@@ -1413,6 +1499,26 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 			result.unit = std::move(to_unit);
 		} break;
 		
+		case Math_Expr_Type::unpack_tuple : {
+			auto unpack = static_cast<Unpack_Tuple_AST *>(ast);
+			auto new_unpack = new Unpack_Tuple_FT();
+			new_unpack->value_type = Value_Type::none;
+			
+			std::vector<Standardized_Unit> arg_units;
+			resolve_arguments(new_unpack, ast, data, scope, arg_units);
+			
+			if(new_unpack->exprs[0]->value_type != Value_Type::tuple) {
+				ast->source_loc.print_error_header();
+				fatal_error("Tried to unpack something that is not a tuple.");
+			}
+			
+			for(auto &name : unpack->names)
+				new_unpack->names.push_back(name.string_value);
+			
+			result.fun = new_unpack;
+			
+		} break;
+		
 		default : {
 			fatal_error(Mobius_Error::internal, "Unhandled math expr type in resolve_function_tree().");
 		} break;
@@ -1505,6 +1611,14 @@ copy(Math_Expr_FT *source) {
 		case Math_Expr_Type::cast :
 		case Math_Expr_Type::no_op : {
 			result = copy_one<Math_Expr_FT>(source);
+		} break;
+		
+		case Math_Expr_Type::tuple : {
+			result = copy_one<Tuple_FT>(source);
+		} break;
+		
+		case Math_Expr_Type::access_tuple_element : {
+			result = copy_one<Access_Tuple_Element_FT>(source);
 		} break;
 		
 		default : {
@@ -1795,6 +1909,22 @@ print_tree_helper(Math_Expr_FT *expr, Print_Tree_Context *context, Print_Scope *
 			//} catch(int) {
 			//	os << "iterate " << "(missing)";
 			//}
+		} break;
+		
+		case Math_Expr_Type::tuple : {
+			os << "tuple(";
+			int idx = 0;
+			for(auto arg : expr->exprs) {
+				print_tree_helper(arg, context, scope, block_tabs);
+				if (idx++ != expr->exprs.size()-1) os << ", ";
+			}
+			os << ")";
+		} break;
+		
+		case Math_Expr_Type::access_tuple_element : {
+			auto access = static_cast<Access_Tuple_Element_FT *>(expr);
+			os << find_local_var(scope, access->tuple_id);
+			os << "[" << access->element_index << "]";
 		} break;
 		
 		case Math_Expr_Type::no_op : {

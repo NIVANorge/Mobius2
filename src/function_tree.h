@@ -169,6 +169,28 @@ Iterate_FT : Math_Expr_FT {
 	Iterate_FT() : Math_Expr_FT(Math_Expr_Type::iterate) {}
 };
 
+struct
+Tuple_FT : Math_Expr_FT {
+	// Unfortunately we have to store the units here even though they are only used during the resolution step.
+	std::vector<Standardized_Unit> element_units;
+	Tuple_FT() : Math_Expr_FT(Math_Expr_Type::tuple) {}
+};
+
+struct
+Unpack_Tuple_FT : Math_Expr_FT {
+	std::vector<std::string> names;
+	Unpack_Tuple_FT() : Math_Expr_FT(Math_Expr_Type::unpack_tuple) {}
+};
+
+struct
+Access_Tuple_Element_FT : Math_Expr_FT {
+	s32 element_index = -1;
+	Local_Var_Id tuple_id;
+
+	std::vector<Value_Type>  tuple_types;
+	Access_Tuple_Element_FT() : Math_Expr_FT(Math_Expr_Type::access_tuple_element) {}
+};
+
 
 typedef std::unique_ptr<Math_Expr_FT> owns_code;
 
@@ -281,6 +303,9 @@ prune_tree(Math_Expr_FT *expr);
 Math_Expr_FT *
 copy(Math_Expr_FT *source);
 
+
+Tuple_FT *
+find_tuple(Math_Expr_FT *tuple);
 
 Rational<s64>
 is_constant_rational(Math_Expr_FT *expr, Function_Scope *scope, bool *found);

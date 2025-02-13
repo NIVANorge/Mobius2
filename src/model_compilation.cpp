@@ -2000,6 +2000,7 @@ Model_Application::compile(bool store_code_strings) {
 	for(auto &batch : batches) {
 		Run_Batch new_batch;
 		new_batch.run_code = generate_run_code(this, &batch, instructions, false);
+		
 		if(is_valid(batch.solver)) {
 			new_batch.solver_id    = batch.solver;
 
