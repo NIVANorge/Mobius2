@@ -4,9 +4,6 @@ data_set {
 The doc string
 """
 	
-	i : index_set("I") [ 1 ]
-	j : index_set("J") [ 1 ]
-	
 	par_group("System") {
 		
 		par_datetime("Start date") 

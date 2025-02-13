@@ -701,7 +701,10 @@ create_conc_var(Model_Application *app, Var_Id var_id, Var_Id dissolved_in_id, E
 	auto dissolved_in = app->vars[dissolved_in_id];
 	
 	sprintf(varname, "concentration(%s, %s)", var_name.data(), dissolved_in->name.data());
-	Var_Id gen_conc_id = register_state_variable<State_Var::Type::dissolved_conc>(app, invalid_entity_id, false, varname);
+	
+	// Default the concentration variable to have the same storage setting as the main variable
+	bool store = app->vars[var_id]->store_series;
+	Var_Id gen_conc_id = register_state_variable<State_Var::Type::dissolved_conc>(app, invalid_entity_id, false, varname, !store);
 	auto conc_var = as<State_Var::Type::dissolved_conc>(app->vars[gen_conc_id]);
 	conc_var->conc_of = var_id;
 	conc_var->conc_in = dissolved_in_id;

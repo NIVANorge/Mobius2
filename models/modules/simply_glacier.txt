@@ -68,8 +68,8 @@ Authors: Leah A. Jackson-Blake, Magnus D. Norling
 		0                      otherwise
 	}
 			
-	flux(glacier.water, soil.water, [m m, day-1], "Input to soil water") {
+	flux(glacier.water, soil.water, [m m, day-1], "Glacial input to soil water") {
 		perc_frac*flow     if ice > ice_epsilon,
-		flow                  otherwise
+		flow               otherwise
 	}
 }

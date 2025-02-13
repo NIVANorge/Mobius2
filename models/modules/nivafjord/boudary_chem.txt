@@ -32,10 +32,9 @@ module("NIVAFjord boundary chemistry", version(0, 0, 0),
 	dipconc : property("DIP conc")
 	pocconc : property("POC conc")
 	
-	# Input series :
+	# In case data was not provided, assume boundary O2 is at saturation
+	# In general, it is better if it is provided as an input series.
 	var(bnd_layer.water.o2conc, [m g, l-1], "Boundary layer O₂ conc") {
-		#In case data was not provided, assume it is at saturation
-		#TODO: This is not a good idea except near surface?
 		o2_saturation_concentration(temp, salinity)*o2_mol_mass->>
 	}
 	
@@ -46,49 +45,49 @@ module("NIVAFjord boundary chemistry", version(0, 0, 0),
 	var(bnd_layer.water.pocconc, [m g, l-1], "Boundary layer POC conc")
 	
 	var(bnd_layer.water.o2, [k g], [m g, l-1], "Boundary layer O₂")
-		@override_conc { o2conc }
+		@override_conc { o2conc } @no_store
 	
 	var(bnd_layer.water.oc, [k g], [m g, l-1], "Boundary layer DOC")
-		@override_conc { docconc }
+		@override_conc { docconc } @no_store
 		
 	var(bnd_layer.water.din, [k g], [m g, l-1], "Boundary layer DIN")
-		@override_conc { dinconc }
+		@override_conc { dinconc } @no_store
 		
 	var(bnd_layer.water.on, [k g], [m g, l-1], "Boundary layer DON")
-		@override_conc { docconc / cn_molar_to_mass_ratio(bnd_cn)  }
+		@override_conc { docconc / cn_molar_to_mass_ratio(bnd_cn)  } @no_store
 		
 	var(bnd_layer.water.phos, [k g], [m g, l-1], "Boundary layer DIP")
-		@override_conc { dipconc }
+		@override_conc { dipconc } @no_store
 		
 	var(bnd_layer.water.op, [k g], [m g, l-1], "Boundary layer DOP")
-		@override_conc { docconc / cp_molar_to_mass_ratio(bnd_cp) }
+		@override_conc { docconc / cp_molar_to_mass_ratio(bnd_cp) } @no_store
 		
 	var(bnd_layer.water.phyt, [k g], [m g, l-1], "Boundary layer phytoplankton")
-		@override_conc { chl_a / chl_a_f ->> }
+		@override_conc { chl_a / chl_a_f ->> } @no_store
 		
 	var(bnd_layer.water.sed, [k g], [m g, l-1], "Boundary layer SS")
-		@override_conc { pocconc / pocfrac }
+		@override_conc { pocconc / pocfrac } @no_store
 		
 	var(bnd_layer.water.sed.oc, [k g], "Boundary layer POC")
-		@override_conc { pocfrac } # This is the concentration in water.sed
+		@override_conc { pocfrac } @no_store # This is the concentration in water.sed
 	
 	var(bnd_layer.water.sed.on, [k g], "Boundary layer PON")
-		@override_conc { pocfrac / cn_molar_to_mass_ratio(bnd_cn) }
+		@override_conc { pocfrac / cn_molar_to_mass_ratio(bnd_cn) } @no_store
 		
 	var(bnd_layer.water.sed.op, [k g], "Boundary layer POP")
-		@override_conc { pocfrac / cp_molar_to_mass_ratio(bnd_cp) }
+		@override_conc { pocfrac / cp_molar_to_mass_ratio(bnd_cp) } @no_store
 		
 	var(bnd_layer.water.sed.phos, [k g], "Boudary layer PIP")
-		@override_conc { 0=>> }  #TODO: What should this be?
+		@override_conc { 0=>> } @no_store #TODO: What should this be?
 		
 	var(bnd_layer.water.phyt.oc, [k g], "Boundary layer phytoplankton C")
-		@override_conc { 1 }
+		@override_conc { 1 } @no_store
 		
 	var(bnd_layer.water.phyt.on, [k g], "Boundary layer phytoplankton N")
-		@override_conc { 1 / cn_molar_to_mass_ratio(phyt_cn) }
+		@override_conc { 1 / cn_molar_to_mass_ratio(phyt_cn) } @no_store
 		
 	var(bnd_layer.water.phyt.op, [k g], "Boundary layer phytoplankton P")
-		@override_conc { 1 / cn_molar_to_mass_ratio(phyt_cp) }
+		@override_conc { 1 / cn_molar_to_mass_ratio(phyt_cp) } @no_store
 		
 	# TODO: CO2 and CH4
 	

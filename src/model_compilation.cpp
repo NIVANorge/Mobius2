@@ -913,9 +913,10 @@ basic_instruction_solver_configuration(Model_Application *app, std::vector<Model
 				}
 				continue;
 			}
-			if(!app->vars[var_id]->store_series) {
+			auto var = app->vars[var_id];
+			if(!var->store_series && var->is_mass_balance_quantity()) {
 				source_loc.print_error_header(Mobius_Error::model_building);
-				fatal_error("The variable \"", app->vars[var_id]->name, "\" was specified as @no_store, and so can not be put on a solver.");
+				fatal_error("The variable \"", app->vars[var_id]->name, "\" was specified as @no_store, and so can not be put on a solver (unless it is @override).");
 			}
 			instructions[var_id.id].solver = solver_id;
 		}
@@ -1956,8 +1957,17 @@ Model_Application::compile(bool store_code_strings) {
 				else
 					vars.push_back(var);
 			}
-			build_batch_arrays(this, vars,     instructions, batch.arrays,     false);
-			build_batch_arrays(this, vars_ode, instructions, batch.arrays_ode, false);
+			
+			if(vars_ode.empty()) {
+				// In some rare cases we could end up with no ODEs in a batch that was assigned a solver. In that case we can demote it to a discrete batch.
+				batch.solver = invalid_entity_id;
+				for(auto instr_id : batch.instrs)
+					instructions[instr_id].solver = invalid_entity_id;
+				build_batch_arrays(this, batch.instrs, instructions, batch.arrays, false);
+			} else {
+				build_batch_arrays(this, vars,     instructions, batch.arrays,     false);
+				build_batch_arrays(this, vars_ode, instructions, batch.arrays_ode, false);
+			}
 		}
 	}
 	

@@ -212,13 +212,34 @@ These are of the form
 <function-identifier>(<primary-expression>, .., <primary-expression>)
 ```
 
-The function has 0 or more arguments.
+A function takes 0 or more arguments.
 
 The function identifier identifies either a function declaration that is visible in the parent declaration scope, or an intrinsic function.
 
 If it is a declared function, it can have requirements about the units of the arguments, and the result will have the unit of the expression of the body of the function declaration. 
 
 Declared functions are inlined at the site they are evaluated. (This means that you can't have recursive declared functions for now, this may be implemented later).
+
+#### Multiple return values
+
+You can make a function return multiple values by returning a `tuple`. This tuple can then be unpacked into local variables at the call site. For instance, if a function is declared as
+
+```python
+very_fun : function(x) {
+	tuple(x + 1, x + 2)
+}
+```
+
+You can evaluate it in another math block by binding the result to a `;`-separated list of local variable identifiers as follows:
+
+```python
+a;b := very_fun(8),
+# Equivalent to: a := 8+1, b := 8+2,
+```
+
+Any finite number of return values are supported. Note that this is the only intended use of tuples, they are not supported in other contexts at the moment.
+
+#### Intrinsic functions
 
 The following intrinsic functions are visible in every function scope. They are implemented either using [LLVM intrinsics](https://llvm.org/docs/LangRef.html#intrinsic-functions) or [LLVM libc](https://libc.llvm.org/math/index.html).
 

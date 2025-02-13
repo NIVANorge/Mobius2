@@ -1,27 +1,22 @@
 
 
 model("Another simple") {
-
-	i : index_set("I")
-	j : index_set("J")
-	k : index_set("K") @union(i, j)
 	
-	a : compartment("A", k)
-	b : compartment("B", j)
+	a : compartment("A")
+	q : quantity("Q")
 	
 	module("So simple", version(2, 0, 0)) {
-	
-		par_group("Pars", a) {
-			p : par_real("P", [], 5)
-		}
 		
-		t : property("Test 1")
-		var(a.t, []) { p }
+		var(a.q, [], "A Queue!") @override {
+			time.step=>>
+		} @no_store
 		
-		t3 : property("Test 3")
-		var(b.t3, []) { 50 }
-		
-		t2 : property("Test 2")
-		var(b.t2, []) { a.t }
+		r : property("P")
+		var(a.r, [], "Arrr!") { a.q*2 }
+
 	}
+	
+	sol : solver("solver", inca_dascru, [2, hr], 0.01)
+	
+	solve(sol, a.q)
 }

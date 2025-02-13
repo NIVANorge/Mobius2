@@ -786,8 +786,7 @@ resolve_special_directive(Function_Call_AST *ast, Directive directive, Function_
 			fatal_error_trace(scope);
 		}
 		ident->var_id = conc_id;
-		//if(conc_id.type == Var_Id::Type::series)  // Annoying that this is not automatic..
-		//	ident->variable_type = Variable_Type::series;
+		
 		result.unit = data->app->vars[conc_id]->unit.standard_form;
 	} else
 		result.unit = std::move(arg_units[var_idx]);
@@ -800,6 +799,8 @@ resolve_tuple(Function_Call_AST *ast, Function_Resolve_Data *data, Function_Scop
 	new_tuple->source_loc = ast->source_loc;
 	new_tuple->value_type = Value_Type::tuple;
 	resolve_arguments(new_tuple, ast, data, scope, new_tuple->element_units);
+	
+	arguments_must_be_values(new_tuple, scope);
 	
 	result.fun = new_tuple;
 }

@@ -207,8 +207,7 @@
 				soil.conc_so4 <- something,
 			}
 			This way we could port all of MAGIC to Mobius2 and not call out to a C++ external_computation for it.
-				Although it would be annoying to do the equilibrium constants without array syntax..
-				And we would want multiple return values from functions for this.
+				Although it would be annoying to do the equilibrium constants without array and struct syntax..
 	
 		Not possible to scope into a preamble from model scope. Should do this in a good way. Can't always export the preamble to model scope.
 			Maybe we should always scope into preambles using the . syntax? (Also when they are passed to modules?).
@@ -226,9 +225,6 @@
 						@use(a, b2=b, c) ... # (requires new syntax type for the AST, but would also be nice to have for passing load arguments to modules).
 					and also require that when a module takes a preamble as an argument. So that the module can control what the symbols are called in its own scope (and also what symbols it expects to get from what preamble).
 	
-		Merge unit_conversion and aggregation_weight to just "weight" (?)
-			Not necessarily a good idea. You may want to look up an aggregate value that is not a flux (and so does not need unit conversion).
-	
 		Would be very useful to be able to turn on an option to store out what variables are causing error control to reduce step size.
 		Also, get the average step size through the time step, not just the last one.	
 			Requires a lot of extra infrastructure for this to be possible though.
@@ -236,15 +232,6 @@
 		Make it possible to directly overload a concentration through an input series, not requiring it to be a separate 'property' declaration.
 			Turned out to be very difficult due to how things are organized, and caused a totally unrelated series to become NaN.
 				May have messed up indexing of series values?
-	
-		Multiple return values from functions (tuples). Needed if we want to implement MAGIC entirely in Mobius2 code for instance.
-			Only annoying thing is that we then have to introduce 'tuple(N)' to the type system and check against it everywhere it is not allowed.
-				A possible solution is to force it to be unpacked immediately at the call location of the function. I.e. if a function returns a tuple, you can only call it using something like
-					a; b := fun(),
-				which de-sugars internally to
-					t := fun()
-					a := unpack(t, 0)
-					b := unpack(t, 1)
 	
 		Position_Map
 			There can be problems if the max depth doesn't exactly match a boundary of two widths.
@@ -307,7 +294,7 @@
 	
 	
 		Data_Set
-			Need a reindex() function on the Data_Set or something like that, which updates all data based on new indexes for the index sets.
+			Need a resize() function on the Data_Set or something like that, which updates all data based on new indexes for the index sets.
 				Must go through everything that is indexed and delete items that are attached to removed indexes.
 					parameters, connections, input series.
 						anything else?
@@ -336,15 +323,14 @@
 			May need a more granular system for specifying what series to store (for non-declared series).
 				Like have a store() declaration in the Data_Set.
 			
-			Make @no_store available for @override quantities even on solvers.
-				I.e. for all declared variables that are not is_mass_balance_quantity().
-			
 			Determine variables that are going to be run-time constant and just compute them in the initial step, not the rest. (Also goes for stored variables).
-				Not allowed for 'quantity' unless it is @override.
+				Not allowed for ODE quantities.
 					Due to difficulty of determining what it will look like before the code generation step (the way it is set up now).
 				A bit annoying if the @initial code for it is different from the main code..
+					Probably we can't do this in that case.
 				
 				Could also be done for variables that are not @no_store in the outset. They could be promoted as no_store.
+					Although that is annoying since then they don't show up in the interface.
 		
 	
 		Right now you get warning if you load a library that loads another library, but you don't use all the functions of the first library so that the second library is not referenced in active code.

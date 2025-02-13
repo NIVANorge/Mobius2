@@ -29,8 +29,6 @@ Authors: Magnus D. Norling
 	}
 	
 	# Note: We don't give a function body to compute temp and precip, and so if they are not re-declared with a formula in another module, they are assumed to be input series.
-	
-	#TODO: The declaration of input series should maybe be in model scope?
 	var(air.temp, [deg_c], "Air temperature")
 	var(air.precip, [m m, day-1])
 	
@@ -53,7 +51,6 @@ Authors: Magnus D. Norling
 	flux(snow_box.water, water_target, [m m, day-1], "Melt runoff") {   max(0, water - snow*snow_liq)*1[day-1]  }
 	
 	discrete_order {
-		#TODO: we also want to be able to specify special placement of add and sub instructions for these if necessary. But not for this module.
 		p_snow
 		p_rain
 		melt
