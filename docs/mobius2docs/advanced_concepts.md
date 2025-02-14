@@ -6,8 +6,15 @@ nav_order: 3
 ---
 
 # Advanced concepts
+{: .no_toc }
 
 This document is incomplete. The guide is prioritized for now.
+
+## Table of contents
+{: .no_toc .text-delta }
+
+1. TOC
+{:toc}
 
 ## Index set distributions
 
@@ -164,9 +171,19 @@ flux(layer.water[vert.top], out, [m 3, s-1], "Lake runoff") { ... }
 flux(out, layer.water[vert.top], [m 3, s-1], "Precipitation to lake surface") { ... }
 ```
 
-In that case, the flux is only applied to the given specific index, and its *context location* counts as not being distributed over the grid index set.
+In that case, the flux is only applied to the given specific index, and its *context location* counts as not being distributed over the grid index set. There is also the concept of a `specific` target for a flux.
 
-** incomplete (is at, specific) **
+```python
+flux(river.water, layer.water[vert.specific], [m 3, s-1], "River discharge to lake") {
+	# some value ...
+} @specific {
+	5
+}
+```
+
+In the above example, the river discharges to layer 5 of the lake. Specific accesses are currently a bit limited and may be redesigned in the future. The `@specific` code block is always cast to an integer, and is clamped so that it evaluates to a valid index.
+
+To check if you are at the `top` or `bottom` layer you can use `is_at`, e.g. `is_at[vert.top]`, which evaluates to a boolean.
 
 #### Flux aggregations for grids
 
