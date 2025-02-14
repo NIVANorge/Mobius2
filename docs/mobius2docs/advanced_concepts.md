@@ -24,7 +24,7 @@ gw   : compartment("Groundwater, sc)
 
 In the above example, there is only one global `air` compartment, while there is one `gw` box per subcatchment, and one `soil` box per pair of subcatchment and landscape unit (conceptually, each subcatchment is further-subdivided into landscape types).
 
-When a compartment is distributed, any state variable that has that compartment in its *location* can also be distributed over the given index sets. That means that the model can compute a separate value for that variable for each (tuple of) index(es) in those index set(s).
+When a compartment is distributed, any state variable that has that compartment in its [context location](math_format.html#the-context-location) can also be distributed over the given index sets. That means that the model can compute a separate value for that variable for each (tuple of) index(es) in those index set(s).
 
 The framework will try to determine if the value will actually be different, and if it can determine that the value will be the same across one index set, that index set will not be included in the distribution of the state variable.
 
@@ -44,6 +44,7 @@ Every parameter has the same distribution as its group. A state variable picks u
 Every state variable also picks up index set dependencies from all other state variables they depend on. This can include
 * Access of the value of the other state variable in code.
 * Quantities depend on any fluxes affecting them.
+All index set dependencies are propagated down the dependency graph between state variables.
 
 A state variable can only access parameters, input series and state variables from compartments that are distributed over a subset of the index sets of its own compartment. This rule is about the distribution of the compartment declarations, not the potentially smaller actual distributions of the state variables. This is because otherwise it would be ambiguous what index we are looking at in the excess index sets.
 
@@ -55,7 +56,7 @@ In the example above, if `gw.water` accesses the value of `soil.temp`, it will g
 
 The aggregation is also automatically applied if a flux goes from a compartment with a higher number of index sets to a lower, for instance from `soil.water` to `gw.water`.
 
-Another way to access specific indexes of an index set is to use [location restrictions (below)](#location-restrictions).
+Another way to access specific indexes of an index set is to use location restrictions (below).
 
 ### Sub-indexed index sets
 
@@ -120,15 +121,64 @@ Without using connections, if you have a `soil` compartment and a `gw` compartme
 
 On the other hand, if you want a flux (such as downstream discharge) between the river sections of two subcatchments you must use a `directed_graph` connection. There is also `grid1d` connections that position all the indexes of a given index set next to one another in a linear order.
 
+If you have a connection, e.g. `downstream`, you can direct a flux to it, e.g. using
+
+```python
+flux(river.water, downstream, [m 3, s-1], "Reach flow flux") { ... }
+```
+
+A flux can transport a quantity along a connection if the compartment of the state variable is on the connection. For graphs, it is also required that there is a valid target (see below). The particular details on how to use connections depends on the type of connection. For implementation reasons, fluxes can only move quantities along connections if these quantities are on [ODE solvers](declaration_types.html#solver) (this may be changed for some specific instances at a later point if it is needed).
+
 ### Grid1D connections
 
+In Mobius2, 1D grids are conceptualized so that the first index is called the `top` and the last the `bottom`, while `below` references the index that is 1 higher than the one you are currently looking at. This is just convenience terminology, you can use `grid1d` connections to model grids that are oriented any way you like.
 
+A 1D grid always structures exactly one compartment over one index set. For instance, you can have
+
+```python
+li : index_set("Layer index")
+layer : compartment("Layer", li)
+
+vert : connection("Layer vertical") @grid1d(layer, li)
+```
+
+Note that the compartment could be indexed over multiple index sets, but the grid just structures one of these. So you could for instance have `layer` be distributed over `basin` and `li`, but the "Layer vertical" connection only structures the direction along the `li` index set.
+
+A flux going along the grid1d connection transports a quantity from the current index to the one `below` (one higher). The flux will be set to 0 at the `bottom` (last) index since it doesn't have a target. You can move in the opposite direction using `@bidirectional` (see below).
 
 #### Location restrictions for grids
+
+If a compartment is structured over a grid, you can access specific parts of it using restrictions. For instance, any state variable or parameter that indexes like that compartment can be accessed using the `top`, `bottom`, `above` and `below` restrictions. For instance
+
+```python
+layer.water.temp[vert.top]       # The temperature of the top layer of water
+conc(layer.water.oc)[vert.below] # The concentration of dissolved organic carbon one layer below
+```
+
+An access using `top` or `bottom` loses its dependency on the grid index set for the given connection (since index is inferred from the access).
+
+A flux can have `top` and `bottom` restrictions in its source or target. For instance,
+
+```python
+flux(layer.water[vert.top], out, [m 3, s-1], "Lake runoff") { ... }
+flux(out, layer.water[vert.top], [m 3, s-1], "Precipitation to lake surface") { ... }
+```
+
+In that case, the flux is only applied to the given specific index, and its *context location* counts as not being distributed over the grid index set.
+
+** incomplete (is at, specific) **
+
+#### Flux aggregations for grids
 
 ### Directed graph connections
 
 #### Location restrictions for graphs
+
+#### Flux aggregations for graphs
+
+#### Aggregation weight along connections
+
+### `@bidirectional` and `@mixing`
 
 ## Order of evaluation
 
