@@ -721,7 +721,7 @@ Optional notes:
 
 This creates an index set that compartments and quantities (and thus par_groups and state variables) can be distributed over.
 
-Sub-indexed and union index sets will be documented separately.
+[Sub-indexed and union index sets](advanced_concepts.html#sub-indexed-index-sets) are documented separately.
 
 ## connection
 
@@ -758,7 +758,7 @@ The specifics of how you can use this will be documented separately
 
 This arranges one or more indexed compartments along a directed graph. You can use it to path fluxes along networks of different compartments or different instances of these compartments.
 
-If you want to allow a single node to have multiple outgoing arrows, you need to provide an edge index set for the connection. The `edge_set` must have been declared as sub-indexed to the index_set of the node(s) that can have multiple outgoing edges, or potentially to a union of these if they are different.
+If you want to allow a single node to have multiple outgoing arrows, you need to provide an edge index set for the connection. The `edge_set` must have been declared as [sub-indexed](advanced_concepts.html#sub-indexed-index-sets) to the index_set of the node(s) that can have multiple outgoing edges, or potentially to a union of these if they are different.
 
 The regex body is currently not fully functional. It is supposed to describe how paths in the graph can look. For now just follow one of the below examples
 

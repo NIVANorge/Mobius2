@@ -29,5 +29,5 @@ Edits to a parameter will apply immediately if you re-run the model, but are onl
 
 ## Special cases
 
-Some of the functionality can be a bit different if there are so-called "sub-indexed" index sets or if some parameters are on so-called "map" form. This is rare, and will be documented later.
+Some of the functionality can be a bit different if there are so-called [*sub-indexed*](../mobius2docs/advanced_concepts.html#sub-indexed-index-sets) index sets or if some parameters are on so-called "map" form. This is rare, and will be documented later.
 

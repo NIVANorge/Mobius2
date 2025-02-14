@@ -7,8 +7,12 @@
 			Should not be an "include" on file level, because that causes too much ambiguity about how this should be saved if overwritten.
 			Instead, make it an explicit operation accessible from API (thus MobiView2 and/or mobipy).
 			void patch(Data_Set *target, Data_Set *source); // Or something like that.
+				Not that straightforward due to
+					Can't just copy over data, need to update all internal cross-references.
+						Maybe unless you patch from a text file and parse it from scratch instead of patching with an already parsed object.
+					Conflicts must be handled. For instance, must check that index sets that are in both data sets agree.
 			
-			This is useful because often you calibrate the catchment separately (runs much faster alone), then want to combine the new results with the full basin model.
+			Reason why we want this: often you calibrate the catchment separately (runs much faster alone), then want to combine the new results with the full basin model.
 				Is currently done with text copy pasting, but can be a bit tiresome.
 	
 		We need an all_in_flux and all_out_flux or similar.
@@ -18,9 +22,7 @@
 		If you load different modules using the same load name, you don't get a name clash!
 			This is as intended if the two loads are identical (so that you can extend two models that load the same module)
 			Fixed if the module template is different, but should also be fixed when template is same but load arguments are different.
-		
-		When a parameter changes name, the old one is not deleted from the par file.
-			Should be fixed, not tested.
+				Complexity because e.g. two 'loc' arguments could be different declarations but have the same "value". Same for any inlined declaration.
 			
 		Document how to use connections, and some more of the advanced concepts.
 		
@@ -29,17 +31,8 @@
 		
 		mobipy
 			
-			Can't load mobipy from Anaconda on Windows
+			Can't load mobipy from Anaconda on Windows (dll doesn't load properly)
 				It is probably more complex than it not finding vcredist dependencies.
-		
-		Got an (internal) error in the following case (nivafjord pipe boundary model)
-			flux(bnd.water, layer.water[vert.specific]) ...
-			
-			bnd.water.tox can be distributed over tox_index, but that dependency was ruled out due to lack of differing parametrization
-			layer.water.tox was distributed over tox_index with the actual dependency.
-			Caused problem when the dissolved flux were to be added to the connection aggregate (lack of index set).
-				Probably also a problem for vert.top etc.
-				It is a bit tricky for the framework to predetermine this.. But there is maybe something like this for graph aggregates already that could be applied here too.
 		
 		Add forums on github page? (github Discussions)
 		
@@ -174,6 +167,15 @@
 	
 	
 	*** Intermediate-pri ***
+	
+		Got an (internal) error in the following case (nivafjord pipe boundary model)
+			flux(bnd.water, layer.water[vert.specific]) ...
+			
+			bnd.water.tox can be distributed over tox_index, but that dependency was ruled out due to lack of differing parametrization
+			layer.water.tox was distributed over tox_index with the actual dependency.
+			Caused problem when the dissolved flux were to be added to the connection aggregate (lack of index set).
+				Probably also a problem for vert.top etc.
+				It is a bit tricky for the framework to predetermine this.. But there is maybe something like this for graph aggregates already that could be applied here too.
 	
 		If an input series is provided indexed over "subcatchment", but should be indexed over "water body" and "subcatchment" is a union member of "water body", that should be made to work. (and all similar cases) Just re-map the index.
 		

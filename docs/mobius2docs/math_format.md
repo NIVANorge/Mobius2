@@ -114,7 +114,7 @@ An \<identifier\> is either the identifier of a local variable, the identifier o
 
 If you are in an expression with a *context location*, you can some times use shorthands for the location of a refereced state variable. For instance, if the context location is `river.water.oc`, and you try to access `temp`, if `temp` does not refer to a single value, Mobius2 will first look for `river.water.oc.temp`, then `river.water.temp` if the prior does not exist, and finally `river.temp`.
 
-These have the units and types they are declared with. If a value is indexed over index sets, it will primarily be accessed using the same indexes as the current expression are evaluated with. (This causes expressions to propagate index set dependencies to one another and to put some restrictions on what can be accessed. This will be separately documented).
+These have the units and types they are declared with. If a value is indexed over index sets, it will primarily be accessed using the same indexes as the current expression are evaluated with. (This causes expressions to propagate index set dependencies to one another and to put some restrictions on what can be accessed. See [separate documentation on distributions](advanced_concepts.html#index-set-distributions).
 
 Note that the value you get when you access a parameter value in the model is the one provided in the data set (corresponding to the current index combination). The default value in the parameter declaration is just a helper for somebody who create a new data set.
 
@@ -308,7 +308,7 @@ where a \<unit-declaration\> follows the [unit declaration format](units.html#th
 | `=>`     | Discards the unit of the lhs and replaces it with the rhs unit, keeping the same underlying numerical value. |
 | `=>>`    | Same as `=>`, but replaces the unit with the unit of the state variable of the outer function body similarly to `->>`. |
 
-To do the unit conversion, Mobius2 will durinc compilation generate a multiplication with a conversion factor (if it exists, otherwise it reports an error). For instance,
+To do the unit conversion, Mobius2 will during compilation generate a multiplication with a conversion factor (if it exists, otherwise it reports an error). For instance,
 
 ```python
 10[day] -> [s]

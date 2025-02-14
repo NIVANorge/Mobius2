@@ -55,7 +55,9 @@ layer : index_set("Layers") [ 35 ]
 
 The index set declaration only says what the indexes in the set are. Information about *connections* between them or *parameter* data attached to them is separately declared (see below).
 
-There are also the concepts of *sub-indexed* and *union* index sets as well as position maps, but this is more rare and will be documented later.
+There are also the concepts of [*sub-indexed* and *union* index sets](../mobius2docs/advanced_concepts.html#sub-indexed-index-sets), which is documented separately.
+
+The concept of position maps, will be documented later.
 
 ## Time series data
 
