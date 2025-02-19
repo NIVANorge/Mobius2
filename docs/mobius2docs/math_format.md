@@ -114,7 +114,7 @@ An \<identifier\> is either the identifier of a local variable, the identifier o
 
 If you are in an expression with a *context location*, you can some times use shorthands for the location of a refereced state variable. For instance, if the context location is `river.water.oc`, and you try to access `temp`, if `temp` does not refer to a single value, Mobius2 will first look for `river.water.oc.temp`, then `river.water.temp` if the prior does not exist, and finally `river.temp`.
 
-These have the units and types they are declared with. If a value is indexed over index sets, it will primarily be accessed using the same indexes as the current expression are evaluated with. (This causes expressions to propagate index set dependencies to one another and to put some restrictions on what can be accessed. See [separate documentation on distributions](advanced_concepts.html#index-set-distributions).
+These have the units and types they are declared with. If a value is indexed over index sets, it will primarily be accessed using the same indexes as the current expression are evaluated with. (This causes expressions to propagate index set dependencies to one another and limit what can be accessed. See [separate documentation on distributions](advanced_concepts.html#index-set-distributions).
 
 Note that the value you get when you access a parameter value in the model is the one provided in the data set (corresponding to the current index combination). The default value in the parameter declaration is just a helper for somebody who create a new data set.
 
@@ -143,7 +143,7 @@ Other special identifiers:
 | Symbol | Comment |
 | ------ | ------- |
 | `no_override` | This can be used to cancel an @override or @override_conc expression of a `var` declaration. The compiler must be able to resolve to either `no_override` or not `no_override` at compile time, meaning any `if` branches to these can only rely on constants or constant parameters. (to be documented) |
-| `is_at` | This can be used to determine location in a grid1d connection. Will be documented later. |
+| `is_at` | This can be used to determine location in a grid1d connection. [Separately documented](advanced_concepts.html#location-restrictions-for-grids). |
 
 Enum parameters: Enum parameters are accessed using `par_identifier.value_identifier`, where `value_identifier` is one of the declared possible values of this enum parameter. The expression evaluates to `true` if the parameter has the given value, and `false` otherwise.
 

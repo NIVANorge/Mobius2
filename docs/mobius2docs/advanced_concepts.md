@@ -162,7 +162,7 @@ layer.water.temp[vert.top]       # The temperature of the top layer of water
 conc(layer.water.oc)[vert.below] # The concentration of dissolved organic carbon one layer below
 ```
 
-An access using `top` or `bottom` loses its dependency on the grid index set for the given connection (since index is inferred from the access).
+An access using `top` or `bottom` loses its dependency on the grid index set for the given connection (since index is inferred from the access). Inside a math expression, to check if you are at the `top` or `bottom` layer you can use `is_at`, e.g. `is_at[vert.top]`, which evaluates to a boolean.
 
 A flux can have `top` and `bottom` restrictions in its source or target. For instance,
 
@@ -182,8 +182,6 @@ flux(river.water, layer.water[vert.specific], [m 3, s-1], "River discharge to la
 ```
 
 In the above example, the river discharges to layer 5 of the lake. Specific accesses are currently a bit limited and may be redesigned in the future. The `@specific` code block is always cast to an integer, and is clamped so that it evaluates to a valid index.
-
-To check if you are at the `top` or `bottom` layer you can use `is_at`, e.g. `is_at[vert.top]`, which evaluates to a boolean.
 
 #### Flux aggregations for grids
 

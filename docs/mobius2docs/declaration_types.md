@@ -47,7 +47,7 @@ euler : constant("Euler number", [], 2.71)
 The `type` is one of the following
 - A [token type](declaration_format.html#token-types), like `quoted_string`, `real`, `integer`, `boolean`. In this case, the argument must be a single literal value, e.g. `8`, `3.14`, `"Water"`, `true`.
 - Another declaration type. In this case you must pass either the identifier of a declared entity of that type, or inline a declaration of that type.
-- `location`. Here you must pass a [location](central_concepts.html#components-and-locations), e.g. `soil.water`. In some cases these can have bracketed restrictions (this will be documented separately). Alternatively, you can pass an entity of `loc` type.
+- `location`. Here you must pass a [location](central_concepts.html#components-and-locations), e.g. `soil.water`. In some cases these can have [bracketed restrictions](advanced_concepts.html#location-restrictions-for-grids). Alternatively, you can pass an entity of `loc` type.
 - `any`. Any argument type, but limitations may be specified in the text.
 
 If an argument is literally called `name:quoted_string`, it has the formal semantics of an [entity name](central_concepts.html/names-and-identifiers).

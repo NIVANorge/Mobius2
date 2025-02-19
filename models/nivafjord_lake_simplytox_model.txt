@@ -53,7 +53,7 @@ TODO: Maybe we want a simpler biochemistry model for this one, not the entire NI
 	load("modules/nivafjord/horizontal_fluxes.txt",
 		module("NIVAFjord simple realignment", basin, layer, water, dz, vert, dims))
 	
-	load("modules/easylake/easychem.txt",
+	load("modules/rivertemp_o2.txt",
 		module("Simple River O₂", river, water, o2, temp))
 	
 	solve(sol, sediment.water)
