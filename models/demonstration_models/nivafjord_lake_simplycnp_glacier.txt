@@ -27,4 +27,24 @@ model("NIVAFjord-SimplyCNP-Glacier") {
 	
 	# Add a module for the lake to discharge out of the system.
 	load("modules/nivafjord/lake_discharge.txt", module("NIVAFjord lake discharge", basin, layer, water, dz, vert, dims))
+	
+	ti : index_set("Tracer index")
+	tr : quantity("Tracer", ti)
+	
+	module("Extra things", version(0, 0, 0)) {
+		
+		par_group("Tracer", tr) {
+			init_tr : par_real("Initial tracer", [m g, l-1], 1)
+		}
+		
+		var(soil.water.tr, [k g, k m-2], [m g, l-1], "Soil water tracer") @initial_conc { init_tr }
+		
+		var(gw.water.tr, [k g, k m-2], [m g, l-1], "Groundwater tracer")
+		
+		var(river.water.tr, [k g], [m g, l-1], "River water tracer")
+		
+		var(layer.water.tr, [k g], [m g, l-1], "Layer water tracer")
+		
+		
+	}
 }

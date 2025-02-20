@@ -19,6 +19,8 @@ data_set {
 	
 	phyt_type : index_set("Phytoplankton type") [ "Phyto" ]
 	
+	ti : index_set("Tracer index") [ "Cl" "Ca" ]
+	
 	position_map(layer) [!
 		0 : 1
 	]

@@ -18,7 +18,10 @@ std::string
 Model_Instruction::debug_string(Model_Application *app) const {
 	std::stringstream ss;
 	
-	if(type == Model_Instruction::Type::compute_state_var)
+	if(type == Model_Instruction::Type::invalid)
+		// NOTE: This sometimes happens when it prints instruction dependencies.
+		ss << "(invalid)";
+	else if(type == Model_Instruction::Type::compute_state_var)
 		ss << "\"" << app->vars[var_id]->name << "\"";
 	else if(type == Model_Instruction::Type::subtract_discrete_flux_from_source)
 		ss << "\"" << app->vars[source_id]->name << "\" -= \"" << app->vars[var_id]->name << "\"";
@@ -336,6 +339,25 @@ insert_var_order_depencencies(Model_Application *app, Model_Instruction *instr, 
 	}
 }
 
+Index_Set_Tuple
+get_quantity_index_sets(Model_Application *app, Var_Id var_id) {
+	Index_Set_Tuple result;
+	
+	auto var = app->vars[var_id];
+	auto &loc = var->loc1;
+	if(!is_located(loc))
+		fatal_error(Mobius_Error::internal, "Misuse of get_quantity_index_sets");
+	// Iterate from 1 to not include the compartment.
+	for(int idx = 1; idx < loc.n_components; ++idx) {
+		auto quantity = app->model->components[loc.components[idx]];
+		if(quantity->decl_type != Decl_Type::quantity)
+			fatal_error(Mobius_Error::internal, "Misuse of get_quantity_index_sets");
+		for(auto index_set : quantity->index_sets)
+			result.insert(index_set);
+	}
+	return result;
+}
+
 void
 resolve_basic_dependencies(Model_Application *app, std::vector<Model_Instruction> &instructions) {
 	
@@ -351,6 +373,13 @@ resolve_basic_dependencies(Model_Application *app, std::vector<Model_Instruction
 			auto var = app->vars[instr.var_id];
 			if(var->specific_target.get())
 				register_dependencies(var->specific_target.get(), &code_depends);
+			if(var->is_mass_balance_quantity()) {
+				// By default always distribute over quantity distributions.
+				// Otherwise there are several failure edge cases where these are not propagated (through connections mostly).
+				// And there is little to gain by optimizing them away
+				auto quantity_index_sets = get_quantity_index_sets(app, instr.var_id);
+				insert_dependecies(app, &instr, quantity_index_sets);
+			}
 		}
 		
 		for(auto &dep : code_depends) {
@@ -820,22 +849,21 @@ process_graph_connection_aggregation(Model_Application *app, std::vector<Model_I
 		insert_dependency(app, &instructions[flux_id.id], conn->edge_index_set);
 	}
 	
-	if(!agg_var->is_out) { // TODO: should (something like) this also be done for the source aggregate in directed_graph?
-		
-		// TODO: Make a better explanation of what is going on in this block and why it is needed (What is the failure case otherwise).
+	if(!agg_var->is_out) {
 		
 		// If the target compartment (not just what the connection indexes over) has an index set shared with the source compartment, we must index the target variable over that.
+		// Since the target could get a different value from the connection depending on its own index, we have to force it to be computed per each of these indexes even if it were not to have an index set dependency on this otherwise.
+		
 		auto target_comp_id = app->vars[agg_var->agg_for]->loc1.first();
 		auto find_target = app->find_connection_component(agg_var->connection, target_comp_id);
 		
 		auto target_comp = model->components[target_comp_id];
-		auto target_index_sets = find_target->index_sets; // vector copy;
+		auto target_index_sets = find_target->index_sets; // intentional copy;
 		for(auto index_set : find_source->index_sets) {
 			if(std::find(target_comp->index_sets.begin(), target_comp->index_sets.end(), index_set) != target_comp->index_sets.end())
 				target_index_sets.push_back(index_set);
 		}
 		
-		// Since the target could get a different value from the connection depending on its own index, we have to force it to be computed per each of these indexes even if it were not to have an index set dependency on this otherwise.
 		for(auto index_set : target_index_sets)
 			insert_dependency(app, &instructions[agg_var->agg_for.id], index_set);
 	}

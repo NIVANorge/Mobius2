@@ -2,6 +2,12 @@
 
 	*** High pri ***
 	
+		Index set dependency propagation along connections is wrong in some edge cases.
+		
+			e.g if it transports a quantity that is indexed over an index set, this index set dependency is not propagated by the connection aggregation.
+			
+			
+	
 		Make functionality to patch in data from a sub-model in a data set.
 			E.g. you have a setup for Simply+NIVAFjord and you want to patch in from a different file that just has the Simply part of the setup.
 			Should not be an "include" on file level, because that causes too much ambiguity about how this should be saved if overwritten.
@@ -167,15 +173,6 @@
 	
 	
 	*** Intermediate-pri ***
-	
-		Got an (internal) error in the following case (nivafjord pipe boundary model)
-			flux(bnd.water, layer.water[vert.specific]) ...
-			
-			bnd.water.tox can be distributed over tox_index, but that dependency was ruled out due to lack of differing parametrization
-			layer.water.tox was distributed over tox_index with the actual dependency.
-			Caused problem when the dissolved flux were to be added to the connection aggregate (lack of index set).
-				Probably also a problem for vert.top etc.
-				It is a bit tricky for the framework to predetermine this.. But there is maybe something like this for graph aggregates already that could be applied here too.
 	
 		If an input series is provided indexed over "subcatchment", but should be indexed over "water body" and "subcatchment" is a union member of "water body", that should be made to work. (and all similar cases) Just re-map the index.
 		

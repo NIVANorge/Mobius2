@@ -2,21 +2,34 @@
 
 model("Another simple") {
 	
+	i : index_set("Q index")
+	
 	a : compartment("A")
-	q : quantity("Q")
+	b : compartment("B")
+	r : quantity("R")
+	q : quantity("Q", i)
+	
+	c : connection("Connection") @directed_graph { a b }
 	
 	module("So simple", version(2, 0, 0)) {
 		
-		var(a.q, [], "A Queue!") @override {
-			time.step=>>
-		} @no_store
+		par_group("Q pars", q) {
+			init_q : par_real("Init Q", [], 1)
+		}
 		
-		r : property("P")
-		var(a.r, [], "Arrr!") { a.q*2 }
+		var(a.r, [k g], "A water") @initial { 10[k g] }
+		
+		var(a.r.q, [k g], "A queue") @initial_conc { init_q }
+		
+		var(b.r, [k g], "B water")
+		
+		var(b.r.q, [k g], "B queue")
+		
+		flux(a.r, c, [k g, day-1], "A r flux") { a.r*0.01[day-1] }
 
 	}
 	
 	sol : solver("solver", inca_dascru, [2, hr], 0.01)
 	
-	solve(sol, a.q)
+	solve(sol, a.r, b.r)
 }
