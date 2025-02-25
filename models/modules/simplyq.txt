@@ -58,6 +58,7 @@ Authors: James E. Sample, Leah A. Jackson-Blake, Magnus D. Norling
 		s_response(water, fc, 1.01*fc, 0, rate) # smoothly turn the flow rate on between water volumes of fc and 1.01*fc
 	}
 	
+	runoff :
 	flux(soil.water, runoff_target, [m m, day-1], "Soil runoff")            {   flow * (1 - bfi)   }
 	
 	flux(soil.water, gw_water, [m m, day-1], "Recharge")                    {   flow * bfi   }

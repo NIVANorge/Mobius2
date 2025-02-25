@@ -2,12 +2,6 @@
 
 	*** High pri ***
 	
-		Index set dependency propagation along connections is wrong in some edge cases.
-		
-			e.g if it transports a quantity that is indexed over an index set, this index set dependency is not propagated by the connection aggregation.
-			
-			
-	
 		Make functionality to patch in data from a sub-model in a data set.
 			E.g. you have a setup for Simply+NIVAFjord and you want to patch in from a different file that just has the Simply part of the setup.
 			Should not be an "include" on file level, because that causes too much ambiguity about how this should be saved if overwritten.

@@ -31,6 +31,7 @@ Authors: Magnus Dahler Norling
 	
 	flux(out, pt.s, s_rate_u_d, "Point source buffer inputs") { inrate }
 	
+	pt_src :
 	flux(pt.s, river.water.s, s_rate_u_d, "River point source input rate") {
 		q := (river.water.flow->[m 3, s-1]) => [],
 		a*q*pt.s

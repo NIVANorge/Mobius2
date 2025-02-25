@@ -157,6 +157,9 @@ def load_dll() :
 	dll.mobius_get_special_var.argtypes = [ctypes.c_void_p, Var_Id, Entity_Id, ctypes.c_int16]
 	dll.mobius_get_special_var.restype = Var_Id
 
+	dll.mobius_get_flux_var.argtypes = [ctypes.c_void_p, Entity_Id]
+	dll.mobius_get_flux_var.restype = Var_Id
+
 	dll.mobius_get_series_data.argtypes = [ctypes.c_void_p, Var_Id, ctypes.POINTER(Mobius_Index_Value), ctypes.c_int64, ctypes.POINTER(ctypes.c_double), ctypes.c_int64]
 
 	dll.mobius_set_series_data.argtypes = [ctypes.c_void_p, Var_Id, ctypes.POINTER(Mobius_Index_Value), ctypes.c_int64, ctypes.POINTER(ctypes.c_double), ctypes.POINTER(ctypes.c_int64), ctypes.c_int64]
@@ -168,10 +171,8 @@ def load_dll() :
 	dll.mobius_get_series_metadata.argtypes = [ctypes.c_void_p, Var_Id]
 	dll.mobius_get_series_metadata.restype = Mobius_Series_Metadata
 
-
 	dll.mobius_get_index_set_count.argtypes = [ctypes.c_void_p, Entity_Id]
 	dll.mobius_get_index_set_count.restype = ctypes.c_int64
-
 
 	dll.mobius_get_value_type.argtypes = [ctypes.c_void_p, Entity_Id]
 	dll.mobius_get_value_type.restype = ctypes.c_int64
@@ -364,6 +365,12 @@ class Scope :
 		entity_id = dll.mobius_get_entity(self.data_ptr, self.scope_id, _c_str(identifier))
 		if not is_valid(entity_id) :
 			raise ValueError("The identifier '%s' does not refer to a valid entity" % identifier)
+		if entity_id.reg_type == FLUX_TYPE :
+			# For a flux, return the corresponding State_Var instead of the original declared entity
+			var_id = dll.mobius_get_flux_var(self.data_ptr, entity_id)
+			_check_for_errors()
+			return State_Var(self.data_ptr, self.scope_id, [], var_id)
+			
 		_check_for_errors()
 		return Entity(self.data_ptr, self.scope_id, entity_id)
 		
@@ -657,14 +664,20 @@ class State_Var :
 		
 	def __getattr__(self, identifier) :
 		# TODO: Should better check what type of variable this is (quantity, flux, special ..)
-		scope = Scope(self.data_ptr, self.scope_id)
+		
+		if isinstance(identifier, Entity) :
+			#TODO: This is currently inconvenient to call (have to call '__getattr__' explicitly
+			new_id = identifier.entity_id
+		else : # Assuming string
+			scope = Scope(self.data_ptr, self.scope_id)
+			quant = scope.__getattr__(identifier)
+			new_id = quant.entity_id
+		
 		if len(self.id_list) > 0 :
-			other = scope.__getattr__(identifier)
-			new_list = self.id_list + [other.entity_id]
+			new_list = self.id_list + [new_id]
 			return State_Var.from_id_list(self.data_ptr, self.scope_id, new_list)
 		else :
-			quant = scope.__getattr__(identifier)
-			carry_id = dll.mobius_get_special_var(self.data_ptr, self.var_id, quant.entity_id, 4)
+			carry_id = dll.mobius_get_special_var(self.data_ptr, self.var_id, new_id, 4)
 			_check_for_errors()
 			if not is_valid(carry_id) :
 				raise ValueError("This variable does not carry this quantity.")

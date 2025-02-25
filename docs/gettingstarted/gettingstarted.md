@@ -19,7 +19,7 @@ The reason you want to get the Mobius2 repository is that it contains many exist
 
 Clone the repository [https://github.com/NIVANorge/Mobius2](https://github.com/NIVANorge/Mobius2). This can be done by using your favourite git client such as [Tortoise git](https://tortoisegit.org/) or [Github desktop](https://desktop.github.com/) (or [git command line](https://git-scm.com/book/en/v2/Git-Basics-Getting-a-Git-Repository)).
 
-You can also download a zip archive of the repository from its github front page (click the green "Code" button), but then it is not as convenient to get the latest updates.
+You can also download a zip archive of the repository from its github front page (click the green "Code" button, then "Download zip"), but then it is not as convenient to get the latest updates.
 
 ### 2. Get the MobiView2 program.
 

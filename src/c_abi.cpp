@@ -235,6 +235,15 @@ mobius_get_special_var(Model_Data *data, Var_Id parent1, Entity_Id parent2, Stat
 	return invalid_var;
 }
 
+DLLEXPORT Var_Id
+mobius_get_flux_var(Model_Data *data, Entity_Id flux_decl_id) {
+	try {
+		auto app = data->app;
+		return app->find_flux_var_of_decl(flux_decl_id);
+	} catch(int) {}
+	return invalid_var;
+}
+
 DLLEXPORT Mobius_Series_Metadata
 mobius_get_series_metadata(Model_Data *data, Var_Id var_id) {
 	static char unit_buffer[128];

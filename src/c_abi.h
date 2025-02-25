@@ -110,6 +110,9 @@ mobius_get_var_id_from_list(Model_Data *data, Entity_Id *ids, s64 id_count);
 DLLEXPORT Var_Id
 mobius_get_special_var(Model_Data *data, Var_Id parent1, Entity_Id parent2, State_Var::Type type);
 
+DLLEXPORT Var_Id
+mobius_get_flux_var(Model_Data *data, Entity_Id flux_decl_id);
+
 DLLEXPORT s64
 mobius_get_index_set_count(Model_Data *data, Entity_Id id);
 
