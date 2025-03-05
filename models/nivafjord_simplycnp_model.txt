@@ -75,7 +75,12 @@ model("NIVAFjord-SimplyCNP") {
 			gw+ layer
 		} @no_cycles
 		
-		unit_conversion(gw.water, layer.water) { a_catch->> }
+		# TODO: This is a bit ad-hoc.
+		par_group("Groundwater external discharge", gw) {
+			gw_to_basin_frac : par_real("Fraction of gw discharge to basin", [], 1, 0, 1)
+		}
+		
+		unit_conversion(gw.water, layer.water) { gw_to_basin_frac*a_catch->> }
 		
 		# TODO: Maybe factor out this module
 		# Needed since we have direct discharge from gw to lake

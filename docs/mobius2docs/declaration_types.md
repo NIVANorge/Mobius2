@@ -338,7 +338,7 @@ A distribution over an index set can potentially distribute all state variables 
 
 A distribution creates an instance (and separate evaluation/computation) of the value of the variable for each index in the index set (or each tuple of indexes if there are more than one index set).
 
-The distribution given on the component is only the highest theoretical distribution, but an index sets could be ignored if the framework can determine that a given value does not vary over a that index set. This will be documented separately.
+The distribution given on the component is only the highest theoretical distribution, but an index sets could be ignored if the framework can determine that a given value does not vary over a that index set. This is [documented separately](advanced_concepts.html#index-set-distributions).
 
 If a property has a math body, that is called the "default code" for that property. If you create a state variable ([`var`](#var)) with that property as its last location component and the state variable itself doesn't have a math body, the default code will be used instead. Note that the default code will be resolved separately per state variable it is used for, using the state variable location as the [context location](math_format.html#the-context-location). However, the scope it is resolved in is still the scope it is declared in.
 
@@ -642,7 +642,7 @@ Optional notes:
 
 The flux declaration creates a [flux state variable](central_concepts.html#fluxes).
 
-The source and target locations can some times be restricted along connections. This will be documented separately.
+The source and target locations can some times be restricted along connections. This is documented under [advanced concepts](advanced_concepts.html).
 
 The flux unit must be [convertible](units.html#conversion) to the unit of the source (if it is a variable, otherwise the unit of the target) divided by the sampling step unit of the model application. Note that this means that Mobius2 will multiply the magnitude of the flux with a unit conversion to make it match the model sampling step unit, so that the same model can be run at different time scales without changes to the model code.
 
@@ -664,7 +664,7 @@ This works the same way as a `@no_store` for a [`var`](#var).
 
 ### `@specific`
 
-This is used if the source or target has a `specific` restriction. It will be documented separately.
+This is used if the source or target has a `specific` restriction. It is documented under [advanced concepts](advanced_concepts.html).
 
 ### `@bidirectional`
 
@@ -752,7 +752,7 @@ You must provide either a `@grid1d` or `@directed_graph` note to specify the con
 
 This arranges instances of the compartment `comp` next to one another along the index set `set` (in linear order of that index set). The compartment `comp` is required to have been declared as distributed over `set` (but not restricted to that index set).
 
-The specifics of how you can use this will be documented separately
+The specifics of how you can use this is [documented separately](advanced_concepts.html#grid1d-connections).
 
 ### `@directed_graph`
 

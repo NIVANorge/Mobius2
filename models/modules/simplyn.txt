@@ -28,6 +28,7 @@ Authors: Leah A. Jackson-Blake, Magnus D. Norling
 			@formerly("SimplyN\DIN universal params\Soilwater DIN uptake rate response to 10°C change (Q10)")
 		gw_conc_type     : par_enum("Groundwater DIN computation type", const) { const soil_avg mass_bal }
 		gw_din_conc      : par_real("Groundwater DIN concentration", [m g, l-1], 0.0, 0.0, 30.0, "If type is not const, this is the initial concentration")
+		gw_din_hl        : par_real("Groundwater DIN half-life", [day], 1e12, 0, 1e12)
 		reach_denit_rate : par_real("Reach denitrification rate at 20°C", [day-1], 0.0, 0.0, 0.1)
 		reach_denit_q10  : par_real("(Q10) Reach denitrification rate response to 10°C change in temperature", [], 1.0, 1.0, 5.0)
 	}
@@ -75,13 +76,11 @@ Authors: Leah A. Jackson-Blake, Magnus D. Norling
 		conc(din) * rate ->>
 	}
 	
-	#flux(gw.water.din, out, [k g, k m-2, day-1], "Groundwater DIN loss") {
-	#	hl_to_rate(gw_din_hl)*din
-	#}
+	flux(gw.water.din, out, [k g, k m-2, day-1], "Groundwater DIN loss") {
+		hl_to_rate(gw_din_hl)*din
+	}
 	
 	# Reach fluxes
-	
-	#flux(out, river.water.din, [k g, day-1], "River effluent DIN") { eff_din }
 	
 	flux(river.water.din, out, [k g, day-1], "River DIN denitrification loss") {
 		rate := q10_adjust(reach_denit_rate, 20.0[deg_c], temp, reach_denit_q10),

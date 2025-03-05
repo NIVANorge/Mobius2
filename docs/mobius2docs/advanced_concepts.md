@@ -185,17 +185,206 @@ In the above example, the river discharges to layer 5 of the lake. Specific acce
 
 #### Flux aggregations for grids
 
+The sum of fluxes that come to a quantity along a grid are summed up in the model, and can be accessed in code. For instance,
+
+```python
+in_flux(vert, layer.water)
+```
+
+sums up the amount of `water` that comes in along the `vert` connection. The sum includes fluxes coming in to location restrictions like `layer.water[vert.top]`
+
+There is no `out_flux` variable that is accessible for grids in the current implementation. There is one implementation exception: A flux going out from a location restriction like `layer.water[vert.top]` are subtracted from the `in_flux`. This is for implementation simplicity only, but can be a bit confusing, and may be changed at a later point. 
+
 ### Directed graph connections
+
+In Mobius2, each node of a directed graph is an (indexed) instance of a compartment. Fluxes can be directed along edges of the graph. The nodes don't all have to be the same compartment, for instance nodes along the same graph can be both from `river` and `lake`. We will first cover the case where every node can have at most one outgoing edge.
+
+In the data file, the graph is set up by declaring the edges between the nodes
+
+```python
+sc : index_set("Subcatchment") [ "Kråkstadelva" "Kure" ]
+lk : index_set("Lake index") [ "Våg" "Storefjord" "Vanemfjord" ]
+
+connection("Downstream") {
+	r : compartment("River", sc)
+	l : compartment("Lake", lk)
+	
+	directed_graph [
+		r[ "Kråkstadelva" ] -> r[ "Kure" ] -> l[ "Storefjord" ] -> l[ "Vanemfjord" ] -> out
+		l[ "Våg" ] -> r[ "Kure " ]
+	]
+}
+```
+
+Every arrow creates a directed edge between the two given nodes. The identifier `out` can also be used as a node, signifying that the fluxes directed along an edge to it go out of the modeled system, just like when `out` is explicitly the target of a flux.
+
+It is not necessary always to index nodes by all their possible indexes. For instance, you may want to replicate the same "Downhill" flow graph between land types within each subcatchment as in the example below.
+
+```python
+sc : index_set("Subcatchment") [ "Upper" "Lower" ]
+lu : index_set("Landscape unit") [ "Hilltop" "Hillside" "Riparian zone" ]
+
+connection("Downhill") {
+	s : compartment("Soil", lu)
+	r : compartment("River")
+	
+	directed_graph [
+		s[ "Hilltop" ] -> s[ "Hillside" ] -> s[ "Riparian zone" ] -> r[]
+	]
+}
+
+connection("Downstream") {
+	r : compartment("River", sc)
+	
+	directed_graph [
+		r[ "Upper" ] -> r[ "Lower" ] -> out
+	]
+}
+```
+
+In the above example, even though soil and river are distributed over subcatchment in the model, they are not explicitly distributed so in the "Downhill" connection data, so this structure is repeated per subcatchment. It is also possible to have nodes with two or more indexes per node if needed. E.g. you could explicitly index the soil with both subcatchment and landscape unit if you want a different "Downhill" structure per subcatchment.
+
+In the model, the connection is declared for instance as follows:
+
+```python
+downstream : connection("Downstream") @directed_graph {
+	(river|lake)+ out
+}
+```
+
+The body of the declaration is a so-called regular expression, but this was an experimental feature where most of it is currently disabled. What is important is that you list the compartments that can be nodes of the connection like `(a|b|c)` (`a`, `b`, and `c` being the compartments), possibly followed by an `out`.
+
+To send a flux along the connection, simply write the identifier of the connection as the target of the flux (the source must be a location at a compartment that can be a node of the connection).
+
+```python
+flux(river.water, downstream, [m 3, s-1], "Reach flow flux") {
+	# ...
+}
+```
+
+If a connection is not allowed to have circular paths, it can be useful to put a `@no_cycles` note on the connection declaration. This makes the framework check and give an error if there are cycles in the graph data in the data file. It also makes it possible to allow some dependencies between state variables related to the connection that would otherwise not be possible. For instance a flux going along the connection is allowed to (directly or indirectly) depend on the `in_flux` (see below) of its own variable along the connection, which can be useful in some instances. If a connection is `@no_cycles`, then it is required (for implementation reasons) that if there is an edge between two nodes of the same compartment, an index of the first compartment can not appear after an index of the second compartment in the declaration of the index set.
+
+It is also possible to have multiple outgoing edges per node. If you want this, you need to set up an index set to index the outgoing edges. This index set must be sub-indexed to the index set of the nodes. For instance,
+
+```python
+sp : index_set("Soil patch index")
+se : index_set("Soil flow edge") @sub(sp)
+
+soil : compartment("Soil", sp)
+
+# NOTE: The edge index set is passed as an argument to the directed_graph:
+downhill : connection("Downhill") @directed_graph(se) {
+	sp+ out
+}
+```
+
+(If you have multiple node types and each of them can have multiple outgoing edges, the edge index set must be sub-indexed to a union of the index sets of the different node types).
+
+Now if you put a flux along the connection, it will also be indexed by the edge index set, so it is evaluated once per edge (and the sum over the edges is subtracted from the time derivative of the source state variable).
+
+If you want a parameter (or any state variable) that is also indexed over the edge index set, you can create a compartment that is indexed by it, for instance
+
+```python
+flow_path : compartment("Soil flow path", sp, se)
+
+# In a module :
+
+par_group("Flow pathing", flow_path) {
+	flow_frac : par_real("Path flow fraction", [], 0, 0, 1)
+}
+
+flux(soil.water, downhill, [m m, day-1], "Downhill flow") {
+	flow * flow_frac # Assume 'soil.water.flow' is some other state variable
+}
+```
+
+In the above example, the "Downhill flow" flux is partitioned according to the `flow_frac` parameter along each edge of `downhill`.
 
 #### Location restrictions for graphs
 
+The only location restriction available for graphs is `below`, and it can be used to access the value of a state variable or parameter that is at the far end of an outgoing edge starting in the context location of the code it is being used in. For instance:
+
+```python
+flux(soil.water, downhill, [m m, day-1], "Downhill flow") {
+	flow * flow_frac    if water[below] < cap[below],
+	0                   otherwise
+}
+```
+
+The above example stops the the water flow from the current box if the below box is over capacity. This particular implementation is for illustration purposes only. In practice you want a smoother cutoff for the ODE solver to not have too much trouble with it.
+
+You can use a `below` access even though you have multiple compartments in the connection, but it requires that the state variable has the same unit in all the nodes that can be reached from the current one as long as it exists there. If it doesn't exist in one of the nodes it is assumed to have a value of 0 in that node in this context.
+
 #### Flux aggregations for graphs
 
-#### Aggregation weight along connections
+The sum of fluxes that come to a quantity along a graph are summed up, and can be accessed in code. For instance,
 
-### `@bidirectional` and `@mixing`
+```python
+in_flux(downhill, soil.water)
+```
 
-## Order of evaluation
+sums up the amount of `water` that comes in along the `downhill` connection to the `soil.water` state variable. If (and only if) you have multiple outgoing edges for a graph (if it is given an edge index set), you can also access an `out_flux`, which sums up all outgoing fluxes along all edges from the current node.
+
+### Aggregation weight along connections
+
+Aggregation weights and unit conversions are also applied to connection fluxes. This also means that you can have an aggregation weight from a compartment to itself, for instance
+
+```python
+
+# In a module
+var(soil.water, [m m], "Soil water")
+
+flux(soil.water, downhill, [m m, day-1], "Downhill flow") { ... }
+
+# In the model:
+
+aggregation_weight(soil, soil) { area / area[below] }
+```
+
+In the above example, since the soil water is given per unit area, the inflow must be re-scaled according to the relative areas of two boxes. If you want the aggregation weight to only apply to fluxes along a certain connection, but not any other fluxes, you can pass the connection as a third argument to the aggregation weight declaration.
+
+### Double location restrictions for flux targets
+
+TBW.
 
 ## Discrete fluxes
 
+If a flux has a source and/or a target quantity that is not solved as an ODE equation, it is handled a little differently.
+
+If the source is not ODE, then the value of the flux is subtracted from the state variable after the flux is computed. This means that the order of evaluation of different discrete fluxes from the same source matters. Similarly, if the target is not ODE, then the flux is added to the target, and this could happen before or after other fluxes are subtracted from the same quantity.
+
+To force the order of evaluation of such fluxes, one can declare a `discrete_order`, which is a list of the identifiers of the fluxes. We refer to the example in our [snow module](https://github.com/NIVANorge/Mobius2/blob/main/models/modules/hbv_snow.txt).
+
+You can not have a discrete flux in a context where it would create a transport flux of a dissolved quantity. This is because it would create a lot of difficulty when it comes to determine order of evaluation and concentrations for the transported quantities. It is possible to make this work, but it has not so far been deemed worth it since it causes a lot of added complexity in the framework for not much gain.
+
+A model with discrete fluxes is not guaranteed to be time step size invariant. For instance, 
+
+```python
+flux(a.water, out, [m m, day-1]) {
+	c*water
+}
+```
+
+In the above example, if it is solved as a discrete equation, the amount of water after one day step is
+
+$$
+w_0(1 - c)
+$$
+
+where $$w_0$$ is the initial amount of water. If the step size is changed to a half day, then the amount of water after one day (two steps) is
+$$
+w_0(1 - c/2)^2 = w_0(1 - c + c^2/4)
+$$
+
+On the other hand, if it is solved as an ODE, then the amount of water after one day is
+$$
+w_0 e^{-c}
+$$
+regardless of the step size used.
+
+## Order of evaluation
+
+TBW.
+
+
+{% include lib/mathjax.html %}
