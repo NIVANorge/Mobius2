@@ -193,7 +193,9 @@ in_flux(vert, layer.water)
 
 sums up the amount of `water` that comes in along the `vert` connection. The sum includes fluxes coming in to location restrictions like `layer.water[vert.top]`
 
-There is no `out_flux` variable that is accessible for grids in the current implementation. There is one implementation exception: A flux going out from a location restriction like `layer.water[vert.top]` are subtracted from the `in_flux`. This is for implementation simplicity only, but can be a bit confusing, and may be changed at a later point. 
+There is no `out_flux` variable that is accessible for grids in the current implementation. There is one implementation exception: A flux going out from a location restriction like `layer.water[vert.top]` are subtracted from the `in_flux`. This is for implementation simplicity only, but can be a bit confusing, and may be changed at a later point.
+
+It should also be noted that if a flux is negative, it will still be added (hence causing a reduction) to the `in_flux` of its target even if it is declared as `@bidirectional`.
 
 ### Directed graph connections
 
@@ -300,6 +302,34 @@ flux(soil.water, downhill, [m m, day-1], "Downhill flow") {
 
 In the above example, the "Downhill flow" flux is partitioned according to the `flow_frac` parameter along each edge of `downhill`.
 
+The data for the edge index set should not be given in the data set, it is instead auto-generated based on the connection data. For instance the data set may look like
+
+```python
+
+sp : index_set("Soil patch index") [ "A" "B" "C" "D" ]
+se : index_set("Soil flow edge") @sub(sp)
+
+connection("Downhill) {
+	s : compartment("Soil", sp)
+	
+	directed_graph(se) [
+		s[ "A" ] -> s[ "B" ] -> s[ "D" ]
+		s[ "A" ] -> s[ "C" ]
+	]
+}
+
+par_group("Flow pathing", sp, se) {
+	
+	par_real("Path flow fraction") [
+		0.7 0.3
+		1
+	]
+	
+} 
+```
+
+Note that here you have two values of the flow fraction for edges starting in "A", one for "B", and none for "C" and "D", corresponding to the number of outgoing edges in the graph. The edges are ordered in the order of declaration in the graph ("A"->"B" is the first one, and "A"->"C" the second one starting in "A").
+
 #### Location restrictions for graphs
 
 The only location restriction available for graphs is `below`, and it can be used to access the value of a state variable or parameter that is at the far end of an outgoing edge starting in the context location of the code it is being used in. For instance:
@@ -324,6 +354,8 @@ in_flux(downhill, soil.water)
 ```
 
 sums up the amount of `water` that comes in along the `downhill` connection to the `soil.water` state variable. If (and only if) you have multiple outgoing edges for a graph (if it is given an edge index set), you can also access an `out_flux`, which sums up all outgoing fluxes along all edges from the current node.
+
+It should also be noted that if a flux is negative, it will still be added (hence causing a reduction) to the `in_flux` of its target even if it is declared as `@bidirectional`. Similarly, it will be subtracted (causing an increase) from the `out_flux` of its source (if it exists).
 
 ### Aggregation weight along connections
 
@@ -360,27 +392,30 @@ You can not have a discrete flux in a context where it would create a transport 
 A model with discrete fluxes is not guaranteed to be time step size invariant. For instance, 
 
 ```python
-flux(a.water, out, [m m, day-1]) {
+flux(soil.water, out, [m m, day-1], "Soil water out") {
 	c*water
 }
 ```
 
-In the above example, if it is solved as a discrete equation, the amount of water after one day step is
+In the above example, if `soil.water` is solved as a discrete equation (and no other fluxes affect it), the amount of water after one day step is
 
 $$
 w_0(1 - c)
 $$
 
-where $$w_0$$ is the initial amount of water. If the step size is changed to a half day, then the amount of water after one day (two steps) is
+where $$w_0$$ is the initial amount of water. If the step size is changed to half a day, then the amount of water after one day (two steps) is
+
 $$
-w_0(1 - c/2)^2 = w_0(1 - c + c^2/4)
+w_0(1 - \frac{c}{2})^2 = w_0(1 - c + \frac{c^2}{4})
 $$
 
 On the other hand, if it is solved as an ODE, then the amount of water after one day is
+
 $$
 w_0 e^{-c}
 $$
-regardless of the step size used.
+
+regardless of the step size used (at least up to solver accuracy).
 
 ## Order of evaluation
 
