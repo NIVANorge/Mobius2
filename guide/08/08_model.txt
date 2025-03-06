@@ -1,0 +1,58 @@
+
+# Issues:
+#  The current tutorial hydrology module doesn't have snow, that is not good for Langtjern
+#		Should probably refactor it so that it takes an external water input (not relying directly on precip),
+#		then either make a simple snow module for this model or use hbv_snow
+#
+#  Calibration data for river is not aligned with lake
+#       Download new Langtjern data maybe
+#
+#  Should also clean up the input data in general, including putting proper units
+
+
+model("Lake model with catchment") {
+
+	extend("../07/07_model.txt")
+
+	sc        : index_set("Subcatchment")
+	lu        : index_set("Landscape units")
+	
+	soil   : compartment("Soil", sc, lu)
+	gw     : compartment("Groundwater", sc)
+	river  : compartment("River", sc)
+	
+	downstream : connection("Downstream") @directed_graph {
+		(river|layer)+
+	}
+	
+	load("../05/hydro_modules.txt",
+		module("Soil hydrology", air, soil, gw, river, water, temp, precip),
+		module("River hydrology", river, water, loc(downstream))
+	)
+	
+	load("modules/rivertemp_o2.txt", module("RiverTemperature", air, soil, river, water, heat, temp))
+	
+	solve(sol, soil.water, gw.water, river.water)
+	
+	module("Soil temperature", version(0, 0, 0)) {
+		
+		var(soil.temp, [deg_c], "Soil temperature") {
+			max(0, air.temp)
+		}
+	}
+	
+	par_group("Land use", soil) {
+		f_lu : par_real("Land use fraction", [], 0, 0, 1)
+	}
+
+	aggregation_weight(soil, gw) { f_lu	}
+	aggregation_weight(soil, river) { f_lu }
+	
+	par_group("Subcatchment data", river) {
+		A_c : par_real("Subcatchment area", [k m 2], 20)
+	}
+	
+	unit_conversion(soil.water, river.water) { A_c }
+	unit_conversion(gw.water,   river.water) { A_c }
+
+}
