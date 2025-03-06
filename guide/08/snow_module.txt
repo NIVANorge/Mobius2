@@ -1,0 +1,39 @@
+
+
+module("Snow module", version(0, 0, 0),
+	air      : compartment,
+	snow_box : compartment,
+	soil     : compartment,
+	snow     : quantity,
+	water    : quantity,
+	temp     : property,
+	precip   : property,
+) {
+"""
+A very simple snow module
+"""
+
+	par_group("Snow parameters", snow_box) {
+		ddf_melt  : par_real("Degree-day factor for snowmelt", [m m, deg_c-1, day-1], 2.74, 0, 5, "Linear correlation between rate of snow melt and air temperature")
+		init_snow : par_real("Initial snow depth (water equivalents)", [m m], 0, 0, 50000)
+	}
+
+	var(air.precip, [m m, day-1])
+	
+	var(snow_box.snow,  [m m], "Snow depth (water equivalents)") @initial { init_snow }
+	
+	p_snow :
+	flux(out, snow_box.snow, [m m, day-1], "Precipitation falling as snow") {  air.precip * (air.temp <= 0)  }
+	
+	p_rain :
+	flux(out, soil.water, [m m, day-1], "Precipitation falling as rain")  {  air.precip * (air.temp > 0)  }
+	
+	melt :
+	flux(snow_box.snow, soil.water, [m m, day-1], "Melt") {   max(0, ddf_melt*air.temp)   }
+	
+	# Since these fluxes are not solved as ODE, we need to specify what order they go in
+	discrete_order {
+		p_snow
+		melt
+	}
+}

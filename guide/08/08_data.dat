@@ -74,7 +74,7 @@ TODO: Replace with Langtjern series
 			[ 5e-05 ]
 			
 			par_real("Mixing factor during ice") 
-			[ 5e-05 ]
+			[ 2.5e-05 ]
 		
 		}
 		
@@ -125,10 +125,10 @@ TODO: Replace with Langtjern series
 		par_group("Ice") {
 			
 			par_real("Initial ice thickness") 
-			[ 0 ]
+			[ 0.6 ]
 			
 			par_real("Ice albedo") 
-			[ 0.4 ]
+			[ 0.6 ]
 			
 			par_real("Ice attenuation coefficient") 
 			[ 5 ]
@@ -148,10 +148,10 @@ TODO: Replace with Langtjern series
 			[ 50 50 ]
 			
 			par_real("Soil water time constant") 
-			[ 2 2 ]
+			[ 1.5 1.5 ]
 			
 			par_real("Baseflow index") 
-			[ 0.7 0.7 ]
+			[ 0.1 0.1 ]
 			
 			par_real("Degree-day factor for potential evapotranspiration") 
 			[ 0.12 0.12 ]

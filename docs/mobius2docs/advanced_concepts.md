@@ -309,7 +309,7 @@ The data for the edge index set should not be given in the data set, it is inste
 sp : index_set("Soil patch index") [ "A" "B" "C" "D" ]
 se : index_set("Soil flow edge") @sub(sp)
 
-connection("Downhill) {
+connection("Downhill") {
 	s : compartment("Soil", sp)
 	
 	directed_graph(se) [
@@ -400,6 +400,8 @@ If the source is not ODE, then the value of the flux is subtracted from the stat
 To force the order of evaluation of such fluxes, one can declare a `discrete_order`, which is a list of the identifiers of the fluxes. We refer to the example in our [snow module](https://github.com/NIVANorge/Mobius2/blob/main/models/modules/hbv_snow.txt).
 
 You can not have a discrete flux in a context where it would create a transport flux of a dissolved quantity. This is because it would create a lot of difficulty when it comes to determine order of evaluation and concentrations for the transported quantities. It is possible to make this work, but it has not so far been deemed worth it since it causes a lot of added complexity in the framework for not much gain.
+
+The framework force discrete fluxes to never overtax their source variable, that is the flux can never be larger than the source so that it goes negative. This is automatic, and the user doesn't need to worry about it.
 
 A model with discrete fluxes is not guaranteed to be time step size invariant. For instance, 
 

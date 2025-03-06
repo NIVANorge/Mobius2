@@ -22,7 +22,8 @@ model("Hydrology model") {
 	water : quantity("Water")
 	
 	load("hydro_modules.txt",
-		module("Soil hydrology", air, soil, gw, river, water, temp, precip),
+		module("Soil precipitation", air, soil, water, precip),
+		module("Soil hydrology", air, soil, gw, river, water, temp),
 		module("River hydrology", river, water, loc(out)))
 	
 	in : quantity("Dissolved inorganic Nitrogen")

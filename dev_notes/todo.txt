@@ -1,7 +1,14 @@
 
 
 	*** High pri ***
-	
+			
+		Make the user explicitly declare when a quantity is discrete (non-ODE). Then it becomes more easy to detect when they forgot to put it on a solver (and they don't get strange error messages).
+
+		Add a metadata block to mobius data set, which can be accessed from mobipy. It can e.g. contain the model that was used.
+		metadata [!
+			"Saved from model" : "simplyc_model.txt"
+		]
+		
 		Make functionality to patch in data from a sub-model in a data set.
 			E.g. you have a setup for Simply+NIVAFjord and you want to patch in from a different file that just has the Simply part of the setup.
 			Should not be an "include" on file level, because that causes too much ambiguity about how this should be saved if overwritten.

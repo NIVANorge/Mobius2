@@ -18,6 +18,5 @@ It will explain the most important features of Mobius2, but will not cover all d
 A good complement to the guide is to read the code of [existing modules and models](https://github.com/NIVANorge/Mobius2/tree/main/models), starting with something simple like SimplyQ.
 
 The guide is not yet complete. More chapters will appear. Planned next chapters:
-- Lake coupled to catchment
-- Lake biochemistry
+- Lake dissolved organic carbon
 - (more)

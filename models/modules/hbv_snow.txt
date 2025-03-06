@@ -2,7 +2,7 @@
 
 module("HBVSnow", version(1, 0, 0),
 	air      : compartment,
-	snow_box : compartment,            # TODO: There is maybe a case for allowing declaration of compartments inside modules, such as in this case...
+	snow_box : compartment,
 	snow     : quantity,
 	water    : quantity,
 	temp     : property,

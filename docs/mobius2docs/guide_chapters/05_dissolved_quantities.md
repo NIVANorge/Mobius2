@@ -27,7 +27,6 @@ module("Soil hydrology", version(0, 0, 3),
 	river : compartment,
 	water : quantity,
 	temp : property,
-	precip : property
 ) {
 	# ...
 }

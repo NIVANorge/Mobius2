@@ -24,10 +24,11 @@ model("Hydrology model") {
 	# '@no_cycles' just declares that instances of this connection should not contain circles.
 	
 	load("../05/hydro_modules.txt",
-		module("Soil hydrology", air, soil, gw, river, water, temp, precip),
+		module("Soil precipitation", air, soil, water, precip),
+		module("Soil hydrology", air, soil, gw, river, water, temp),
 		module("River hydrology", river, water, loc(downstream)))
 	
-	in : quantity("Dissolved inorganic Nitrogen")
+	in : quantity("Inorganic Nitrogen")
 	
 	load("../05/din_module.txt",
 		module("DIN processes", air, soil, gw, river, water, in, temp))

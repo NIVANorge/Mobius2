@@ -1,13 +1,8 @@
 
 # Issues:
-#  The current tutorial hydrology module doesn't have snow, that is not good for Langtjern
-#		Should probably refactor it so that it takes an external water input (not relying directly on precip),
-#		then either make a simple snow module for this model or use hbv_snow
 #
-#  Calibration data for river is not aligned with lake
+#  Calibration data for river (Q, DOC) is not aligned with lake data
 #       Download new Langtjern data maybe
-#
-#  Should also clean up the input data in general, including putting proper units
 
 
 model("Lake model with catchment") {
@@ -17,29 +12,28 @@ model("Lake model with catchment") {
 	sc        : index_set("Subcatchment")
 	lu        : index_set("Landscape units")
 	
+	snow_box : compartment("Snow box")
 	soil   : compartment("Soil", sc, lu)
 	gw     : compartment("Groundwater", sc)
 	river  : compartment("River", sc)
+	
+	snow : quantity("Snow")
 	
 	downstream : connection("Downstream") @directed_graph {
 		(river|layer)+
 	}
 	
-	load("../05/hydro_modules.txt",
-		module("Soil hydrology", air, soil, gw, river, water, temp, precip),
-		module("River hydrology", river, water, loc(downstream))
-	)
+	load("snow_module.txt",
+		module("Snow module", air, snow_box, soil, snow, water, temp, precip))
 	
+	load("../05/hydro_modules.txt",
+		module("Soil hydrology", air, soil, gw, river, water, temp),
+		module("River hydrology", river, water, loc(downstream)))
+	
+	load("modules/simplysoiltemp.txt", module("Simply soil temperature", air, soil, snow_box, snow, temp))
 	load("modules/rivertemp_o2.txt", module("RiverTemperature", air, soil, river, water, heat, temp))
 	
 	solve(sol, soil.water, gw.water, river.water)
-	
-	module("Soil temperature", version(0, 0, 0)) {
-		
-		var(soil.temp, [deg_c], "Soil temperature") {
-			max(0, air.temp)
-		}
-	}
 	
 	par_group("Land use", soil) {
 		f_lu : par_real("Land use fraction", [], 0, 0, 1)

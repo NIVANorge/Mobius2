@@ -1,4 +1,20 @@
 
+module("Soil precipitation", version(0, 0, 0),
+	air : compartment,
+	soil : compartment,
+	water : quantity,
+	precip : property,
+) {
+"""
+This module only computes the water input to the soil. It is a separate module so that it can be replaced with one that takes snow into account in later examples.
+"""
+	var(air.precip, [m m, day-1], "Precipitation")
+
+	flux(out, soil.water, [m m, day-1], "Precipitation to soil") {
+		air.precip
+	}
+}
+
 module("Soil hydrology", version(0, 0, 3),
 	air : compartment,
 	soil : compartment,
@@ -6,7 +22,6 @@ module("Soil hydrology", version(0, 0, 3),
 	river : compartment,
 	water : quantity,
 	temp : property,
-	precip : property
 ) {
 """
 This is a hydrology module developed as part of the Mobius2 Guide. It is only for teaching the system, and should not be used as a serious model.
@@ -28,11 +43,6 @@ This is a hydrology module developed as part of the Mobius2 Guide. It is only fo
 	var(gw.water, [m m], "Groundwater volume") @initial { 0[m m] }
 	
 	var(air.temp,   [deg_c], "Air temperature")
-	var(air.precip, [m m, day-1], "Precipitation")
-
-	flux(out, soil.water, [m m, day-1], "Precipitation to soil") {
-		air.precip
-	}
 
 	flow : property("Flow")
 	var(soil.water.flow, [m m, day-1], "Soil water flow") {
