@@ -377,7 +377,19 @@ In the above example, since the soil water is given per unit area, the inflow mu
 
 ### Double location restrictions for flux targets
 
-TBW.
+It is possible to have a flux that has a target with a restriction from two connections. This feature can be useful if you discharge along a river network that is represented as a directed graph and at the same time some components can be lakes that are also layered.
+
+We are not entirely happy with the syntax for it as it is not entirely consistent with how the syntax for connection fluxes are in general, so this may change. It is also limited to the case where the second connection is of grid type. Example:
+
+```python
+flux(river.water, lake.water[downstream.below, vert.specific], [m 3, s-1], "River flow to lake") {
+	flow
+} @specific {
+	river_discharge_layer
+}
+```
+
+The flux is aggregated to the flux aggregations for the first connection only.
 
 ## Discrete fluxes
 
@@ -417,9 +429,12 @@ $$
 
 regardless of the step size used (at least up to solver accuracy).
 
-## Order of evaluation
+## Order of evaluation and circular dependencies
 
-TBW.
+The framework will figure out what order the model should evaluate each bit of math code so that e.g. one state variable `x` is computed after another `y` if `x` depends on the current-time value of `y`.
 
+If there are circular dependencies (e.g. `x -> y -> x`), the framework will not be able to do this, and you will get an error that explains what the cycle is.
+
+If you work with ODE equations this is usually much easier. This is because the values of the ODE equations are advanced "in parallel" using a solver algorithm. So if your equation depends on the value of an ODE equation, you usually don't need to worry about it. Most errors with circular dependencies also happen when you forgot to put a quantity state variable on a solver to make it an ODE.
 
 {% include lib/mathjax.html %}

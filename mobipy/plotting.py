@@ -16,20 +16,21 @@ def quick_surf(ax, data, dates, ys, cmap='coolwarm') :
 	ax.invert_xaxis()
 	ax.view_init(50, 80)
 	ax.set_box_aspect(aspect = (2,1,1))
+
+def plot_target(app, target, ax, sl, legend=True) :
+	simname, simidx, obsname, obsidx, *wgt = target
+	app.var(obsname)[obsidx].loc[sl].plot(ax=ax, marker='o', linewidth=0, markerfacecolor=(0, 0, 0, 0), markeredgecolor='#c79124')
+	app.var(simname)[simidx].loc[sl].plot(ax=ax, color='#3293e3')
 	
+	ymin, ymax = ax.get_ylim()
+	if ymin > 0 :
+		ax.set_ylim(0, ymax*1.1)
+	
+	if legend :
+		ax.legend()
+
 def plot_targets(app, targets, sl, width=10, height_per=5) :
 	# For use with optimization targets.
-	
-	def plot_target(app, target, ax) :
-		simname, simidx, obsname, obsidx, *wgt = target
-		app.var(obsname)[obsidx].loc[sl].plot(ax=ax, marker='o', linewidth=0, markerfacecolor=(0, 0, 0, 0), markeredgecolor='#c79124')
-		app.var(simname)[simidx].loc[sl].plot(ax=ax, color='#3293e3')
-		
-		ymin, ymax = ax.get_ylim()
-		if ymin > 0 :
-			ax.set_ylim(0, ymax*1.1)
-		
-		ax.legend()
 	
 	nplots = 1
 	if isinstance(targets, list) :
@@ -39,9 +40,9 @@ def plot_targets(app, targets, sl, width=10, height_per=5) :
 	
 	if nplots > 1:
 		for i, target in enumerate(targets) :
-			plot_target(app, target, axs[i])
+			plot_target(app, target, axs[i], sl)
 	else :
-		plot_target(app, targets, axs)
+		plot_target(app, targets, axs, sl)
 		
 	return fig, axs
 	
