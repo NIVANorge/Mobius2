@@ -127,7 +127,7 @@ Figure: Observed and simulated ice indicator (the value is 1 if there is ice cov
 
 The timing of ice cover starting and lifting is correct within less than 10 days in all years except in the autumn of 2017 (not taking into account the 1 day of simulated ice cover in November 2018).
 
-*This chapter is incomplete. Remaining:*
+**This chapter is incomplete. Remaining:**
 * More precise calibration of the catchment
 * Describe how to calibrate lake temperature and ice
 
