@@ -27,5 +27,6 @@ In addition to these, Mobius2 comes with modules for other processes that are co
 Other models include
 - Air-sea exchange in presence of a partial cover with floating solar panels.
 - EasyReservoir - a version of EasyLake for regulated reservoirs.
+- An [arctic glacier model](https://github.com/NIVANorge/SimplyGlacier) is also in development.
 
 We expect to eventually port over other models from Mobius1 such as SedFlex and the plastic models.

@@ -20,7 +20,6 @@ For simplicity we implement the snow module as a discrete step system instead of
 ```python
 # A snippet of snow_module.txt
 
-
 # In the below equations we make use of the auto-conversion from boolean 
 # to real value types. For instance the expression
 # (air.temp <= 0)
@@ -56,7 +55,6 @@ See more about discrete fluxes under [advanced concepts](../advanced_concepts.ht
 Instead of making a copy of the lake model file and editing it, we now `extend` it. This makes it so that changes to the original model also take effect in the one extending it, and we don't have to keep track of too many model versions.
 
 ```python
-
 model("Lake model with catchment") {
 
 	extend("../07/07_model.txt")
@@ -127,8 +125,12 @@ Figure: Observed and simulated ice indicator (the value is 1 if there is ice cov
 
 The timing of ice cover starting and lifting is correct within less than 10 days in all years except in the autumn of 2017 (not taking into account the 1 day of simulated ice cover in November 2018).
 
+In the next chapter we will add dissolved organic carbon to our coupled catchment-lake model.
+
 **This chapter is incomplete. Remaining:**
 * More precise calibration of the catchment
 * Describe how to calibrate lake temperature and ice
+* Catchment-lake map?
+* Exercises?
 
 [Full code for chapter 08](https://github.com/NIVANorge/Mobius2/tree/main/guide/08).
