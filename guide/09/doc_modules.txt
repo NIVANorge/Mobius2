@@ -1,0 +1,50 @@
+
+module("Catchment DOC", version(0, 0, 0),
+	air   : compartment,
+	soil  : compartment,
+	gw    : compartment,
+	river : compartment,
+	water : quantity,
+	oc    : quantity,
+	temp  : property,
+) {
+	
+	par_group("Soil DOC", soil) {
+		basedoc : par_real("Baseline soil DOC concentration", [m g, l-1], 0, 0, 50)
+		kT      : par_real("DOC-temperature first order correlation", [deg_c-1], 0, 0, 0.1)
+	}
+	
+	var(soil.water.oc, [k g, k m-2], [m g, l-1], "Soil water DOC") @override_conc {
+		basedoc*(1 + kT*soil.temp)
+	}
+	
+	var(gw.water.oc, [k g, k m-2], [m g, l-1], "Groundwater DOC") @override_conc {
+		aggregate(conc(soil.water.oc))
+	}
+	
+	var(river.water.oc, [k g], [m g, l-1], "River DOC")
+}
+
+
+module("Lake DOC", version(0, 0, 0),
+	layer : compartment,
+	water : quantity,
+	oc    : quantity,
+	temp  : property,
+) {
+	
+	par_group("Lake DOC processes") {
+		minr   : par_real("DOC mineralization base rate", [day-1], 0, 0, 0.01)
+		minq10 : par_real("DOC mineralization Q10", [], 2, 0.5, 5)
+	}
+	
+	par_group("Layer DOC", layer) {
+		init_doc : par_real("Initial layer DOC concentration", [m g, l-1], 0, 0, 50)
+	}
+
+	var(layer.water.oc, [k g], [m g, l-1], "Layer DOC") @initial_conc { init_doc }
+	
+	flux(layer.water.oc, out, [k g, day-1], "Layer DOC mineralization") {
+		oc * minr * minq10^((temp - 20[deg_c])/10[deg_c])
+	}
+}

@@ -1,0 +1,251 @@
+# Saved from model : "09_model.txt"
+
+data_set {
+	
+"""
+TODO: Replace with Langtjern series
+"""
+	
+	series("../07/langtjern_lake.xlsx")
+	
+	series("../08/langtjern_catchment.xlsx")
+	
+	li : index_set("Layer index") [ 12 ]
+	
+	sc : index_set("Subcatchment") [ "LAE03" "LAE_rest" ]
+	
+	lu : index_set("Landscape units") [ "Forest" "Peat" ]
+	
+	connection("Downstream") {
+		
+		r : compartment("River", sc)
+		l : compartment("Lake layer", li)
+		
+		directed_graph [ 
+			r[ "LAE03" ] -> l[ 0 ]
+			r[ "LAE_rest" ] -> l[ 0 ]
+		]
+	}
+	
+	par_group("System") {
+		
+		par_datetime("Start date") 
+		[ 2015-01-02 ]
+		
+		par_datetime("End date") 
+		[ 2019-01-01 ]
+	
+	}
+	
+	par_group("Land use", sc, lu) {
+		
+		par_real("Land use fraction") [
+			0.82 0.18 
+			0.75 0.25 
+		]
+	
+	}
+	
+	par_group("Subcatchment data", sc) {
+		
+		par_real("Subcatchment area") 
+		[ 0.8 4 ]
+	
+	}
+	
+	module("Simple layered lake", version(0, 0, 1)) {
+		
+		par_group("Layer parameters", li) {
+			
+			par_real("Thickness") 
+			[ 1 1 1 1 1 1 1 1 1 1 1 1 ]
+			
+			par_real("Cross-section area") 
+			[ 107183 52794.94616 45285.52576 40051.50129 29128.27872 18887.81659 12743.44488 8419.767648 5689.198093 4096.090419 2730.569555 910.3472423 ]
+			
+			par_real("Initial temperature") 
+			[ 4 4 4 4 4 4 4 4 4 4 4 4 ]
+		
+		}
+		
+		par_group("Mixing parameters") {
+			
+			par_real("Mixing factor reference") 
+			[ 5e-05 ]
+			
+			par_real("Mixing factor during ice") 
+			[ 2.5e-05 ]
+		
+		}
+		
+		par_group("Light") {
+			
+			par_real("Light extinction coefficient") 
+			[ 1.2 ]
+		
+		}
+	
+	}
+	
+	module("Atmospheric", version(0, 1, 0)) {
+		
+		par_group("Location") {
+			
+			par_real("Latitude") 
+			[ 60 ]
+			
+			par_real("Longitude") 
+			[ 10 ]
+			
+			par_real("GMT zone") 
+			[ 1 ]
+			
+			par_real("Elevation") 
+			[ 0 ]
+		
+		}
+		
+		par_group("Radiation") {
+			
+			par_bool("Use sub-daily precision") 
+			[ false ]
+			
+			par_real("Cloud absorption scaling factor") 
+			[ 0.75 ]
+			
+			par_real("Cloud absorption power factor") 
+			[ 3.4 ]
+		
+		}
+	
+	}
+	
+	module("AirSea", version(0, 1, 1)) {
+		
+		par_group("Ice") {
+			
+			par_real("Initial ice thickness") 
+			[ 0.6 ]
+			
+			par_real("Ice albedo") 
+			[ 0.6 ]
+			
+			par_real("Ice attenuation coefficient") 
+			[ 5 ]
+			
+			par_real("Frazil threshold") 
+			[ 0.05 ]
+		
+		}
+	
+	}
+	
+	module("Soil hydrology", version(0, 0, 3)) {
+		
+		par_group("Soil hydrology", sc) {
+			
+			par_real("Field capacity") 
+			[ 50 50 ]
+			
+			par_real("Soil water time constant") 
+			[ 1.5 3 ]
+			
+			par_real("Baseflow index") 
+			[ 0.1 0.1 ]
+			
+			par_real("Degree-day factor for potential evapotranspiration") 
+			[ 0.12 0.12 ]
+		
+		}
+		
+		par_group("Groundwater hydrology") {
+			
+			par_real("Groundwater time constant") 
+			[ 20 ]
+		
+		}
+	
+	}
+	
+	module("RiverTemperature", version(0, 1, 1)) {
+		
+		par_group("River temperature") {
+			
+			par_real("Air-river heat exchange coefficient") 
+			[ 1 ]
+		
+		}
+	
+	}
+	
+	module("Catchment DOC", version(0, 0, 0)) {
+		
+		par_group("Soil DOC", lu) {
+			
+			par_real("Baseline soil DOC concentration") 
+			[ 10 15 ]
+			
+			par_real("DOC-temperature first order correlation") 
+			[ 0.045 0.045 ]
+		
+		}
+	
+	}
+	
+	module("Lake DOC", version(0, 0, 0)) {
+		
+		par_group("Lake DOC processes") {
+			
+			par_real("DOC mineralization base rate") 
+			[ 0.01 ]
+			
+			par_real("DOC mineralization Q10") 
+			[ 2 ]
+		
+		}
+		
+		par_group("Layer DOC", li) {
+			
+			par_real("Initial layer DOC concentration") 
+			[ 10 10 10 10 10 10 10 10 10 10 10 10 ]
+		
+		}
+	
+	}
+	
+	module("Snow module", version(0, 0, 0)) {
+		
+		par_group("Snow parameters") {
+			
+			par_real("Degree-day factor for snowmelt") 
+			[ 2.74 ]
+			
+			par_real("Initial snow depth (water equivalents)") 
+			[ 0 ]
+		
+		}
+	
+	}
+	
+	module("Simply soil temperature", version(0, 1, 0)) {
+		
+		par_group("Soil temperature general") {
+			
+			par_real("Snow depth / soil temperature factor") 
+			[ -0.2 ]
+			
+			par_real("Initial soil temperature") 
+			[ 10 ]
+		
+		}
+		
+		par_group("Soil temperature land") {
+			
+			par_real("Soil thermal conductivity / specific heat capacity") 
+			[ 0.4 ]
+		
+		}
+	
+	}
+
+}

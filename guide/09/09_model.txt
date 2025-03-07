@@ -1,0 +1,13 @@
+
+model("Lake model with catchment and DOC") {
+
+	extend("../08/08_model.txt")
+
+	oc : quantity("Organic carbon")
+	
+	load("doc_modules.txt",
+		module("Catchment DOC", air, soil, gw, river, water, oc, temp),
+		module("Lake DOC", layer, water, oc, temp)
+	)
+
+}
