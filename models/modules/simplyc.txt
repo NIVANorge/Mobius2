@@ -47,9 +47,9 @@ Authors: Magnus D. Norling, Leah A. Jackson-Blake
 	var(soil.water.oc, [k g, k m -2], [m g, l-1], "Soil water DOC")
 		@initial_conc { basedoc }
 		@override_conc {
-			basedoc                                             if soildoc_type.const,
-			basedoc*(1 + (kt1 + kt2*temp)*temp - kso4*air.so4)  if soildoc_type.equilibrium,
-			no_override                                         otherwise
+			basedoc                                                     if soildoc_type.const,
+			max(0, basedoc*(1 + (kt1 + kt2*temp)*temp - kso4*air.so4))  if soildoc_type.equilibrium,
+			no_override                                                 otherwise
 		}
 		
 	var(gw.water.oc,   [k g, k m -2], [m g, l-1], "Deep soil DOC")

@@ -4,16 +4,7 @@ data_set {
 The doc string
 """
 	
-	i : index_set("Q index") [ "Q1" "Q2" ]
-	
-	connection("Connection") {
-		a : compartment("A")
-		b : compartment("B")
-		
-		directed_graph [
-			a[] -> b[]
-		]
-	}
+	i : index_set("Index") [ 10 ]
 	
 	
 	par_group("System") {

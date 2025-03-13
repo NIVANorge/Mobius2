@@ -1,13 +1,13 @@
 
 
 	*** High pri ***
-			
-		Make the user explicitly declare when a quantity is discrete (non-ODE). Then it becomes more easy to detect when they forgot to put it on a solver (and they don't get strange error messages).
-
-		Add a metadata block to mobius data set, which can be accessed from mobipy. It can e.g. contain the model that was used.
-		metadata [!
-			"Saved from model" : "simplyc_model.txt"
-		]
+		
+		
+		
+		
+		Should allow a discrete flux to have a connection as target.
+			At least when the target is a restriction like soil.water[vert.top] and is ODE.
+			Could also allow for grid1d connection in general, but requires some work.
 		
 		Make functionality to patch in data from a sub-model in a data set.
 			E.g. you have a setup for Simply+NIVAFjord and you want to patch in from a different file that just has the Simply part of the setup.
@@ -92,6 +92,7 @@
 						Experiment with different phytoplankton formulation.
 			
 		Connection system
+			
 		
 			Have to figure out what something like
 				flux(blabla, something[vert.below], ...)				
@@ -174,6 +175,16 @@
 	
 	
 	*** Intermediate-pri ***
+	
+		It should not be possible to distribute something over two union index sets if they share a member.
+	
+		Make the user explicitly declare when a quantity is discrete (non-ODE). Then it becomes more easy to detect when they forgot to put it on a solver (and they don't get strange error messages).
+
+		Add a metadata block to mobius data set, which can be accessed from mobipy. It can e.g. contain the model that was used.
+		metadata [!
+			"Saved from model" : "simplyc_model.txt"
+		]
+			This is only relevant if the data set can be loaded as a separate object (which is something we plan).
 	
 		If an input series is provided indexed over "subcatchment", but should be indexed over "water body" and "subcatchment" is a union member of "water body", that should be made to work. (and all similar cases) Just re-map the index.
 		

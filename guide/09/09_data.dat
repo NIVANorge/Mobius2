@@ -61,7 +61,7 @@ TODO: Replace with Langtjern series
 			[ 1 1 1 1 1 1 1 1 1 1 1 1 ]
 			
 			par_real("Cross-section area") 
-			[ 107183 52794.94616 45285.52576 40051.50129 29128.27872 18887.81659 12743.44488 8419.767648 5689.198093 4096.090419 2730.569555 910.3472423 ]
+			[ 232109 145268 110402 82905.7 54816.2 32504.8 19385 11371.6 6427.15 4096.09 2730.57 910.347 ]
 			
 			par_real("Initial temperature") 
 			[ 4 4 4 4 4 4 4 4 4 4 4 4 ]
@@ -71,10 +71,10 @@ TODO: Replace with Langtjern series
 		par_group("Mixing parameters") {
 			
 			par_real("Mixing factor reference") 
-			[ 5e-05 ]
+			[ 0.0004 ]
 			
 			par_real("Mixing factor during ice") 
-			[ 2.5e-05 ]
+			[ 0.0001 ]
 		
 		}
 		
@@ -197,7 +197,7 @@ TODO: Replace with Langtjern series
 		par_group("Lake DOC processes") {
 			
 			par_real("DOC mineralization base rate") 
-			[ 0.01 ]
+			[ 0.005 ]
 			
 			par_real("DOC mineralization Q10") 
 			[ 2 ]

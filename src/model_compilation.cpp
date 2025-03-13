@@ -769,6 +769,17 @@ process_grid1d_connection_aggregation(Model_Application *app, std::vector<Model_
 		
 	// Get at least one instance of the aggregation variable per instance of the variable we are aggregating for
 	instructions[agg_id.id].inherits_index_sets_from_instruction.insert(agg_var->agg_for.id);
+	{
+		// In some instances that variable could have more index set dependencies than the flux (coming from index sets that are not part of the connection)
+		// So we need to add these extra dependencies to the "add to aggregation" instruction.
+		// This is a bit of a hacky way to do it, repurposing another system.
+		Identifier_Data ident;
+		ident.variable_type = Variable_Type::series;
+		ident.var_id = agg_var->agg_for;
+		ident.restriction.r1.connection_id = agg_var->connection;
+		ident.restriction.r1.type = Restriction::Type::top; // This is just to force it to exclude a dependency on the connection index set (since that is not always wanted, and is taken care of separately)
+		add_to_aggr_instr->inherits_index_sets_from_state_var.insert(ident);
+	}
 	
 	auto &components = app->connection_components[agg_var->connection].components;
 	auto source_comp = components[0].id;

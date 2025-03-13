@@ -44,12 +44,9 @@ model("Diffusion") {
 	layer_index : index_set("Layer index")
 	branch_index : index_set("Branch index")
 	
-	layer : compartment("Layer")
-	botcomp : compartment("Bottom")
+	layer : compartment("Layer", branch_index, layer_index)
+	botcomp : compartment("Bottom", branch_index)
 	o2    : quantity("O₂")
-	
-	distribute(botcomp, branch_index)
-	distribute(layer, branch_index, layer_index)
 	
 	sol : solver("Solver", inca_dascru, [2, hr])
 	solve(sol, layer.o2, botcomp.o2)

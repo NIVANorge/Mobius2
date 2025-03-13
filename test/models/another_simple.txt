@@ -2,30 +2,28 @@
 
 model("Another simple") {
 	
-	i : index_set("Q index")
+	i : index_set("Index")
 	
 	a : compartment("A")
-	b : compartment("B")
+	b : compartment("B", i)
 	r : quantity("R")
-	q : quantity("Q", i)
 	
-	c : connection("Connection") @directed_graph { a b }
+	c : connection("Connection") @grid1d(b, i)
 	
 	module("So simple", version(2, 0, 0)) {
-		
-		par_group("Q pars", q) {
-			init_q : par_real("Init Q", [], 1)
+	
+		par_group("Pars", b) {
+			init_b_r : par_real("Init B R", [], 0)
 		}
+	
 		
-		var(a.r, [k g], "A water") @initial { 10[k g] }
+		var(a.r, [], "A water") @initial { 10 }
 		
-		var(a.r.q, [k g], "A queue") @initial_conc { init_q }
+		var(b.r, [], "B water") @initial { init_b_r }
 		
-		var(b.r, [k g], "B water")
 		
-		var(b.r.q, [k g], "B queue")
-		
-		flux(a.r, c, [k g, day-1], "A r flux") { a.r*0.01[day-1] }
+		flux(a.r, b.r[c.top], [day-1], "A r flux") { 1=>> }
+		#flux(out, b.r[c.top], [day-1], "A r flux") { 1=>> }
 
 	}
 	
