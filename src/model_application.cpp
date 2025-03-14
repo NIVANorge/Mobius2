@@ -694,29 +694,32 @@ process_series_metadata(Model_Application *app, Data_Set *data_set, Entity_Id se
 					fatal_error(Mobius_Error::internal, "Invalid index set for series in data set.");
 				for(auto id : ids) {
 					
-					if(id.type == Var_Id::Type::series) {// Only perform the check for model inputs, not additional series.
+					// Perform a check of allowed indexes for model inputs (not additional series).
+					if(id.type == Var_Id::Type::series) {
 						
 						auto var0 = app->vars[id];
-						//Index_Set_Tuple allowed = {};
 						auto allowed = as<State_Var::Type::declared>(var0)->allowed_index_sets;
-						/*
-						if(var0->type == State_Var::Type::declared)
-							allowed = as<State_Var::Type::declared>(var0)->allowed_index_sets;
-						else if(var0->type == State_Var::Type::dissolved_conc) {
-							auto var = as<State_Var::Type::dissolved_conc>(var0);
-							auto allowed_diss = as<State_Var::Type::declared>(app->vars[var->conc_of])->allowed_index_sets;
-							auto allowed_med  = as<State_Var::Type::declared>(app->vars[var->conc_in])->allowed_index_sets;
-							allowed = allowed_diss;
-							allowed.insert(allowed_med);
-						} else
-							fatal_error(Mobius_Error::internal, "Unsupported state var type for input series.");
-						*/
+						Entity_Id use_index_set = index_set;
+						
 						if(!allowed.has(index_set)) {
-							header.source_loc.print_error_header();
-							fatal_error("Can not set \"", idx_set->name, "\" as an index set dependency for the series \"", header.name, "\" since the relevant components are not distributed over that index set.");
+							// Allow indexing with a union member of an allowed index set (if applicable).
+							bool found = false;
+							for(auto set_id : allowed) {
+								auto set = model->index_sets[set_id];
+								if(std::find(set->union_of.begin(), set->union_of.end(), index_set) != set->union_of.end()) {
+									found = true;
+									use_index_set = set_id;
+									break;
+								}
+							}
+							
+							if(!found) {
+								header.source_loc.print_error_header();
+								fatal_error("Can not set \"", idx_set->name, "\" as an index set dependency for the series \"", header.name, "\" since the relevant components are not distributed over that index set.");
+							}
 						}
 						
-						metadata->index_sets[id].push_back(index_set);
+						metadata->index_sets[id].push_back(use_index_set);
 					} else
 						metadata->index_sets_additional[id].push_back(index_set);
 				}

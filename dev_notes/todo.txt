@@ -4,7 +4,6 @@
 		
 		
 		
-		
 		Should allow a discrete flux to have a connection as target.
 			At least when the target is a restriction like soil.water[vert.top] and is ODE.
 			Could also allow for grid1d connection in general, but requires some work.
@@ -25,13 +24,11 @@
 		We need an all_in_flux and all_out_flux or similar.
 			For instance, SimplyP could be broken if it is used with soil discharge along a connection since it uses out_flux (and it can't know about the connections).
 		
-	
 		If you load different modules using the same load name, you don't get a name clash!
 			This is as intended if the two loads are identical (so that you can extend two models that load the same module)
 			Fixed if the module template is different, but should also be fixed when template is same but load arguments are different.
-				Complexity because e.g. two 'loc' arguments could be different declarations but have the same "value". Same for any inlined declaration.
+				Complexity because e.g. two 'loc' arguments could be different declarations but have the same "value". Same for any inlined declaration in the load.
 			
-		Document how to use connections, and some more of the advanced concepts.
 		
 		Figure out if there is a memory leak when running MCMC in python.
 			Or otherwise why it crashes on very large runs
@@ -177,6 +174,7 @@
 	*** Intermediate-pri ***
 	
 		It should not be possible to distribute something over two union index sets if they share a member.
+			(in check_valid_distribution ..)
 	
 		Make the user explicitly declare when a quantity is discrete (non-ODE). Then it becomes more easy to detect when they forgot to put it on a solver (and they don't get strange error messages).
 
@@ -184,18 +182,9 @@
 		metadata [!
 			"Saved from model" : "simplyc_model.txt"
 		]
-			This is only relevant if the data set can be loaded as a separate object (which is something we plan).
-	
-		If an input series is provided indexed over "subcatchment", but should be indexed over "water body" and "subcatchment" is a union member of "water body", that should be made to work. (and all similar cases) Just re-map the index.
-		
-		Store name of expected model file in data sets (?)
-			Done now as a comment, for documentation purposes only.
-			Could make it more structural, allow loading that file only, and it infers the model it needs.
-				Would probably only work if it is in /Mobius2/models/
+			This is only relevant if the data set can be loaded in mobipy as a separate object from the model (which is something we plan).
 		
 		It may be confusing to users what arguments are available for 'option'. This is because if you use a declared identifier that has not been processed yet, it will say that it doesn't recognize the identifier. It is legitimate that there is an error, but the error can't (for resons) acknowledge that the identifier exists but is not usable in this context.
-		
-		We could probably simplify a lot of things by switching from our custom String_View to std::string_view ??
 	
 		MobiView
 			We could allow editing option_group parameters in MobiView

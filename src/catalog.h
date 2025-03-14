@@ -170,7 +170,8 @@ Registry<Registration_Type, reg_type>::operator[](Entity_Id id) {
 struct
 Index_Set_Registration : Registration_Base {
 	
-	std::vector<Entity_Id>  union_of;  // TODO: Make this an Index_Set_Tuple too!
+	// NOTE: This can not be an Index_Set_Tuple because the order matters, and the order of declaration of index sets may be different in the Mobius_Model and the Data_Set
+	std::vector<Entity_Id>  union_of;
 	
 	Entity_Id sub_indexed_to = invalid_entity_id;
 	

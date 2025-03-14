@@ -244,12 +244,21 @@ process_series(Model_Application *app, Data_Set *data_set, Entity_Id series_data
 						auto idx_set = data_set->index_sets[index.index_set];
 						Entity_Id index_set = model->top_scope.deserialize(idx_set->name, Reg_Type::index_set);
 						Entity_Id expected = expected_index_sets[index_idx];
+						
+						auto use_index = Index_T { index_set, index.index };
+						
 						if(index_set != expected) {
-							header.source_loc.print_error_header();
-							//TODO: need better error diagnostics here, because the index sets expected could have come from another data block or file.
-							fatal_error("Expected \"", model->index_sets[expected]->name, " to be index set number ", index_idx+1, " for input series \"", header.name, "\".");
+							auto expected_set = model->index_sets[expected];
+							if(std::find(expected_set->union_of.begin(), expected_set->union_of.end(), index_set) != expected_set->union_of.end()) {
+								// Remap to a higher union index set if that is what we should have indexed over.
+								use_index = app->index_data.raise(use_index, expected);
+							} else {
+								header.source_loc.print_error_header();
+								//TODO: need better error diagnostics here, because the index sets expected could have come from another data block or file.
+								fatal_error("Expected \"", model->index_sets[expected]->name, " to be index set number ", index_idx+1, " for input series \"", header.name, "\".");
+							}
 						}
-						indexes_int.add_index(index_set, index.index);
+						indexes_int.add_index(use_index);
 						++index_idx;
 					}
 					
