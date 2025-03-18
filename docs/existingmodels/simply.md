@@ -7,21 +7,21 @@ nav_order: 0
 
 ![Simply](../img/SimplyLogo.png)
 
-The simply models are parsimonious hydrology, sediment, nutrient and contaminant models. The models are dynamic, and are spatially semi-distributed, i.e. there is the ability to include differences in hydrology, sediment and other processes between land use types and sub-catchments.
+The Simply models are parsimonious hydrology, sediment, nutrient and contaminant models. The models are dynamic, and are spatially semi-distributed, i.e. there is the ability to include differences in hydrology, sediment and other processes between land use types and sub-catchments.
 
-Key philosophies behind Simply development are:
+Key philosophies behind Simply model development are:
 
 1. Process representation should be as simple as possible, only including those processes that appear to dominate the catchment-scale response, whilst maintaining sufficient complexity for the model to be useful in hypothesis and scenario testing.
 2. Process representation should be simple enough to allow parameter values to be constrained using available data. This involves keeping the number of parameters requiring calibration to a minimum, and aiming for as many parameters as possible to be in principle measurable, so their values can be based on observed data (either gathered from the study site or literature-based). We aim for it to be possible to include all uncertain parameters in uncertainty analysis.
 
 Examples of potential model uses include:
 
-1. Interpolating sparse monitoring data, to provide more ecologically-relevant estimates of in-stream phosphorus concentrations, or more accurate estimates of loads delivered downstream to lakes or estuaries.
+1. Interpolating sparse monitoring data, for example to provide more ecologically-relevant estimates of in-stream phosphorus concentrations, or more accurate estimates of loads delivered downstream to lakes or estuaries.
 2. Hypothesis testing and highlighting knowledge and data gaps. This in turn could be used to help design monitoring strategies and experimental needs, and prioritise areas for future model development.
 3. Exploring the potential response of the system to future environmental change (e.g. climate, land use and management), including potential storm and low-flow dynamics.
-Providing evidence to support decision-making, e.g. to help set water quality and load reduction goals, and advise on means of achieving those goals.
+4. Providing evidence to support decision-making, e.g. to help set water quality and load reduction goals, and advise on means of achieving those goals.
 
-The Simply models originate from \[JacksonBlake17\], where the first version of SimplyP (including what was later named SimplyQ and SimplySed) was implemented as a [python program](https://github.com/LeahJB/SimplyP).
+The Simply models originate from \[JacksonBlake17\], where the first version of SimplyP was implemented as a [python program](https://github.com/LeahJB/SimplyP), including what was later named SimplyQ and SimplySed.
 
 An early version of SimplyC was developed in \[Norling21\].
 
@@ -45,17 +45,17 @@ A publication is forthcoming.
 
 ## SimplyC
 
-SimplyC is a dissolved organic carbon (DOC). The concentration of DOC in the soil water is set to have an equilibrium that depends on temperature and sulfate deposition. It can be configured either to always stay at this equilibrium or to tend towards it at a given rate (in the latter case, incoming clean water will dilute the concentration for a while after infiltration).
+SimplyC is a dissolved organic carbon (DOC) module. The concentration of DOC in the soil water is set to have an equilibrium that depends on temperature and sulfate deposition. It can be configured either to always stay at this equilibrium or to tend towards it at a given rate (in the latter case, incoming clean water will dilute the concentration for a while after infiltration).
 
 In the groundwater, the DOC concentration is either constant, set to the soil water average, or follows mass balance (with the recharge and discharge), with a constant decay rate.
 
-In the river, the DOC can be given a [Q10](https://en.wikipedia.org/wiki/Q10_(temperature_coefficient))-governed decay rate.
+In the river, net DOC mineralisation can be given using a [Q10](https://en.wikipedia.org/wiki/Q10_(temperature_coefficient))-governed decay rate.
 
 See the [mathematical description](autogen/simplycnp.html#simplyc-land)
 
 ## SimplyN
 
-SimplyN is a dissolved inorganic nitrate (DIN) module. It allows for atmospheric deposition and fixation inputs, fertilizer inputs and uptake+denitrification removal. There is also a Q10-based denitrification loss process in the river.
+SimplyN is a dissolved inorganic nitrate (DIN) module. It allows for atmospheric deposition and fixation inputs, fertilizer inputs and removal through uptake and denitrification in the soil. There is also a Q10-based denitrification loss process in the river.
 
 See the [mathematical description](autogen/simplycnp.html#simplyn)
 
@@ -67,7 +67,7 @@ See the [mathematical description](autogen/simplycnp.html#simplysed)
 
 ## SimplyP
 
-SimplyP is a module for total dissolved phosphourous (TDP) and particulate phosphorous (PP). TDP in the soil solution is modeled using an *equilibrium phosphate concentration at net zero sorption* (EPC0) - type process, where the EPC0 can change over time. This model was first published in \[JacksonBlake17\].
+SimplyP is a module for total dissolved phosphourous (TDP) and particulate phosphorous (PP). TDP in the soil solution is modeled using an *equilibrium phosphate concentration at net zero sorption* (EPC0) - type process, where the EPC0 can change over time. This model was first published in \[JacksonBlake17\]. Variations of the model include an ability to simulate total reactive phosphorus (TRP).
 
 See the [mathematical description](autogen/simplycnp.html#simplyp)
 
@@ -77,7 +77,7 @@ SimplyTox is a set of contaminant modules. They form a [Level IV multimedia fuga
 
 Because of the fugacity approach, SimplyTox is suitable for modelling a large range of substances including [persistent organic pollutants](https://en.wikipedia.org/wiki/Persistent_organic_pollutant), or more water-soluble contaminants.
 
-In all compartments, contaminants are partitioned between a truly dissolved phase, absorption to dissolved organic carbon and to solid organic carbon. In the soil there are two solid organic carbon boxes consisting of fast-accessible and slowly-accessible carbon. In the river, there is partitioning with both suspended particulate organic carbon and with the sediment layer. There is also air-water exchange both in the soil and the river surface.
+In all compartments, contaminants are partitioned between a truly dissolved phase, adsorption to dissolved organic carbon and to solid organic carbon. In the soil there are two solid organic carbon boxes consisting of fast-accessible and slowly-accessible carbon. In the river, there is partitioning with both suspended particulate organic carbon and with the sediment layer. There is also air-water exchange both in the soil and the river surface.
 
 A version of the model for deep groundwater with multiple layered reservoirs is also available.
 
