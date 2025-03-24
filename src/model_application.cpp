@@ -1378,9 +1378,9 @@ Model_Application::get_all_fluxes_with_source_or_target(std::vector<Var_Id> &pus
 				if(flux_var->loc2.r1.connection_id != connection_id) continue;
 				if(flux_var->mixing_base) continue;
 				
-				auto loc = flux_var->loc1;
+				auto loc = flux_var->loc2;
 				if(!is_located(loc))
-					loc = flux_var->loc2;
+					loc = flux_var->loc1;
 				
 				if(var_id != vars.id_of(loc)) continue;
 
