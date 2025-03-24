@@ -20,6 +20,8 @@ Norling, M.D., Jackson-Blake, L.A., Calidonio, J.-L.G., Sample, J.E.: *Rapid dev
 
 ### Other research papers
 
+Hammarlund, E. U., Bukkuri, A., Norling, M. D., Islam, M., Posth, N. R., Baratchart, E., Carroll, C., Amend, S. R., Gatenby, R. A., Pienta, K. J., Brown, J. S., Peters, S. E., Hancke, K. *Benthic diel oxygen variability and stress as potential drivers for animal diversification in the Neoproterozoic-Palaeozoic*, Nature Communications 16 [https://doi.org/10.1038/s41467-025-57345-0](https://doi.org/10.1038/s41467-025-57345-0), 2025 
+
 Rankinen, K., Cano Bernal, J. E., Holmberg, M., Norling, M., Schulz, T., Mäkelä, A., Mikkonen, N., Kujala, H., Jackson-Blake, L. A., de Wit, H., Forsius, M. *Modelling the Effects of Forest use Change on Brownification of Finnish Rivers under Atmospheric Pressure*, Environmental Management. [https://doi.org/10.1007/s00267-024-02058-1](https://doi.org/10.1007/s00267-024-02058-1), 2024
 
 de Wit, H., Clayer, F., Kaste, Ø., Norling, M.D. *From anthropogenic toward natural acidification: Effects of future deposition and climate on recovery in a humic catchment in Norway*, Ecological Research, [https://doi.org/10.1111/1440-1703.12524](https://doi.org/10.1111/1440-1703.12524), 2024
