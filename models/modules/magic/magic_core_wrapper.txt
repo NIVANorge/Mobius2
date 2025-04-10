@@ -108,8 +108,6 @@ This module is for now just for testing calling the MAGIC core from Mobius2. Wil
 	
 	var(comp.po4, [m eq, m-2]) @initial { concn * water }
 	
-	
-	
 	ph        : property("pH")
 	exch      : property("Exchangeable on soil as % of capacity")
 	bss       : property("Base saturation of soil (ECa + EMg + ENa + EK)")
@@ -127,6 +125,12 @@ This module is for now just for testing calling the MAGIC core from Mobius2. Wil
 	ionic_str : property("Ionic strength")
 	
 	s_al : property("Log10 Al selectivity coefficient")
+	
+	anc  : property("Acid neutralizing capacity")
+	
+	var(comp.anc, [m eq, m-3]) {
+		ca.concn + mg.concn + na.concn + k.concn + nh4.concn - so4.concn - cl.concn - no3.concn - f.concn
+	}
 	
 	# TODO: Document why we set a min conc?
 	min_init_conc : constant("Minimal initial concentration", [m eq, m-3], 1e-20)
@@ -151,7 +155,8 @@ This module is for now just for testing calling the MAGIC core from Mobius2. Wil
 		max(bal / rel_runoff, min_init_conc)
 	}
 	
-	var(comp.so4.concn, [m eq, m-3], "SO4(2-) ionic concentration") #No initial, instead set initial conc_all_so4
+	#No initial free SO4, instead set initial conc_all_so4, then the "Magic initial" routine computes the free conc.
+	var(comp.so4.concn, [m eq, m-3], "SO4(2-) ionic concentration")
 	
 	var(comp.cl.concn, [m eq, m-3], "Cl(-) ionic concentration") @initial {
 		max(bal / rel_runoff, min_init_conc)

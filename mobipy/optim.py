@@ -323,7 +323,10 @@ def run_minimizer(app, params, set_params, residual_fun, method='nelder', use_in
 	init = None
 	if use_init : init = params
 	
-	res = mi.minimize(method=method, params=init, options=options)
+	if method == 'leastsq' :
+		res = mi.minimize(method=method, params=init)
+	else :
+		res = mi.minimize(method=method, params=init, options=options)
 	
 	set_params(app, res.params)
 	
