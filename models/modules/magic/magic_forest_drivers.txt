@@ -101,7 +101,7 @@ module("MAGIC-Forest drivers", version(0, 0, 2),
 	
 	var(comp.ts, [year, month-1]) {
 		time.step_length_in_seconds*1[month-1] / (time.days_this_year * 86400[s, day-1])
-	}
+	} @no_store
 	
 	# TODO: It is not the best solution to make the user input the ro_scale
 	# (even more complicated if you have more chained parameters)

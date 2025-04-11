@@ -87,7 +87,7 @@ def get_base_cation_exchangeable_fractions_setup(app, calib_index='Soil', obsnam
 
 	return params, set_params, target, get_sim_obs
 	
-def get_base_cation_combined_setup(app, calib_index='Soil', obs_index='River', obsname_c='Obs %s', obsname_bs='Obs%s%%', obsname_ph=None) :
+def get_base_cation_combined_setup(app, calib_index='Soil', obs_index='River', obsname_c='Obs %s', obsname_bs='Obs%s%%', obsname_ph=None, bs_weight=10) :
 
 	par_dict = {
 		'w_ca' : ('MAGIC-Forest drivers', 'w_ca', [calib_index], 0, 200),
@@ -107,10 +107,10 @@ def get_base_cation_combined_setup(app, calib_index='Soil', obs_index='River', o
 		('Mg(2+) ionic concentration', [obs_index], obsname_c%'Mg', [], 1),
 		('Na(+) ionic concentration', [obs_index], obsname_c%'Na', [], 1),
 		('K(+) ionic concentration', [obs_index], obsname_c%'K', [], 1),
-		('Exchangeable Ca on soil as % of CEC', [calib_index], obsname_bs%'Ca', [], 10),
-		('Exchangeable Mg on soil as % of CEC', [calib_index], obsname_bs%'Mg', [], 10),
-		('Exchangeable Na on soil as % of CEC', [calib_index], obsname_bs%'Na', [], 10),
-		('Exchangeable K on soil as % of CEC', [calib_index], obsname_bs%'K', [], 10),
+		('Exchangeable Ca on soil as % of CEC', [calib_index], obsname_bs%'Ca', [], bs_weight),
+		('Exchangeable Mg on soil as % of CEC', [calib_index], obsname_bs%'Mg', [], bs_weight),
+		('Exchangeable Na on soil as % of CEC', [calib_index], obsname_bs%'Na', [], bs_weight),
+		('Exchangeable K on soil as % of CEC', [calib_index], obsname_bs%'K', [], bs_weight),
 	]
 	if obsname_ph :
 		target.append(('pH', [calib_index], obsname_ph, [], 500))
