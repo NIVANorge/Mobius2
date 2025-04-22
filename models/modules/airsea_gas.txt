@@ -21,6 +21,9 @@ Air-sea gas exchange module (O₂, CO₂, CH₄)
 Authors: François Clayer, Magnus Dahler Norling
 """
 
+	# In case it is not declared elsewhere
+	var(air.precip, [m m, day-1], "Precipitation")
+
 	load("stdlib/seawater.txt", library("Sea oxygen"))
 	load("stdlib/physiochemistry.txt", library("Chemistry"))
 	

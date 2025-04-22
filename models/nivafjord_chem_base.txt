@@ -77,7 +77,7 @@ This won't run as its own model, it is just a base for model extension.
 		psc : connection("Point source connection") @directed_graph { ps layer } @no_cycles
 		
 		load("modules/nivafjord/point_sources.txt",
-			module("NIVAFjord dynamic point sources", ps, layer, water, din, on, phos, sed, oc, o2, heat, temp, vert, psc)
+			module("NIVAFjord dynamic point sources", air, ps, layer, water, din, on, phos, sed, oc, o2, heat, temp, psc)
 		)
 	}
 	

@@ -196,13 +196,20 @@ Authors: Magnus Dahler Norling, François Clayer
 	load("stdlib/physiochemistry.txt", library("Chemistry"))
 	load("stdlib/basic_math.txt", library("Response"))
 	
+	
+	par_group("Initial phytoplankton", layer, phyt) {
+		init_chla : par_real("Initial chl-a concentration", [mu g, l-1], 0, 0, 100)
+	}
+	
 	light_lim : property("Light limitation")
 	N_lim     : property("Nitrogen limitation")
 	P_lim     : property("Phosphorus limitation")
 	
 	fix : property("Photosynthetic C fixation")
 	
-	var(layer.water.phyt,    [k g], [m g, l-1], "Layer phytoplankton")
+	var(layer.water.phyt,    [k g], [m g, l-1], "Layer phytoplankton") @initial_conc {
+		init_chla/chl_a_f ->>
+	}
 	var(layer.water.phyt.oc, [k g], "Phytoplankton C") @override_conc { 1 } # Phyto is measured in C equivalents here.
 	var(layer.water.phyt.on, [k g], "Phytoplankton N") @override_conc { 1/cn_molar_to_mass_ratio(phyt_cn) }
 	var(layer.water.phyt.op, [k g], "Phytoplankton P") @override_conc { 1/cp_molar_to_mass_ratio(phyt_cp) }

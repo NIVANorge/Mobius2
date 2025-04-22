@@ -96,6 +96,21 @@ model("NIVAFjord") {
 		load("modules/nivafjord/point_sources.txt", module("NIVAFjord extraction", layer, water))
 	}
 	
+	option(has_boundaries) {
+		horz : connection("Fjord horizontal") @directed_graph(e_idx) { 
+			layer+ bnd_layer?
+		} @no_cycles
+		
+		edge       : compartment("Basin edge",       basin_idx, e_idx)
+		edge_layer : compartment("Basin edge layer", basin_idx, e_idx, layer_idx)
+		
+		load("modules/nivafjord/horizontal_fluxes.txt",
+			module("NIVAFjord horizontal fluxes",
+				basin, bnd_basin, layer, bnd_layer, edge, edge_layer, water, salt, temp, salinity, rho, pressure, dz, h, horz, vert, dims),
+			module("NIVAFjord simple realignment", basin, layer, water, dz, vert, dims)
+		)
+	}
+	
 	sol : solver("NIVAFjord solver", inca_dascru, solver_h, solver_hmin)
 	solve(sol, layer.water, basin.ice)
 }

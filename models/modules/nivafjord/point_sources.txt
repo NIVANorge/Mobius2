@@ -57,6 +57,7 @@ This is a module for point source inputs to NIVAFjord.
 }
 
 module("NIVAFjord dynamic point sources", version(0, 0, 1),
+	air   : compartment,
 	ps    : compartment,
 	layer : compartment,
 	water : quantity,
@@ -68,9 +69,11 @@ module("NIVAFjord dynamic point sources", version(0, 0, 1),
 	o2    : quantity,
 	heat  : quantity,
 	temp  : property,
-	vert  : connection,
 	psc   : connection,
 ) {
+
+	load("stdlib/physiochemistry.txt", library("Water utils"), library("Chemistry"))
+	load("stdlib/seawater.txt", library("Sea oxygen"))
 
 	eff_q_series : property("Water point source input")
 	eff_in_conc  : property("DIN point source concentration")
@@ -80,12 +83,11 @@ module("NIVAFjord dynamic point sources", version(0, 0, 1),
 	eff_ss_conc  : property("SS point source concentration")
 	
 	par_group("Point sources", ps) {
-		li     : par_int("Point source target layer index", [], 0)
 		ss_c   : par_real("SS point source C fraction", [g, k g-1], 0)
 		o2sat  : par_real("Point source water O2 saturation", [], 1)
 	}
 	
-	var(ps.water, [m 3], "Point source water") @override { 1 }
+	var(ps.water, [m 3], "Point source water") @override { 1[m 3] }
 	
 	# This can be overridden if desired.
 	var(ps.water.temp, [deg_c], "Point source temperature") {
@@ -93,21 +95,26 @@ module("NIVAFjord dynamic point sources", version(0, 0, 1),
 	}
 	
 	var(ps.eff_q_series, [m 3, s-1])
+	var(ps.eff_in_conc, [m g, l-1])
+	var(ps.eff_on_conc, [m g, l-1])
+	var(ps.eff_oc_conc, [m g, l-1])
+	var(ps.eff_p_conc, [m g, l-1])
+	var(ps.eff_ss_conc, [m g, l-1])
 	
-	flux(ps.water, layer.water[psc.below, vert.specific], [m 3, s-1]) {
+	flux(ps.water, psc, [m 3, s-1], "Point source water") {
 		eff_q_series
-	} @specific { li }
+	}
 	
-	var(ps.water.heat, [J], [J, m-3], "Point source heat") @override_conc { water_temp_to_heat(temp, water)/water }
+	var(ps.water.heat, [J], [J, m-3], "Point source heat") @override_conc { water_temp_to_heat(water, temp)/water }
 	
 	var(ps.water.o2, [k g], [m g, l-1], "Point source O₂") @override_conc { 
 		eff_salin := 0,
-		o2sat*o2_mol_mass*o2_saturation_concentration(temp, eff_salin)
+		o2sat*o2_mol_mass*o2_saturation_concentration(temp, eff_salin)->>
 	}
 	
 	var(ps.water.din, [k g], [m g, l-1], "Point source DIN") @override_conc { eff_in_conc }
 	
-	var(ps.water.don, [k g], [m g, l-1], "Point source DON") @override_conc { eff_on_conc }
+	var(ps.water.on, [k g], [m g, l-1], "Point source DON") @override_conc { eff_on_conc }
 	
 	var(ps.water.oc, [k g], [m g, l-1], "Point source DOC") @override_conc { eff_oc_conc }
 	
@@ -115,7 +122,7 @@ module("NIVAFjord dynamic point sources", version(0, 0, 1),
 	
 	var(ps.water.sed, [k g], [m g, l-1], "Point source SS") @override_conc { eff_ss_conc }
 	
-	var(ps.water.sed.oc, [k g], [m g, l-1], "Point source POC") @override_conc { ss_c }
+	var(ps.water.sed.oc, [k g], "Point source POC") @override_conc { ss_c->> }
 }
 
 
