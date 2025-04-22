@@ -24,6 +24,7 @@ flux(layer.water, layer.water[jet_c.below, vert.specific], ..)
 
 
 // Indexes for the variables into the state and derivative vectors.
+constexpr int N = 5; // Number states for the dynamical system
 constexpr int volume_flux = 0;
 constexpr int momentum_z = 1;
 constexpr int buoyancy_flux = 2;
@@ -42,7 +43,7 @@ constexpr double lambda_form_factor = (lambdasq + 1.0) / lambdasq;
 
 // TODO: Probably pack additional data into a general void *data
 void
-jet_derivatives(double *v, double *d, double s, double momentum_x, double drho_dz) {//, bool valid_state) {
+jet_derivatives(double *v, double *d, double momentum_x, double drho_dz) {
 	
 	double momentum = std::sqrt(v[momentum_z]*v[momentum_z] + momentum_x*momentum_x) + 1e-20; //To handle initial phase if momentum_x = 0
 	
@@ -63,6 +64,146 @@ jet_derivatives(double *v, double *d, double s, double momentum_x, double drho_d
 	d[buoyancy_flux] = v[volume_flux] * drho_ds;
 	d[z]             = -sin_theta;
 	d[x]             = cos_theta;
+}
+
+bool
+itp_step(double vn, double v, double b, double target, double *step, double step_done) {
+	// Find reduced step for interpolating to specified value
+	
+	constexpr double rootsign[2] = { -1.0, 1.0 };
+	
+	bool result = false;
+	
+	// 2nd order approximation over step_done
+	// v^(dS) = v + b*dS + (vn-v-b*step_done)*(ds/step_done)**2
+	
+	double a = (vn-v-b*step_done)/(step_done*step_done);
+	double c = v-target;
+	
+	// TODO: Fix floating point equality and ineqauality checks ??
+	
+	if( a != 0 ) {
+		double rootarg = b*b - 4*a*c;
+		if( rootarg >= 0.0 ) {
+			double root = std::sqrt(rootarg);
+			for( double rootsgn : rootsign) {
+				double step_limit = (-b + rootsgn*root)/(2.0*a);
+				if (step_limit > 0.0 && step_limit <= *step) {
+					result = true;
+					*step = step_limit;
+				}
+			}
+		}
+	}
+	
+	// 1st order interpolation?
+	if (!result) {
+		if( (vn != v) && (vn - target)*(target - v) >= 0.0) {
+			double step_limit = step_done*std::abs( (target-v)/(vnew-v) );
+			if(step_limit > 0.0 && step_limit <= step) {
+				result = true;
+				*step = step_limit;
+			}
+		}
+	}
+	
+	return result;
+}
+
+void
+rk3_integrate(double z0, double z1, double drho_dz, double step_norm, double step_min, double step_max, int max_steps, double s, double *v, double *vn, double *d0, double *dVnorm, double *accuracy, double momentum_x, int *limit_exceeded, bool *neutral_point, int *step_count) {
+	
+	constexpr double coeff[2] = { 0.5, 0.75 };
+	
+	double step, step_factor, step_done;
+	int point_iteration;
+	
+	*step_count = 0;
+	double snew = s;
+	
+	double *d[3] = { &d0[0], &d0[N], &d0[2*N] };
+	
+	step_iteration :
+		s = snew;
+		jet_derivatives(v, d[0], momentum_x, drho_dz);
+		
+		// Accumulate maximum derivative scale for first 3 states (volume flux, momentum z, buoyancy flux)
+		for(int k = 0; k < 3; ++k)
+			dVnorm[k] = std::max(std::abs(v[k])/10.0, dVnorm[k]);
+		
+	error_control_repeat :
+		
+		step = std::max(step_min, std::min(step_max, step_norm));
+		point_iteration = 0;
+		
+	point_iteration_reset :
+		if (step_count >= max_steps) return;
+		
+		*step_count++;
+		
+		for(int k = 1; k < 3; ++k) {
+			for(int i = 0; i < N; ++i) {
+				vn[i] = v[i] + coeff[k]*step*d[k-1][i];
+			}
+			jet_derivatives(vn, d[k], momentum_x, drho_dz);
+		}
+		
+		step_factor = 12.5*step_norm/step;
+		snew = s + step;
+		
+		for(int i = 0; i < N; ++i) {
+			// 2nd order estimate of new value
+			vn[i] = v[i] + step*d[1][i]
+			
+			// 3rd order error over step
+			double err3 = step * (2.0*d[0][i] - 6.0*d[1][i] + 4.0*d[2][i]) / 9.0;
+			
+			// Scale for permitted local error from maximum of
+			//  - change of value over step or by norm, linear with step.
+			double errl1 = std::max(std::abs(vn[i]-v[i]), std::abs(dvnorm[i]*step))*accuracy[i];
+			
+			// double integrated 2. deerivative, 2.order in step
+			double errl2 = std::abs((vn[i] - (v[i]*d[0][i]*step)))*accuracy[i];
+			
+			// Adjust step as large a possible value, but with all errors within limits
+			if(err3 >= 0.0) {
+				step_factor = std::min( step_factor, std::max( std::sqrt(errl1/err3), errl2/err3 ));
+			}
+		}
+		
+		// In preparation for next step:
+		
+		// Factor 0.9 to reduce rejections and avoid infinite loop due to min. fluctuation in step.
+		step_norm = 0.9*step_factor*step;
+		
+		if(step_factor < 1.0 && step > step_min && point_iteration == 0)
+			goto error_control_repeat;
+		
+		step_done = step;
+		
+		*limit_exceeded = 0;
+		// TODO: Implement ITP_STEP
+		/*
+			if(itp_step( .... )
+				*limit_exceeded = 0;
+			if(itp_step( .... )
+				*limit_exceeded = 1;
+		*/
+		// *neutral_point = itp_step( .... );
+		
+		// TODO: make it into a loop instead of goto!!!!
+		if( (step <= step_done - step_min) && point_iteration <= 2 ) {
+			point_iteration++;
+			goto point_iteration_reset;
+		}
+		
+		for(int i = 0; i < N; ++i) {
+			v[i] = vn[i];
+		}
+		
+		if (*limit_exceeded == 0 && !*neutral_point)
+			goto step_iteration;
+		
 }
 
 void
@@ -90,7 +231,7 @@ nivafjord_compute_jet(Value_Access *values) {
 	double momentum_x = jet_area * jet_velocity * jet_velocity;
 	double theta = 0.0; // Initial angle of jet wrt horizontal plane.
 	
-	double v[5]; // State vector for integration.
+	double v[N]; // State vector for integration.
 	
 	
 	// Initial state
