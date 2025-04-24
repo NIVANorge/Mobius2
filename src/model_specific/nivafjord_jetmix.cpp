@@ -158,7 +158,7 @@ rk3_integrate(double z0, double z1, double drho_dz, double step_norm, double s, 
 				return;
 			}
 			
-			*step_count++;
+			(*step_count)++;
 			
 			for(int k = 1; k < 3; ++k) {
 				for(int i = 0; i < N; ++i) {
@@ -244,7 +244,8 @@ nivafjord_compute_jet_mixing(Value_Access *values) {
 	double jet_diam     = *values[7]; // Initial diameter of each jet (m)
 	s64 n_holes         = values[8].int_at(0); // Number of jets
 	
-	n_holes = std::max((s64)1, n_holes);
+	//n_holes = std::max((s64)1, n_holes);
+	if(n_holes < 1) return;
 	
 	double jet_flux = std::max(0.0, outflux); // Changes if we add an intake.
 	
@@ -279,6 +280,7 @@ nivafjord_compute_jet_mixing(Value_Access *values) {
 	bool first_step = true;
 	
 
+	double amb_dens_i, amb_depth;
 // TODO: Rewrite to not use goto
 iterate_layer :
 
@@ -320,8 +322,6 @@ iterate_half_layer :
 	
 	double amb_dens = dens[layer] + drho_dz*(v[iz] - middle_z);
 	
-	double amb_dens_i, amb_depth;
-	
 	if(first_step) {
 		
 		v[buoyancy_flux] = 0.5*v[volume_flux]*(amb_dens - outflux_dens);
@@ -360,7 +360,7 @@ iterate_half_layer :
 	int step_count;
 	rk3_integrate(z0, z1, drho_dz, step_norm, s, &v[0], &vn[0], &d[0], &dvnorm[0], &accuracy[0], momentum_x, &limit_exceeded, &neutral_point, &step_count);
 	
-	log_print("Limit exceeded: ", limit_exceeded, "\n");
+	//log_print("Limit exceeded: ", limit_exceeded, "\n");
 	
 	sum_steps += step_count; // TODO: this one seems unnecessary
 	

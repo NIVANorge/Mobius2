@@ -194,12 +194,16 @@ module("NIVAFjord jet point source", version(0, 0, 1),
 		n_holes
 	}
 	
-	# TODO: Add in jet mixing flux too
-	
 	flux(ps.water, layer.water[vert.specific], [m 3, s-1], "Point source water") {
 		eff_q_series
 	} @specific {
 		ps_target
+	}
+	
+	flux(layer.water, layer.water[vert.specific], [m 3, s-1], "Jet turbulent mixing") {
+		q_transp
+	} @specific {
+		ps.ps_target
 	}
 	
 	var(ps.water.heat, [J], [J, m-3], "Point source heat") @override_conc { water_temp_to_heat(water, temp)/water }

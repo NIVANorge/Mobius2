@@ -1610,13 +1610,17 @@ create_batches(Model_Application *app, std::vector<Batch> &batches_out, std::vec
 		
 		if(!instr.is_valid()) continue;
 		
+		std::vector<int> to_erase;
 		for(int dep : instr.loose_depends_on_instruction) {
 			auto &dep_instr = instructions[dep];
 			if(dep_instr.solver != instr.solver) {
-				instr.loose_depends_on_instruction.erase(dep);
+				//instr.loose_depends_on_instruction.erase(dep);
+				to_erase.push_back(dep);
 				instr.depends_on_instruction.insert(dep);
 			}
 		}
+		for(auto dep : to_erase)
+			instr.loose_depends_on_instruction.erase(dep);
 	}
 	
 	// Make a 'naive' sorting of instructions by dependencies. This makes it easier to work with them later.
