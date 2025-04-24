@@ -15,6 +15,7 @@ This won't run as its own model, it is just a base for model extension.
 		point_sources : par_enum("Point sources type", none) { none constant dynamic }
 		phyt_module   : par_enum("Phytoplankton module", equilibrium) { equilibrium exponential }
 		# Eventually we could have other configurations, like include zooplankton, type of phyto module, allow multiple phyto species etc.
+		jet           : par_bool("Jet mix outlet", false)
 	}
 	
 	sed : quantity("Sediments")
@@ -78,6 +79,15 @@ This won't run as its own model, it is just a base for model extension.
 		
 		load("modules/nivafjord/point_sources.txt",
 			module("NIVAFjord dynamic point sources", air, ps, layer, water, din, on, phos, sed, oc, o2, heat, temp, psc)
+		)
+	}
+	
+	option(jet) {
+		#NOTE: Need technical framework upgrade to be able to have multiple of these per basin
+		jps : compartment("Jet point source", basin_idx)
+		
+		load("modules/nivafjord/point_sources.txt",
+			module("NIVAFjord jet point source", air, jps, layer, water, o2, heat, temp, rho, z, vert)
 		)
 	}
 	

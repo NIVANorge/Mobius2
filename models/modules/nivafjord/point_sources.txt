@@ -91,7 +91,7 @@ module("NIVAFjord dynamic point sources", version(0, 0, 1),
 	
 	# This can be overridden if desired.
 	var(ps.water.temp, [deg_c], "Point source temperature") {
-		air.temp
+		max(0.5[deg_c], air.temp)
 	}
 	
 	var(ps.eff_q_series, [m 3, s-1])
@@ -123,6 +123,92 @@ module("NIVAFjord dynamic point sources", version(0, 0, 1),
 	var(ps.water.sed, [k g], [m g, l-1], "Point source SS") @override_conc { eff_ss_conc }
 	
 	var(ps.water.sed.oc, [k g], "Point source POC") @override_conc { ss_c->> }
+}
+
+
+module("NIVAFjord jet point source", version(0, 0, 1),
+	air   : compartment,
+	ps    : compartment,
+	layer : compartment,
+	water : quantity,
+	#din   : quantity,
+	#on    : quantity,
+	#phos  : quantity,
+	#sed   : quantity,
+	#oc    : quantity,
+	o2    : quantity,
+	heat  : quantity,
+	temp  : property,
+	rho   : property,
+	z     : property,
+	#psc   : connection,
+	vert  : connection,
+) {
+	#TODO: This one could maybe eventually be unified with "NIVAFjord dynamic point sources"
+	
+	load("stdlib/physiochemistry.txt", library("Water utils"), library("Chemistry"))
+	load("stdlib/seawater.txt", library("Seawater"), library("Sea oxygen"))
+
+	eff_q_series : property("Jet point source input")
+	
+	par_group("Point sources", ps) {
+		jet_diam : par_real("Initial jet diameter", [m], 1, 0, 10)
+		n_holes  : par_int("Number of outlet holes", [], 1, 1, 10)
+		out_z    : par_real("Outlet depth", [m], 0.5, 0, 500)
+		#ss_c   : par_real("SS point source C fraction", [g, k g-1], 0)
+		o2sat  : par_real("Point source water O2 saturation", [], 1)
+	}
+	
+	var(ps.water, [m 3], "Point source water") @override { 1[m 3] }
+	
+	# This can be overridden if desired.
+	var(ps.water.temp, [deg_c], "Point source temperature") {
+		max(0.5[deg_c], air.temp)
+	}
+	
+	var(ps.water.rho, [k g, m-3], "Point source water potential density") {
+		salin := 0,
+		seawater_pot_dens(temp, salin)
+	}
+	
+	var(ps.eff_q_series, [m 3, s-1])
+	
+	# TODO: Allow accessing input series in external_computation!
+	effq2 : property("Point source 2")
+	var(ps.effq2, [m 3, s-1]) { eff_q_series } @no_store
+	
+	ps_target : property("Point source target")
+	var(ps.ps_target, [])
+	q_transp : property("Jet mixing flux")
+	var(layer.q_transp, [m 3, s-1])
+	
+	external_computation("Jet mixing computation", "nivafjord_compute_jet_mixing", ps) {
+		result(layer.q_transp)
+		result(ps.ps_target)
+		layer.z
+		layer.water.rho
+		out_z
+		ps.effq2
+		ps.water.rho
+		jet_diam
+		n_holes
+	}
+	
+	# TODO: Add in jet mixing flux too
+	
+	flux(ps.water, layer.water[vert.specific], [m 3, s-1], "Point source water") {
+		eff_q_series
+	} @specific {
+		ps_target
+	}
+	
+	var(ps.water.heat, [J], [J, m-3], "Point source heat") @override_conc { water_temp_to_heat(water, temp)/water }
+	
+	var(ps.water.o2, [k g], [m g, l-1], "Point source O₂") @override_conc { 
+		#TODO: Could maybe be different
+		eff_salin := 0,
+		o2sat*o2_mol_mass*o2_saturation_concentration(temp, eff_salin)->>
+	}
 }
 
 

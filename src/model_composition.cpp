@@ -565,6 +565,10 @@ check_individual_external_code(Model_Application *app, External_Map &external_ta
 	// This should be replaced with a better system later.
 	
 	constexpr static auto allowed = {
+		#define ADD_EXT_COMP(name) #name,
+		#include "model_specific/all_externals.incl"
+		#undef ADD_EXT_COMP
+		/*
 		"_special_test_",
 		"nivafjord_place_river_flux",
 		"nivafjord_place_horizontal_fluxes",
@@ -573,7 +577,7 @@ check_individual_external_code(Model_Application *app, External_Map &external_ta
 		"nivafjord_vertical_realignment_even_distrib",
 		"nivafjord_vertical_realignment_slow",
 		"magic_core",
-		"magic_core_initial",
+		"magic_core_initial",*/
 	};
 	
 	if(std::find(allowed.begin(), allowed.end(), function_name) == allowed.end()) {
