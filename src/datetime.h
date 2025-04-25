@@ -204,6 +204,16 @@ public:
 		return seconds_since_epoch > other.seconds_since_epoch;
 	}
 	
+	bool
+	operator==(const Date_Time &other) {
+		return seconds_since_epoch == other.seconds_since_epoch;
+	}
+	
+	bool
+	operator!=(const Date_Time &other) {
+		return seconds_since_epoch != other.seconds_since_epoch;
+	}
+	
 	Date_Time &
 	operator+=(const Date_Time &other) {
 		seconds_since_epoch += other.seconds_since_epoch;

@@ -87,7 +87,7 @@ This won't run as its own model, it is just a base for model extension.
 		jps : compartment("Jet point source", basin_idx)
 		
 		load("modules/nivafjord/point_sources.txt",
-			module("NIVAFjord jet point source", air, jps, layer, water, o2, heat, temp, rho, z, vert)
+			module("NIVAFjord jet point source", air, jps, layer, water, o2, heat, temp, rho, z, vert, dims)
 		)
 	}
 	

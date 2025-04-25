@@ -106,7 +106,7 @@ Authors: Magnus D. Norling
 	} @initial {    dz0   }
 	
 	var(layer.z, [m], "Depth (to bottom of layer)") {
-		z[vert.above] + dz[vert.above]
+		z[vert.above]
 	} @no_store
 	
 	var(basin.h, [m], "Basin sea level") {

@@ -60,12 +60,11 @@ jet_derivatives(double *v, double *d, double momentum_x, double drho_dz) {
 	// TODO: Why is [ix] even tracked? It is not used in the computation.
 	
 	double momentum = std::sqrt(v[momentum_z]*v[momentum_z] + momentum_x*momentum_x) + 1e-20; //To handle initial phase if momentum_x = 0
-	
-	// TODO: Why the minus? Is v[momentum_z] negative?
+
 	double sin_theta = -v[momentum_z]/momentum; // >0 for upward jet
-	// TODO: Only need cos(theta). Faster to do cos_theta = sqrt(1 - sin_theta*sin_theta)?
-	double theta = std::asin(sin_theta);
-	double cos_theta = std::cos(theta);
+	//double theta = std::asin(sin_theta);
+	//double cos_theta = std::cos(theta);
+	double cos_theta = std::sqrt(1.0 - sin_theta*sin_theta); // Note, we know the angle is between 0 and pi/2.
 	double velocity = 2.0*momentum/v[volume_flux]; // In center of jet
 	double bsq = v[volume_flux] / (velocity * pi);
 	double b = std::sqrt(bsq);
@@ -147,80 +146,80 @@ rk3_integrate(double z0, double z1, double drho_dz, double step_norm, double s, 
 			dvnorm[k] = std::max(std::abs(v[k])/10.0, dvnorm[k]);
 			
 		
-		error_control_repeat :
-			
-			step = std::max(step_min, std::min(step_max, step_norm));
-			point_iteration = 0;
-			
-		point_iteration_reset :
-			if (*step_count >= max_steps) {
-				//log_print("Max step count exceeded!\n");
-				return;
-			}
-			
-			(*step_count)++;
-			
-			for(int k = 1; k < 3; ++k) {
-				for(int i = 0; i < N; ++i) {
-					vn[i] = v[i] + coeff[k]*step*d[k-1][i];
-				}
-				jet_derivatives(vn, d[k], momentum_x, drho_dz);
-			}
-			
-			step_factor = 12.5*step_norm/step;
-			snew = s + step;
-			
+	error_control_repeat :
+		
+		step = std::max(step_min, std::min(step_max, step_norm));
+		point_iteration = 0;
+		
+	point_iteration_reset :
+		if (*step_count >= max_steps) {
+			//log_print("Max step count exceeded!\n");
+			return;
+		}
+		
+		(*step_count)++;
+		
+		for(int k = 1; k < 3; ++k) {
 			for(int i = 0; i < N; ++i) {
-				// 2nd order estimate of new value
-				vn[i] = v[i] + step*d[1][i];
-				
-				// 3rd order error over step
-				double err3 = step * (2.0*d[0][i] - 6.0*d[1][i] + 4.0*d[2][i]) / 9.0;
-				
-				// Scale for permitted local error from maximum of
-				//  - change of value over step or by norm, linear with step.
-				double errl1 = std::max(std::abs(vn[i]-v[i]), std::abs(dvnorm[i]*step))*accuracy[i];
-				
-				// double integrated 2. deerivative, 2.order in step
-				double errl2 = std::abs((vn[i] - (v[i]*d[0][i]*step)))*accuracy[i];
-				
-				// Adjust step as large a possible value, but with all errors within limits
-				if(err3 >= 0.0) {
-					step_factor = std::min( step_factor, std::max( std::sqrt(errl1/err3), errl2/err3 ));
-				}
+				vn[i] = v[i] + coeff[k]*step*d[k-1][i];
 			}
+			jet_derivatives(vn, d[k], momentum_x, drho_dz);
+		}
+		
+		step_factor = 12.5*step_norm/step;
+		snew = s + step;
+		
+		for(int i = 0; i < N; ++i) {
+			// 2nd order estimate of new value
+			vn[i] = v[i] + step*d[1][i];
 			
-			// In preparation for next step:
+			// 3rd order error over step
+			double err3 = step * (2.0*d[0][i] - 6.0*d[1][i] + 4.0*d[2][i]) / 9.0;
 			
-			// Factor 0.9 to reduce rejections and avoid infinite loop due to min. fluctuation in step.
-			step_norm = 0.9*step_factor*step;
+			// Scale for permitted local error from maximum of
+			//  - change of value over step or by norm, linear with step.
+			double errl1 = std::max(std::abs(vn[i]-v[i]), std::abs(dvnorm[i]*step))*accuracy[i];
 			
-			if(step_factor < 1.0 && step > step_min && point_iteration == 0)
-				goto error_control_repeat;
+			// double integrated 2. deerivative, 2.order in step
+			double errl2 = std::abs((vn[i] - (v[i]*d[0][i]*step)))*accuracy[i];
 			
-			step_done = step;
-			
+			// Adjust step as large a possible value, but with all errors within limits
+			if(err3 >= 0.0) {
+				step_factor = std::min( step_factor, std::max( std::sqrt(errl1/err3), errl2/err3 ));
+			}
+		}
+		
+		// In preparation for next step:
+		
+		// Factor 0.9 to reduce rejections and avoid infinite loop due to min. fluctuation in step.
+		step_norm = 0.9*step_factor*step;
+		
+		if(step_factor < 1.0 && step > step_min && point_iteration == 0)
+			goto error_control_repeat;
+		
+		step_done = step;
+		
+		*limit_exceeded = -1;
+		
+		if(itp_step(vn[iz], v[iz], d[0][iz], z0, &step, step_done))
+			*limit_exceeded = 0;
+		if(itp_step(vn[iz], v[iz], d[0][iz], z1, &step, step_done))
+			*limit_exceeded = 1;
+		
+		// Neutral point, i.e. buoyancy flux is 0
+		*neutral_point = itp_step(vn[buoyancy_flux], v[buoyancy_flux], d[0][buoyancy_flux], 0.0, &step, step_done);
+		if(*neutral_point)
 			*limit_exceeded = -1;
-			
-			if(itp_step(vn[iz], v[iz], d[0][iz], z0, &step, step_done))
-				*limit_exceeded = 0;
-			if(itp_step(vn[iz], v[iz], d[0][iz], z1, &step, step_done))
-				*limit_exceeded = 1;
-			
-			// Neutral point, i.e. buoyancy flux is 0
-			*neutral_point = itp_step(vn[buoyancy_flux], v[buoyancy_flux], d[0][buoyancy_flux], 0.0, &step, step_done);
-			if(*neutral_point)
-				*limit_exceeded = -1;
-			
-			// TODO: make it into a loop instead of goto!!!!
-			if( (step <= step_done - step_min) && point_iteration <= 2 ) {
-				point_iteration++;
-				goto point_iteration_reset;
-			}
-			
-			for(int i = 0; i < N; ++i) {
-				v[i] = vn[i];
-			}
+		
+		// TODO: make it into a loop instead of goto!!!!
+		if( (step <= step_done - step_min) && point_iteration <= 2 ) {
+			point_iteration++;
+			goto point_iteration_reset;
+		}
+		
+		for(int i = 0; i < N; ++i) {
+			v[i] = vn[i];
+		}
 		
 		if ( (*limit_exceeded >= 0) || *neutral_point)
 			break;
@@ -243,6 +242,10 @@ nivafjord_compute_jet_mixing(Value_Access *values) {
 	double outflux_dens = *values[6]; // Density of outlet water (kg/m3)
 	double jet_diam     = *values[7]; // Initial diameter of each jet (m)
 	s64 n_holes         = values[8].int_at(0); // Number of jets
+	
+	for(int i = 0; i < q_transp.count; ++i) {
+		q_transp[i] = 0.0;
+	}
 	
 	//n_holes = std::max((s64)1, n_holes);
 	if(n_holes < 1) return;

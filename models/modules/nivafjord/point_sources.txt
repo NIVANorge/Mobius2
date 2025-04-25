@@ -143,6 +143,7 @@ module("NIVAFjord jet point source", version(0, 0, 1),
 	z     : property,
 	#psc   : connection,
 	vert  : connection,
+	dims  : preamble,
 ) {
 	#TODO: This one could maybe eventually be unified with "NIVAFjord dynamic point sources"
 	
@@ -182,10 +183,19 @@ module("NIVAFjord jet point source", version(0, 0, 1),
 	q_transp : property("Jet mixing flux")
 	var(layer.q_transp, [m 3, s-1])
 	
+	norm_z : property("Normal depth")
+	var(layer.norm_z, [m]) {
+		norm_z[vert.above] + dz0
+	} @no_store
+	
+	# NOTE: The normal depth is used to position the outlet so that it doesn't bounce up and down 
+	# when the water level changes. If in a later implementation we allow deeper layers to change in thickness
+	# significantly, we need to do something else.
+	
 	external_computation("Jet mixing computation", "nivafjord_compute_jet_mixing", ps) {
 		result(layer.q_transp)
 		result(ps.ps_target)
-		layer.z
+		layer.norm_z
 		layer.water.rho
 		out_z
 		ps.effq2
