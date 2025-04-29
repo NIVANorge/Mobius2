@@ -1,0 +1,205 @@
+
+
+module("OxyDep", version(0, 0, 1),
+	layer : compartment,
+	water : quantity,
+	phy : quantity,
+	het : quantity,
+	nut : quantity,
+	dom : quantity,
+	pom : quantity,
+	o2  : quantity,
+	temp : property,
+	sw : property,
+) {
+"""
+The model OxyDep was originally created in Fortran by Evgeniy Yakushev.
+
+This implementation is based on
+
+Berezina et.al. (2021), Water 13(19) [https://doi.org/10.3390/w13192690](https://doi.org/10.3390/w13192690)
+*Modelling the Influence from Biota and Organic Matter on the Transport Dynamics of Microplastics in the Water Column and Bottom Sediments in the Oslo Fjord*
+
+Implementation is work in progress. Not finished
+"""
+
+	var(layer.water.phy, [mol], [m mol, m-3], "Phytoplankton")
+	
+	var(layer.water.het, [mol], [m mol, m-3], "Zooplankton")
+	
+	var(layer.water.nut, [mol], [m mol, m-3], "Nutrients")
+	
+	var(layer.water.dom, [mol], [m mol, m-3], "Dissolved organic matter")
+	
+	var(layer.water.pom, [mol], [m mol, m-3], "Particulate organic matter")
+	
+	var(layer.water.o2, [mol], [m mol, m-3], "Oxygen")
+	
+	#TODO: Take default values from Julia code.
+	par_group("OxyDep parameters") {
+		max_upt   : par_real("MaxUptake", [day-1], 0.68, 0, 2, "Maximum nutrient uptake rate")
+		k_nut     : par_real("KNut", [], 0.7, "The half-saturation constant for the uptake of biogenic elements by photoautotrophic organisms and for the NUT / PHY ration")
+		q10       : par_real("Q10", [], 2, 1, 5, "The coefficient of dependence of the uptake intensity on T")
+		t_upt_min : par_real("TUptMin", [deg_c], 10, 5, 15, "Lower limit of dependence of the uptake intensity on T")
+		t_upt_max : par_real("TUptMax", [deg_c], 32, 25, 35, "Upper limit of dependence of the uptake intensity on T")
+		
+		i_opt     : par_real("Iopt", [W, m-2], 25, 10, 40, "Optimal irradiance")
+		
+		r_phy_pom : par_real("RPhyPOM", [day-1], 0.15, 0, 0.3, "Specific mortality rate of PHY")
+		r_phy_dom : par_real("RPhyDOM", [day-1], 0.17, 0, 0.3, "Specific excretion rate of PHY")
+		r_phy_nut : par_real("RPhyNut", [day-1], 0.05, 0, 0.1, "Specific respiration rate of PHY")
+		o2_add_mor_phy : par_real("O2AddMorPhy", [m mol, m-3], 20, 10, 30, "Threshold value of O2 concentration for additional mortality of PHY")
+		r_phy_pom_anox : par_real("RPhyPOMAnox", [day-1], 0.4, 0, 1, "Specific rate of additional mortality in suboxic/anoxic conditions")
+		
+		r_phy_het : par_real("RPhyHet", [day-1], 0.5, 0, 1, "Maximum specific consumption rate of PHY by HET")
+		k_phy     : par_real("KPhy", [], 0.02, 0.005, 0.04, "Half-saturation coefficient of PHY consumption by HET for PHY/HET ratio")
+		r_pom_het : par_real("RPOMHet", [day-1], 0.7, 0, 2, "Maximum specific consumption rate of POM by HET")
+		k_pom     : par_real("KPOM", [], 2.0, 0.005, 5, "Half-saturation coefficient of POM consumption by HET for POM/HET ratio")
+		r_het_nut : par_real("RHetNut", [day-1], 0.15, 0, 0.3, "Specific respiration rate of HET")
+		r_het_pom : par_real("RHetPOM", [day-1], 0.02, 0, 0.5, "Specific mortality rate of HET"
+		r_het_pom_anox : par_real("RHetPOMAnox", [day-1], 0.01, 0, 0.1, "Specific additional mortality mortality rate of HET in suboxic/anoxic conditions")
+		u_z       : par_real("Uz", [], 0.6, 0, 1, "Zooplankton assimilation")
+		h_z       : par_real("Hz", [], 0.5, 0, 1, "The ratio between the suspended and dissolved forms of HET excretions")
+		
+		o2_subox  : par_real("O2Subox", [m mol, m-3], 30, 10, 40, "The threshold of O2 concentration for the transition from aerobic to oxygen deficiency conditions (and vice versa)")
+		nut_bf    : par_real("Nut_bf", [m mol, m-3], 0.01, 0.005, 0.3, "The threshold of NUT concentration for stop of denitrification")
+		
+		r_pom_dom : par_real("RPOMDOM", [day-1], 0.15, 0.05, 0.5, "Specific rate of autolysis")
+		r_pom_nut_oxy : par_real("RPOMNutOxy", [day-1], 0.01, 0, 0.1"Specific rate of POM decomposition under aerobic conditions")
+		r_pom_nut_nut : par_real("RPOMNutNut", [day-1], 0.001, 0, 0.01, "Specific rate of POM denitrification")
+		r_dom_nut_oxy : par_real("RDOMNutOxy", [day-1], 0.02, 0, 0.1, "Specific rate of DOM decomposition under aerobic conditions")
+		r_dom_nut_nut : par_real("RDOMNutNut", [day-1], 0.001, 0, 0.01, "Specific rate of DOM denitrification")
+		
+		b_da : par_real("Bda", [], 20, 10, 40, "Coefficient for dependence of mineralization on T")
+		t_da : par_real("Tda", [deg_c], 13, 5, 20, "Coefficient for dependence of mineralization on T")
+	}
+	
+	#TODO: Unit of NtoN ??
+	NtoN : constant("Loss of nitrogen following Richards denitrification", [], 5.3)
+	OtoN : constant("Ration of oxygen to N", [], 8.625)
+		
+	lim_t : property("Temperature effect")
+	lim_light : property("Light limitation")
+	lim_n : property("Nutrient limitation")
+	resp : property("Respiration")
+	
+	control_on : function(val : [m mol, m-3], threshold : [m mol, m-3]) { 0.5 + 0.5*tanh((val - threshold)=>[]) }  # Goes smoothly to 1 when val > threshold
+	control_off : function(val: [m mol, m-3], threshold : [m mol, m-3]) { 0.5 - 0.5*tanh((val - threshold)=>[]) } # Goes smoothly to 1 when val < threshold
+	limitation : function(val : [], halfsat : []) { val^2 / (val^2 + halfsat^2) } # Squared Michaelis-Menten type of limiter
+	
+	limN    : function(val1 : [mol], val2 : [mol], halfsat) { limitation(val1 / max(0.0001[mol], val2), halfsat) }
+	limGraz : function(val1 : [mol], val2 : [mol], halfsat) { limitation( max(0[mol], val1-0.01[mol]) / max(0.0001[mol], val2), halfsat)  }
+	
+	var(layer.water.lim_light, []) {
+		(sw/i_opt)*exp(1 - sw/i_opt)
+	}
+	
+	var(layer.water.lim_t, []) {
+		q10^((temp - t_upt_min)/10[deg_c]) - q10^((temp - t_upt_max)/3[deg_c])
+	}
+	
+	var(layer.water.lim_n, []) {
+		limN(nut, phy, k_nut)
+	}
+	
+	flux(layer.water.nut, layer.water.phy, [mol, day-1], "Phytoplankton nutrient uptake") {
+		phy*max_upt*lim_light*lim_t*lim_n
+	}
+	
+	flux(layer.water.phy, layer.water.nut, [mol, day-1], "Phytoplankton respiration") {
+		r_phy_nut*phy
+	}
+	
+	flux(layer.water.phy, layer.water.dom, [mol, day-1], "Phytoplankton excretion") {
+		r_phy_dom*phy
+	}
+	
+	flux(layer.water.phy, layer.water.pom, [mol, day-1], "Phytoplankton mortality") {
+		phy*(r_phy_pom + control_off(conc(o2), o2_add_mor_phy)*r_phy_pom_anox)
+	}
+	
+	graz : property("Grazing")
+	
+	var(layer.water.phy.graz, [mol, day-1], "Grazing on phytoplankton") {
+		r_phy_het*limgraz(phy, het, k_phy)
+	} @no_store
+	
+	var(layer.water.phy.graz, [mol, day-1], "Grazing on POM") {
+		r_phy_pom*limgraz(pom, het, k_pom)
+	} @no_store
+	
+	flux(layer.water.phy, out, [mol, day-1], "Phytoplankton removal from grazing") { phy.graz	}
+	
+	flux(layer.water.pom, out, [mol, day-1], "POM removal from grazing") { pom.graz }
+	
+	flux(out, layer.water.het, [mol, day-1], "Zooplankton growth from grazing") {
+		u_z * (phy.graz + pom.graz)
+	}
+	
+	flux(out, layer.water.pom, [mol, day-1], "Zooplankton POM excretion") {
+		(1 - u_z)*(1 - h_z)*(phy.graz + pom.graz)
+	}
+	
+	flux(out, layer.water.dom, [mol, day-1], "Zooplankton DOM excretion") {
+		(1 - u_z)*h_z*(phy.graz + pom.graz)
+	}
+	
+	flux(layer.water.het, layer.water.nut, [mol, day-1], "Zooplankton respiration") {
+		r_het_nut*het
+	}
+	
+	flux(layer.water.het, layer.water.pom, [mol, day-1], "Zooplankton mortality") {
+		het*(r_het_pom + f_oxy_subox*r_het_pom_anox)
+	}
+	
+	flux(layer.water.pom, layer.water.dom, [mol, day-1], "Autolysis") {
+		r_pom_dom*pom
+	}
+	
+	f_t_decay : property("Oxic decomposition temperature dependence")
+	f_oxy_subox : property("Sub-oxicity")
+	f_nut_subox : property("Nutrient availability for denitrification")
+	
+	#TODO: Is mineralization temperature dependence removed in Julia version?
+	var(layer.water.f_t_decay, []) {
+		1 + b_da*(temp^2 / (temp^2 + t_da^2))
+	}
+	
+	var(layer.water.f_oxy_subox, []) {
+		control_off(conc(o2), o2_subox)
+	}
+	
+	var(layer.water.f_nut_subox, []) {
+		control_on(conc(nut), nut_bf)
+	}
+	
+	flux(layer.water.pom, layer.water.nut, [mol, day-1], "POM oxic decomposition (mineralization)") {
+		r_pom_nut_oxy*f_t_decay*pom
+	}
+	
+	flux(layer.water.dom, layer.water.nut, [mol, day-1], "DOM oxic decomposition (mineralization)") {
+		r_dom_nut_oxy*f_t_decay*dom
+	}
+	
+	flux(layer.water.pom, out, [mol, day-1], "POM loss from denitrification") {
+		pom*r_pom_nut_nut*f_oxy_subox*f_nut_subox
+	}
+	
+	flux(layer.water.nut, out, [mol, day-1], "Nutrients consumed by denitrification") {
+		NtoN * (pom*r_pom_nut_nut + dom*r_dom_nut_nut)*f_oxy_subox*f_nut_subox
+	}
+	
+	## Oxygen budget
+	
+	flux(layer.water.o2, out, [mol, day-1], "O2 consumed by mineralization") {
+		OtoN * f_t_decay * (r_pom_nut_oxy*pom + r_dom_nut_oxy*dom)
+	}
+	
+	flux(layer.water.o2, out, [mol, day-1], "O2 loss from oxydizing reduced S, Mn and Fe") {
+		OtoN * f_oxy_subox * r_dom_nut_oxy*f_t_decay*dom
+	}
+	
+	flux(out, layer.water.o2, [mol, day-1], "Phytoplankton O2 budget") {
+		OtoN * phy * (max_upt*lim_light*lim_t*lim_n - r_phy_nut)
+	}
+}
