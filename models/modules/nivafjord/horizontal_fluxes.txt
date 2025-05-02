@@ -59,25 +59,31 @@ module("NIVAFjord simplified river inputs", version(0, 0, 0),
 	}
 }
 
+
 module("NIVAFjord horizontal fluxes", version(0, 0, 2),
 	basin  : compartment,
 	bnd_basin : compartment,
 	layer  : compartment,
 	bnd_layer : compartment,
-	#river  : compartment,
+
 	edge   : compartment,
 	edge_layer : compartment,
+	
+	edge2  : compartment,
+	edge_layer2 : compartment,
+	
 	water  : quantity,
 	salt   : quantity,
 	temp   : property,
 	salin  : property,
-	#flow   : property,
 	rho    : property,
 	pressure : property,
 	dz     : property,
 	h      : property,
 	
 	horz   : connection,
+	horz2  : connection,
+	
 	vert   : connection,
 	dims   : preamble
 ) {
@@ -97,8 +103,15 @@ This one is for if there is a boundary compartment and river inputs
 		w_bnd  : par_real("Boundary width", [m], 0, 0, 10000)
 	}
 	
+	# TODO: This is should not be necessary. But right now we don't have functionality for reverse edges..
+	par_group("Fjord horizontal boundary 2", edge_layer2) {
+		w_bnd2  : par_real("Boundary width", [m], 0, 0, 10000)
+	}
+	
 	
 	vert_target : property("Vertical exchange target")
+	dP : property("Pressure difference")
+	horz_flow_vel : property("Horizontal flow velocity")
 	
 	var(edge_layer.vert_target, [], "Fjord layer horizontal exchange vertical target") @no_store
 	
@@ -111,9 +124,23 @@ This one is for if there is a boundary compartment and river inputs
 		w_bnd
 	} @allow_connection(layer, horz)
 	
-	dP : property("Pressure difference")
-	
 	var(edge_layer.dP, [Pa]) @no_store
+	
+	
+	var(edge_layer2.vert_target, [], "Fjord boundary layer horizontal exchange vertical target") @no_store
+	
+	external_computation("Place boundary horizontal fluxes", "nivafjord_place_horizontal_fluxes", edge2) {
+		result(edge_layer2.vert_target)
+		bnd_layer.water.rho
+		bnd_layer.water.rho[horz2.below]
+		bnd_layer.water.pressure
+		bnd_layer.water.pressure[horz2.below]
+		w_bnd2
+	} @allow_connection(bnd_layer, horz2)
+	
+	var(edge_layer2.dP, [Pa]) @no_store
+	
+	
 	#{
 	#	layer.water.pressure - layer.water.pressure[horz.below]
 	#}
@@ -134,7 +161,35 @@ This one is for if there is a boundary compartment and river inputs
 		bnd_layer.align_z[vert.above] + dz  otherwise
 	} @no_store
 	
-	external_computation("Compute pressure difference", "nivafjord_compute_pressure_difference", edge) {
+	
+	
+	
+	external_computation("Compute pressure difference", "nivafjord_compute_pressure_difference", edge2) {
+		result(edge_layer2.dP)
+		bnd_layer.align_z
+		bnd_layer.align_z[horz2.below]
+		bnd_layer.dz
+		bnd_layer.dz[horz2.below]
+		bnd_layer.water.pressure
+		bnd_layer.water.pressure[horz2.below]
+	} @allow_connection(bnd_layer, horz2)
+	
+	var(edge_layer.horz_flow_vel, [m, s-1], "Layer horizontal flow velocity") {
+		#copysign(sqrt(2*alpha_u*abs(dP)/rho_water), dP)->>
+		sqrt(2*alpha_u*abs(dP)/rho_water)   if dP > 0 & w_bnd > 0,
+		0                                   otherwise
+	}
+	
+	flux(layer.water, layer.water[horz.below, vert.specific], [m 3, day-1], "Layer horizontal outflow flux") {
+		w := 0.5*(w_bnd + w_bnd[vert.below]),
+		edge_layer.horz_flow_vel*w*layer.dz->>
+	} @specific {
+		edge_layer.vert_target
+	}
+	
+	
+	
+	external_computation("Compute pressure boundary difference", "nivafjord_compute_pressure_difference", edge) {
 		result(edge_layer.dP)
 		layer.align_z
 		layer.align_z[horz.below]
@@ -144,33 +199,20 @@ This one is for if there is a boundary compartment and river inputs
 		layer.water.pressure[horz.below]
 	} @allow_connection(layer, horz)
 	
-	horz_flow_vel : property("Horizontal flow velocity")
-	var(edge_layer.horz_flow_vel, [m, s-1], "Layer horizontal flow velocity") {
-		copysign(sqrt(2*alpha_u*abs(dP)/rho_water), dP)->>
+	var(edge_layer2.horz_flow_vel, [m, s-1], "Layer horizontal flow velocity") {
+		#copysign(sqrt(2*alpha_u*abs(dP)/rho_water), dP)->>
+		sqrt(2*alpha_u*abs(dP)/rho_water)   if dP > 0 & w_bnd2 > 0,
+		0                                   otherwise
 	}
 	
-	flux(layer.water, layer.water[horz.below, vert.specific], [m 3, day-1], "Layer horizontal outflow flux") {
-		#NOTE: This can be both positive and negative depending on the flow direction.
-		w := 0.5*(w_bnd + w_bnd[vert.below]),
-		#w := w_bnd,
-		edge_layer.horz_flow_vel*w*layer.dz->>
+	flux(bnd_layer.water, bnd_layer.water[horz2.below, vert.specific], [m 3, day-1], "Boundary layer horizontal outflow flux") {
+		w := 0.5*(w_bnd2 + w_bnd2[vert.below]),
+		edge_layer2.horz_flow_vel*w*bnd_layer.dz->>
 	} @specific {
-		edge_layer.vert_target
-	} @bidirectional
-	
-	#flux(layer.water, layer.water[horz.below], [m 3, day-1], "Layer horizontal outflow flux") {
-	#	w := 0.5*(w_bnd + w_bnd[vert.below]),
-	#	edge_layer.horz_flow_vel*w*layer.dz->>
-	#}
-	
-	# NOTE: Needs to be external computation since it would otherwise require reverse iteration (could be implemented later maybe)
-	
-	/*
-	external_computation("Layer vertical realignment computation", "nivafjord_vertical_realignment", basin) {
-		result(layer.water.align)
-		layer.water.horz_bal
+		edge_layer2.vert_target
 	}
-	*/
+	
+	
 	
 	
 	

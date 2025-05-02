@@ -14,7 +14,7 @@ model("NIVAFjord") {
 	option(has_boundaries) {
 		bnd_basin_idx : index_set("Boundary basin index")
 		all_basins    : index_set("All basins") @union(basin_idx, bnd_basin_idx)
-		e_idx         : index_set("Fjord connection index") @sub(basin_idx) # Ideally this should not be declared in this model, but then it sometimes is declared out of order.
+		#e_idx         : index_set("Fjord connection index") @sub(basin_idx)
 		layer_idx     : index_set("Layer index") @sub(all_basins)
 	} @otherwise {
 		layer_idx     : index_set("Layer index") @sub(basin_idx)
@@ -106,9 +106,18 @@ model("NIVAFjord") {
 		
 		load("modules/nivafjord/horizontal_fluxes.txt",
 			module("NIVAFjord horizontal fluxes",
-				basin, bnd_basin, layer, bnd_layer, edge, edge_layer, water, salt, temp, salinity, rho, pressure, dz, h, horz, vert, dims),
+				basin, bnd_basin, layer, bnd_layer, edge, edge_layer, edge2, edge_layer2, water, salt, temp, salinity, rho, pressure, dz, h, horz, horz2, vert, dims),
 			module("NIVAFjord simple realignment", basin, layer, water, dz, vert, dims)
 		)
+		e_idx         : index_set("Fjord connection index") @sub(basin_idx)
+		e_idx2        : index_set("Fjord connection index 2") @sub(bnd_basin_idx)
+		
+		horz2 : connection("Fjord horizontal reverse") @directed_graph(e_idx2) {
+			bnd_layer layer
+		} @no_cycles
+		
+		edge2 : compartment("Boundary basin edge", bnd_basin_idx, e_idx2)
+		edge_layer2 : compartment("Boundary basin edge layer", bnd_basin_idx, e_idx2, layer_idx)
 	}
 	
 	sol : solver("NIVAFjord solver", inca_dascru, solver_h, solver_hmin)

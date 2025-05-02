@@ -181,9 +181,11 @@ Implementation is work in progress. Not finished
 		r_dom_nut_oxy*f_t_decay*dom
 	}
 	
-	flux(layer.water.pom, out, [mol, day-1], "POM loss from denitrification") {
+	# NOTE: NH4 is counted as DOM
+	flux(layer.water.pom, layer.water.dom, [mol, day-1], "POM denitrification") {
 		pom*r_pom_nut_nut*f_oxy_subox*f_nut_subox
 	}
+	# Denitrification of DOM to NH4 will not change the variable DOM since it includes both, it will only contribute to loss of NO3.
 	
 	flux(layer.water.nut, out, [mol, day-1], "Nutrients consumed by denitrification") {
 		NtoN * (pom*r_pom_nut_nut + dom*r_dom_nut_nut)*f_oxy_subox*f_nut_subox
@@ -195,7 +197,7 @@ Implementation is work in progress. Not finished
 		OtoN * f_t_decay * (r_pom_nut_oxy*pom + r_dom_nut_oxy*dom)
 	}
 	
-	flux(layer.water.o2, out, [mol, day-1], "O2 loss from oxydizing reduced S, Mn and Fe") {
+	flux(layer.water.o2, out, [mol, day-1], "O2 consumed in oxydizing reduced S, Mn and Fe") {
 		OtoN * f_oxy_subox * r_dom_nut_oxy*f_t_decay*dom
 	}
 	

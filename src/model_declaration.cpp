@@ -1379,7 +1379,7 @@ process_module_load(Mobius_Model *model, Model_Options *options, Token *load_nam
 			
 			if(arg->decl->type != entity->decl_type) {
 				load_loc.print_error_header();
-				error_print("Load argument ", idx, " to the module ", mod_temp->name, " should have type '", name(arg->decl->type), "'. A '", name(entity->decl_type), "' was passed instead. See declaration at\n");
+				error_print("Load argument ", idx + 1, " to the module ", mod_temp->name, " should have type '", name(arg->decl->type), "'. A '", name(entity->decl_type), "' was passed instead. See declaration at\n");
 				decl->source_loc.print_error();
 				mobius_error_exit();
 			}

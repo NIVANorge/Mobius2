@@ -25,11 +25,13 @@ NOTE: Breiangen is set to be this shallow (12 m) because for boundary basins we 
 	
 	lu : index_set("Landscape units") [ "All" ]
 	
-	fjord_conn : index_set("Fjord connection index") @sub(basin) 
+	fjord_conn : index_set("Fjord connection index") @sub(basin)
+	
+	fjord_conn2 : index_set("Fjord connection index 2") @sub(bound_basin)
 	
 	index_set("Water body") @union(sc, basin) 
 	
-	phyt_type : index_set("Phytoplankton type") [ 1 ]
+	phyt_type : index_set("Phytoplankton type") [ "Phyto" ]
 	
 	connection("Downstream") {
 		
@@ -45,6 +47,15 @@ NOTE: Breiangen is set to be this shallow (12 m) because for boundary basins we 
 		
 		directed_graph(fjord_conn) [ 
 			r[ "Drammenselva" ] -> l[ "Drammensfjorden" ] -> b[ "Breiangen" ]
+		]
+	}
+	
+	connection("Fjord horizontal reverse") {
+		l : compartment("Fjord layer", basin)
+		b : compartment("Boundary layer", bound_basin)
+		
+		directed_graph(fjord_conn2) [
+			b[ "Breiangen" ] -> l[ "Drammensfjorden" ]
 		]
 	}
 	
