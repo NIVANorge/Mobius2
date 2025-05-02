@@ -14,7 +14,7 @@ preamble("NIVAFjord dimensions", version(0, 0, 0),
 }
 
 
-module("NIVAFjord basin", version(0, 0, 3),
+module("NIVAFjord basin", version(0, 0, 4),
 	air       : compartment,
 	basin     : compartment,
 	layer     : compartment,
@@ -76,6 +76,7 @@ Authors: Magnus D. Norling
 		N0     : par_real("Brunt-Väisälä frequency reference", [s-1], 0.8e-2)
 		Nmin   : par_real("Minimum B-V frequency", [s-1], 0.7e-2, 1e-10, 0.1)
 		alpha  : par_real("Mixing non-linear coefficient", [], 1.4)
+		r_ice  : par_real("Mixing factor reduction under ice", [], 0.2)
 		
 		# TODO: Find correct defaults:
 		Es0    : par_real("Surface additional mixing energy", [m 2, s-3], 0)
@@ -85,7 +86,7 @@ Authors: Magnus D. Norling
 	
 	par_group("Layer specific mixing", layer) {
 		K0     : par_real("Mixing factor reference", [m 2, s-1], 0.5e-4, "Mixing factor when the B-V frequency is equal to the reference")
-		K0ice  : par_real("Mixing factor reference under ice", [m 2, s-1], 0.5e-4)
+		#K0ice  : par_real("Mixing factor reference under ice", [m 2, s-1], 0.5e-4)
 	}
 	
 	par_group("Initial layer physical", layer) {
@@ -212,7 +213,7 @@ Authors: Magnus D. Norling
 	}
 	
 	var(layer.water.v_t, [m, s-1]) {
-		K := { K0ice if ice_ind, K0 otherwise },
+		K := { K0*r_ice if ice_ind, K0 otherwise },
 		dz_ := 0.5*(dz + dz[vert.below]),
 		safe_divide(K, dz_*(Nfreq/N0)^alpha)
 	}
