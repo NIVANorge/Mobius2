@@ -216,12 +216,14 @@ Parameter_Data::unpack_parameter_map(Data_Set *data_set) {
 		
 		std::vector<double> unpacked_values(count);
 		
-		// Fill constant before and after
-		for(int idx = 0; idx < inner[0].index_pos.index; ++idx)
-			unpacked_values[idx] = inner[0].val;
-		
-		for(int idx = inner.back().index_pos.index; idx < count; ++idx)
-			unpacked_values[idx] = inner.back().val;
+		if(!inner.empty()) {
+			// Fill constant before and after
+			for(int idx = 0; idx < inner[0].index_pos.index; ++idx)
+				unpacked_values[idx] = inner[0].val;
+			
+			for(int idx = inner.back().index_pos.index; idx < count; ++idx)
+				unpacked_values[idx] = inner.back().val;
+		}
 		
 		// Assume linear interpolation for now. We could make more options
 		// Linear interpolate inside

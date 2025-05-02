@@ -90,6 +90,21 @@ model("NIVAFjord-SimplyCNP") {
 			#	o2sat_gw : par_real("Groundwater O2 saturation", [], 0.5)
 			#}
 			
+			flux(out, layer.water.heat, [J, day-1], "Groundwater heat to fjord") {
+				t_gw := air.temp, # TODO!
+				V := in_flux(gw_st, layer.water)->[m 3, day-1],
+				water_temp_to_heat(V=>[m 3], t_gw) =>>
+			}
+			
+			flux(out, layer.water.o2, [k g, day-1], "Groundwater oxygen to fjord") {
+				gw_o2_sat := 0.5, #TODO!
+				t_gw := air.temp, #TODO!
+				o2_conc := gw_o2_sat*o2_saturation_concentration(t_gw, 0) * o2_mol_mass,
+				o2_conc*in_flux(gw_st, layer.water)->>
+			}
+			
+			# NOTE: The below doesn't work, it overheats the river due to double-counting heat from gw to river
+			/*
 			var(gw.water.heat, [J, k m-2], "Groundwater heat") @override {
 				t_gw := aggregate(soil.temp),
 				V := 1[k m 2]*gw.water -> [m 3],
@@ -100,6 +115,7 @@ model("NIVAFjord-SimplyCNP") {
 				conc(river.water.o2) # TODO: do something else here?
 				#o2sat_gw*o2_saturation_concentration(t_gw, 0) * o2_mol_mass ->>
 			}
+			*/
 		}
 		
 	}

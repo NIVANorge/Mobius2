@@ -50,7 +50,10 @@ nivafjord_place_horizontal_fluxes(Value_Access *values) {
 					break;
 			}
 			target_out[layer] = (double)closest;
-		} else {
+		} else
+			target_out[layer] = layer; // Should not be used..
+		
+		/*else {
 			double dens = densities2[layer];
 			for(int layer2 = layer; layer2 < densities1.count; ++layer2) {
 				double abs = std::abs(dens - densities1[layer2]);
@@ -62,6 +65,8 @@ nivafjord_place_horizontal_fluxes(Value_Access *values) {
 			}
 			target_out[closest] = (double)layer; // This instead gives the level of the other layer that flows to this one.
 		}
+		*/
+		
 	}
 }
 
