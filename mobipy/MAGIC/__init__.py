@@ -99,8 +99,8 @@ def get_base_cation_combined_setup(app, calib_index='Soil', obs_index='River', o
 		'init_ena' : ('MAGIC core', 'init_ena', [calib_index], 0, 20),
 		'init_ek' : ('MAGIC core', 'init_ek', [calib_index], 0, 20),
 	}
-	if obsname_ph :
-		par_dict['oa'] = ('MAGIC-Forest drivers', 'oa', [calib_index], 0, 200)
+	#if obsname_ph :
+	par_dict['oa'] = ('MAGIC-Forest drivers', 'oa', [calib_index], 40, 100)
 	
 	target = [
 		('Ca(2+) ionic concentration', [obs_index], obsname_c%'Ca', [], 1),

@@ -166,7 +166,6 @@ parse_parameter_map_recursive(Data_Set *data_set, Data_Map_AST *map, std::vector
 
 void
 Parameter_Data::unpack_parameter_map(Data_Set *data_set) {
-	//, std::vector<Entity_Id> &index_sets, std::vector<Parmap_Entry> &data, std::vector<Parameter_Value> &values) {
 	
 	if(decl_type != Decl_Type::par_real)
 		fatal_error(Mobius_Error::internal, "Somehow tried to unpack map data for a non-double parameter.");
