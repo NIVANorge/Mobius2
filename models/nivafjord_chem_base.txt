@@ -35,11 +35,12 @@ This won't run as its own model, it is just a base for model extension.
 	tn         : property("Total nitrogen")
 	tp         : property("Total phosphorous")
 	
+	o2sat     : property("O₂ saturation")
 	o2satconc : property("O₂ saturation concentration")
 	
 	load("modules/nivafjord/fjordchem.txt",
 		chem_par : preamble("NIVAFjord chemistry rates"),
-		module("NIVAFjord chemistry", air, layer, sediment, water, o2, co2, ch4, oc, din, on, phos, op, sed, fjord_phyt, tn, tp, temp, salinity, z, dz, attn, area, cos_z, sw, o2satconc, vert, chem_par, dims, compute_dic))
+		module("NIVAFjord chemistry", air, layer, sediment, water, o2, co2, ch4, oc, din, on, phos, op, sed, fjord_phyt, tn, tp, temp, salinity, z, dz, attn, area, cos_z, sw, o2satconc, o2sat, vert, chem_par, dims, compute_dic))
 		
 	option(phyt_module.equilibrium) {
 		load("modules/plankton.txt",
@@ -62,7 +63,7 @@ This won't run as its own model, it is just a base for model extension.
 	
 	option(has_boundaries) {
 		load("modules/nivafjord/boudary_chem.txt",
-			module("NIVAFjord boundary chemistry", bnd_layer, water, o2, oc, din, on, phos, op, fjord_phyt, chl_a, temp, salinity, sed, chem_par, phyt_par))
+			module("NIVAFjord boundary chemistry", bnd_layer, water, o2, oc, din, on, phos, op, fjord_phyt, chl_a, temp, salinity, o2sat, sed, chem_par, phyt_par))
 	}
 	
 	option(point_sources.constant) {
@@ -78,7 +79,7 @@ This won't run as its own model, it is just a base for model extension.
 		psc : connection("Point source connection") @directed_graph { ps layer } @no_cycles
 		
 		load("modules/nivafjord/point_sources.txt",
-			module("NIVAFjord dynamic point sources", air, ps, layer, water, din, on, phos, sed, oc, o2, heat, temp, psc)
+			module("NIVAFjord dynamic point sources", air, ps, layer, water, din, on, op, phos, sed, oc, o2, heat, temp, psc)
 		)
 	}
 	

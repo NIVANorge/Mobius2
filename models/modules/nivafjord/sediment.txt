@@ -165,8 +165,8 @@ module("NIVAFjord sediments", version(0, 0, 4),
 	} @no_carry
 	
 	flux(layer.water.din, out, [k g, day-1], "NO3 sediment denitrification consumption") {
-		bo2 := sediment.sed.oc*layer.water.denit_rat*O2toC*o2_mol_mass/c_mol_mass,  # Bacterial O2 demand in nitrification
-		bo2*1.5*n_mol_mass/o2_mol_mass
+		bo2 := sediment.sed.oc*layer.water.denit_rat*O2toC*o2_mol_mass/c_mol_mass,  # Bacterial O2 demand in denitrification
+		bo2*(1/3)*n_mol_mass/o2_mol_mass
 	}
 	
 	flux(layer.water.phos, sediment.sed.phos, [k g, day-1], "PO4 adsorption / desorption to sediment layer") {

@@ -63,6 +63,7 @@ module("NIVAFjord dynamic point sources", version(0, 0, 1),
 	water : quantity,
 	din   : quantity,
 	on    : quantity,
+	op    : quantity,
 	phos  : quantity,
 	sed   : quantity,
 	oc    : quantity,
@@ -80,11 +81,13 @@ module("NIVAFjord dynamic point sources", version(0, 0, 1),
 	eff_on_conc  : property("DON point source concentration")
 	eff_oc_conc  : property("DOC point source concentration")
 	eff_p_conc   : property("DIP point source concentration")
+	eff_op_conc  : property("DOP point source concentration")
 	eff_ss_conc  : property("SS point source concentration")
 	
 	par_group("Point sources", ps) {
 		ss_c   : par_real("SS point source C fraction", [g, k g-1], 0)
 		o2sat  : par_real("Point source water O2 saturation", [], 1)
+		is_on  : par_bool("This point source is active", true)
 	}
 	
 	var(ps.water, [m 3], "Point source water") @override { 1[m 3] }
@@ -99,10 +102,11 @@ module("NIVAFjord dynamic point sources", version(0, 0, 1),
 	var(ps.eff_on_conc, [m g, l-1])
 	var(ps.eff_oc_conc, [m g, l-1])
 	var(ps.eff_p_conc, [m g, l-1])
+	var(ps.eff_op_conc, [m g, l-1])
 	var(ps.eff_ss_conc, [m g, l-1])
 	
 	flux(ps.water, psc, [m 3, s-1], "Point source water") {
-		eff_q_series
+		is_on * eff_q_series
 	}
 	
 	var(ps.water.heat, [J], [J, m-3], "Point source heat") @override_conc { water_temp_to_heat(water, temp)/water }
@@ -119,6 +123,8 @@ module("NIVAFjord dynamic point sources", version(0, 0, 1),
 	var(ps.water.oc, [k g], [m g, l-1], "Point source DOC") @override_conc { eff_oc_conc }
 	
 	var(ps.water.phos, [k g], [m g, l-1], "Point source DIP") @override_conc { eff_p_conc }
+	
+	var(ps.water.op, [k g], [m g, l-1], "Point source DOP") @override_conc { eff_op_conc }
 	
 	var(ps.water.sed, [k g], [m g, l-1], "Point source SS") @override_conc { eff_ss_conc }
 	

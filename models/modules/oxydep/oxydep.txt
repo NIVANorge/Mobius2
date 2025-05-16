@@ -65,7 +65,7 @@ Implementation is work in progress. Not finished
 		nut_bf    : par_real("Nut_bf", [m mol, m-3], 0.01, 0.005, 0.3, "The threshold of NUT concentration for stop of denitrification")
 		
 		r_pom_dom : par_real("RPOMDOM", [day-1], 0.15, 0.05, 0.5, "Specific rate of autolysis")
-		r_pom_nut_oxy : par_real("RPOMNutOxy", [day-1], 0.01, 0, 0.1"Specific rate of POM decomposition under aerobic conditions")
+		r_pom_nut_oxy : par_real("RPOMNutOxy", [day-1], 0.01, 0, 0.1, "Specific rate of POM decomposition under aerobic conditions")
 		r_pom_nut_nut : par_real("RPOMNutNut", [day-1], 0.001, 0, 0.01, "Specific rate of POM denitrification")
 		r_dom_nut_oxy : par_real("RDOMNutOxy", [day-1], 0.02, 0, 0.1, "Specific rate of DOM decomposition under aerobic conditions")
 		r_dom_nut_nut : par_real("RDOMNutNut", [day-1], 0.001, 0, 0.01, "Specific rate of DOM denitrification")
@@ -76,7 +76,7 @@ Implementation is work in progress. Not finished
 	
 	#TODO: Unit of NtoN ??
 	NtoN : constant("Loss of nitrogen following Richards denitrification", [], 5.3)
-	OtoN : constant("Ration of oxygen to N", [], 8.625)
+	OtoN : constant("Ratio of oxygen to N", [], 8.625)
 		
 	lim_t : property("Temperature effect")
 	lim_light : property("Light limitation")

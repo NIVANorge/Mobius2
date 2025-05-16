@@ -22,7 +22,7 @@ def xlsx_input_from_dataframe(file, df, sheet_name, indexes = {}, flags = None) 
 	if not isinstance(df.index, pd.DatetimeIndex) :
 		raise ValueError('A pandas.DataFrame that is indexed by datetimes is expected.')
 	
-	creaded_new = False
+	created_new = False
 	if isinstance(file, str) :
 		opened_here = True
 		if not os.path.isfile(file) :
