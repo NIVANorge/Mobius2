@@ -86,6 +86,7 @@ module("NIVAFjord dynamic point sources", version(0, 0, 1),
 	
 	par_group("Point sources", ps) {
 		ss_c   : par_real("SS point source C fraction", [g, k g-1], 0)
+		ss_p   : par_real("SS point source P fraction", [g, k g-1], 0)
 		o2sat  : par_real("Point source water O2 saturation", [], 1)
 		is_on  : par_bool("This point source is active", true)
 	}
@@ -129,6 +130,8 @@ module("NIVAFjord dynamic point sources", version(0, 0, 1),
 	var(ps.water.sed, [k g], [m g, l-1], "Point source SS") @override_conc { eff_ss_conc }
 	
 	var(ps.water.sed.oc, [k g], "Point source POC") @override_conc { ss_c->> }
+	
+	var(ps.water.sed.phos, [k g], "Point source PP") @override_conc { ss_p->> }
 }
 
 
