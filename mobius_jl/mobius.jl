@@ -31,6 +31,8 @@ set_parameter_real_h = dlsym(mobius_dll, "mobius_set_parameter_real")
 get_parameter_numeric_h = dlsym(mobius_dll, "mobius_get_parameter_numeric")
 set_parameter_string_h = dlsym(mobius_dll, "mobius_set_parameter_string")
 get_parameter_string_h = dlsym(mobius_dll, "mobius_get_parameter_string")
+resolve_slice_h        = dlsym(mobius_dll, "mobius_resolve_slice")
+get_series_data_slice_h = dlsym(mobius_dll, "mobius_get_series_data_slice")
 
 struct Model_Data
 	ptr::Ptr{Cvoid}
@@ -55,6 +57,18 @@ end
 struct Mobius_Index_Value
 	name::Cstring
 	value::Clonglong
+end
+
+struct Mobius_Index_Slice
+	name::Cstring
+	is_slice::Cint
+	first::Clonglong
+	last::Clonglong
+end
+
+struct Mobius_Index_Range
+	first::Clonglong
+	last::Clonglong
 end
 
 struct Var_Ref
@@ -240,24 +254,88 @@ function make_indexes(indexes::Vector{Any})::Vector{Mobius_Index_Value}
 	return [make_index(idx) for idx in indexes]
 end
 
-function get_series_data(var_ref::Var_Ref, indexes::Vector{Any})::Vector{Float64}
-	steps = get_steps(var_ref)
-	result = Vector{Cdouble}(undef, steps)
-	
-	idxs = make_indexes(indexes)
-	
-	ccall(get_series_data_h, Cvoid, (Ptr{Cvoid}, Var_Id, Ptr{Mobius_Index_Value}, Clonglong, Ptr{Cdouble}, Clonglong),
-		var_ref.data, var_ref.var_id, idxs, length(idxs), result, length(result))
-	check_error()
-	
-	return result
+function has_slice(indexes::Vector{Any})::Bool
+	for index in indexes
+		if typeof(index) == UnitRange{Int64}
+			return true
+		end
+	end
+	return false
 end
 
-Base.getindex(var_ref::Var_Ref, indexes::Vector{Any})::Vector{Float64} = get_series_data(var_ref, indexes)
-Base.getindex(var_ref::Var_Ref, index::Any)::Vector{Float64} = get_series_data(var_ref, Any[index])
-Base.getindex(var_ref::Var_Ref)::Vector{Float64} = get_series_data(var_ref, Any[])
+function make_slice(index::Any)::Mobius_Index_Slice
+	if typeof(index) == String
+		return Mobius_Index_Slice(Base.unsafe_convert(Cstring, index), false, 0, 0)
+	elseif typeof(index) == UnitRange{Int64}
+		# TODO: We should test that the slice has unit stride...
+		return Mobius_Index_Slice(C_NULL, true, index[1], index[length(index)])
+	elseif isinteger(index)
+		return Mobius_Index_Slice(C_NULL, false, index, 0)
+	end
+	throw(ErrorException("Invalid index type, expected string or int"))
+end
 
-#TODO: set_series_data, get_series_data_slice, etc.
+function make_slices(indexes::Vector{Any})::Vector{Mobius_Index_Slice}
+	return [make_slice(idx) for idx in indexes]
+end
+
+function get_series_data(var_ref::Var_Ref, indexes::Vector{Any}) #::Vector{Float64}
+	steps = get_steps(var_ref)
+	
+	if has_slice(indexes)
+		
+		slices = make_slices(indexes)
+		ranges = Vector{Mobius_Index_Range}(undef, length(indexes))
+		ccall(resolve_slice_h, Cvoid, (Ptr{Cvoid}, Var_Id, Ptr{Mobius_Index_Slice}, Clonglong, Ptr{Mobius_Index_Range}),
+			var_ref.data, var_ref.var_id, slices, length(slices), ranges)
+		check_error()
+		
+		dim = steps
+		idx_dim = 1
+		dims = Vector{Int64}()
+		#append!(dims, steps)
+		for rn in ranges
+			len = rn.last - rn.first
+			dim *= len
+			idx_dim *= len
+			if len > 1
+				append!(dims, len)
+			end
+		end
+		idx_dim += 1 # We are getting boundary positions of indexes
+		append!(dims, steps)
+		
+		series = Vector{Cdouble}(undef, dim)
+		idx_pos = Vector{Cdouble}(undef, idx_dim)
+		
+		ccall(get_series_data_slice_h, Cvoid, (Ptr{Cvoid}, Var_Id, Ptr{Mobius_Index_Range}, Clonglong, Ptr{Cdouble}, Ptr{Cdouble}, Clonglong),
+			var_ref.data, var_ref.var_id, ranges, length(ranges), idx_pos, series, steps)
+		check_error()
+		
+		#return series
+		
+		out_series = reshape(series, tuple((a for a in dims)...) )
+		return (out_series, idx_pos::Vector{Float64})
+	else
+		
+		result = Vector{Cdouble}(undef, steps)
+		
+		idxs = make_indexes(indexes)
+		
+		ccall(get_series_data_h, Cvoid, (Ptr{Cvoid}, Var_Id, Ptr{Mobius_Index_Value}, Clonglong, Ptr{Cdouble}, Clonglong),
+			var_ref.data, var_ref.var_id, idxs, length(idxs), result, length(result))
+		check_error()
+		
+		return result::Vector{Float64}
+	end
+end
+
+Base.getindex(var_ref::Var_Ref, indexes::Vector{Any}) = get_series_data(var_ref, indexes)
+Base.getindex(var_ref::Var_Ref, indexes::Any...) = get_series_data(var_ref, Any[indexes...])
+Base.getindex(var_ref::Var_Ref, index::Any) = get_series_data(var_ref, Any[index])
+Base.getindex(var_ref::Var_Ref) = get_series_data(var_ref, Any[])
+
+#TODO: set_series_data, etc.
 
 function get_entity_by_name(data::Model_Data, name::String, scope_id::Entity_Ref=invalid_entity_ref)::Entity_Ref
 	result = ccall(deserialize_entity_h, Entity_Id, (Ptr{Cvoid}, Entity_Id, Cstring),

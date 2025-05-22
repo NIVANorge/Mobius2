@@ -44,7 +44,7 @@ get_offset_by_index_values(Model_Application *app, Storage_Structure<Handle_T> *
 	for(s64 idxidx = 0; idxidx < indexes_count; ++idxidx) {
 		Token &token = idx_names[idxidx];
 		auto &idx_val = index_values[idxidx];
-		if(strlen(idx_val.name) > 0) {
+		if(idx_val.name && strlen(idx_val.name) > 0) {
 			token.type = Token_Type::quoted_string;
 			token.string_value = idx_val.name;
 		} else {
@@ -347,7 +347,7 @@ mobius_resolve_slice(Model_Data *data, Var_Id var_id, Mobius_Index_Slice *indexe
 		s64 last  = count;
 		
 		bool was_string = false;
-		if(strlen(slice.name) > 0) {
+		if(slice.name && strlen(slice.name) > 0) {
 			Token idx_name;
 			idx_name.type = Token_Type::quoted_string;
 			idx_name.string_value = slice.name;
@@ -426,7 +426,6 @@ mobius_get_series_data_slice(Model_Data *data, Var_Id var_id, Mobius_Index_Range
 	for(int idx = first; idx < last; ++idx) {
 		indexes.indexes[dim_pos].index = idx;
 		s64 offset = storage.structure->get_offset(var_id, indexes);
-		
 		for(s64 step = 0; step < time_steps; ++step)
 			series_out[step*dim + idx] = *storage.get_value(offset, step);
 	}
