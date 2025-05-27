@@ -443,8 +443,10 @@ class Model_Application(Scope) :
 		new_ptr = dll.mobius_copy_data(self.data_ptr, copy_results)
 		return Model_Application(new_ptr, False)
 		
-	def run(self, ms_timeout=-1, log=False) :
-		if log :
+	def run(self, ms_timeout=-1, log=False, callback=None) :
+		if callback :
+			finished = dll.mobius_run_model(self.data_ptr, ms_timeout, callback)
+		elif log :
 			finished = dll.mobius_run_model(self.data_ptr, ms_timeout, _run_logger)
 		else :
 			no_cb = ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_double)(0)
@@ -699,5 +701,8 @@ class State_Var :
 		data = dll.mobius_get_series_metadata(self.data_ptr, self.var_id)
 		_check_for_errors()
 		return data.unit.decode('utf-8')
+		
+	def steps(self) :
+		return dll.mobius_get_steps(self.data_ptr, self.var_id.type)
 		
 	# TODO index_sets(self)
