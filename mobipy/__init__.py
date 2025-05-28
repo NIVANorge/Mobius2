@@ -395,12 +395,7 @@ class Scope :
 		_check_for_errors()
 		
 		return [(id.decode('utf-8'), n.decode('utf-8')) for id, n in zip(idents, names)]
-		
-
-# TODO: Maybe make something nicer here.
-@ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_double)
-def _run_logger(_p, percent) :
-	print("Run progress: %g%%"%percent)
+	
 
 class Model_Application(Scope) :
 	def __init__(self, data_ptr, is_main) :
@@ -445,8 +440,14 @@ class Model_Application(Scope) :
 		
 	def run(self, ms_timeout=-1, log=False, callback=None) :
 		if callback :
-			finished = dll.mobius_run_model(self.data_ptr, ms_timeout, callback)
+			@ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_double)
+			def _callback(_p, percent) :
+				callback(percent)
+			finished = dll.mobius_run_model(self.data_ptr, ms_timeout, _callback)
 		elif log :
+			@ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_double)
+			def _run_logger(_p, percent) :
+				print("Run progress: %g%%"%percent)
 			finished = dll.mobius_run_model(self.data_ptr, ms_timeout, _run_logger)
 		else :
 			no_cb = ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_double)(0)
