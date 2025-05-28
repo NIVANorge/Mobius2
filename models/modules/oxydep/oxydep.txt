@@ -9,8 +9,13 @@ module("OxyDep", version(0, 0, 1),
 	dom : quantity,
 	pom : quantity,
 	o2  : quantity,
+	o2satconc : property,
 	temp : property,
+	salin : property,
 	sw : property,
+	attn : property,
+	vert : connection,
+	dims : preamble,
 ) {
 """
 The model OxyDep was originally created in Fortran by Evgeniy Yakushev.
@@ -20,20 +25,33 @@ This implementation is based on
 Berezina et.al. (2021), Water 13(19) [https://doi.org/10.3390/w13192690](https://doi.org/10.3390/w13192690)
 *Modelling the Influence from Biota and Organic Matter on the Transport Dynamics of Microplastics in the Water Column and Bottom Sediments in the Oslo Fjord*
 
+Also, based on the implementation in [FjordsSim](https://github.com/AquaBadgerForge/FjordsSim.jl)
+
 Implementation is work in progress. Not finished
 """
 
-	var(layer.water.phy, [mol], [m mol, m-3], "Phytoplankton")
+	load("stdlib/seawater.txt", library("Sea oxygen"))
 	
-	var(layer.water.het, [mol], [m mol, m-3], "Zooplankton")
+	par_group("Initial conc", layer) {
+		init_phy : par_real("Initial PHY", [m mol, m-3], 0)
+		init_het : par_real("Initial HET", [m mol, m-3], 0)
+		init_nut : par_real("Initial NUT", [m mol, m-3], 0)
+		init_dom : par_real("Initial DOM", [m mol, m-3], 0)
+		init_pom : par_real("Initial POM", [m mol, m-3], 0)
+		init_o2sat : par_real("Initial O2 saturation", [], 1)
+	}
+
+	var(layer.water.phy, [mol], [m mol, m-3], "Phytoplankton") @initial_conc { init_phy }
 	
-	var(layer.water.nut, [mol], [m mol, m-3], "Nutrients")
+	var(layer.water.het, [mol], [m mol, m-3], "Zooplankton") @initial_conc { init_het }
 	
-	var(layer.water.dom, [mol], [m mol, m-3], "Dissolved organic matter")
+	var(layer.water.nut, [mol], [m mol, m-3], "Nutrients") @initial_conc { init_nut }
 	
-	var(layer.water.pom, [mol], [m mol, m-3], "Particulate organic matter")
+	var(layer.water.dom, [mol], [m mol, m-3], "Dissolved organic matter") @initial_conc { init_dom }
 	
-	var(layer.water.o2, [mol], [m mol, m-3], "Oxygen")
+	var(layer.water.pom, [mol], [m mol, m-3], "Particulate organic matter") @initial_conc { init_pom }
+	
+	var(layer.water.o2, [mol], [m mol, m-3], "Oxygen") @initial_conc { o2_saturation_concentration(temp, salin)*init_o2sat }
 	
 	#TODO: Take default values from Julia code.
 	par_group("OxyDep parameters") {
@@ -56,7 +74,7 @@ Implementation is work in progress. Not finished
 		r_pom_het : par_real("RPOMHet", [day-1], 0.7, 0, 2, "Maximum specific consumption rate of POM by HET")
 		k_pom     : par_real("KPOM", [], 2.0, 0.005, 5, "Half-saturation coefficient of POM consumption by HET for POM/HET ratio")
 		r_het_nut : par_real("RHetNut", [day-1], 0.15, 0, 0.3, "Specific respiration rate of HET")
-		r_het_pom : par_real("RHetPOM", [day-1], 0.02, 0, 0.5, "Specific mortality rate of HET"
+		r_het_pom : par_real("RHetPOM", [day-1], 0.02, 0, 0.5, "Specific mortality rate of HET")
 		r_het_pom_anox : par_real("RHetPOMAnox", [day-1], 0.01, 0, 0.1, "Specific additional mortality mortality rate of HET in suboxic/anoxic conditions")
 		u_z       : par_real("Uz", [], 0.6, 0, 1, "Zooplankton assimilation")
 		h_z       : par_real("Hz", [], 0.5, 0, 1, "The ratio between the suspended and dissolved forms of HET excretions")
@@ -74,6 +92,39 @@ Implementation is work in progress. Not finished
 		t_da : par_real("Tda", [deg_c], 13, 5, 20, "Coefficient for dependence of mineralization on T")
 	}
 	
+	par_group("Sinking speeds") {
+		pom_set_vel : par_real("POM settling velocity", [m, day-1], 10)
+		phy_set_vel : par_real("PHY settling velocity", [m, day-1], 0.15)
+		het_set_vel : par_real("HET settling velocity", [m, day-1], 0.4)
+	}
+	
+	par_group("Light") {
+		attn0    : par_real("Diffuse attenuation coefficent (clear water)", [m -1], 0.2, 0.01, 1)
+		shade_f  : par_real("Shading factor", [m-1, m 3, m mol-1], 0.02, 0.01, 0.1, "Shading provided by POM and DOM")
+	}
+	
+	var(layer.water.attn, [m-1], "Layer attenuation constant") {
+		# TODO: Maybe DOM  has a smaller shading effect than POM?
+		attn0 + (conc(pom) + conc(phy) + conc(dom))*shade_f
+	}
+	
+	var(layer.water.o2satconc, [m mol, m-3]) {
+		o2_saturation_concentration(temp, salin)->>
+	}
+	
+	flux(layer.water.pom, vert, [k g, day-1], "POM settling") {
+		pom_set_vel * conc(pom) * A[vert.below] ->>
+	}
+	
+	flux(layer.water.phy, vert, [k g, day-1], "PHY settling") {
+		phy_set_vel * conc(phy) * A[vert.below] ->>
+	}
+	
+	flux(layer.water.het, vert, [k g, day-1], "HET settling") {
+		het_set_vel * conc(het) * A[vert.below] ->>
+	}
+	
+	
 	#TODO: Unit of NtoN ??
 	NtoN : constant("Loss of nitrogen following Richards denitrification", [], 5.3)
 	OtoN : constant("Ratio of oxygen to N", [], 8.625)
@@ -88,7 +139,7 @@ Implementation is work in progress. Not finished
 	limitation : function(val : [], halfsat : []) { val^2 / (val^2 + halfsat^2) } # Squared Michaelis-Menten type of limiter
 	
 	limN    : function(val1 : [mol], val2 : [mol], halfsat) { limitation(val1 / max(0.0001[mol], val2), halfsat) }
-	limGraz : function(val1 : [mol], val2 : [mol], halfsat) { limitation( max(0[mol], val1-0.01[mol]) / max(0.0001[mol], val2), halfsat)  }
+	limgraz : function(val1 : [mol], val2 : [mol], halfsat) { limitation( max(0[mol], val1-0.01[mol]) / max(0.0001[mol], val2), halfsat)  }
 	
 	var(layer.water.lim_light, []) {
 		(sw/i_opt)*exp(1 - sw/i_opt)
@@ -121,11 +172,11 @@ Implementation is work in progress. Not finished
 	graz : property("Grazing")
 	
 	var(layer.water.phy.graz, [mol, day-1], "Grazing on phytoplankton") {
-		r_phy_het*limgraz(phy, het, k_phy)
+		het * r_phy_het*limgraz(phy, het, k_phy)
 	} @no_store
 	
-	var(layer.water.phy.graz, [mol, day-1], "Grazing on POM") {
-		r_phy_pom*limgraz(pom, het, k_pom)
+	var(layer.water.pom.graz, [mol, day-1], "Grazing on POM") {
+		het * r_phy_pom*limgraz(pom, het, k_pom)
 	} @no_store
 	
 	flux(layer.water.phy, out, [mol, day-1], "Phytoplankton removal from grazing") { phy.graz	}

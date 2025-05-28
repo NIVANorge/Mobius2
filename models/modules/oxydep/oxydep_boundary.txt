@@ -1,0 +1,33 @@
+
+module("OxyDep boundary", version(0, 0, 1),
+	bnd_layer : compartment,
+	water : quantity,
+	phy : quantity,
+	het : quantity,
+	nut : quantity,
+	dom : quantity,
+	pom : quantity,
+	o2 : quantity,
+	temp : property,
+	salinity : property,
+	o2sat : property,
+) {
+
+	load("stdlib/seawater.txt", library("Sea oxygen"))
+	
+	var(bnd_layer.water.phy, [mol], [m mol, m-3], "Boundary Phytoplankton") @override_conc { 0=>> } #TODO
+	
+	var(bnd_layer.water.het, [mol], [m mol, m-3], "Boundary Zooplankton") @override_conc { 0=>> } #TODO
+	
+	var(bnd_layer.water.nut, [mol], [m mol, m-3], "Boundary Nutrients") @override_conc { 0=>> } #TODO
+	
+	var(bnd_layer.water.dom, [mol], [m mol, m-3], "Boundary Dissolved organic matter") @override_conc { 0=>> } #TODO
+	
+	var(bnd_layer.water.pom, [mol], [m mol, m-3], "Boundary Particulate organic matter") @override_conc { 0=>> } #TODO
+	
+	var(bnd_layer.water.o2, [mol], [m mol, m-3], "Boundary Oxygen") @override_conc { o2sat*o2_saturation_concentration(temp, salinity)->> }
+	
+	
+	# In case data was not provided, assume boundary O2 is at full saturation
+	var(bnd_layer.water.o2sat, [], "Boundary layer O₂ saturation") { 1 }
+}

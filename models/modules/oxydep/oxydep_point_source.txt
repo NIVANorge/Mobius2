@@ -1,0 +1,56 @@
+
+module("OxyDep point sources", version(0, 0, 0),
+	air   : compartment,
+	ps    : compartment,
+	layer : compartment,
+	water : quantity,
+	nut   : quantity,
+	dom   : quantity,
+	pom   : quantity,
+	o2    : quantity,
+	heat  : quantity,
+	temp  : property,
+	psc   : connection,
+) {
+	load("stdlib/physiochemistry.txt", library("Water utils"), library("Chemistry"))
+	load("stdlib/seawater.txt", library("Sea oxygen"))
+
+	eff_q_series : property("Water point source input")
+	eff_nut_conc  : property("NUT point source concentration")
+	eff_dom_conc  : property("DOM point source concentration")
+	eff_pom_conc  : property("POM point source concentration")
+	
+	par_group("Point sources", ps) {
+		o2sat  : par_real("Point source water O2 saturation", [], 1)
+		is_on  : par_bool("This point source is active", true)
+	}
+	
+	var(ps.water, [m 3], "Point source water") @override { 1[m 3] }
+	
+	# This can be overridden if desired.
+	var(ps.water.temp, [deg_c], "Point source temperature") {
+		max(0.5[deg_c], air.temp)
+	}
+	
+	var(ps.eff_q_series, [m 3, s-1])
+	var(ps.eff_nut_conc, [m mol, m-3])
+	var(ps.eff_dom_conc, [m mol, m-3])
+	var(ps.eff_pom_conc, [m mol, m-3])
+	
+	flux(ps.water, psc, [m 3, s-1], "Point source water") {
+		is_on * eff_q_series
+	}
+	
+	var(ps.water.heat, [J], [J, m-3], "Point source heat") @override_conc { water_temp_to_heat(water, temp)/water }
+	
+	var(ps.water.o2, [mol], [m mol, m-3], "Point source O₂") @override_conc { 
+		eff_salin := 0,
+		o2sat*o2_saturation_concentration(temp, eff_salin)->>
+	}
+	
+	var(ps.water.nut, [mol], [m mol, m-3], "Point source NUT") @override_conc { eff_nut_conc }
+	
+	var(ps.water.dom, [mol], [m mol, m-3], "Point source DOM") @override_conc { eff_dom_conc }
+	
+	var(ps.water.pom, [mol], [m mol, m-3], "Point source POM") @override_conc { eff_pom_conc }
+}

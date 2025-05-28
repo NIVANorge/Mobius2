@@ -167,15 +167,10 @@ Authors: Magnus Dahler Norling, François Clayer
 		diss_r * sed.on
 	}
 	
-	var(layer.water.attn, [], "Layer attenuation") {
+	var(layer.water.attn, [m-1], "Layer attenuation constant") {
 		# TODO: Maybe DOC has a smaller shading effect than particles?
 		# Also phyto type should have separate shading values.
-		att_c := attn0 + (conc(sed) + aggregate(conc(phyt)) + conc(oc))*shade_f,
-		cz := max(0.01, refract(air.cos_z, refraction_index_water)),
-		#cz := max(0.01, air.cos_z),
-		th := dz / cz, # Length traveled through the layer by a sun beam taking zenith angle into account.
-		#th := dz,
-		1 - exp(-att_c*th)
+		attn0 + (conc(sed) + aggregate(conc(phyt)) + conc(oc))*shade_f
 	}
 
 	# TODO: Direct deposition of DIN to surface(?)

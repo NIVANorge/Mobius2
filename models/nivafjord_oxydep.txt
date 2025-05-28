@@ -1,0 +1,40 @@
+
+model("NIVAFjord with OxyDep") {
+
+	extend("nivafjord_base.txt")
+	
+	phy : quantity("Phytoplankton")
+	het : quantity("Heterotrophs")
+	nut : quantity("Nutrients (N-equivalent)")
+	dom : quantity("Dissolved organic matter (N-equivalent)")
+	pom : quantity("Particulate organic matter (N-equivalent)")
+	o2 : quantity("Oxygen")
+	
+	o2sat     : property("O2 saturation")
+	o2satconc : property("O2 saturation concentration")
+	
+	load("modules/oxydep/oxydep.txt", module("OxyDep", layer, water, phy, het, nut, dom, pom, o2, o2satconc, temp, salinity, sw, attn, vert, dims))
+	
+	load("modules/oxydep/oxydep_airsea.txt",
+		module("OxyDep airsea", air, basin, o2, temp, wind, precip, o2satconc, pressure, loc(basin.ice.indicator), loc(layer.water[vert.top]), loc(basin.area)))
+		
+	load("modules/oxydep/oxydep_boundary.txt",
+		module("OxyDep boundary", bnd_layer, water, phy, het, nut, dom, pom, o2, temp, salinity, o2sat))
+	
+	
+	
+	psi : index_set("Point source index")
+	ps : compartment("Point source", psi)
+	psc : connection("Point source connection") @directed_graph { ps layer } @no_cycles
+	
+	load("modules/oxydep/oxydep_point_source.txt",
+		module("OxyDep point sources", air, ps, layer, water, nut, dom, pom, o2, heat, temp, psc))
+		
+	solve(sol, air.cos_z, air.g_rad)
+	
+	#TODO: Fix the below
+	solve(sol, sediment.heat)
+	module("Stuff", version(0, 0, 0)) {
+		var(sediment.heat, [J])
+	}
+}

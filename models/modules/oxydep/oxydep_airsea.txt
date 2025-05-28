@@ -1,0 +1,37 @@
+
+module("OxyDep airsea", version(0, 0, 0),
+	air : compartment,
+	basin : compartment,
+	o2 : quantity,
+	temp : property,
+	wind : property,
+	precip : property,
+	o2satconc : property,
+	pressure : property,
+	ice_ind : loc,
+	top_water : loc,
+	A_surf : loc,
+) {
+
+	# In case it is not declared elsewhere
+	var(air.precip, [m m, day-1], "Precipitation")
+
+	load("stdlib/seawater.txt", library("Sea oxygen"))
+	load("stdlib/physiochemistry.txt", library("Chemistry"))
+	
+	p_vel     : property("O₂ piston velocity")
+	
+	var(basin.p_vel, [c m, hr-1]) {
+		o2_piston_velocity(air.wind, top_water.temp)
+	}
+	
+	flux(out, top_water.o2, [mol, day-1], "Precipitation O₂") {
+		precip_saturation := 0.9, # Probably ok estimate? Not extremely important in any case.
+		cnc := precip_saturation*o2_saturation_concentration(air.temp, 0),
+		air.precip*A_surf*cnc->>
+	}
+	
+	flux(top_water.o2, out,  [mol, day-1], "O₂ gas exchange at surface") {
+		(!ice_ind) * basin.p_vel*(conc(top_water.o2) - top_water.o2satconc)*A_surf ->>
+	}
+}
