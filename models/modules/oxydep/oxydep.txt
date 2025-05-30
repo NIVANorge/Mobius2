@@ -112,15 +112,15 @@ Implementation is work in progress. Not finished
 		o2_saturation_concentration(temp, salin)->>
 	}
 	
-	flux(layer.water.pom, vert, [k g, day-1], "POM settling") {
+	flux(layer.water.pom, vert, [mol, day-1], "POM settling") {
 		pom_set_vel * conc(pom) * A[vert.below] ->>
 	}
 	
-	flux(layer.water.phy, vert, [k g, day-1], "PHY settling") {
+	flux(layer.water.phy, vert, [mol, day-1], "PHY settling") {
 		phy_set_vel * conc(phy) * A[vert.below] ->>
 	}
 	
-	flux(layer.water.het, vert, [k g, day-1], "HET settling") {
+	flux(layer.water.het, vert, [mol, day-1], "HET settling") {
 		het_set_vel * conc(het) * A[vert.below] ->>
 	}
 	

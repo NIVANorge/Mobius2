@@ -2,7 +2,7 @@
 import pandas as pd
 import os
 
-def xlsx_input_from_dataframe(file, df, sheet_name, indexes = {}, flags = None) :
+def xlsx_input_from_dataframe(file, df, sheet_name, indexes = {}, flags = None, names=None) :
 	'''
 	Write a dataframe to an xlsx sheet, potentially with Mobius2 indexing and series flags. If the sheet already exists, it is cleared and overwritten.
 	
@@ -17,6 +17,10 @@ def xlsx_input_from_dataframe(file, df, sheet_name, indexes = {}, flags = None) 
 			1. None
 			2. A single string which will be the flags value for all series in the dataframe
 			3. A list of flags strings, one for each column in the dataframe. If too few values are passed, the later columns will have blank flags.
+		names - Replaces the column names. Either
+			1. None
+			2. A single string, which will be the name of the input series for all columns
+			3. A list of string names with the same length as the dataframe columns
 	'''
 	
 	if not isinstance(df.index, pd.DatetimeIndex) :
@@ -92,6 +96,15 @@ def xlsx_input_from_dataframe(file, df, sheet_name, indexes = {}, flags = None) 
 				flg = flags
 			cell = sheet.cell(row=row, column=j+2)
 			cell.value = flg
+	
+	if names :
+		if isinstance(names, list) :
+			for j in range(len(df.columns)) :
+				sheet.cell(row=1, column=j+2).value = names[j]
+		else :
+			sheet.cell(row=1, column=2).value = names
+			for j in range(1, len(df.columns)) :
+				sheet.cell(row=1, column=j+2).value = None
 	
 	
 	if opened_here :

@@ -78,6 +78,7 @@ Authors: Magnus Dahler Norling, François Clayer
 		init_O2  : par_real("Initial O₂ saturation", [], 1, 0, 1)
 		init_DOC : par_real("Initial DOC concentration", [m g, l-1], 0, 0, 100)
 		init_NO3 : par_real("Initial NO3 concentration", [m g, l-1], 0, 0, 100)
+		init_PO4 : par_real("Initial PO4 concentration", [m g, l-1], 0, 0, 100)
 		init_ss  : par_real("Initial suspended sediment concentration", [m g, l-1], 0, 0, 100)
 		init_foc : par_real("Initial particle organic carbon content", [g, k g-1], 0, 0, 1000)
 	}
@@ -113,7 +114,7 @@ Authors: Magnus Dahler Norling, François Clayer
 	
 	var(layer.water.on, [k g], [m g, l-1], "Layer DON")
 	
-	var(layer.water.phos, [k g], [m g, l-1], "Layer DIP")
+	var(layer.water.phos, [k g], [m g, l-1], "Layer DIP") @initial_conc { init_PO4 }
 	
 	var(layer.water.op, [k g], [m g, l-1], "Layer DOP")
 	

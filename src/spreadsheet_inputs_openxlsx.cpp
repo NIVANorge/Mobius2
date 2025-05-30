@@ -17,6 +17,14 @@ close_due_to_error(OpenXLSX::XLDocument &doc, int tab, u32 row, u16 col) {
 	doc.close();
 }
 
+// Hmm, right now the cell value is often Error when generated from openpyxl. Have to figure out why
+// It is not ideal to treat Error as empty.
+bool
+is_empty_type(OpenXLSX::XLValueType val) {
+	using namespace OpenXLSX;
+	return val == XLValueType::Empty || val == XLValueType::Error;
+}
+
 bool
 can_be_date(OpenXLSX::XLCellValueProxy &val, Date_Time *datetime = nullptr) {
 	
@@ -91,7 +99,8 @@ read_series_data_from_sheet(Data_Set *data_set, Series_Data *series, String_View
 				}
 				index_sets.push_back(index_set_id);
 			}
-		} else if(val.type() == XLValueType::Empty) {
+		} else if(is_empty_type(val.type())) {
+			
 			empty = true;
 		} else {
 			close_due_to_error(doc, tab, row, 1);
@@ -129,7 +138,7 @@ read_series_data_from_sheet(Data_Set *data_set, Series_Data *series, String_View
 		if(inname.type() == XLValueType::String) {
 			got_name_this_column = true;
 			current_input_name = inname.get<std::string>();
-		} else if(inname.type() != XLValueType::Empty) {
+		} else if(!is_empty_type(inname.type())) {
 			close_due_to_error(doc, tab, 1, col);
 			fatal_error("Expected a series name in string format.");
 		} else if(current_input_name.empty()) {
@@ -197,7 +206,7 @@ read_series_data_from_sheet(Data_Set *data_set, Series_Data *series, String_View
 						token.string_value = String_View(index_names_str[idx].c_str());
 					}
 					
-				} else if(val.type() == XLValueType::Empty) {
+				} else if(is_empty_type(val.type())) {
 					
 					empty = true;
 					if(has_prev_index[idx]) {
@@ -253,7 +262,7 @@ read_series_data_from_sheet(Data_Set *data_set, Series_Data *series, String_View
 			auto cell = sheet.cell(potential_flag_row, col);
 			auto &val = cell.value();
 			
-			if(val.type() != XLValueType::Empty) {
+			if(!is_empty_type(val.type())) {
 			
 				if(val.type() != XLValueType::String) {
 					close_due_to_error(doc, tab, potential_flag_row, col);
@@ -301,7 +310,7 @@ read_series_data_from_sheet(Data_Set *data_set, Series_Data *series, String_View
 		
 		auto &val = cell.value();
 		Date_Time date;
-		if(val.type() == XLValueType::Empty)
+		if(is_empty_type(val.type()))
 			break;
 		if(!can_be_date(val, &date)) {
 			close_due_to_error(doc, tab, row, 1);
@@ -337,7 +346,7 @@ read_series_data_from_sheet(Data_Set *data_set, Series_Data *series, String_View
 				result = val.get<double>();
 			else if(t == XLValueType::Integer)
 				result = (double)val.get<s64>();
-			else if(t == XLValueType::Empty)
+			else if(is_empty_type(t))
 				result = std::numeric_limits<double>::quiet_NaN();
 			else if(t == XLValueType::String) {
 				auto str = val.get<std::string>();
