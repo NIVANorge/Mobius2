@@ -73,9 +73,6 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 2),
 	edge_layer2 : compartment,
 	
 	water  : quantity,
-	#salt   : quantity,
-	#temp   : property,
-	#salin  : property,
 	rho    : property,
 	pressure : property,
 	dz     : property,
@@ -140,7 +137,6 @@ This one is for if there is a boundary compartment and river inputs
 	
 	var(edge_layer2.dP, [Pa]) @no_store
 	
-	
 	#{
 	#	layer.water.pressure - layer.water.pressure[horz.below]
 	#}
@@ -160,9 +156,6 @@ This one is for if there is a boundary compartment and river inputs
 		dz - bnd_basin.h                    if is_at[vert.top],
 		bnd_layer.align_z[vert.above] + dz  otherwise
 	} @no_store
-	
-	
-	
 	
 	external_computation("Compute pressure difference", "nivafjord_compute_pressure_difference", edge2) {
 		result(edge_layer2.dP)
@@ -187,8 +180,6 @@ This one is for if there is a boundary compartment and river inputs
 		edge_layer.vert_target
 	}
 	
-	
-	
 	external_computation("Compute pressure boundary difference", "nivafjord_compute_pressure_difference", edge) {
 		result(edge_layer.dP)
 		layer.align_z
@@ -212,14 +203,10 @@ This one is for if there is a boundary compartment and river inputs
 		edge_layer2.vert_target
 	}
 	
-	
-	
-	
-	
-	horz_flow_frac : property("Horizontal balance fraction")
-	var(layer.horz_flow_frac, [day-1]) {
-		(out_flux(horz, water) - in_flux(horz, water)) / water ->>
-	}
+	#horz_flow_frac : property("Horizontal balance fraction")
+	#var(layer.horz_flow_frac, [day-1]) {
+	#	(out_flux(horz, water) - in_flux(horz, water)) / water ->>
+	#}
 }
 
 module("NIVAFjord simple realignment", version(0, 0, 1),
@@ -255,6 +242,32 @@ This module realigns layers so that they stay at the same thickness, and only th
 	align_frac : property("Alignment fraction")
 	var(layer.align_frac, [day-1]) {
 		water.align/water
+	}
+}
+
+module("NIVAFjord immediate realignment", version(0, 0, 0),
+	basin : compartment,
+	layer : compartment,
+	water : quantity,
+	horz : connection,
+	horz2 : connection,
+	vert : connection,
+) {
+	align : property("Vertical realignment")
+	var(layer.water.align, [m 3, day-1]) @no_store
+	
+	flux(layer.water, vert, [m 3, day-1], "Vertical realignment flux") {
+		align
+	} @bidirectional
+	
+	hbal : property("Horizontal balance")
+	var(layer.hbal, [m 3, day-1]) {
+		-(in_flux(horz2, water) - out_flux(horz, water) + in_flux(horz, water))->>
+	}
+	
+	external_computation("Layer vertical realignment computation", "nivafjord_vertical_realignment", basin) {
+		result(layer.water.align)
+		layer.hbal
 	}
 }
 

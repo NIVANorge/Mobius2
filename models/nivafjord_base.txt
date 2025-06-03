@@ -107,7 +107,8 @@ model("NIVAFjord") {
 		load("modules/nivafjord/horizontal_fluxes.txt",
 			module("NIVAFjord horizontal fluxes",
 				basin, bnd_basin, layer, bnd_layer, edge, edge_layer, edge2, edge_layer2, water, rho, pressure, dz, h, horz, horz2, vert, dims),
-			module("NIVAFjord simple realignment", basin, layer, water, dz, vert, dims)
+			#module("NIVAFjord simple realignment", basin, layer, water, dz, vert, dims)
+			module("NIVAFjord immediate realignment", basin, layer, water, horz, horz2, vert)
 		)
 		e_idx         : index_set("Fjord connection index") @sub(basin_idx)
 		e_idx2        : index_set("Fjord connection index 2") @sub(bnd_basin_idx)

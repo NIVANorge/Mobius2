@@ -93,7 +93,8 @@ Authors: Magnus D. Norling
 	flux(out, top_water_heat_sw, [J, day-1], "Net shortwave") {  A_surf * surf.sw ->>  }
 	
 	flux(out, top_water.heat,    [J, day-1], "Net longwave") {
-		net_rad := (1 - surf.albedo)*air.lwd - surf.lwu,    # W/m2       # TODO: Should really albedo be detracted from longwave?
+		#net_rad := (1 - surf.albedo)*air.lwd - surf.lwu,    # W/m2       # TODO: Should really albedo be detracted from longwave?
+		net_rad := air.lwd - surf.lwu,
 		
 		#tw := top_water.temp->[K],
 		#ta := air.temp ->[K],

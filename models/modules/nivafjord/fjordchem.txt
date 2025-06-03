@@ -262,13 +262,12 @@ Authors: Magnus Dahler Norling, François Clayer
 	#  OC, O2  -> CO2  Mineralization
 	#  ON, O2  -> NH4 -> NO3  Mineralization, nitrification.
 	#  OP, O2  -> PO4
-	#  NH4, O2 ->  NO3     Nitrification
 	
 	# Anoxic, with NO3:
 	#  OC, NO3 -> CO2, N2   Denitrification
 	
 	# Anoxic without NO3:
-	#  Sulfate (and Mn) reduction. (In NIVAFjord).
+	#  Sulfate (and Mn) reduction. (In NIVA fjord model).
 	
 	# PO4 release from / adsorption to particles
 	
