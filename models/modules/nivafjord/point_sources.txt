@@ -106,7 +106,7 @@ module("NIVAFjord dynamic point sources", version(0, 0, 1),
 	var(ps.eff_op_conc, [m g, l-1])
 	var(ps.eff_ss_conc, [m g, l-1])
 	
-	flux(ps.water, psc, [m 3, s-1], "Point source water") {
+	flux(ps.water, psc, [m 3, s-1], "Point source water discharge") {
 		is_on * eff_q_series
 	}
 	
