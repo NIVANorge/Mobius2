@@ -282,6 +282,7 @@ nivafjord_compute_jet_mixing(Value_Access *values) {
 	
 	bool first_step = true;
 	
+	int limit_exceeded = -1;
 
 	double amb_dens_i, amb_depth;
 // TODO: Rewrite to not use goto
@@ -358,7 +359,7 @@ iterate_half_layer :
 		drho_dz = drho_dz + (amb_dens - amb_dens_i) / std::copysign(z0-z1, d[iz]);
 	}
 	
-	int limit_exceeded=-1;
+	limit_exceeded = -1;
 	bool neutral_point;
 	int step_count;
 	rk3_integrate(z0, z1, drho_dz, step_norm, s, &v[0], &vn[0], &d[0], &dvnorm[0], &accuracy[0], momentum_x, &limit_exceeded, &neutral_point, &step_count);

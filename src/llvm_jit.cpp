@@ -106,6 +106,9 @@ initialize_llvm() {
 		llvm::orc::ExecutorAddr::fromPtr(&sym), \
 		llvm::JITSymbolFlags());
 	#include "model_specific/all_externals.incl"
+	ADD_EXT_COMP(_uniform_random_int_)
+	ADD_EXT_COMP(_uniform_random_real_)
+	ADD_EXT_COMP(_normal_random_real_)
 	#undef ADD_EXT_COMP
 	
 	auto materializer = llvm::orc::absoluteSymbols(symbol_map);
