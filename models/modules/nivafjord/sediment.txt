@@ -39,7 +39,7 @@ module("NIVAFjord sediments", version(0, 0, 4),
 	par_group("Initial chem", sediment) {
 		init_c   : par_real("Initial sediment C fraction", [g, k g-1], 10, 0, 1)
 		init_p   : par_real("Initial sediment IP fraction", [g, k g-1], 1, 0, 1)
-		init_cn  : par_real("Initial sediment C/N molar fraction", [], 6, 0, 50)
+		init_cn  : par_real("Initial sediment C/N molar fraction", [], 16, 0, 50)
 		init_cp  : par_real("Initial sediment (organic) C/P molar fraction", [], 106, 0, 500)
 		sed_doc  : par_real("Sediment pore water DOC concentration", [m g, l-1], 5, 0, 100)
 	}

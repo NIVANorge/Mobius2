@@ -41,6 +41,7 @@ module("NIVAFjord boundary", version(0, 0, 1),
 	
 	sea_level : function(t : [hr]) {
 		# TODO: Parametrize and put in a library. This one in particular is for Oscarsborg.
+		# Although it is better if the user just always overrides it..
 		  sea_level_component(11.2[c m], 282[deg], 365.24*24[hr], t)
 		+ sea_level_component(13.4[c m], 152[deg], 12.42[hr], t)
 		+ sea_level_component( 3.4[c m], 101[deg], 12.00[hr], t)

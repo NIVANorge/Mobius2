@@ -247,14 +247,6 @@ Authors: Magnus Dahler Norling, François Clayer
 		bo2*(1/3)*n_mol_mass/o2_mol_mass
 	}
 	
-	flux(layer.water.phos, layer.water.sed.phos, [k g, day-1], "PO4 adsorption / desorption to particles") {
-		epc0 := conc(sed.phos)/k_sorp -> [m g, l-1],
-		epc0_ := min(epc0, 0[m g, l-1]), # We get numeric instability if we don't put the 'min(.., 0)' there.
-		
-		# If there is high oxicity, use regular partitioning. With low oxicity, PO4 leeches out. (TODO: should maybe be a different rate)
-		r_sorp*(ox_fac*(conc(water.phos) - epc0_)*water->[k g] - (1-ox_fac)*sed.phos)
-	}
-	
 	
 	# Processes:
 	
