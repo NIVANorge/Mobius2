@@ -524,6 +524,9 @@ prune_helper(Math_Expr_FT *expr, Function_Scope *scope) {//Scope_Local_Vars<Loca
 			auto fun = static_cast<Function_Call_FT *>(expr);
 			if(fun->fun_type != Function_Type::intrinsic)
 				return expr;
+			// TODO: Not that nice to have to keep track of the random generator ones here...
+			if(fun->fun_name == "uniform_real" || fun->fun_name == "normal" || fun->fun_name == "uniform_int")
+				return expr;
 			//TODO: maybe implement for "linked" type, but it is the same problem as for
 			// emulation that we need to call a function only knowing the types at run time
 			// (possible, but need an external library for it probably).

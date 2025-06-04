@@ -1,4 +1,6 @@
 
+#include <random>
+
 #include "../third_party/kaleidoscope/KaleidoscopeJIT.h"
 #include "llvm/ADT/APFloat.h"
 #include "llvm/ADT/STLExtras.h"
@@ -46,6 +48,27 @@ _test_fun_(double a) {
 	// Fibonacci
 	if(a <= 1.0) return 1.0;
 	return _test_fun_(a-1) + _test_fun_(a-2);
+}
+
+extern "C" DLLEXPORT double
+_uniform_random_real_(void *rand_state, double mn, double mx) {
+	std::mt19937 *gen = reinterpret_cast<std::mt19937 *>(rand_state);
+	std::uniform_real_distribution<double> dist(mn, mx);
+	return dist(*gen);
+}
+
+extern "C" DLLEXPORT double
+_normal_random_real_(void *rand_state, double m, double s) {
+	std::mt19937 *gen = reinterpret_cast<std::mt19937 *>(rand_state);
+	std::normal_distribution<double> dist(m, s);
+	return dist(*gen);
+}
+
+extern "C" DLLEXPORT s64
+_uniform_random_int_(void *rand_state, s64 mn, s64 mx) {
+	std::mt19937 *gen = reinterpret_cast<std::mt19937 *>(rand_state);
+	std::uniform_int_distribution<s64> dist(mn, mx);
+	return dist(*gen);
 }
 
 
@@ -173,6 +196,9 @@ create_llvm_module() {
 	auto int_32_ty     = llvm::Type::getInt32Ty(*data->context);
 	auto double_ptr_ty = llvm::PointerType::getUnqual(llvm::Type::getDoubleTy(*data->context));
 	auto int_64_ptr_ty = llvm::PointerType::getUnqual(int_64_ty);
+	// NOTE: LLVM doesn't seem to support void*, but it doesn't matter what type we point to as we only hand the pointer
+	// back to an external function in any case.
+	auto void_ptr_ty   = int_64_ptr_ty;
 	
 	#define TIME_VALUE(name, nbits) int_##nbits##_ty,
 	std::vector<llvm::Type *> dt_member_types = {
@@ -483,6 +509,23 @@ build_cast_ir(llvm::Value *val, Value_Type from_type, Value_Type to_type, LLVM_M
 	fatal_error(Mobius_Error::internal, "Unimplemented cast in ir building.");
 }
 
+llvm::Function *
+get_linked_function(LLVM_Module_Data *data, const std::string &fun_name, llvm::Type *ret_ty, std::vector<llvm::Type *> &arguments_ty) {
+	
+	auto fun = data->module->getFunction(fun_name);
+	// Could check that the types are correct.
+	
+	if(fun) return fun;
+	
+	auto *funty = llvm::FunctionType::get(ret_ty, arguments_ty, false);
+	fun = llvm::Function::Create(funty, llvm::Function::ExternalLinkage, fun_name, data->module.get());
+	
+	if(!fun)
+		fatal_error(Mobius_Error::internal, "Failed to link with function \"", fun_name, "\".");
+	
+	return fun;
+}
+
 llvm::Value *
 build_intrinsic_ir(llvm::Value *a, Value_Type type, const std::string &function, LLVM_Module_Data *data) {
 	llvm::Value *result = nullptr;
@@ -521,7 +564,7 @@ build_intrinsic_ir(llvm::Value *a, Value_Type type, const std::string &function,
 }
 
 llvm::Value *
-build_intrinsic_ir(llvm::Value *a, Value_Type type1, llvm::Value *b, Value_Type type2, const std::string &function, LLVM_Module_Data *data) {
+build_intrinsic_ir(llvm::Value *a, Value_Type type1, llvm::Value *b, Value_Type type2, const std::string &function, LLVM_Module_Data *data, std::vector<llvm::Value *> &args) {
 	//TODO: use MAKE_INTRINSIC2 macro here?
 	llvm::Value *result;
 	bool ismin = (function == "min");
@@ -541,6 +584,23 @@ build_intrinsic_ir(llvm::Value *a, Value_Type type1, llvm::Value *b, Value_Type 
 		std::vector<llvm::Type *> arg_types = { llvm::Type::getDoubleTy(*data->context) };
 		llvm::Function *fun = llvm::Intrinsic::getDeclaration(data->module.get(), llvm::Intrinsic::copysign, arg_types);
 		result = data->builder->CreateCall(fun, {a, b}, "calltmp");
+	} else if(function == "uniform_real" || function == "normal" || function == "uniform_int") {
+		
+		const char *callname = "_uniform_random_real_";
+		if (function == "normal") callname = "_normal_random_real_";
+		else if (function == "uniform_int") callname = "_uniform_random_int_";
+		
+		auto int_64_ty     = llvm::Type::getInt64Ty(*data->context);
+		auto int_64_ptr_ty = llvm::PointerType::getUnqual(int_64_ty);
+		auto double_ty = llvm::Type::getDoubleTy(*data->context);
+		
+		auto val_ty = (function == "uniform_int") ? int_64_ty : double_ty;
+		
+		std::vector<llvm::Type *> arguments_ty = {int_64_ptr_ty, val_ty, val_ty};
+		auto *linked_fun = get_linked_function(data, callname, val_ty, arguments_ty);
+	
+		std::vector<llvm::Value *> fun_args = { args[rand_state_idx], a, b};
+		return data->builder->CreateCall(linked_fun, fun_args, "calltmp");
 	} else
 		fatal_error(Mobius_Error::internal, "Unhandled intrinsic \"", function, "\" in build_intrinsic_ir().");
 	return result;
@@ -661,23 +721,6 @@ build_for_loop_ir(Math_Expr_FT *n, Math_Expr_FT *body, Scope_Data *loop_local, s
 	iter->addIncoming(next_iter, loop_end_block);
 	
 	return nullptr;//llvm::ConstantInt::get(*data->context, llvm::APInt(64, 0, true));  // NOTE: This is a dummy, it should not be used by anyone.
-}
-
-llvm::Function *
-get_linked_function(LLVM_Module_Data *data, const std::string &fun_name, llvm::Type *ret_ty, std::vector<llvm::Type *> &arguments_ty) {
-	
-	auto fun = data->module->getFunction(fun_name);
-	// Could check that the types are correct.
-	
-	if(fun) return fun;
-	
-	auto *funty = llvm::FunctionType::get(ret_ty, arguments_ty, false);
-	fun = llvm::Function::Create(funty, llvm::Function::ExternalLinkage, fun_name, data->module.get());
-	
-	if(!fun)
-		fatal_error(Mobius_Error::internal, "Failed to link with function \"", fun_name, "\".");
-	
-	return fun;
 }
 
 llvm::Value *
@@ -935,7 +978,7 @@ build_expression_ir(Math_Expr_FT *expr, Scope_Data *locals, std::vector<llvm::Va
 				} else if(fun->exprs.size() == 2) {
 					llvm::Value *a = build_expression_ir(fun->exprs[0], locals, args, data);
 					llvm::Value *b = build_expression_ir(fun->exprs[1], locals, args, data);
-					return build_intrinsic_ir(a, fun->exprs[0]->value_type, b, fun->exprs[1]->value_type, fun->fun_name, data);
+					return build_intrinsic_ir(a, fun->exprs[0]->value_type, b, fun->exprs[1]->value_type, fun->fun_name, data, args);
 				} else
 					fatal_error(Mobius_Error::internal, "Unhandled number of function arguments in ir building.");
 			} else if (fun->fun_type == Function_Type::linked) {

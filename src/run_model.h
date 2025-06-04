@@ -3,6 +3,8 @@
 #ifndef MOBIUS_RUN_MODEL_H
 #define MOBIUS_RUN_MODEL_H
 
+#include <random>
+
 #ifndef MOBIUS_EMULATE
 #define MOBIUS_EMULATE 0
 #endif
@@ -27,10 +29,14 @@ Model_Run_State {
 	Expanded_Date_Time  date_time;
 	double              fractional_step;
 	
+	std::mt19937       rand_state;
+	
 	void set_solver_workspace_size(int size) {
 		if(size <= 0) return;
 		solver_workspace = (double *)malloc(sizeof(double)*size);
 	}
+	
+	Model_Run_State(u32 rand_seed = std::mt19937::default_seed) : rand_state(rand_seed) {}
 	
 	~Model_Run_State() { if(solver_workspace) { free(solver_workspace); solver_workspace = nullptr; } }
 };
@@ -57,7 +63,8 @@ call_fun(batch_function *fun, Model_Run_State *run_state, double t = 0.0) {
 		run_state->temp_vars,
 		run_state->asserts,
 		run_state->solver_workspace, 
-		&run_state->date_time, 
+		&run_state->date_time,
+		&run_state->rand_state,
 		run_state->fractional_step
 	);
 #endif

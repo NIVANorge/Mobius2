@@ -133,6 +133,15 @@ apply_intrinsic(Typed_Value a, Typed_Value b, String_View function) {
 	} else if (function == "copysign") {
 		result.type = Value_Type::real;
 		result.val_real = std::copysign(a.val_real, b.val_real);
+	} else if (function == "uniform_real") {
+		result.type = Value_Type::real;
+		result.val_real = 42.1; // TODO!!!
+	} else if (function == "normal") {
+		result.type = Value_Type::real;
+		result.val_real = 42.2; // TODO!!!
+	} else if (function == "uniform_int") {
+		result.type = Value_Type::integer;
+		result.val_integer = 42; // TODO!!!
 	} else
 		fatal_error(Mobius_Error::internal, "Unhandled intrinsic \"", function, "\" in apply_intrinsic(a, b).");
 	return result;

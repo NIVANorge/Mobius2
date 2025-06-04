@@ -1,11 +1,10 @@
+# Saved from model : "another_simple.txt"
+
 data_set {
 	
 """
 The doc string
 """
-	
-	i : index_set("Index") [ 10 ]
-	
 	
 	par_group("System") {
 		
@@ -13,7 +12,18 @@ The doc string
 		[ 1990-01-01 ]
 		
 		par_datetime("End date") 
-		[ 1990-12-31 ]
+		[ 1995-12-31 ]
+	
+	}
+	
+	module("So simple", version(2, 0, 0)) {
+		
+		par_group("Test") {
+			
+			par_real("B") 
+			[ 0 ]
+		
+		}
 	
 	}
 

@@ -88,7 +88,7 @@ run_model(Model_Data *data, s64 ms_timeout, bool check_for_nan, run_callback_typ
 	Date_Time end_date   = data->get_end_date_parameter();
 	
 	if(start_date > end_date)
-		fatal_error(Mobius_Error::api_usage, "The end date of the model run was set to be later than the start date.\n");
+		fatal_error(Mobius_Error::api_usage, "The start date of the model run was set to be later than the end date.\n");
 	
 	s64 time_steps = steps_between(start_date, end_date, app->time_step_size) + 1; // +1 since end date is inclusive.
 	
@@ -117,7 +117,17 @@ run_model(Model_Data *data, s64 ms_timeout, bool check_for_nan, run_callback_typ
 	s64 var_count    = app->result_structure.total_count;
 	s64 series_count = app->series_structure.total_count;
 	
-	Model_Run_State run_state;
+	// TODO: Is this an acceptable method for random seeding?
+	u32 rand_seed;
+	{
+		std::random_device gen;
+		rand_seed = gen() ^ (
+			(u32)std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count() +
+			(u32)std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now().time_since_epoch()).count()
+		);
+	}
+	
+	Model_Run_State run_state(rand_seed);
 	
 	run_state.parameters       = data->parameters.data;
 	run_state.state_vars       = data->results.data;

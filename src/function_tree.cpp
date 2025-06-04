@@ -844,7 +844,7 @@ resolve_function_call(Function_Call_AST *fun, Function_Resolve_Data *data, Funct
 		if(arg_units.size() == 1) {
 			set_intrinsic_unit(result.unit, arg_units[0], fun_name, fun->source_loc, scope);
 		} else if (arg_units.size() == 2) {
-			if(fun_name == "min" || fun_name == "max") {
+			if(fun_name == "min" || fun_name == "max" || fun_name == "uniform_real" || fun_name == "normal" || fun_name == "uniform_int") {
 				// NOTE: The min and max functions behave like '+' when it comes to units
 				apply_binop_to_units((Token_Type)'+', fun_name, result.unit, arg_units[0], arg_units[1], fun->source_loc, scope, new_fun->exprs[0], new_fun->exprs[1]);
 			} else if(fun_name == "copysign") {

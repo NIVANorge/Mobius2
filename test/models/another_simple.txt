@@ -2,32 +2,21 @@
 
 model("Another simple") {
 	
-	i : index_set("Index")
-	
 	a : compartment("A")
-	b : compartment("B", i)
-	r : quantity("R")
-	
-	c : connection("Connection") @grid1d(b, i)
+	p : property("P")
 	
 	module("So simple", version(2, 0, 0)) {
-	
-		par_group("Pars", b) {
-			init_b_r : par_real("Init B R", [], 0)
+		
+		par_group("Test") {
+			b : par_real("B", [], 0)
 		}
 	
-		
-		var(a.r, [], "A water") @initial { 10 }
-		
-		var(b.r, [], "B water") @initial { init_b_r }
-		
-		
-		flux(a.r, b.r[c.top], [day-1], "A r flux") { 1=>> }
-		#flux(out, b.r[c.top], [day-1], "A r flux") { 1=>> }
+		var(a.p, [], "So random") {
+			#last(a.p) + normal(0, 0.1)
+			#normal(0, 1)
+			#uniform_real(0, 1)
+			uniform_int(0, 10)
+		}
 
 	}
-	
-	sol : solver("solver", inca_dascru, [2, hr], 0.01)
-	
-	solve(sol, a.r, b.r)
 }
