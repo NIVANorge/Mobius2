@@ -6,13 +6,17 @@ data_set {
 The doc string
 """
 	
+	time_step([3, hr])
+	
+	i : index_set("I") [ 10 ]
+	
 	par_group("System") {
 		
 		par_datetime("Start date") 
 		[ 1990-01-01 ]
 		
 		par_datetime("End date") 
-		[ 1995-12-31 ]
+		[ 2025-12-31 ]
 	
 	}
 	
@@ -21,7 +25,10 @@ The doc string
 		par_group("Test") {
 			
 			par_real("B") 
-			[ 0 ]
+			[ 0.5 ]
+			
+			par_real("Salin variability") 
+			[ 0.1 ]
 		
 		}
 	

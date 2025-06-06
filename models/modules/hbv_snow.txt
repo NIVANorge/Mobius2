@@ -58,3 +58,68 @@ Authors: Magnus D. Norling
 		melt_runoff
 	}
 }
+
+
+module("HBVSnow ODE", version(1, 0, 0),
+	air      : compartment,
+	snow_box : compartment,
+	snow     : quantity,
+	water    : quantity,
+	temp     : property,
+	precip   : property,
+	water_target : loc
+) {
+"""
+This is an adaption of the snow module from HBV-Nordic (Sælthun 1995)
+
+[NVE home page](https://www.nve.no/vann-og-vassdrag/vannets-kretsloep/analysemetoder-og-modeller/hbv-modellen/)
+
+[Model description](https://publikasjoner.nve.no/publication/1996/publication1996_07.pdf)
+
+The module has been adapted to run on an ODE solver instead of using discrete updates.
+
+Authors: Magnus D. Norling
+"""
+
+	par_group("Snow", snow_box) {
+		ddf_melt  : par_real("Degree-day factor for snowmelt", [m m, deg_c-1, day-1], 2.74, 0, 5, "Linear correlation between rate of snow melt and air temperature")
+		t_snow    : par_real("Temperature at which precip falls as snow", [deg_c], 0, -4, 4)
+		t_melt    : par_real("Temperature at which snow melts", [deg_c], 0, -4, 4)
+		refr_eff  : par_real("Refreeze efficiency", [], 0.5, 0, 1, "Speed of refreeze of liquid water in snow relative to speed of melt at the opposite temperature differential")
+		snow_liq  : par_real("Liquid water fraction", [], 0.1, 0, 1, "How many mm liquid water one mm of snow (water equivalents) can hold before the water is released")
+		init_snow : par_real("Initial snow depth (water equivalents)", [m m], 0, 0, 50000)
+	}
+	
+	# Note: We don't give a function body to compute temp and precip, and so if they are not re-declared with a formula in another module, they are assumed to be input series.
+	var(air.temp, [deg_c], "Air temperature")
+	var(air.precip, [m m, day-1])
+	
+	var(snow_box.snow,  [m m], "Snow depth") @initial { init_snow }
+	var(snow_box.water, [m m], "Snow water") #@initial { 0 }             # Not necessary to declare initial here, default is 0.
+	
+	p_snow :
+	flux(out, snow_box.snow, [m m, day-1], "Precipitation falling as snow") {  air.precip * (air.temp <= t_snow)  } # Making use of auto-cast of boolean->real
+	
+	p_rain :
+	flux(out, snow_box.water, [m m, day-1], "Precipitation falling as rain")  {  air.precip * (air.temp > t_snow)  }
+	
+	melt :
+	flux(snow_box.snow, snow_box.water, [m m, day-1], "Melt") {
+		pot_melt := max(0, ddf_melt*(air.temp - t_melt)),
+		s_response(snow, 0, 1[m m], 0, pot_melt)
+	}
+	
+	refreeze :
+	flux(snow_box.water, snow_box.snow, [m m, day-1], "Refreeze") {
+		pot_refr := max(0, refr_eff*ddf_melt*(t_melt - air.temp)),
+		s_response(water, 0, 1[m m], 0, pot_refr)
+	}
+
+	melt_runoff :
+	flux(snow_box.water, water_target, [m m, day-1], "Melt runoff") {
+		# NOTE: This time constant should be somewhat low since it becomes a buffer between precipitation and
+		# soil water even when there is no snow.
+		tc := 0.1[day],
+		max(0, water - snow*snow_liq)/tc
+	}
+}

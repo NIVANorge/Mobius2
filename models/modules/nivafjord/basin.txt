@@ -78,9 +78,10 @@ Authors: Magnus D. Norling
 		N0     : par_real("Brunt-Väisälä frequency reference", [s-1], 0.8e-2)
 		Nmin   : par_real("Minimum B-V frequency", [s-1], 0.7e-2, 1e-10, 0.1)
 		alpha  : par_real("Mixing non-linear coefficient", [], 1.4)
-		r_ice  : par_real("Mixing factor reduction under ice", [], 1)
+		r_ice  : par_real("Mixing factor reduction under ice", [], 1, 0, 1, "Mostly relevant for lakes, where it should be around 0.12")
 		
-		# TODO: Find correct defaults:
+		m0 : par_real("Wind turbulent energy transfer coefficient", [], 0.5, 0, 0.7, "Between 0.2 and 0.3 in open ocean, higher in confined areas")
+		
 		Es0    : par_real("Surface additional mixing energy", [m 2, s-3], 0, "From boat activity")
 		zshalf : par_real("Halving depth of additional mixing energy", [m], 3)
 		hsfact : par_real("Diminishing rate of additional mixing energy", [m], 4)
@@ -171,8 +172,6 @@ Authors: Magnus D. Norling
 	
 	stress         : property("Wind stress")
 	emix           : property("Wind mixing energy")
-	sumV           : property("Sum V above")
-	potmix         : property("Potential energy needed for wind mixing")
 	summix         : property("Sum used wind mixing energy")
 	
 	# TODO: wind stress could be moved to airsea module and maybe use GOTM version.
@@ -183,36 +182,25 @@ Authors: Magnus D. Norling
 		air.rho*c_stress*u^2
 	}
 	
-	#TODO: Make wind mixing instead dependent on the B-V frequency also? One issue is to determine how much energy gets "used" in each layer.
-	var(basin.emix, [J], "Total wind mixing energy") {
-		(!ice_ind)*A[vert.top]*sqrt(stress^3/layer.water.rho[vert.top])*time.step_length_in_seconds
+	var(basin.emix, [W, m-2], "Total wind mixing work") {
+		r := layer.water.rho[vert.top],
+		(!ice_ind)*m0*sqrt(stress^3/r)
 	}
-	
-	var(layer.water.sumV, [m 3]) {
-		sumV[vert.above] + water[vert.above]
-	} @no_store
-	
-	var(layer.water.potmix, [J]) {
-		max(0, grav*ddens*(sumV*water/(sumV + water))*((z+0.5*dz)/2))
-	} @no_store
-	
-	var(layer.water.emix, [J]) {
-		rem := max(0, basin.emix - summix),
-		min(rem, potmix)
-	} @no_store
-	
-	var(layer.water.summix, [J]) {
-		emix[vert.above] + summix[vert.above]
-	} @no_store
 	
 	var(layer.water.v_w, [m, s-1]) {
-		rem := max(0, basin.emix - summix[vert.below]),
-		mixspeed := 1[m]/time.step_length_in_seconds,
-		
-		0=>> if is_at[vert.bottom],
-		mixspeed->>                                                    if rem > 1e-30[J] & potmix[vert.below] < 1e-30[J],
-		mixspeed*safe_divide(emix[vert.below], potmix[vert.below])->>  otherwise
+		rem_emix := max(0, basin.emix - summix),
+		v := 2.0*rem_emix / (grav*(rho[vert.below] - rho)*(dz[vert.below]+dz)),
+		max_v := 10[m, day-1]->[m, s-1], #TODO: instead use the min. B-V frequency!!
+		max(0[m, s-1], min(v, max_v))
 	}
+	
+	var(layer.water.emix, [W, m-2], "Used wind mixing work in layer") {
+		v_w*grav*(rho[vert.below] - rho)*(dz[vert.below]+dz)*0.5
+	} @no_store
+	
+	var(layer.water.summix, [W, m-2]) {
+		emix[vert.above] + summix[vert.above]
+	} @no_store
 	
 	var(layer.water.v_t, [m, s-1]) {
 		K := K0*(!ice_ind + r_ice*ice_ind), #{ K0*r_ice if ice_ind, K0 otherwise },

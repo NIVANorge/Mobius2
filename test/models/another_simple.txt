@@ -2,21 +2,48 @@
 
 model("Another simple") {
 	
-	a : compartment("A")
-	p : property("P")
+	i : index_set("I")
+	
+	a : compartment("A", i)
+	
+	salin_in : property("Salinity input")
+	salin : property("Salinity")
+	
+	vert : connection("Vertical") @grid1d(a, i)
 	
 	module("So simple", version(2, 0, 0)) {
 		
 		par_group("Test") {
-			b : par_real("B", [], 0)
+			b : par_real("B", [day-1], 0.01, 0, 0.2, "Frequency of variability of random perturbation")
+			s : par_real("Salin variability", [], 0.3, 0, 4, "Amplitude of salinity random variability")
 		}
+		
+		p : property("P")
+		p2 : property("P2")
 	
 		var(a.p, [], "So random") {
-			last(a.p) + normal(0, 0.1)
-			#normal(0, 1)
-			#uniform_real(0, 1)
-			#uniform_int(0, 10)
+			f := (b*time.step_length_in_seconds->[])^2,
+			last(a.p)*(1-f) + normal(0, f)
 		}
-
+		
+		var(a.p2, [], "Moreso random") {
+			f := (b*time.step_length_in_seconds->[])^2,
+			a.p/f
+		} #@no_store
+		
+		z : property("Depth")
+		var(a.z, [m]) {
+			z[vert.above] + 1[m]
+		}
+		
+		# Make it synthetic for testing
+		var(a.salin_in, [], "Salinity input") {
+			freq := 1[year-1],
+			(31 + z*0.7[m-1] ) + (4 - z*0.2[m-1])* sin(freq * 2 * pi * time.day_of_year / time.days_this_year)
+		}
+		
+		var(a.salin, [], "Salinity") {
+			max(0, salin_in + s*p2)
+		}
 	}
 }
