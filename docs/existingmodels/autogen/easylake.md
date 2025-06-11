@@ -13,7 +13,7 @@ Since the modules can be dynamically loaded with different arguments, this docum
 
 See the note on [notation](autogen.html#notation).
 
-The file was generated at 2024-11-12 13:40:23.
+The file was generated at 2025-06-11 14:39:25.
 
 ---
 
@@ -21,7 +21,7 @@ The file was generated at 2024-11-12 13:40:23.
 
 Version: 0.1.0
 
-File: [modules/easylake.txt](https://github.com/NIVANorge/Mobius2/tree/main/models/modules/easylake.txt)
+File: [modules/easylake/easylake.txt](https://github.com/NIVANorge/Mobius2/tree/main/models/modules/easylake/easylake.txt)
 
 ### Description
 
@@ -39,7 +39,7 @@ $$
 A(z) = A_0 \left(\frac{z}{z_{max}}\right)^{\theta+1}
 $$
 
-where $$A(z)$$ is the area of the horizontal cross-section of the lake at level $$z$$ measuring up from the maximal depth $$z_{max}$$, $$A_0$$ is the surface area at the zero level of the outlet, and $$\theta$$ is a user-defined parameter.
+where $$A(z)$$ is the area of the horizontal cross-section of the lake at level $$z$$ measuring up from the maximal depth $$z_{max}$$, $$A_0$$ is the surface area at the zero level of the outlet, and $$\theta$$ is a user-defined parameter. For instance, with theta=1, the lake is approximately cone shaped.
 
 We also assume that the discharge is linearly proportional to the water level at the outlet.
 
@@ -344,8 +344,8 @@ File: [modules/plankton.txt](https://github.com/NIVANorge/Mobius2/tree/main/mode
 
 | Name | Symbol | Type |
 | ---- | ------ | ---- |
-| Epilimnion | **basin** | compartment |
 | Phytoplankton | **phyt** | quantity |
+| Epilimnion | **basin** | compartment |
 
 ### Constants
 
@@ -390,12 +390,12 @@ Authors: Magnus Dahler Norling, François Clayer
 
 | Name | Symbol | Type |
 | ---- | ------ | ---- |
+| Phytoplankton | **phyt** | quantity |
 | Epilimnion | **layer** | compartment |
 | Organic nitrogen | **on** | quantity |
 | Water | **water** | quantity |
-| Phytoplankton | **phyt** | quantity |
-| Temperature | **temp** | property |
 | Organic carbon | **oc** | quantity |
+| Temperature | **temp** | property |
 | Organic phosphorous | **op** | quantity |
 | O₂ | **o2** | quantity |
 | Inorganic nitrogen | **din** | quantity |
@@ -654,7 +654,7 @@ $$
 
 Version: 0.0.6
 
-File: [modules/easychem_new.txt](https://github.com/NIVANorge/Mobius2/tree/main/models/modules/easychem_new.txt)
+File: [modules/easylake/easychem_new.txt](https://github.com/NIVANorge/Mobius2/tree/main/models/modules/easylake/easychem_new.txt)
 
 ### Description
 
@@ -670,6 +670,7 @@ Authors: François Clayer, Magnus D. Norling
 
 | Name | Symbol | Type |
 | ---- | ------ | ---- |
+| Phytoplankton | **phyt** | quantity |
 | Total organic carbon | **toc** | property |
 | O₂ saturation concentration | **o2satconc** | property |
 | Epilimnion | **epi** | compartment |
@@ -678,7 +679,6 @@ Authors: François Clayer, Magnus D. Norling
 | Water | **water** | quantity |
 | Temperature | **temp** | property |
 | Organic carbon | **oc** | quantity |
-| Phytoplankton | **phyt** | quantity |
 | O₂ | **o2** | quantity |
 | Inorganic nitrogen | **din** | quantity |
 | Total nitrogen | **tn** | property |
@@ -1259,7 +1259,7 @@ $$
 
 Version: 0.0.3
 
-File: [modules/easychem_new.txt](https://github.com/NIVANorge/Mobius2/tree/main/models/modules/easychem_new.txt)
+File: [modules/easylake/easychem_new.txt](https://github.com/NIVANorge/Mobius2/tree/main/models/modules/easylake/easychem_new.txt)
 
 ### Description
 

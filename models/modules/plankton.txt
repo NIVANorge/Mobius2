@@ -124,7 +124,7 @@ preamble("Phytoplankton parameters 2", version(0, 0, 1),
 		
 		phyt_q10      : par_real("Q10 of Phyto growth", [], 2, 1, 4, "Adjustment of rate with 10°C change in temperature")
 		phyt_grow     : par_real("Phyto max growth rate", [day-1], 0.2, 0.05, 1, "At 20°C")
-		phyt_resp     : par_real("Phyto death rate", [day-1], 0.15, 0.05, 0.4)
+		phyt_death    : par_real("Phyto death rate", [day-1], 0.15, 0.05, 0.4)
 			@formerly("Phyto respiration rate")
 		iopt          : par_real("Optimal PAR intensity", [W, m-2], 100, 50, 250)
 		alpha         : par_real("Half-saturation for nutrient uptake", [], 0.1, 0.01, 10)
@@ -224,7 +224,7 @@ Authors: Magnus Dahler Norling, François Clayer
 	flux(layer.water.phyt, layer.water.sed, [k g, day-1], "Phytoplankton death")  {
 		wd := 0.5,
 		o2_factor := s_response(conc(o2), (1-wd)*phyt_ox_th, (1+wd)*phyt_ox_th, phyt_death_anox, 1),
-		phyt_resp*phyt*o2_factor
+		phyt_death*phyt*o2_factor
 	}
 	
 	flux(out, layer.water.o2, [k g, day-1], "Layer O₂ photosynthesis") {   aggregate(phyt.fix)*o2_mol_mass/c_mol_mass   }  # *O2toC?

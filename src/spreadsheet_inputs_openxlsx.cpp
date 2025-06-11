@@ -387,7 +387,7 @@ read_series_data_from_spreadsheet(Data_Set *data_set, Series_Data *series, Strin
 	try {
 		doc.open(std::string(file_name));
 	} catch(...) {
-		fatal_error(Mobius_Error::parsing, "The file \"", file_name, "\" can't be opened.");
+		fatal_error(Mobius_Error::parsing, "The file \"", file_name, "\" either does not exist or can't be opened.");
 	}
 	
 	auto wb = doc.workbook();

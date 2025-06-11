@@ -14,7 +14,7 @@ The standard library provides common functions and constants for many models.
 
 See the note on [notation](autogen.html#notation).
 
-The file was generated at 2024-11-12 13:40:23.
+The file was generated at 2025-06-11 14:39:25.
 
 ---
 
@@ -610,7 +610,7 @@ $$
 **co2_saturation_concentration(T : °C, co2_atm_ppm, air_pressure)** = 
 
 $$
-\mathrm{Tk} = \left(\left(\mathrm{T}\rightarrow \mathrm{K}\,\right)\Rightarrow 1\right) \\ \mathrm{log10Kh} = 108.386+0.0198508\cdot \mathrm{Tk}-\frac{6919.53}{\mathrm{Tk}}-40.4515\cdot \mathrm{log}_{10}left(\mathrm{Tk}ight)+\frac{669365}{\mathrm{Tk}^{2}} \\ \mathrm{Kh} = \left(10^{\mathrm{log10Kh}}\Rightarrow \mathrm{mol}\,\mathrm{l}^{-1}\,\mathrm{bar}^{-1}\,\right) \\ \mathrm{pCO2} = \mathrm{co2\_atm\_ppm}\cdot 10^{-6}\cdot \mathrm{air\_pressure} \\ \left(\mathrm{pCO2}\cdot \mathrm{Kh}\cdot \mathrm{c\_mol\_mass}\rightarrow \mathrm{mg}\,\mathrm{l}^{-1}\,\right)
+\mathrm{Tk} = \left(\left(\mathrm{T}\rightarrow \mathrm{K}\,\right)\Rightarrow 1\right) \\ \mathrm{log10Kh} = 108.386+0.0198508\cdot \mathrm{Tk}-\frac{6919.53}{\mathrm{Tk}}-40.4515\cdot \mathrm{log}_{10}\left(\mathrm{Tk}\right)+\frac{669365}{\mathrm{Tk}^{2}} \\ \mathrm{Kh} = \left(10^{\mathrm{log10Kh}}\Rightarrow \mathrm{mol}\,\mathrm{l}^{-1}\,\mathrm{bar}^{-1}\,\right) \\ \mathrm{pCO2} = \mathrm{co2\_atm\_ppm}\cdot 10^{-6}\cdot \mathrm{air\_pressure} \\ \left(\mathrm{pCO2}\cdot \mathrm{Kh}\cdot \mathrm{c\_mol\_mass}\rightarrow \mathrm{mg}\,\mathrm{l}^{-1}\,\right)
 $$
 
 **ch4_saturation_concentration(T : °C, ch4_atm_ppm, air_pressure)** = 

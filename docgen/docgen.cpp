@@ -6,6 +6,8 @@
 #include "../src/model_declaration.h"
 
 
+bool allow_logging = true;
+
 const char *preamble = R""""(---
 layout: default
 title: _TITLE_

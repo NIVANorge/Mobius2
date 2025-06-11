@@ -13,7 +13,7 @@ Since the modules can be dynamically loaded with different arguments, this docum
 
 See the note on [notation](autogen.html#notation).
 
-The file was generated at 2024-11-12 13:40:23.
+The file was generated at 2025-06-11 14:39:25.
 
 ---
 
@@ -43,7 +43,7 @@ File: [modules/nivafjord/basin.txt](https://github.com/NIVANorge/Mobius2/tree/ma
 
 ## NIVAFjord basin
 
-Version: 0.0.3
+Version: 0.0.4
 
 File: [modules/nivafjord/basin.txt](https://github.com/NIVANorge/Mobius2/tree/main/models/modules/nivafjord/basin.txt)
 
@@ -76,6 +76,7 @@ Authors: Magnus D. Norling
 | Name | Symbol | Type |
 | ---- | ------ | ---- |
 | Atmosphere | **air** | compartment |
+| Cosine of the solar zenith angle | **cos_z** | property |
 |  | **sw_sed** | loc |
 | Depth | **z** | property |
 | Density | **rho** | property |
@@ -113,12 +114,13 @@ Authors: Magnus D. Norling
 | Brunt-Väisälä frequency reference | **N0** | s⁻¹ |  |
 | Minimum B-V frequency | **Nmin** | s⁻¹ |  |
 | Mixing non-linear coefficient | **alpha** |  |  |
-| Surface additional mixing energy | **Es0** | m² s⁻³ |  |
+| Mixing factor reduction under ice | **r_ice** |  | Mostly relevant for lakes, where it should be around 0.12 |
+| Wind turbulent energy transfer coefficient | **m0** |  | Between 0.2 and 0.3 in open ocean, higher in confined areas |
+| Surface additional mixing energy | **Es0** | m² s⁻³ | From boat activity |
 | Halving depth of additional mixing energy | **zshalf** | m |  |
 | Diminishing rate of additional mixing energy | **hsfact** | m |  |
 | **Layer specific mixing** | | | Distributes like: `layer` |
 | Mixing factor reference | **K0** | m² s⁻¹ | Mixing factor when the B-V frequency is equal to the reference |
-| Mixing factor reference under ice | **K0ice** | m² s⁻¹ |  |
 | **Initial layer physical** | | | Distributes like: `layer` |
 | Initial layer temperature | **init_t** | °C |  |
 | Initial layer salinity | **init_s** |  |  |
@@ -188,7 +190,7 @@ Unit: m
 Value:
 
 $$
-\mathrm{z}\lbrack\mathrm{vert}.\mathrm{above}\rbrack+\mathrm{dz}\lbrack\mathrm{vert}.\mathrm{above}\rbrack
+\mathrm{z}\lbrack\mathrm{vert}.\mathrm{above}\rbrack+\mathrm{dz}
 $$
 
 #### **Basin sea level**
@@ -349,64 +351,16 @@ $$
 \mathrm{u} = \mathrm{air}.\mathrm{wind} \\ \mathrm{c\_stress} = 0.001\cdot \left(0.8+0.9\cdot \frac{\mathrm{u}^{8}}{\mathrm{u}^{8}+10^{8} \mathrm{m}^{8}\,\mathrm{s}^{-8}\,}\right) \\ \mathrm{air}.\mathrm{rho}\cdot \mathrm{c\_stress}\cdot \mathrm{u}^{2}
 $$
 
-#### **Total wind mixing energy**
+#### **Total wind mixing work**
 
 Location: **basin.emix**
 
-Unit: J
+Unit: W m⁻²
 
 Value:
 
 $$
-\;\text{not}\;\mathrm{ice\_ind}\cdot \mathrm{A}\lbrack\mathrm{vert}.\mathrm{top}\rbrack\cdot \sqrt{\frac{\mathrm{stress}^{3}}{\mathrm{layer}.\mathrm{water}.\mathrm{rho}\lbrack\mathrm{vert}.\mathrm{top}\rbrack}}\cdot \mathrm{time}.\mathrm{step\_length\_in\_seconds}
-$$
-
-#### **Sum V above**
-
-Location: **layer.water.sumV**
-
-Unit: m³
-
-Value:
-
-$$
-\mathrm{sumV}\lbrack\mathrm{vert}.\mathrm{above}\rbrack+\mathrm{water}\lbrack\mathrm{vert}.\mathrm{above}\rbrack
-$$
-
-#### **Potential energy needed for wind mixing**
-
-Location: **layer.water.potmix**
-
-Unit: J
-
-Value:
-
-$$
-\mathrm{max}\left(0,\, \mathrm{grav}\cdot \mathrm{ddens}\cdot \mathrm{sumV}\cdot \frac{\mathrm{water}}{\mathrm{sumV}+\mathrm{water}}\cdot \frac{\mathrm{z}+0.5\cdot \mathrm{dz}}{2}\right)
-$$
-
-#### **Wind mixing energy**
-
-Location: **layer.water.emix**
-
-Unit: J
-
-Value:
-
-$$
-\mathrm{rem} = \mathrm{max}\left(0,\, \mathrm{basin}.\mathrm{emix}-\mathrm{summix}\right) \\ \mathrm{min}\left(\mathrm{rem},\, \mathrm{potmix}\right)
-$$
-
-#### **Sum used wind mixing energy**
-
-Location: **layer.water.summix**
-
-Unit: J
-
-Value:
-
-$$
-\mathrm{emix}\lbrack\mathrm{vert}.\mathrm{above}\rbrack+\mathrm{summix}\lbrack\mathrm{vert}.\mathrm{above}\rbrack
+\mathrm{r} = \mathrm{layer}.\mathrm{water}.\mathrm{rho}\lbrack\mathrm{vert}.\mathrm{top}\rbrack \\ \;\text{not}\;\mathrm{ice\_ind}\cdot \mathrm{m0}\cdot \sqrt{\frac{\mathrm{stress}^{3}}{\mathrm{r}}}
 $$
 
 #### **Wind mixing**
@@ -418,7 +372,31 @@ Unit: m s⁻¹
 Value:
 
 $$
-\mathrm{rem} = \mathrm{max}\left(0,\, \mathrm{basin}.\mathrm{emix}-\mathrm{summix}\lbrack\mathrm{vert}.\mathrm{below}\rbrack\right) \\ \mathrm{mixspeed} = \frac{1 \mathrm{m}\,}{\mathrm{time}.\mathrm{step\_length\_in\_seconds}} \\ \begin{cases}0 \mathrm{m}\,\mathrm{s}^{-1}\, & \text{if}\;\mathrm{is\_at}\lbrack\mathrm{vert}.\mathrm{bottom}\rbrack \\ \left(\mathrm{mixspeed}\rightarrow \mathrm{m}\,\mathrm{s}^{-1}\,\right) & \text{if}\;\mathrm{rem}>10^{-30} \mathrm{J}\,\;\text{and}\;\mathrm{potmix}\lbrack\mathrm{vert}.\mathrm{below}\rbrack<10^{-30} \mathrm{J}\, \\ \left(\mathrm{mixspeed}\cdot \href{stdlib.html#basic}{\mathrm{safe\_divide}}\left(\mathrm{emix}\lbrack\mathrm{vert}.\mathrm{below}\rbrack,\, \mathrm{potmix}\lbrack\mathrm{vert}.\mathrm{below}\rbrack\right)\rightarrow \mathrm{m}\,\mathrm{s}^{-1}\,\right) & \text{otherwise}\end{cases}
+\mathrm{rem\_emix} = \mathrm{max}\left(0,\, \mathrm{basin}.\mathrm{emix}-\mathrm{summix}\right) \\ \mathrm{v} = 2\cdot \frac{\mathrm{rem\_emix}}{\mathrm{grav}\cdot \left(\mathrm{rho}\lbrack\mathrm{vert}.\mathrm{below}\rbrack-\mathrm{rho}\right)\cdot \left(\mathrm{dz}\lbrack\mathrm{vert}.\mathrm{below}\rbrack+\mathrm{dz}\right)} \\ \mathrm{max\_v} = \left(10 \mathrm{m}\,\mathrm{day}^{-1}\,\rightarrow \mathrm{m}\,\mathrm{s}^{-1}\,\right) \\ \mathrm{max}\left(0 \mathrm{m}\,\mathrm{s}^{-1}\,,\, \mathrm{min}\left(\mathrm{v},\, \mathrm{max\_v}\right)\right)
+$$
+
+#### **Used wind mixing work in layer**
+
+Location: **layer.water.emix**
+
+Unit: W m⁻²
+
+Value:
+
+$$
+\mathrm{v\_w}\cdot \mathrm{grav}\cdot \left(\mathrm{rho}\lbrack\mathrm{vert}.\mathrm{below}\rbrack-\mathrm{rho}\right)\cdot \left(\mathrm{dz}\lbrack\mathrm{vert}.\mathrm{below}\rbrack+\mathrm{dz}\right)\cdot 0.5
+$$
+
+#### **Sum used wind mixing energy**
+
+Location: **layer.water.summix**
+
+Unit: W m⁻²
+
+Value:
+
+$$
+\mathrm{emix}\lbrack\mathrm{vert}.\mathrm{above}\rbrack+\mathrm{summix}\lbrack\mathrm{vert}.\mathrm{above}\rbrack
 $$
 
 #### **Turbulent mixing**
@@ -430,7 +408,7 @@ Unit: m s⁻¹
 Value:
 
 $$
-\mathrm{K} = \begin{cases}\mathrm{K0ice} & \text{if}\;\mathrm{ice\_ind} \\ \mathrm{K0} & \text{otherwise}\end{cases} \\ \mathrm{dz\_} = 0.5\cdot \left(\mathrm{dz}+\mathrm{dz}\lbrack\mathrm{vert}.\mathrm{below}\rbrack\right) \\ \href{stdlib.html#basic}{\mathrm{safe\_divide}}\left(\mathrm{K},\, \mathrm{dz\_}\cdot \left(\frac{\mathrm{Nfreq}}{\mathrm{N0}}\right)^{\mathrm{alpha}}\right)
+\mathrm{K} = \mathrm{K0}\cdot \left(\;\text{not}\;\mathrm{ice\_ind}+\mathrm{r\_ice}\cdot \mathrm{ice\_ind}\right) \\ \mathrm{dz\_} = 0.5\cdot \left(\mathrm{dz}+\mathrm{dz}\lbrack\mathrm{vert}.\mathrm{below}\rbrack\right) \\ \href{stdlib.html#basic}{\mathrm{safe\_divide}}\left(\mathrm{K},\, \mathrm{dz\_}\cdot \left(\frac{\mathrm{Nfreq}}{\mathrm{N0}}\right)^{\mathrm{alpha}}\right)
 $$
 
 #### **Additional mixing**
@@ -455,6 +433,18 @@ Value:
 
 $$
 \left(\frac{\mathrm{in\_flux}\left(\mathrm{sw\_vert},\, \mathrm{layer}.\mathrm{water}.\mathrm{heat}\right)}{\mathrm{A}}\rightarrow \mathrm{W}\,\mathrm{m}^{-2}\,\right)
+$$
+
+#### **Attenuation fraction**
+
+Location: **layer.water.att**
+
+Unit: 
+
+Value:
+
+$$
+\mathrm{cz} = \mathrm{max}\left(0.01,\, \href{stdlib.html#radiation}{\mathrm{refract}}\left(\mathrm{air}.\mathrm{cos\_z},\, \mathrm{refraction\_index\_water}\right)\right) \\ \mathrm{th} = \frac{\mathrm{dz}}{\mathrm{cz}} \\ 1-e^{-\mathrm{attn}\cdot \mathrm{th}}
 $$
 
 ### Fluxes
@@ -486,7 +476,7 @@ Unit: J day⁻¹
 Value:
 
 $$
-\left(\mathrm{in\_flux}\left(\mathrm{sw\_vert},\, \mathrm{layer}.\mathrm{water}.\mathrm{heat}\right)\rightarrow \mathrm{J}\,\mathrm{day}^{-1}\,\right)\cdot \left(1-\mathrm{attn}\right)\cdot \frac{\mathrm{A}\lbrack\mathrm{vert}.\mathrm{below}\rbrack}{\mathrm{A}}
+\left(\mathrm{in\_flux}\left(\mathrm{sw\_vert},\, \mathrm{layer}.\mathrm{water}.\mathrm{heat}\right)\rightarrow \mathrm{J}\,\mathrm{day}^{-1}\,\right)\cdot \left(1-\mathrm{att}\right)\cdot \frac{\mathrm{A}\lbrack\mathrm{vert}.\mathrm{below}\rbrack}{\mathrm{A}}
 $$
 
 #### **Shortwave to sediments**
@@ -500,7 +490,7 @@ Unit: J day⁻¹
 Value:
 
 $$
-\left(\mathrm{in\_flux}\left(\mathrm{sw\_vert},\, \mathrm{layer}.\mathrm{water}.\mathrm{heat}\right)\rightarrow \mathrm{J}\,\mathrm{day}^{-1}\,\right)\cdot \left(1-\mathrm{attn}\right)\cdot \left(1-\mathrm{sed\_alb}\right)\cdot \frac{\mathrm{A}-\mathrm{A}\lbrack\mathrm{vert}.\mathrm{below}\rbrack}{\mathrm{A}}
+\left(\mathrm{in\_flux}\left(\mathrm{sw\_vert},\, \mathrm{layer}.\mathrm{water}.\mathrm{heat}\right)\rightarrow \mathrm{J}\,\mathrm{day}^{-1}\,\right)\cdot \left(1-\mathrm{att}\right)\cdot \left(1-\mathrm{sed\_alb}\right)\cdot \frac{\mathrm{A}-\mathrm{A}\lbrack\mathrm{vert}.\mathrm{below}\rbrack}{\mathrm{A}}
 $$
 
 ---
@@ -552,6 +542,7 @@ Authors: Magnus Dahler Norling, François Clayer
 | Atmosphere | **air** | compartment |
 | CO₂ | **co2** | quantity |
 | Cosine of the solar zenith angle | **cos_z** | property |
+| Fjord phytoplankton | **phyt** | quantity |
 | Depth | **z** | property |
 | O₂ saturation concentration | **o2satconc** | property |
 | Fjord layer | **layer** | compartment |
@@ -567,13 +558,13 @@ Authors: Magnus Dahler Norling, François Clayer
 | Phosphate | **phos** | quantity |
 | Organic phosphorous | **op** | quantity |
 | Sediments | **sed** | quantity |
-| Fjord phytoplankton | **phyt** | quantity |
 | Total phosphorous | **tp** | property |
 | Salinity | **salin** | property |
 | Thickness | **dz** | property |
 | Attenuation | **attn** | property |
 | Area | **area** | property |
 | Shortwave radiation | **sw** | property |
+| O₂ saturation | **o2sat** | property |
 | Fjord vertical | **vert** | connection |
 | Compute DIC (CO₂, CH₄) | **compute_dic** | par_bool |
 
@@ -584,6 +575,8 @@ Authors: Magnus Dahler Norling, François Clayer
 | **Initial chem** | | | Distributes like: `layer` |
 | Initial O₂ saturation | **init_O2** |  |  |
 | Initial DOC concentration | **init_DOC** | mg l⁻¹ |  |
+| Initial NO3 concentration | **init_NO3** | mg l⁻¹ |  |
+| Initial PO4 concentration | **init_PO4** | mg l⁻¹ |  |
 | Initial suspended sediment concentration | **init_ss** | mg l⁻¹ |  |
 | Initial particle organic carbon content | **init_foc** | g kg⁻¹ |  |
 | **Light** | | |  |
@@ -646,6 +639,12 @@ Unit: kg
 
 Conc. unit: mg l⁻¹
 
+Initial value (concentration):
+
+$$
+\mathrm{init\_NO3}
+$$
+
 #### **Layer DON**
 
 Location: **layer.water.on**
@@ -661,6 +660,12 @@ Location: **layer.water.phos**
 Unit: kg
 
 Conc. unit: mg l⁻¹
+
+Initial value (concentration):
+
+$$
+\mathrm{init\_PO4}
+$$
 
 #### **Layer DOP**
 
@@ -770,16 +775,16 @@ $$
 \frac{\mathrm{conc}\left(\mathrm{layer}.\mathrm{water}.\mathrm{o2}\right)}{\mathrm{layer}.\mathrm{water}.\mathrm{o2satconc}}
 $$
 
-#### **Layer attenuation**
+#### **Layer attenuation constant**
 
 Location: **layer.water.attn**
 
-Unit: 
+Unit: m⁻¹
 
 Value:
 
 $$
-\mathrm{att\_c} = \mathrm{attn0}+\left(\mathrm{conc}\left(\mathrm{sed}\right)+\mathrm{aggregate}\left(\mathrm{conc}\left(\mathrm{phyt}\right)\right)+\mathrm{conc}\left(\mathrm{oc}\right)\right)\cdot \mathrm{shade\_f} \\ \mathrm{cz} = \mathrm{max}\left(0.01,\, \href{stdlib.html#radiation}{\mathrm{refract}}\left(\mathrm{air}.\mathrm{cos\_z},\, \mathrm{refraction\_index\_water}\right)\right) \\ \mathrm{th} = \frac{\mathrm{dz}}{\mathrm{cz}} \\ 1-e^{-\mathrm{att\_c}\cdot \mathrm{th}}
+\mathrm{attn0}+\left(\mathrm{conc}\left(\mathrm{sed}\right)+\mathrm{aggregate}\left(\mathrm{conc}\left(\mathrm{phyt}\right)\right)+\mathrm{conc}\left(\mathrm{oc}\right)\right)\cdot \mathrm{shade\_f}
 $$
 
 #### **Oxicity factor**
@@ -1053,21 +1058,7 @@ Unit: kg day⁻¹
 Value:
 
 $$
-\mathrm{bo2} = \left(\mathrm{water}.\mathrm{oc}+\mathrm{water}.\mathrm{sed}.\mathrm{oc}\right)\cdot \mathrm{denit\_rat}\cdot \mathrm{O2toC}\cdot \frac{\mathrm{o2\_mol\_mass}}{\mathrm{c\_mol\_mass}} \\ \mathrm{bo2}\cdot 1.5\cdot \frac{\mathrm{n\_mol\_mass}}{\mathrm{o2\_mol\_mass}}
-$$
-
-#### **PO4 adsorption / desorption to particles**
-
-Source: layer.water.phos
-
-Target: layer.water.sed.phos
-
-Unit: kg day⁻¹
-
-Value:
-
-$$
-\mathrm{epc0} = \left(\frac{\mathrm{conc}\left(\mathrm{sed}.\mathrm{phos}\right)}{\mathrm{k\_sorp}}\rightarrow \mathrm{mg}\,\mathrm{l}^{-1}\,\right) \\ \mathrm{epc0\_} = \mathrm{min}\left(\mathrm{epc0},\, 0 \mathrm{mg}\,\mathrm{l}^{-1}\,\right) \\ \mathrm{r\_sorp}\cdot \left(\left(\mathrm{ox\_fac}\cdot \left(\mathrm{conc}\left(\mathrm{water}.\mathrm{phos}\right)-\mathrm{epc0\_}\right)\cdot \mathrm{water}\rightarrow \mathrm{kg}\,\right)-\left(1-\mathrm{ox\_fac}\right)\cdot \mathrm{sed}.\mathrm{phos}\right)
+\mathrm{bo2} = \left(\mathrm{water}.\mathrm{oc}+\mathrm{water}.\mathrm{sed}.\mathrm{oc}\right)\cdot \mathrm{denit\_rat}\cdot \mathrm{O2toC}\cdot \frac{\mathrm{o2\_mol\_mass}}{\mathrm{c\_mol\_mass}} \\ \mathrm{bo2}\cdot \frac{1}{3}\cdot \frac{\mathrm{n\_mol\_mass}}{\mathrm{o2\_mol\_mass}}
 $$
 
 ---
@@ -1092,8 +1083,8 @@ File: [modules/nivafjord/sediment.txt](https://github.com/NIVANorge/Mobius2/tree
 | O₂ | **o2** | quantity |
 | Salinity | **salin** | property |
 | Sediments | **sed** | quantity |
-| Temperature | **temp** | property |
 | Organic carbon | **oc** | quantity |
+| Temperature | **temp** | property |
 | Nitrate | **din** | quantity |
 | Phosphate | **phos** | quantity |
 | Organic phosphorous | **op** | quantity |
@@ -1110,8 +1101,6 @@ File: [modules/nivafjord/sediment.txt](https://github.com/NIVANorge/Mobius2/tree
 | Sediment density | **sed_rho** | kg m⁻³ | 2600 |
 | Sediment specific heat capacity | **sed_C** | J kg⁻¹ K⁻¹ | 4000 |
 | Sediment heat conductivity coefficient | **sed_k** | W m⁻¹ K⁻¹ | 2.2 |
-| Sediment C/N | **sed_cn** |  | 6.25 |
-| Sediment C/P | **sed_cp** |  | 106 |
 
 ### Parameters
 
@@ -1128,6 +1117,8 @@ File: [modules/nivafjord/sediment.txt](https://github.com/NIVANorge/Mobius2/tree
 | **Initial chem** | | | Distributes like: `sediment` |
 | Initial sediment C fraction | **init_c** | g kg⁻¹ |  |
 | Initial sediment IP fraction | **init_p** | g kg⁻¹ |  |
+| Initial sediment C/N molar fraction | **init_cn** |  |  |
+| Initial sediment (organic) C/P molar fraction | **init_cp** |  |  |
 | Sediment pore water DOC concentration | **sed_doc** | mg l⁻¹ |  |
 | **Sediment temperature** | | |  |
 | Thickness of thermally active sediment layer | **dzh** | m |  |
@@ -1234,7 +1225,7 @@ Conc. unit: g kg⁻¹
 Initial value (concentration):
 
 $$
-\frac{\mathrm{init\_c}}{\href{stdlib.html#chemistry}{\mathrm{cn\_molar\_to\_mass\_ratio}}\left(\mathrm{sed\_cn}\right)}
+\frac{\mathrm{init\_c}}{\href{stdlib.html#chemistry}{\mathrm{cn\_molar\_to\_mass\_ratio}}\left(\mathrm{init\_cn}\right)}
 $$
 
 #### **Sediment IP**
@@ -1262,7 +1253,7 @@ Conc. unit: g kg⁻¹
 Initial value (concentration):
 
 $$
-\frac{\mathrm{init\_c}}{\href{stdlib.html#chemistry}{\mathrm{cp\_molar\_to\_mass\_ratio}}\left(\mathrm{sed\_cp}\right)}
+\frac{\mathrm{init\_c}}{\href{stdlib.html#chemistry}{\mathrm{cp\_molar\_to\_mass\_ratio}}\left(\mathrm{init\_cp}\right)}
 $$
 
 #### **Sediment pore water**
@@ -1484,7 +1475,7 @@ Unit: kg day⁻¹
 Value:
 
 $$
-\mathrm{bo2} = \mathrm{sediment}.\mathrm{sed}.\mathrm{oc}\cdot \mathrm{layer}.\mathrm{water}.\mathrm{denit\_rat}\cdot \mathrm{O2toC}\cdot \frac{\mathrm{o2\_mol\_mass}}{\mathrm{c\_mol\_mass}} \\ \mathrm{bo2}\cdot 1.5\cdot \frac{\mathrm{n\_mol\_mass}}{\mathrm{o2\_mol\_mass}}
+\mathrm{bo2} = \mathrm{sediment}.\mathrm{sed}.\mathrm{oc}\cdot \mathrm{layer}.\mathrm{water}.\mathrm{denit\_rat}\cdot \mathrm{O2toC}\cdot \frac{\mathrm{o2\_mol\_mass}}{\mathrm{c\_mol\_mass}} \\ \mathrm{bo2}\cdot \frac{1}{3}\cdot \frac{\mathrm{n\_mol\_mass}}{\mathrm{o2\_mol\_mass}}
 $$
 
 #### **PO4 adsorption / desorption to sediment layer**

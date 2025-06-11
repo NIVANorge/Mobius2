@@ -119,7 +119,10 @@ Authors: Magnus D. Norling
 	flux(snow_box.water, water_target, [m m, day-1], "Melt runoff") {
 		# NOTE: This time constant should be somewhat low since it becomes a buffer between precipitation and
 		# soil water even when there is no snow.
-		tc := 0.1[day],
-		max(0, water - snow*snow_liq)/tc
+		in_flux(water)+water/tc if snow < 1[m m],
+		{
+			tc := 0.1[day],
+			max(0, water - snow*snow_liq)/tc
+		}              otherwise
 	}
 }

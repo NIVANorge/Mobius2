@@ -13,13 +13,13 @@ Since the modules can be dynamically loaded with different arguments, this docum
 
 See the note on [notation](autogen.html#notation).
 
-The file was generated at 2024-11-12 13:40:23.
+The file was generated at 2025-06-11 14:39:25.
 
 ---
 
 ## SimplyQ land
 
-Version: 0.5.0
+Version: 0.5.1
 
 File: [modules/simplyq.txt](https://github.com/NIVANorge/Mobius2/tree/main/models/modules/simplyq.txt)
 
@@ -38,29 +38,25 @@ Authors: James E. Sample, Leah A. Jackson-Blake, Magnus D. Norling
 
 | Name | Symbol | Type |
 | ---- | ------ | ---- |
+|  | **is_top_box** | constant |
 | Soil | **soil** | compartment |
-| Groundwater | **gw** | compartment |
-| River | **river** | compartment |
-|  | **runoff_target** | loc |
 | Water | **water** | quantity |
 | Flow | **flow** | property |
 | Potential evapotranspiration | **pet** | property |
-| Catchment area | **a_catch** | par_real |
-|  | **gw_target** | loc |
+|  | **gw_water** | loc |
+|  | **runoff_target** | loc |
 
 ### Parameters
 
 | Name | Symbol | Unit |  Description |
 | ---- | ------ | ---- |  ----------- |
-| **Hydrology general** | | |  |
-| Baseflow index | **bfi** |  |  |
+| **Hydrology general** | | | Distributes like: `soil` |
+| Baseflow index | **bfi** |  | Proportion of runoff that goes to the groundwater |
 | Quick flow inflection point | **qqinfl** | mm day⁻¹ |  |
+| Permanent wilting point as fraction of field capacity | **pwp** |  | Fraction of fc at where no evapotranspiration is possible |
 | **Hydrology land** | | | Distributes like: `soil` |
-| Field capacity | **fc** | mm |  |
+| Field capacity | **fc** | mm | The retention volume below which no runoff occurs. |
 | Soil water time constant | **tc_s** | day |  |
-| **Groundwater** | | | Distributes like: `gw` |
-| Groundwater time constant | **tc_g** | day |  |
-| Groundwater retention volume | **gw_ret** | mm |  |
 
 ### State variables
 
@@ -74,18 +70,6 @@ Initial value:
 
 $$
 \mathrm{fc}
-$$
-
-#### **Groundwater volume**
-
-Location: **gw.water**
-
-Unit: mm
-
-Initial value:
-
-$$
-\mathrm{gw\_ret}+\left(\mathrm{tc\_g}\cdot \frac{\mathrm{river}.\mathrm{water}.\mathrm{flow}}{\mathrm{a\_catch}}\rightarrow \mathrm{mm}\,\right)
 $$
 
 #### **Soil water flow**
@@ -106,7 +90,7 @@ $$
 
 Source: soil.water
 
-Target: river.water
+Target: runoff_target
 
 Unit: mm day⁻¹
 
@@ -127,7 +111,7 @@ Unit: mm day⁻¹
 Value:
 
 $$
-\href{stdlib.html#response}{\mathrm{s\_response}}\left(\mathrm{water},\, 0.5\cdot \mathrm{fc},\, \mathrm{fc},\, 0,\, \mathrm{pet}\right)
+\href{stdlib.html#response}{\mathrm{s\_response}}\left(\mathrm{water},\, \mathrm{pwp}\cdot \mathrm{fc},\, \mathrm{max}\left(\mathrm{pwp}\cdot \mathrm{fc},\, \mathrm{fc}\right),\, 0,\, \mathrm{pet}\right)
 $$
 
 #### **Soil runoff**
@@ -148,7 +132,7 @@ $$
 
 Source: soil.water
 
-Target: gw.water
+Target: gw_water
 
 Unit: mm day⁻¹
 
@@ -156,20 +140,6 @@ Value:
 
 $$
 \mathrm{flow}\cdot \mathrm{bfi}
-$$
-
-#### **Groundwater runoff**
-
-Source: gw.water
-
-Target: gw_target
-
-Unit: mm day⁻¹
-
-Value:
-
-$$
-\frac{\mathrm{max}\left(0,\, \mathrm{water}-\mathrm{gw\_ret}\right)}{\mathrm{tc\_g}}
 $$
 
 ---
@@ -322,7 +292,7 @@ Conc. unit: mg l⁻¹
 Value (concentration):
 
 $$
-\begin{cases}\mathrm{basedoc} & \text{if}\;\mathrm{soildoc\_type}.\mathrm{const} \\ \mathrm{basedoc}\cdot \left(1+\left(\mathrm{kt1}+\mathrm{kt2}\cdot \mathrm{temp}\right)\cdot \mathrm{temp}-\mathrm{kso4}\cdot \mathrm{air}.\mathrm{so4}\right) & \text{if}\;\mathrm{soildoc\_type}.\mathrm{equilibrium} \\ \text{(mass balance)} & \text{otherwise}\end{cases}
+\begin{cases}\mathrm{basedoc} & \text{if}\;\mathrm{soildoc\_type}.\mathrm{const} \\ \mathrm{max}\left(0,\, \mathrm{basedoc}\cdot \left(1+\left(\mathrm{kt1}+\mathrm{kt2}\cdot \mathrm{temp}\right)\cdot \mathrm{temp}-\mathrm{kso4}\cdot \mathrm{air}.\mathrm{so4}\right)\right) & \text{if}\;\mathrm{soildoc\_type}.\mathrm{equilibrium} \\ \text{(mass balance)} & \text{otherwise}\end{cases}
 $$
 
 Initial value (concentration):
@@ -463,7 +433,7 @@ $$
 
 ## SimplyN
 
-Version: 0.0.5
+Version: 0.0.6
 
 File: [modules/simplyn.txt](https://github.com/NIVANorge/Mobius2/tree/main/models/modules/simplyn.txt)
 
@@ -479,12 +449,14 @@ Authors: Leah A. Jackson-Blake, Magnus D. Norling
 
 | Name | Symbol | Type |
 | ---- | ------ | ---- |
+| Atmosphere | **air** | compartment |
 | Soil | **soil** | compartment |
 | Groundwater | **gw** | compartment |
 | River | **river** | compartment |
 | Water | **water** | quantity |
 | Inorganic nitrogen | **din** | quantity |
 | Undissolved fertilizer nitrogen | **sn** | quantity |
+| DIN deposition | **din_dep** | property |
 | Temperature | **temp** | property |
 | Total nitrogen | **tn** | property |
 
@@ -493,22 +465,29 @@ Authors: Leah A. Jackson-Blake, Magnus D. Norling
 | Name | Symbol | Unit |  Description |
 | ---- | ------ | ---- |  ----------- |
 | **DIN universal params** | | |  |
-| Soilwater DIN uptake rate at 20°C | **din_immob_rate** | m day⁻¹ | (name is outdated, should be changed). This represents uptake, immobilisation and denitrification. |
-| Soilwater DIN uptake rate response to 10°C change (Q10) | **din_immob_q10** |  |  |
+| Soilwater DIN retention rate at 20°C | **din_immob_rate** | m day⁻¹ | This represents uptake, immobilisation and denitrification. |
+| Soilwater DIN retention rate response to 10°C change (Q10) | **din_immob_q10** |  |  |
 | Groundwater DIN computation type | **gw_conc_type** | Possible values: `const`, `soil_avg`, `mass_bal` |  |
-| Groundwater DIN concentration | **gw_din_conc** | mg l⁻¹ | Only used if type is const |
+| Groundwater DIN concentration | **gw_din_conc** | mg l⁻¹ | If type is not const, this is the initial concentration |
+| Groundwater DIN half-life | **gw_din_hl** | day |  |
 | Reach denitrification rate at 20°C | **reach_denit_rate** | day⁻¹ |  |
 | (Q10) Reach denitrification rate response to 10°C change in temperature | **reach_denit_q10** |  |  |
 | **Soil DIN params varying by land use** | | | Distributes like: `soil` |
 | Initial soilwater DIN concentration | **sw_din_init** | mg l⁻¹ |  |
-| Net annual DIN input to soil | **net_annual_N_input** | kg ha⁻¹ year⁻¹ | (name outdated, should be changed) These are the gross DIN inputs to soil disregarding fertilizer inputs. Represents atmospheric deposition and fixation. |
+| Annual non-agricultural DIN input to soil | **net_annual_N_input** | kg ha⁻¹ year⁻¹ | This represents atmospheric deposition and fixation. |
 | Fertilizer addition day | **fert_day** | day |  |
 | Fertilizer N | **fert_n** | kg ha⁻¹ |  |
 | Fertilizer DIN release | **fert_rel** | mm⁻¹ | Per mm of soil water input (giving less dissolution in dry years) |
-| **River DIN** | | | Distributes like: `river` |
-| Reach effluent DIN inputs | **eff_din** | kg day⁻¹ |  |
 
 ### State variables
+
+#### **DIN deposition**
+
+Location: **air.din_dep**
+
+Unit: kg ha⁻¹ year⁻¹
+
+This series is externally defined. It may be an input series.
 
 #### **Soil undissolved fertilizer N**
 
@@ -617,7 +596,7 @@ Unit: kg km⁻² day⁻¹
 Value:
 
 $$
-\left(\frac{\mathrm{net\_annual\_N\_input}}{\mathrm{time}.\mathrm{days\_this\_year}}\rightarrow \mathrm{kg}\,\mathrm{km}^{-2}\,\mathrm{day}^{-1}\,\right)
+\left(\frac{\mathrm{net\_annual\_N\_input}+\mathrm{air}.\mathrm{din\_dep}}{\mathrm{time}.\mathrm{days\_this\_year}}\rightarrow \mathrm{kg}\,\mathrm{km}^{-2}\,\mathrm{day}^{-1}\,\right)
 $$
 
 #### **Soil water DIN uptake**
@@ -634,18 +613,18 @@ $$
 \mathrm{rate} = \href{stdlib.html#response}{\mathrm{q10\_adjust}}\left(\mathrm{din\_immob\_rate},\, 20 \mathrm{°C}\,,\, \mathrm{temp},\, \mathrm{din\_immob\_q10}\right) \\ \left(\mathrm{conc}\left(\mathrm{din}\right)\cdot \mathrm{rate}\rightarrow \mathrm{kg}\,\mathrm{km}^{-2}\,\mathrm{day}^{-1}\,\right)
 $$
 
-#### **River effluent DIN**
+#### **Groundwater DIN loss**
 
-Source: out
+Source: gw.water.din
 
-Target: river.water.din
+Target: out
 
-Unit: kg day⁻¹
+Unit: kg km⁻² day⁻¹
 
 Value:
 
 $$
-\mathrm{eff\_din}
+\href{stdlib.html#response}{\mathrm{hl\_to\_rate}}\left(\mathrm{gw\_din\_hl}\right)\cdot \mathrm{din}
 $$
 
 #### **River DIN denitrification loss**
@@ -725,6 +704,9 @@ Jackson-Blake LA, Sample JE, Wade AJ, Helliwell RC, Skeffington RA. 2017. Are ou
 
 #### Changelog
 
+0.7 :
+- Move point sources to new point source module.
+
 0.6 (First Mobius2 version):
 - The model has been ported to Mobius2. Everything is solved as one large coupled ODE system, so transport between land and river and between different river sections is more precise.
 
@@ -771,8 +753,6 @@ Authors: Leah A. Jackson-Blake, Magnus D. Norling
 | Net annual P input to soil | **p_input** | kg ha⁻¹ year⁻¹ |  |
 | **Groundwater P** | | | Distributes like: `gw` |
 | Groundwater TDP concentration | **gw_tdp** | mg l⁻¹ |  |
-| **River P** | | | Distributes like: `river` |
-| Effluent TDP inputs | **eff_tdp** | kg day⁻¹ |  |
 
 ### State variables
 
@@ -921,20 +901,6 @@ $$
 $$
 
 ### Fluxes
-
-#### **River effluent DIP**
-
-Source: out
-
-Target: river.water.phos
-
-Unit: kg day⁻¹
-
-Value:
-
-$$
-\mathrm{eff\_tdp}
-$$
 
 #### **PP mobilization**
 

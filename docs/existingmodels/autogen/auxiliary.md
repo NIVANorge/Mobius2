@@ -13,7 +13,7 @@ Since the modules can be dynamically loaded with different arguments, this docum
 
 See the note on [notation](autogen.html#notation).
 
-The file was generated at 2024-11-12 13:40:23.
+The file was generated at 2025-06-11 14:39:25.
 
 ---
 
@@ -298,7 +298,7 @@ $$
 
 Version: 0.1.1
 
-File: [modules/rivertemp.txt](https://github.com/NIVANorge/Mobius2/tree/main/models/modules/rivertemp.txt)
+File: [modules/rivertemp_o2.txt](https://github.com/NIVANorge/Mobius2/tree/main/models/modules/rivertemp_o2.txt)
 
 ### Description
 
@@ -619,6 +619,7 @@ Authors: Magnus D. Norling
 | Atmosphere | **air** | compartment |
 | Cosine of the solar zenith angle | **cos_z** | property |
 | Epilimnion | **surf** | compartment |
+|  | **A_surf** | loc |
 | Actual specific humidity | **a_hum** | property |
 | Density | **rho** | property |
 | Ice | **ice** | quantity |
@@ -634,7 +635,6 @@ Authors: Magnus D. Norling
 | Ice indicator | **indicator** | property |
 | Evaporation | **evap** | property |
 |  | **freeze_temp** | loc |
-|  | **A_surf** | loc |
 |  | **top_water** | loc |
 |  | **top_water_heat_sw** | loc |
 
@@ -850,7 +850,7 @@ Unit: J day⁻¹
 Value:
 
 $$
-\mathrm{net\_rad} = \left(1-\mathrm{surf}.\mathrm{albedo}\right)\cdot \mathrm{air}.\mathrm{lwd}-\mathrm{surf}.\mathrm{lwu} \\ \left(\;\text{not}\;\mathrm{surf}.\mathrm{ice}.\mathrm{indicator}\cdot \mathrm{A\_surf}\cdot \mathrm{net\_rad}\rightarrow \mathrm{J}\,\mathrm{day}^{-1}\,\right)
+\mathrm{net\_rad} = \mathrm{air}.\mathrm{lwd}-\mathrm{surf}.\mathrm{lwu} \\ \left(\;\text{not}\;\mathrm{surf}.\mathrm{ice}.\mathrm{indicator}\cdot \mathrm{A\_surf}\cdot \mathrm{net\_rad}\rightarrow \mathrm{J}\,\mathrm{day}^{-1}\,\right)
 $$
 
 #### **Freeze heating**
@@ -971,20 +971,28 @@ Authors: François Clayer, Magnus Dahler Norling
 | ---- | ------ | ---- |
 | Atmosphere | **air** | compartment |
 | CO₂ | **co2** | quantity |
+|  | **A_surf** | loc |
 | O₂ saturation concentration | **o2satconc** | property |
 | Epilimnion | **basin** | compartment |
 | O₂ | **o2** | quantity |
 | CH₄ | **ch4** | quantity |
-| Wind speed | **wind** | property |
 | Temperature | **temp** | property |
+| Wind speed | **wind** | property |
 | Precipitation | **precip** | property |
 | Pressure | **pressure** | property |
 |  | **ice_ind** | loc |
 |  | **top_water** | loc |
-|  | **A_surf** | loc |
 |  | **compute_dic** | loc |
 
 ### State variables
+
+#### **Precipitation**
+
+Location: **air.precip**
+
+Unit: mm day⁻¹
+
+This series is externally defined. It may be an input series.
 
 #### **O₂ piston velocity**
 
