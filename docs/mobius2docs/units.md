@@ -43,7 +43,7 @@ The following derived units are also available (and can be expressed in terms of
 
 (More derived units could be added if they are needed).
 
-There are also the `min`, `hr`, `day`, `week`, `month` and `year` time units. Note that you can't automatically convert between `month` or `year` and any of the smaller time units since that would depend on what month or year is in question. Instead look at using values from the [`time`](math_format.html#identifier) structure. 
+There are also the `min`, `hr`, `day`, `week`, `month` and `year` time units. Note that you can't automatically convert between `month` or `year` and any of the smaller time units since that would depend on what month or year is in question. Instead consider using values from the [`time`](math_format.html#identifier) structure. 
 
 The following SI prefixes are available
 
@@ -98,4 +98,4 @@ For instance, the standard form of `[k W, m m]` (kilowatt-millimeter) is `10³ g
 
 ## Conversion
 
-Two units can be converted to one another if they have the same *dimension*, that is if everything in their standard forms except for the scaling factor is the same (the base units and their powers). If two units can be converted to one another, the conversion factor is the ratio of the two scaling factor in one way or another.
+Two units can be converted to one another if they have the same *dimension*, that is if everything in their standard forms except for the scaling factor is the same (the base units and their powers match). If two units can be converted to one another, the conversion factor is the ratio of the two scaling factor in one way or another.

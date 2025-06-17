@@ -116,7 +116,7 @@ This is the most flexible connection type, representing any directed graph of in
 
 They can be used to model river connections, downhill connections of land patches, migration routes, horizontal connections of fjord basins etc.
 
-(We also plan to let graph connections connect differently indexed quantities so that you could have degradation graphs).
+(We also plan to let graph connections connect differently indexed quantities so that you could have decomposition graphs between substances etc.).
 
 ### 1D grid
 

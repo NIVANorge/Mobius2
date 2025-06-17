@@ -14,7 +14,7 @@ The standard library provides common functions and constants for many models.
 
 See the note on [notation](autogen.html#notation).
 
-The file was generated at 2025-06-11 14:39:25.
+The file was generated at 2025-06-17 16:00:51.
 
 ---
 
@@ -414,7 +414,9 @@ This library provides functions that let some state respond to another state. Fo
 
 `q10_adjust` creates a [Q10](https://en.wikipedia.org/wiki/Q10_(temperature_coefficient)) response of a reference rate to a temperature.
 
-`s_response` is a general function that is constant with values y0 and y1 below and above the thresholds x0 and x1 respectively, and smoothly interpolates the values between them.
+The various response functions allow you to interpolate a value $$y$$ between different levels $$y_0$$, $$y_1$$, ..., depending on an input variable $$x$$ and thresholds $$x_0$$, $$x_1$$, etc.
+
+![responses](../../img/response_functions.png)
 
 ### Library functions
 

@@ -85,7 +85,7 @@ An \<if-expression\> is something that evaluates to different values depending o
 ```
 There must be at least one line containing an `if` and one containing an `otherwise`.
 
-The left \<primary-expression\> is a value, and the right one is a condition. The first value where the condition is `true` is the value of the entire \<if-expression\>. If no condition holds, the value is the one with the `otherwise`.
+In each line with an `if`, the left \<primary-expression\> is a value, and the right one is a condition. The first value where the corresponding condition is `true` is the value of the entire \<if-expression\>. If no condition holds, the value is the expression in the line with the `otherwise`.
 
 The units of all the values must be the same, and this is the unit of the \<if-expression\> itself.
 
@@ -118,9 +118,9 @@ These have the units and types they are declared with. If a value is indexed ove
 
 Note that the value you get when you access a parameter value in the model is the one provided in the data set (corresponding to the current index combination). The default value in the parameter declaration is just a helper for somebody who create a new data set.
 
-When you access the value of a state variable or input series, you get the current value of that variable (this can some times force what order state variables have to be computed in. This will also be separately documented).
+When you access the value of a state variable or input series, you get the current value of that variable. This can some times force [what order state variables have to be computed in](advanced_concepts.html#order-of-evaluation-and-circular-dependencies).
 
-You can some times also access a value across a connection using a square bracket `[ .. ]`. This will be documented later.
+You can some times also access a value across a connection using a square bracket `[ .. ]`, called a [restriction](advanced_concepts.html#location-restrictions-for-grids).
 
 Mobius2 also allows you to access some values that say something about the *model time* (not real time!) of the current evaluation of the expression
 
@@ -142,7 +142,7 @@ Other special identifiers:
 
 | Symbol | Comment |
 | ------ | ------- |
-| `no_override` | This can be used to cancel an @override or @override_conc expression of a `var` declaration. The compiler must be able to resolve to either `no_override` or not `no_override` at compile time, meaning any `if` branches to these can only rely on constants or constant parameters. (to be documented) |
+| `no_override` | This can be used to cancel an @override or @override_conc expression of a `var` declaration. The compiler must be able to resolve to either `no_override` or not `no_override` at compile time, meaning any `if` branches leading to these can only rely on constants or constant parameters. |
 | `is_at` | This can be used to determine location in a grid1d connection. [Separately documented](advanced_concepts.html#location-restrictions-for-grids). |
 
 Enum parameters: Enum parameters are accessed using `par_identifier.value_identifier`, where `value_identifier` is one of the declared possible values of this enum parameter. The expression evaluates to `true` if the parameter has the given value, and `false` otherwise.
@@ -241,7 +241,7 @@ Any finite number of return values are supported. Note that this is the only int
 
 #### Intrinsic functions
 
-The following intrinsic functions are visible in every function scope. They are implemented either using [LLVM intrinsics](https://llvm.org/docs/LangRef.html#intrinsic-functions) or [LLVM libc](https://libc.llvm.org/math/index.html).
+The following intrinsic functions are visible in every math scope. They are implemented either using [LLVM intrinsics](https://llvm.org/docs/LangRef.html#intrinsic-functions) or [LLVM libc](https://libc.llvm.org/math/index.html).
 
 | Signature  | Description | Units |
 | ---------- | ----------- | ----- |
@@ -273,7 +273,7 @@ More intrinsics could be added if they are needed.
 
 #### Special directives
 
-Special directives allow you to reference a separate value related to a state variable `var`.
+Special directives allow you to reference a separate value related to a state variable `var` (where `var` denotes the primary location of the variable, e.g. `soil.water`).
 
 | Signature | Description | Unit |
 | --------- | ----------- | ---- |
@@ -327,9 +327,9 @@ There is one exception, where converting between `[deg_c]` and `[K]` instead cau
 If a unit conversion appears in conjunction with binary operators, the unit conversion acts as if it has precedence 4500. For instance
 
 ```python
-a + b*c -> unit
+a + b*c -> [unit]
 # is equivalent to
-a + ((b*c) -> unit)
+a + ((b*c) -> [unit])
 ```
 
 ## Note on unit errors

@@ -26,7 +26,7 @@ Typed_Value
 apply_intrinsic(Typed_Value a, String_View function);
 
 Typed_Value
-apply_intrinsic(Typed_Value a, Typed_Value b, String_View function);
+apply_intrinsic(Typed_Value a, Typed_Value b, String_View function, Model_Run_State *state=nullptr);
 
 //struct Scope_Local_Vars;
 struct Model_Application;

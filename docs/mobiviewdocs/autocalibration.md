@@ -16,7 +16,7 @@ Note that the optimizer is not magical, so if the problem is hard it can struggl
 
 We use the [dlib global optimization algorithm](http://dlib.net/optimization.html) \[King09\].
 
-All the (goodness-of-fit statistics)[statistics.html#goodness-of-fit] are available for optimization. The statistics MAE and RMSE will be minimized, the others maximized. You can not mix targets that should be minimized with targets that should be maximized. All targets have to have an input comparison series for it to be able to evaluate the error of the modeled series compared to the input observed series.
+All the MobiView2 [goodness-of-fit statistics](statistics.html#goodness-of-fit) are available for optimization. The statistics MAE and RMSE will be minimized, the others maximized. You can not mix targets that should be minimized with targets that should be maximized. All targets have to have an input comparison series for it to be able to evaluate the error of the modeled series compared to the input observed series.
 
 You can also optimize the [MCMC likelihood functions](mcmc.html#likelihood-structures) and use that as a starting point for a MCMC run. Unless you use a likelihood function, you should ignore the "error param(s)" field in the target setup.
 

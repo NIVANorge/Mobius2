@@ -1,10 +1,10 @@
 
+#include <cmath>
+#include <random>
+
 #include "function_tree.h"
 #include "emulate.h"
 #include "model_application.h"
-
-#include <cmath>
-
 
 Typed_Value
 apply_cast(Typed_Value val, Value_Type to_type) {
@@ -111,7 +111,7 @@ apply_binary(Typed_Value lhs, Typed_Value rhs, Token_Type oper) {
 }
 
 Typed_Value
-apply_intrinsic(Typed_Value a, Typed_Value b, String_View function) {
+apply_intrinsic(Typed_Value a, Typed_Value b, String_View function, Model_Run_State *state) {
 	
 	//TODO: use MAKE_INTRINSIC2 macro here!
 	
@@ -134,14 +134,26 @@ apply_intrinsic(Typed_Value a, Typed_Value b, String_View function) {
 		result.type = Value_Type::real;
 		result.val_real = std::copysign(a.val_real, b.val_real);
 	} else if (function == "uniform_real") {
+		std::uniform_real_distribution<double> dist(a.val_real, b.val_real);
 		result.type = Value_Type::real;
-		result.val_real = 42.1; // TODO!!!
+		if(state)
+			result.val_real = dist(state->rand_state);
+		else
+			fatal_error(Mobius_Error::internal, "apply_intrinsic without random state");
 	} else if (function == "normal") {
+		std::normal_distribution<double> dist(a.val_real, b.val_real);
 		result.type = Value_Type::real;
-		result.val_real = 42.2; // TODO!!!
+		if(state)
+			result.val_real = dist(state->rand_state);
+		else
+			fatal_error(Mobius_Error::internal, "apply_intrinsic without random state");
 	} else if (function == "uniform_int") {
+		std::uniform_int_distribution<s64> dist(a.val_integer, b.val_integer);
 		result.type = Value_Type::integer;
-		result.val_integer = 42; // TODO!!!
+		if(state)
+			result.val_integer = dist(state->rand_state);
+		else
+			fatal_error(Mobius_Error::internal, "apply_intrinsic without random state");
 	} else
 		fatal_error(Mobius_Error::internal, "Unhandled intrinsic \"", function, "\" in apply_intrinsic(a, b).");
 	return result;
@@ -303,7 +315,7 @@ emulate_expression(Math_Expr_FT *expr, Model_Run_State *state, Scope_Local_Vars<
 			} else if(fun->exprs.size() == 2) {
 				Typed_Value a = emulate_expression(fun->exprs[0], state, locals);
 				Typed_Value b = emulate_expression(fun->exprs[1], state, locals);
-				return apply_intrinsic(a, b, fun->fun_name);
+				return apply_intrinsic(a, b, fun->fun_name, state);
 			} else
 				fatal_error(Mobius_Error::internal, "Unhandled number of function arguments in emulate_expression().");
 		} break;

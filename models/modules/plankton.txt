@@ -10,7 +10,7 @@ preamble("Phytoplankton parameters", version(0, 0, 0),
 		
 		iopt          : par_real("Optimal PAR intensity", [W, m-2], 100, 50, 250)
 		alpha         : par_real("Half-saturation for nutrient uptake", [m mol, m-3], 1.65625, 1, 10)
-		phyt_cn       : par_real("Molar C/N ratio in Phytoplankton", [], 16, 1, 100, "The default is the Redfield ratio")
+		phyt_cn       : par_real("Molar C/N ratio in Phytoplankton", [], 6.625, 1, 100, "The default is the Redfield ratio")
 		phyt_cp       : par_real("Molar C/P ratio in Phytoplankton", [], 106, 50, 200, "The default is the Redfield ratio")
 		excr          : par_real("Phytoplankton excretion rate", [day-1], 0.01, 0, 0.1)
 		
@@ -128,7 +128,7 @@ preamble("Phytoplankton parameters 2", version(0, 0, 1),
 			@formerly("Phyto respiration rate")
 		iopt          : par_real("Optimal PAR intensity", [W, m-2], 100, 50, 250)
 		alpha         : par_real("Half-saturation for nutrient uptake", [], 0.1, 0.01, 10)
-		phyt_cn       : par_real("Molar C/N ratio in Phytoplankton", [], 16, 1, 100, "The default is the Redfield ratio")
+		phyt_cn       : par_real("Molar C/N ratio in Phytoplankton", [], 6.625, 1, 100, "The default is the Redfield ratio")
 		phyt_cp       : par_real("Molar C/P ratio in Phytoplankton", [], 106, 50, 200, "The default is the Redfield ratio")
 		excr          : par_real("Phytoplankton excretion rate", [day-1], 0.01, 0, 0.1)
 		chl_a_f       : par_real("Chl-a fraction", [perc], 2, 0.2, 2.2, "How large a fraction of the phytoplankton mass is chlorophyll a")

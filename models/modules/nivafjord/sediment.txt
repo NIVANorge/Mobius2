@@ -102,10 +102,6 @@ module("NIVAFjord sediments", version(0, 0, 4),
 	# Keep the layer the same thickness by moving down (removing) the same amount that accumulates on the top
 	flux(sediment.sed, out, [k g, day-1], "Sediment burial") {   in_flux(sed)*(1 - resus) ->>   }  
 	
-	#TODO: Take into account porosity?
-	#  Should sediment processes access pore water instead, and then have slow exchange between pore water and water column?
-	#           Probably unnecessary?
-	
 	flux(sediment.sed.oc, out, [k g, day-1], "POC mineralization") {
 		sed.oc*layer.water.min_rat*micr_rel
 	} @no_carry
@@ -136,7 +132,7 @@ module("NIVAFjord sediments", version(0, 0, 4),
 		# Simple CH4 production in the sediment: fraction scaled to CO2 production
 		flux(out, sediment.sed.ch4, [k g, day-1], "CH4 sediment microbial production") {
 			mr := layer.water.min_rat*micr_rel,
-			(sediment.sed.oc) * mr * ch4_production_scaler    
+			(sediment.sed.oc) * mr * ch4_production_scaler
 		}
 		
 		ch4satconc : property("CH4 saturation concentration")
@@ -144,19 +140,20 @@ module("NIVAFjord sediments", version(0, 0, 4),
 		## Simplified model of CH4 sollubility as a function of water temp, ambient pressure and salinity: Duan and Mao, 2006, https://doi.org/10.1016/j.gca.2006.03.018
 		# TODO: Name the magic constants, and probably move to stdlib.
 		var(sediment.sed.ch4satconc, [g, k g-1]) {
-			ch4_mol_mass*((0.00247[mol, k g-1] - (0.00004033[mol, k g-1, deg_c-1] * sediment.temp))* (1-(0.2844-0.001775[deg_c-1]*sediment.temp) * (layer.water.salin/58.44)))* (1 + 44.6[m-1] * (layer.z[vert.above])/490)
+			T := temp=>[],
+			S := layer.water.salin=>[],
+			ch4_mol_mass*((0.00247[mol, k g-1] - (0.00004033[mol, k g-1]*T))* (1-(0.2844-0.001775*T)*(S/58.44)))*(1 + 44.6[m-1]*(layer.z[vert.above])/490)
 		}
 		
 		# Simple CH4 bubble release from the sediment 
 		flux(sediment.sed.ch4, out, [k g, day-1], "CH4 sediment bubbling") {
-			max(0, bubble_ch4*(conc(ch4) - ch4satconc)*sediment.sed) ->>
+			max(0, bubble_ch4*(conc(ch4) - ch4satconc)*sed) ->>
 		}
 		
 		# Simple CH4 diffusion release from the sediment; Diffusion coefficient from 
 		flux(sediment.sed.ch4, layer.water.ch4, [k g, day-1], "CH4 sediment diffusion release") {
-			# TODO: Use Mobius2 inbuilt unit conversion and use named constants (e.g. is 1000[g, l-1] rho_water?)
 			diff_coeff := (4.18e-11[m 2, s-1, deg_c-1]*sediment.temp + 8.06e-10[m 2, s-1])->[m 2, day-1],
-			diff_coeff  * (conc(sediment.sed.ch4)* 1000[g, l-1] *(porosity)- conc(layer.water.ch4)) * 0.001[k g, g-1] / 0.25 [m] * sediment.area
+			diff_coeff*area*(conc(sed.ch4)*rho_water*porosity - conc(layer.water.ch4))/0.25[m] ->>
 		}
 	}
 	
@@ -177,5 +174,13 @@ module("NIVAFjord sediments", version(0, 0, 4),
 		# If there is high oxicity, use regular partitioning. With low oxicity, PO4 leeches out. (TODO: should maybe be a different rate)
 		r_sorp*(ox_fac*(conc(water.phos) - epc0_)*water->[k g] - (1-ox_fac)*sediment.sed.phos)
 	}
+	
+	# TODO: Probably need a different parametrization here...
+	# Should maybe also be for op and oc.
+	# flux(sediment.sed.on, layer.water.on, [k g, day-1], "Sediment organic N leeching") {
+	# 	diss_r*on*micr_rel
+	# }
+	
+	# In general, should sediment processes access pore water instead, and then have slow exchange between pore water and water column?
 	
 }

@@ -13,7 +13,7 @@ Since the modules can be dynamically loaded with different arguments, this docum
 
 See the note on [notation](autogen.html#notation).
 
-The file was generated at 2025-06-11 14:39:25.
+The file was generated at 2025-06-17 16:00:51.
 
 ---
 
@@ -1291,7 +1291,7 @@ Unit: g kg⁻¹
 Value:
 
 $$
-\mathrm{ch4\_mol\_mass}\cdot \left(0.00247 \mathrm{mol}\,\mathrm{kg}^{-1}\,-4.033\cdot 10^{5} \mathrm{mol}\,\mathrm{kg}^{-1}\,\mathrm{°C}^{-1}\,\cdot \mathrm{sediment}.\mathrm{temp}\right)\cdot \left(1-\left(0.2844-0.001775 \mathrm{°C}^{-1}\,\cdot \mathrm{sediment}.\mathrm{temp}\right)\cdot \frac{\mathrm{layer}.\mathrm{water}.\mathrm{salin}}{58.44}\right)\cdot \left(1+44.6 \mathrm{m}^{-1}\,\cdot \frac{\mathrm{layer}.\mathrm{z}\lbrack\mathrm{vert}.\mathrm{above}\rbrack}{490}\right)
+\mathrm{T} = \left(\mathrm{temp}\Rightarrow 1\right) \\ \mathrm{S} = \left(\mathrm{layer}.\mathrm{water}.\mathrm{salin}\Rightarrow 1\right) \\ \mathrm{ch4\_mol\_mass}\cdot \left(0.00247 \mathrm{mol}\,\mathrm{kg}^{-1}\,-4.033\cdot 10^{5} \mathrm{mol}\,\mathrm{kg}^{-1}\,\cdot \mathrm{T}\right)\cdot \left(1-\left(0.2844-0.001775\cdot \mathrm{T}\right)\cdot \frac{\mathrm{S}}{58.44}\right)\cdot \left(1+44.6 \mathrm{m}^{-1}\,\cdot \frac{\mathrm{layer}.\mathrm{z}\lbrack\mathrm{vert}.\mathrm{above}\rbrack}{490}\right)
 $$
 
 ### Fluxes
@@ -1433,7 +1433,7 @@ Unit: kg day⁻¹
 Value:
 
 $$
-\left(\mathrm{max}\left(0,\, \mathrm{bubble\_ch4}\cdot \left(\mathrm{conc}\left(\mathrm{ch4}\right)-\mathrm{ch4satconc}\right)\cdot \mathrm{sediment}.\mathrm{sed}\right)\rightarrow \mathrm{kg}\,\mathrm{day}^{-1}\,\right)
+\left(\mathrm{max}\left(0,\, \mathrm{bubble\_ch4}\cdot \left(\mathrm{conc}\left(\mathrm{ch4}\right)-\mathrm{ch4satconc}\right)\cdot \mathrm{sed}\right)\rightarrow \mathrm{kg}\,\mathrm{day}^{-1}\,\right)
 $$
 
 #### **CH4 sediment diffusion release**
@@ -1447,7 +1447,7 @@ Unit: kg day⁻¹
 Value:
 
 $$
-\mathrm{diff\_coeff} = \left(4.18\cdot 10^{11} \mathrm{m}^{2}\,\mathrm{s}^{-1}\,\mathrm{°C}^{-1}\,\cdot \mathrm{sediment}.\mathrm{temp}+8.06\cdot 10^{10} \mathrm{m}^{2}\,\mathrm{s}^{-1}\,\rightarrow \mathrm{m}^{2}\,\mathrm{day}^{-1}\,\right) \\ \mathrm{diff\_coeff}\cdot \left(\mathrm{conc}\left(\mathrm{sediment}.\mathrm{sed}.\mathrm{ch4}\right)\cdot 1000 \mathrm{g}\,\mathrm{l}^{-1}\,\cdot \mathrm{porosity}-\mathrm{conc}\left(\mathrm{layer}.\mathrm{water}.\mathrm{ch4}\right)\right)\cdot \frac{0.001 \mathrm{kg}\,\mathrm{g}^{-1}\,}{0.25 \mathrm{m}\,}\cdot \mathrm{sediment}.\mathrm{area}
+\mathrm{diff\_coeff} = \left(4.18\cdot 10^{11} \mathrm{m}^{2}\,\mathrm{s}^{-1}\,\mathrm{°C}^{-1}\,\cdot \mathrm{sediment}.\mathrm{temp}+8.06\cdot 10^{10} \mathrm{m}^{2}\,\mathrm{s}^{-1}\,\rightarrow \mathrm{m}^{2}\,\mathrm{day}^{-1}\,\right) \\ \left(\mathrm{diff\_coeff}\cdot \mathrm{area}\cdot \frac{\mathrm{conc}\left(\mathrm{sed}.\mathrm{ch4}\right)\cdot \mathrm{rho\_water}\cdot \mathrm{porosity}-\mathrm{conc}\left(\mathrm{layer}.\mathrm{water}.\mathrm{ch4}\right)}{0.25 \mathrm{m}\,}\rightarrow \mathrm{kg}\,\mathrm{day}^{-1}\,\right)
 $$
 
 #### **POC mineralization by denitrification**

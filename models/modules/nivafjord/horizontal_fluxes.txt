@@ -263,6 +263,11 @@ module("NIVAFjord immediate realignment", version(0, 0, 0),
 	hbal : property("Horizontal balance")
 	var(layer.hbal, [m 3, day-1]) {
 		-(in_flux(horz2, water) - out_flux(horz, water) + in_flux(horz, water))->>
+	} @no_store
+	
+	hbalfrac : property("Horizontal balance fraction")
+	var(layer.hbalfrac, [day-1]) {
+		hbal / water
 	}
 	
 	external_computation("Layer vertical realignment computation", "nivafjord_vertical_realignment", basin) {

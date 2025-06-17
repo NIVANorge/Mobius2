@@ -33,9 +33,9 @@ Let $$\{o_i\}_i$$ and $$\{m_i\}_i$$ be observed and modeled series respectively,
 
 Table: Likelihood structures available in MobiView.
 
-In Normal hetereoskedastic, WLS and WLS-AR1 the residuals are assumed to have a standard deviation that is proportional to the modeled value (called hetereoskedasticity) (see \[Evin14\] for the latter two). WLS-AR1 adds autoregression so that the residuals are no longer independent. This is because an error at one point in time usually is correlated with the error in the previous time step. It is usually very good at eliminating autocorrelation in the standard residuals, but could be a bit slower to converge due to the larger parameter space.
+In Normal hetereoskedastic, WLS and WLS-AR1 the residuals are assumed to have a standard deviation that is proportional to the modeled value (called hetereoskedasticity) (see \[Evin14\] for the latter two). WLS-AR1 adds autoregression so that the residuals are no longer independent. This is because an error at one point in time is often correlated with the error in the previous time step. This structure is usually very good at reducing autocorrelation in the standard residuals, but could be a bit slower to converge due to the larger parameter space.
 
-There are plots in the MCMC result view (under Result projections) that can help you determine if the standard residuals are normally distributed and have acceptable autocorrelation. (This should not be confused with the chain autocorrelation in the Parameter distribution summary).
+There are plots in the MCMC result view (under "Result projections") that can help you determine if the standard residuals are normally distributed and have acceptable autocorrelation. (This should not be confused with the chain autocorrelation in the Parameter distribution summary).
 
 ## Samplers
 
