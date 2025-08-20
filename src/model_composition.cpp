@@ -561,23 +561,10 @@ typedef std::unordered_map<Var_Location, Var_Id, Var_Location_Hash> External_Map
 void
 check_individual_external_code(Model_Application *app, External_Map &external_targets, External_Computation_Registration *external, std::string &function_name, Math_Expr_AST *code, Var_Id var_id) {
 	
-	// For now we just have a list here of allowed external functions (so that somebody don't call into some system function or something).
-	// This should be replaced with a better system later.
-	
 	constexpr static auto allowed = {
 		#define ADD_EXT_COMP(name) #name,
 		#include "model_specific/all_externals.incl"
 		#undef ADD_EXT_COMP
-		/*
-		"_special_test_",
-		"nivafjord_place_river_flux",
-		"nivafjord_place_horizontal_fluxes",
-		"nivafjord_compute_pressure_difference",
-		"nivafjord_vertical_realignment",
-		"nivafjord_vertical_realignment_even_distrib",
-		"nivafjord_vertical_realignment_slow",
-		"magic_core",
-		"magic_core_initial",*/
 	};
 	
 	if(std::find(allowed.begin(), allowed.end(), function_name) == allowed.end()) {

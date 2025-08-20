@@ -272,7 +272,6 @@ resolve_simple_loc_argument(Mobius_Model *model, Decl_Scope *scope, Argument_AST
 	Location_Resolve resolve;
 	resolve_loc_argument(model, scope, arg, resolve);
 
-	//if(resolve.type != Variable_Type::state_var) {
 	if(resolve.type != Variable_Type::series) {
 		arg->source_loc().print_error_header();
 		fatal_error("This argument must resolve to a state variable.");

@@ -87,7 +87,6 @@ Flux_Unit_Conversion_Data {
 
 struct
 Component_Registration : Registration_Base {
-	//Entity_Id    unit;            //NOTE: tricky. could clash between different vars. Better just to have it on the "var" ?
 	
 	// For compartments:
 	std::vector<Aggregation_Data> aggregations;

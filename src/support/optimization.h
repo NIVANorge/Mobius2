@@ -42,7 +42,7 @@ set_parameters(Model_Data *data, Expr_Parameters &parameters, const std::vector<
 double
 evaluate_target(Model_Data *data, Optimization_Target *target, double *err_param = nullptr);
 
-typedef std::function<void(int, int, double, double)> Optim_Callback;
+typedef std::function<void(int, int, double, double, std::vector<double> &)> Optim_Callback;
 
 struct
 Optimization_Model {
@@ -50,6 +50,8 @@ Optimization_Model {
 	Optimization_Model(Model_Data *data, Expr_Parameters &parameters, std::vector<Optimization_Target> &targets, const std::vector<double> *initial_pars = nullptr, const Optim_Callback &callback = nullptr, s64 ms_timeout = -1);
 	
 	double evaluate(const std::vector<double> &values);//const double *values);
+	
+	std::string report_erroneous(Model_Application *app);
 	
 	s64                               get_n_active();
 	
@@ -61,6 +63,8 @@ Optimization_Model {
 	Expr_Parameters                  *parameters;
 	std::vector<Optimization_Target> *targets;
 	Optim_Callback                    callback;
+	
+	std::vector<double>               erroneous_pars;
 };
 
 

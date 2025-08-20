@@ -98,10 +98,23 @@ Optimization_Model::evaluate(const std::vector<double> &values) {//double *value
 	
 	set_parameters(data, *parameters, values);
 	
-	bool run_finished = run_model(data, ms_timeout);
+	bool run_finished = true;
+	
+	try {
+		run_finished = run_model(data, ms_timeout);
+	} catch(int) {
+		// Hmm, this is not ideal, because it will still write stuff to the error stream which could clog up the log window
+		// on large optimization runs. We could clear that here, but even better would be if we could tell run_model to not
+		// log it in the first place?
+		// It is also not that clean that run_model is allowed to throw in the first place.
+		run_finished = false;
+	}
 	
 	if(!run_finished) {
 		++n_timeouts;
+		if(erroneous_pars.empty()) {// Store one example of ill-formed parameter set.
+			erroneous_pars = values;
+		}
 		return maximize ? -std::numeric_limits<double>::infinity() : std::numeric_limits<double>::infinity();
 	}
 	
@@ -121,8 +134,9 @@ Optimization_Model::evaluate(const std::vector<double> &values) {//double *value
 	best_score = maximize ? std::max(best_score, agg) : std::min(best_score, agg);
 	
 	++n_evals;
-	if(callback)
-		callback(n_evals, n_timeouts, initial_score, best_score);
+	if(callback) {
+		callback(n_evals, n_timeouts, initial_score, best_score, erroneous_pars);
+	}
 	
 	return agg;
 }
@@ -240,4 +254,27 @@ set_parameters(Model_Data *data, Expr_Parameters &pars, const std::vector<double
 		val.val_real = vals[idx];
 		set_parameter_value(par, data, val);
 	}
+}
+
+std::string
+Optimization_Model::report_erroneous(Model_Application *app) {
+	if(erroneous_pars.empty()) return "";
+	
+	std::stringstream ss;
+	int active_idx = 0;
+	for(int idx = 0; idx < parameters->parameters.size(); ++idx) {
+		if(parameters->exprs[idx]) continue;
+		
+		// TODO: Also name the indexes...
+		auto id = parameters->parameters[idx].id;
+		if (is_valid(id))
+			ss << app->model->parameters[id]->name;
+		else
+			ss << "(virtual)";
+		ss << " : " << erroneous_pars[active_idx] << "\n";
+		
+		++active_idx;
+	}
+	
+	return ss.str();
 }

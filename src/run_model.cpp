@@ -217,7 +217,6 @@ run_model(Model_Data *data, s64 ms_timeout, bool check_for_nan, run_callback_typ
 		}
 	}
 	
-	
 	s64 callback_interval = time_steps / 10; // TODO: Make this customizable.
 	s64 prev_callback_iter = 0;
 	for(run_state.date_time.step = 0; run_state.date_time.step < time_steps; run_state.date_time.advance()) {

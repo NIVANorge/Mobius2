@@ -44,7 +44,7 @@ module("NIVAFjord sediments", version(0, 0, 4),
 		sed_doc  : par_real("Sediment pore water DOC concentration", [m g, l-1], 5, 0, 100)
 	}
 	
-	load("stdlib/physiochemistry.txt", library("Chemistry"))
+	load("stdlib/physiochemistry.txt", library("Chemistry"), library("Water utils"))
 	
 	# Set these as parameters: ?
 	sed_rho : constant("Sediment density", [k g, m-3], 2600)

@@ -5,9 +5,14 @@ model("Simple test model") {
 	q : property("Q")
 	
 	module("So very simple", version(1, 1, 0)) {
+	
+		par_group("Test") {
+			b : par_bool("Check this!", true)
+		}
 		
 		var(a.q, [], "A Q") {
-			-10 - (time.step/100)=>>
+			0 if b = false, 
+			sin( 2*pi*time.day_of_year/time.days_this_year =>[] ) otherwise
 		}
 	}
 }

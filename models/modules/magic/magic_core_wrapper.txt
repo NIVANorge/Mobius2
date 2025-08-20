@@ -155,7 +155,7 @@ This module is for now just for testing calling the MAGIC core from Mobius2. Wil
 		max(bal / rel_runoff, min_init_conc)
 	}
 	
-	#No initial free SO4, instead set initial conc_all_so4, then the "Magic initial" routine computes the free conc.
+	#No @initial free SO4, instead set initial so4.conc_all, then the "Magic initial" routine computes the free conc.
 	var(comp.so4.concn, [m eq, m-3], "SO4(2-) ionic concentration")
 	
 	var(comp.cl.concn, [m eq, m-3], "Cl(-) ionic concentration") @initial {
@@ -166,7 +166,8 @@ This module is for now just for testing calling the MAGIC core from Mobius2. Wil
 		max(bal / rel_runoff, min_init_conc)
 	}
 	
-	var(comp.f.concn, [m eq, m-3], "F(-) ionic concentration") #No initial, instead set initial conc_all_f
+	#No @initial, instead we set initial f.conc_all and let this one be computed by "Magic initial" routine. Similar to SO4
+	var(comp.f.concn, [m eq, m-3], "F(-) ionic concentration")
 	
 	var(comp.po4.concn, [m eq, m-3], "PO4(3-) ionic concentration") @initial {
 		max(bal / rel_runoff, min_init_conc)
@@ -177,7 +178,7 @@ This module is for now just for testing calling the MAGIC core from Mobius2. Wil
 	}
 	
 	var(comp.f.conc_all, [m eq, m-3], "Total fluoride in solution (ionic + Al complexes)") @initial {
-		#max(bal / rel_runoff, min_init_conc)
+		#max(bal / rel_runoff, min_init_conc) # This causes a crash in the F routine in the core. Should fix it for low non-zero F concentrations.
 		bal / rel_runoff
 	}
 	

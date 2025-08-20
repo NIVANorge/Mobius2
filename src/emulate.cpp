@@ -74,11 +74,13 @@ apply_binary(Typed_Value lhs, Typed_Value rhs, Token_Type oper) {
 		else if(lhs.type == Value_Type::real) result.val_boolean = lhs.val_real >= rhs.val_real;
 		result.type = Value_Type::boolean;
 	} else if(op == '=') {
-		if(lhs.type == Value_Type::integer)   result.val_boolean = lhs.val_integer == rhs.val_integer;
+		if(lhs.type == Value_Type::boolean)   result.val_boolean = lhs.val_boolean == rhs.val_boolean;
+		else if(lhs.type == Value_Type::integer) result.val_boolean = lhs.val_integer == rhs.val_integer;
 		else if(lhs.type == Value_Type::real) result.val_boolean = lhs.val_real == rhs.val_real;
 		result.type = Value_Type::boolean;
 	} else if(oper == Token_Type::neq) {
-		if(lhs.type == Value_Type::integer)   result.val_boolean = lhs.val_integer != rhs.val_integer;
+		if(lhs.type == Value_Type::boolean)   result.val_boolean = lhs.val_boolean != rhs.val_boolean;
+		else if(lhs.type == Value_Type::integer) result.val_boolean = lhs.val_integer != rhs.val_integer;
 		else if(lhs.type == Value_Type::real) result.val_boolean = lhs.val_real != rhs.val_real;
 		result.type = Value_Type::boolean;
 	} else if(op == '+') {
