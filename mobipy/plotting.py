@@ -17,7 +17,10 @@ def quick_surf(ax, data, dates, ys, cmap='coolwarm') :
 	ax.view_init(50, 80)
 	ax.set_box_aspect(aspect = (2,1,1))
 
-def plot_target(app, target, ax, sl, legend=True) :
+def plot_target(app, target, ax=None, sl=slice(None), legend=True) :
+	if not ax :
+		fig, ax = plt.subplots(1, figsize = (10, 2))
+	
 	simname, simidx, obsname, obsidx, *wgt = target
 	app.var(obsname)[obsidx].loc[sl].plot(ax=ax, marker='o', linewidth=0, markerfacecolor=(0, 0, 0, 0), markeredgecolor='#c79124')
 	app.var(simname)[simidx].loc[sl].plot(ax=ax, color='#3293e3')
