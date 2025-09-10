@@ -149,7 +149,11 @@ The `pos` vector is of size `n_indexes+1` and contains the boundaries of the ind
 
 For input series you always get the expanded data that is sampled to the application's sampling frequency, even if it was provided sparsely in the data file.
 
-You can also set the values of an input series. The value you provide must be a `pandas.Series` that is indexed by a `DateTimeIndex`. This could be sparse. In that case, only the given dates are overwritten.
+You can also set the values of an input series. The value you provide must be a `pandas.Series` that is indexed by a `DateTimeIndex`. This could be sparse. In that case, only the given dates are overwritten. Example
+
+```python
+app.var('Precipitation')[()] = df['rr'] # Here df is a pandas.DataFrame that has a datetime index.
+```
 
 For now we don't support setting slices.
 

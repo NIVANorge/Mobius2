@@ -12,7 +12,7 @@ mobius.jl is a package for the [Julia programming language](https://julialang.or
 - Editing parameter values.
 - Extracting result time series.
 
-See [an example here](https://github.com/NIVANorge/Mobius2/blob/main/example_notebooks/basic_julia.ipynb).
+See examples [here](https://github.com/NIVANorge/Mobius2/blob/main/example_notebooks/basic_julia.ipynb) and [here](https://github.com/NIVANorge/Mobius2/blob/main/example_notebooks/nivafjord_julia.ipynb).
 
 To use mobius.jl you need to follow the installation procedure for mobipy:
 - Windows: download mobipy/c_abi.dll from ftp://mobiserver.niva.no/Mobius2 and put it in your local Mobius2/mobipy folder.

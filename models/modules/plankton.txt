@@ -190,9 +190,12 @@ Authors: Magnus Dahler Norling, François Clayer
 		f*exp(1 - f)
 	} @no_store
 	
+	minphyt : constant("Min phyto saturation", [m g, l-1], 0.01)
+	
 	var(layer.water.phyt.N_lim, []) {
 		#NOTE: Use N molar mass instead of NO3 since that is what we track in the model (e.g. DIN is modeled as mg(N)/l)
-		phyt_mol_n := phyt/(phyt_cn*c_mol_mass)->[mol],
+		p := min(conc(phyt), minphyt)*water,
+		phyt_mol_n := p/(phyt_cn*c_mol_mass)->[mol],
 		nut_mol_n := water.din/n_mol_mass->[mol],
 		ratio2 := (nut_mol_n / phyt_mol_n)^2,
 		ratio2/(ratio2 + alpha)
@@ -200,7 +203,8 @@ Authors: Magnus Dahler Norling, François Clayer
 	
 	var(layer.water.phyt.P_lim, []) {
 		#NOTE: Use P molar mass instead of PO4 since that is what we track in the model
-		phyt_mol_p := phyt/(phyt_cp*c_mol_mass)->[mol],
+		p := min(conc(phyt), minphyt)*water,
+		phyt_mol_p := p/(phyt_cp*c_mol_mass)->[mol],
 		nut_mol_p := water.phos/p_mol_mass->[mol],
 		ratio2 := (nut_mol_p / phyt_mol_p)^2,
 		ratio2/(ratio2 + alpha)
