@@ -121,8 +121,12 @@ A module for partitioning a contaminant between solid organic carbon, dissolved 
 		m_total := water*init_tox,
 		m_total / eqvol
 	}
-	var(comp.water.oc.tox, mass_unit, [n g, k g-1], "DOC contaminants") @initial_conc { conc(comp.water.tox) * comp.water.tox.Kdoc ->> }
-	var(solid_oc.tox, mass_unit, [n g, k g-1], "SOC contaminants") @initial_conc { conc(comp.water.tox) * comp.water.tox.Koc ->> }
+	var(comp.water.oc.tox, mass_unit, [n g, k g-1], "DOC contaminants") 
+		@initial_conc { conc(comp.water.tox) * comp.water.tox.Kdoc ->> }
+		@show_conc(comp.water, [n g, l-1])
+		
+	var(solid_oc.tox, mass_unit, [n g, k g-1], "SOC contaminants")
+		@initial_conc { conc(comp.water.tox) * comp.water.tox.Koc ->> }
 	
 	var(comp.water.tox.Kow, [])
 	var(comp.water.tox.Kdoc, [m 3, k g-1])
@@ -335,6 +339,9 @@ River-specific contaminant processes that are not covered by the partitioning mo
 	flux(out, river.water.tox, [n g, day-1], "Contaminant direct deposition") {
 		air.tox.dep*A_surf ->>
 	}
+	
+	# NOTE: The main declaration is in SimplyTox partitioning. This is just to add the @show_conc note for it
+	var(river.water.sed.oc.tox, [n g], [n g, k g-1]) @show_conc(river.water, [n g, l-1])
 	
 	
 	sed_dens : constant("Sediment density", [k g, m-3], 2600)
