@@ -38,6 +38,8 @@ Parameters for specifying various physiochemical properties of a contaminant.
 		hlgw        : par_real("Contaminant half life (groundwater and sediments)", [day], 20000, 0.1, 2e10, "Used for dissolved contaminants in groundwater and sediment pore water.")
 		degrq10     : par_real("Contaminant degradation Q10", [], 1, 1, 5, "Change in the rate with a change of 10°C change in temperature")
 		degrref     : par_real("Temperature at which the half life is given.", [deg_c], 25, 0, 40)
+		
+		dep_dissolved : par_bool("Contaminan deposition is dissolved", true, "If on, deposition to the soil compartment goes to purely dissolved phase, otherwise it goes to the solid phase")
 	}
 	
 	Kow   : property("Octanol-water partitioning coefficient") {
@@ -208,7 +210,9 @@ Soil-specific contaminant processes that are not covered by the partitioning mod
 	var(air.tox.dep, [n g, m-2, day-1])
 	var(air.tox.atmconc, [n g, m-3])
 	
-	flux(out, soil.water.tox, [n g, m-2, day-1], "Contaminant deposition to land") {   air.tox.dep   }
+	flux(out, soil.water.tox, [n g, m-2, day-1], "Contaminant deposition to soil water") {   air.tox.dep*dep_dissolved   }
+	
+	flux(out, soil.oc.tox, [n g, m-2, day-1], "Contaminant deposition to soil solid") {   air.tox.dep*(!dep_dissolved)   }
 	
 	var(soil.water.tox.Kh, [Pa, m 3, mol-1])
 	var(soil.water.tox.Kaw, [])
