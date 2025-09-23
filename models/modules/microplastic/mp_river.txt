@@ -1,0 +1,100 @@
+
+
+# NOTE This file is not finished, and will not run.
+
+module("River microplastic", version(0, 0, 0),
+	river : compartment,
+	bed_sed : compartment,
+	water : quantity,
+	mp    : quantity,
+) {
+
+	# TODO: This group may need to be in a preamble
+	par_group("Grain class", mp) {
+		shape_type : par_enum("Shape type", fragment) { fiber fragment }
+		min_dim    : par_real("Smallest major diameter of grain in class", [m], 0, 0, 0.1)
+		max_dim    : par_real("Largest major diameter of grain in class", [m], 2e-6, 0, 0.1)
+		r_maj_min  : par_real("Ration of major to minor diameter", [], 1, 1, 1000)
+		rho_p      : par_real("Density of class", [k g, m-3], 1200, 1100, 3000)
+	}
+	
+	
+
+	terminal_settling_velocity : function(
+		a : [m], b : [m], c : [m], kin_vis : [m 2, s-1], rho_f : [k g, m-3], rho_p : [k g, m-3], is_fiber
+	) {
+		d_equi := {
+			c           if is_fiber,
+			cbrt(a*b*c) otherwise
+		},
+		csf := c / sqrt(a*b),  # Corey shape factor (dimensionless)
+		
+		# Initial guess of settling velocity using Stoke's law for a spherical particle
+		w := (rho_p - rho_f)*grav*(d_equi^2)/(18*kin_vis),
+		
+		i:{
+			# Particle Reynold's number for the given velocity (dimensionless)
+			Re := w * d_equi / kin_vis,
+			# Drag coefficient
+			C_D := {
+				4.7/sqrt(Re) + sqrt(csf) if is_fiber,
+				3 / (csf * cbrt(Re))     otherwise
+			},
+			
+			new_w := sqrt( (4/3) * (d_equi/C_D) * ((rho_p - rho_f)/rho_f) * grav),
+			
+			w       if !is_finite(new_w),
+			new_w   if abs(w - new_w) < 1e-6,
+			{ w <- new_w, iterate i } otherwise
+		}
+	}
+	
+	particle_equivalent_diameter : function(a : [m], ratio : [], is_fiber) {
+		b := a / ratio,
+		c := b,
+		
+		c           if is_fiber,
+		cbrt(a*b*c) otherwise
+	}
+	
+	sett_vel : property("Terminal settling velocity")
+	crit_sh  : property("Critical shields parameter")
+	crit_shear : property("Critical shear stress")
+	
+	var(river.water.mp.sett_vel, [m, s-1]) {
+		a := (max_dim + min_dim) / 2,
+		b := a / r_maj_min,
+		c := b,
+		
+		terminal_settling_velocity(a, b, c, river.water.kin_vis, rho_water, rho_p, shape_type.fiber)
+	}
+	
+	#TODO: Undefined med_grain (sediment bed median grain size)
+	
+	var(bed_sed.crit_sh, []) {
+		# Dimensionless particle diameter for the median mineral sediment particle.
+		dstar := med_grain*cbrt(((rho_sed - rho_water)/rho_water)*grav/(river.water.kin_vis^2)),
+		
+		0.24 / dstar            if dstar <= 4,
+		0.14*dstar^(-0.64)      if dstar <= 10,
+		0.04*dstar^(-0.1)       if dstar <= 20,
+		0.013*dstar^0.29        if dstar <= 150,
+		0.055
+	}
+	
+	var(bed_sed.mp.crit_sh, []) {
+		# TODO: Why did we use min diam here instead of median?
+		d_equi := particle_equivalent_diameter(min_dim, r_maj_min, shape_type.fiber),
+		0.5588*bed_sed.crit_sh * (d_equi / med_grain)^(-0.503)
+	}
+	
+	var(bed_sed.mp.crit_shear, [N, m-2]) {
+		# TODO: Why did we use min diam here instead of median?
+		d_equi := particle_equivalent_diameter(min_dim, r_maj_min, shape_type.fiber),
+		
+		crit_sh*(rho_p - rho_water)*grav*d_equi
+	}
+	
+	#TODO: Continue
+	
+}
