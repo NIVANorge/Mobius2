@@ -105,6 +105,10 @@ Authors: Leah A. Jackson-Blake, Magnus D. Norling
 		#gw_type : par_enum("Groundwater TDP computation type", const) { const mass_bal }
 	}
 	
+	p_in : property("Net soil P input")
+	
+	var(soil.p_in, [k g, ha-1, year-1]) {   p_input   }
+	
 	epc0 : property("EPC0")
 	
 	var(soil.epc0, [m g, l-1]) {
@@ -118,7 +122,7 @@ Authors: Leah A. Jackson-Blake, Magnus D. Norling
 		{
 			q      := last(out_flux(soil.water))->[m m, day-1],
 			days   := time.step_length_in_seconds->[day],
-			pin    := p_input * days / time.days_this_year ->[k g, k m-2],
+			pin    := p_in * days / time.days_this_year ->[k g, k m-2],
 			m_soil := m_soil_m2->[k g, k m-2],
 			a      := (pin + kf*m_soil*epc0),
 			bV     := (kf*m_soil + q*days),
@@ -134,7 +138,7 @@ Authors: Leah A. Jackson-Blake, Magnus D. Norling
 		{
 			q      := last(out_flux(soil.water))->[m m, day-1],
 			days   := time.step_length_in_seconds->[day],
-			pin    := p_input * days / time.days_this_year ->[k g, k m-2],
+			pin    := p_in * days / time.days_this_year ->[k g, k m-2],
 			m_soil := m_soil_m2->[k g, k m-2],
 			a      := (pin + kf*m_soil*epc0),
 			bV     := (kf*m_soil + q*days),
