@@ -1,4 +1,5 @@
 
+#include <algorithm>
 #include "index_data.h"
 #include "catalog.h"
 
