@@ -1,0 +1,307 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="210mm"
+   height="297mm"
+   viewBox="0 0 210 297"
+   version="1.1"
+   id="svg1"
+   inkscape:version="1.3.2 (091e20e, 2023-11-25, custom)"
+   sodipodi:docname="lake.svg"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview1"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:document-units="mm"
+     inkscape:zoom="1.4627806"
+     inkscape:cx="404.02505"
+     inkscape:cy="628.59735"
+     inkscape:window-width="1920"
+     inkscape:window-height="1017"
+     inkscape:window-x="-8"
+     inkscape:window-y="-8"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="layer1" />
+  <defs
+     id="defs1">
+    <rect
+       x="45.119549"
+       y="776.60315"
+       width="468.96986"
+       height="93.657246"
+       id="rect7" />
+    <marker
+       style="overflow:visible"
+       id="marker3"
+       refX="0"
+       refY="0"
+       orient="auto"
+       inkscape:stockid="Stop"
+       markerWidth="1"
+       markerHeight="1"
+       viewBox="0 0 1 1"
+       inkscape:isstock="true"
+       inkscape:collect="always"
+       preserveAspectRatio="xMidYMid">
+      <path
+         style="fill:none;stroke:context-stroke;stroke-width:1"
+         d="M 0,4 V -4"
+         id="path3" />
+    </marker>
+    <marker
+       style="overflow:visible"
+       id="Stop"
+       refX="0"
+       refY="0"
+       orient="auto"
+       inkscape:stockid="Stop"
+       markerWidth="1"
+       markerHeight="1"
+       viewBox="0 0 1 1"
+       inkscape:isstock="true"
+       inkscape:collect="always"
+       preserveAspectRatio="xMidYMid">
+      <path
+         style="fill:none;stroke:context-stroke;stroke-width:1"
+         d="M 0,4 V -4"
+         id="path23" />
+    </marker>
+    <inkscape:path-effect
+       effect="bspline"
+       id="path-effect2"
+       is_visible="true"
+       lpeversion="1.3"
+       weight="33.333333"
+       steps="2"
+       helper_size="0"
+       apply_no_weight="true"
+       apply_with_weight="true"
+       only_selected="false"
+       uniform="false" />
+    <inkscape:path-effect
+       effect="bspline"
+       id="path-effect1"
+       is_visible="true"
+       lpeversion="1.3"
+       weight="33.333333"
+       steps="2"
+       helper_size="0"
+       apply_no_weight="true"
+       apply_with_weight="true"
+       only_selected="false"
+       uniform="false" />
+    <marker
+       style="overflow:visible"
+       id="Stop-0"
+       refX="0"
+       refY="0"
+       orient="auto"
+       inkscape:stockid="Stop"
+       markerWidth="1"
+       markerHeight="1"
+       viewBox="0 0 1 1"
+       inkscape:isstock="true"
+       inkscape:collect="always"
+       preserveAspectRatio="xMidYMid">
+      <path
+         style="fill:none;stroke:context-stroke;stroke-width:1"
+         d="M 0,4 V -4"
+         id="path23-6" />
+    </marker>
+    <marker
+       style="overflow:visible"
+       id="marker3-3"
+       refX="0"
+       refY="0"
+       orient="auto"
+       inkscape:stockid="Stop"
+       markerWidth="1"
+       markerHeight="1"
+       viewBox="0 0 1 1"
+       inkscape:isstock="true"
+       inkscape:collect="always"
+       preserveAspectRatio="xMidYMid">
+      <path
+         style="fill:none;stroke:context-stroke;stroke-width:1"
+         d="M 0,4 V -4"
+         id="path3-3" />
+    </marker>
+    <inkscape:path-effect
+       effect="bspline"
+       id="path-effect2-9"
+       is_visible="true"
+       lpeversion="1.3"
+       weight="33.333333"
+       steps="2"
+       helper_size="0"
+       apply_no_weight="true"
+       apply_with_weight="true"
+       only_selected="false"
+       uniform="false" />
+    <marker
+       style="overflow:visible"
+       id="Stop-2"
+       refX="0"
+       refY="0"
+       orient="auto"
+       inkscape:stockid="Stop"
+       markerWidth="1"
+       markerHeight="1"
+       viewBox="0 0 1 1"
+       inkscape:isstock="true"
+       inkscape:collect="always"
+       preserveAspectRatio="xMidYMid">
+      <path
+         style="fill:none;stroke:context-stroke;stroke-width:1"
+         d="M 0,4 V -4"
+         id="path23-7" />
+    </marker>
+    <marker
+       style="overflow:visible"
+       id="marker3-30"
+       refX="0"
+       refY="0"
+       orient="auto"
+       inkscape:stockid="Stop"
+       markerWidth="1"
+       markerHeight="1"
+       viewBox="0 0 1 1"
+       inkscape:isstock="true"
+       inkscape:collect="always"
+       preserveAspectRatio="xMidYMid">
+      <path
+         style="fill:none;stroke:context-stroke;stroke-width:1"
+         d="M 0,4 V -4"
+         id="path3-8" />
+    </marker>
+    <inkscape:path-effect
+       effect="bspline"
+       id="path-effect2-5"
+       is_visible="true"
+       lpeversion="1.3"
+       weight="33.333333"
+       steps="2"
+       helper_size="0"
+       apply_no_weight="true"
+       apply_with_weight="true"
+       only_selected="false"
+       uniform="false" />
+  </defs>
+  <g
+     inkscape:label="Lag 1"
+     inkscape:groupmode="layer"
+     id="layer1">
+    <path
+       id="path1-9"
+       style="fill:#3a749c;stroke:#000000;stroke-width:1;fill-opacity:1;stroke-dasharray:none"
+       d="m 192.45311,129.86967 c -52.45433,-0.72351 -80.31169,68.73423 -80.31169,68.73423 0,0 -27.67647,-69.61405 -80.130807,-68.89054 z"
+       sodipodi:nodetypes="ccc" />
+    <path
+       style="fill:#000000;stroke:#000000;stroke-width:1;stroke-linejoin:round;stroke-dasharray:none"
+       d="m 75.46061,146.82844 c 24.55667,0 49.11334,0 73.67002,0"
+       id="path1"
+       inkscape:path-effect="#path-effect1"
+       inkscape:original-d="m 75.46061,146.82844 c 24.55667,0 49.11334,0 73.67002,0" />
+    <rect
+       style="fill:#00b0ea;fill-opacity:1;stroke:#1e7cce;stroke-width:0.800594;stroke-linejoin:round;stroke-dasharray:none;stroke-opacity:1"
+       id="rect1"
+       width="159.48988"
+       height="5.1153803"
+       x="32.486729"
+       y="123.80685" />
+    <path
+       style="fill:#00b0ea;fill-opacity:1;stroke:#000000;stroke-width:0.799999;stroke-linejoin:round;stroke-dasharray:none;stroke-opacity:1;marker-start:url(#Stop);marker-end:url(#marker3)"
+       d="m 23.875761,123.85551 c 0,1.61282 0,3.22564 0,4.83846"
+       id="path2"
+       inkscape:path-effect="#path-effect2"
+       inkscape:original-d="m 23.875761,123.85551 c 0,1.61282 0,3.22564 0,4.83846"
+       sodipodi:nodetypes="cc" />
+    <path
+       style="fill:#00b0ea;fill-opacity:1;stroke:#000000;stroke-width:0.799999;stroke-linejoin:round;stroke-dasharray:none;stroke-opacity:1;marker-start:url(#Stop-0);marker-end:url(#marker3-3)"
+       d="m 23.875761,123.85551 c 0.04263,5.40717 0.08527,10.81433 0.127899,16.2215"
+       id="path2-5"
+       inkscape:path-effect="#path-effect2-9"
+       inkscape:original-d="m 23.875761,123.85551 c 0.04263,5.40717 0.08527,10.81433 0.127899,16.2215"
+       sodipodi:nodetypes="cc"
+       transform="translate(0.01660709,5.790973)" />
+    <path
+       style="fill:#00b0ea;fill-opacity:1;stroke:#000000;stroke-width:0.799999;stroke-linejoin:round;stroke-dasharray:none;stroke-opacity:1;marker-start:url(#Stop-2);marker-end:url(#marker3-30)"
+       d="m 23.875761,123.85551 c -0.06029,17.28882 -0.120585,34.57765 -0.180877,51.86647"
+       id="path2-8"
+       inkscape:path-effect="#path-effect2-5"
+       inkscape:original-d="m 23.875761,123.85551 c -0.06029,17.28882 -0.120585,34.57765 -0.180877,51.86647"
+       sodipodi:nodetypes="cc"
+       transform="translate(0.14271199,22.981689)" />
+    <text
+       xml:space="preserve"
+       style="font-size:3.52778px;font-family:Sans;-inkscape-font-specification:Sans;letter-spacing:0px;baseline-shift:baseline;fill:#00b0ea;fill-opacity:1;stroke:#000000;stroke-width:0;stroke-linejoin:round;stroke-dasharray:none;stroke-opacity:1"
+       x="8.9534101"
+       y="127.24696"
+       id="text3"><tspan
+         sodipodi:role="line"
+         id="tspan3"
+         style="font-size:3.52778px;baseline-shift:baseline;fill:#000000;fill-opacity:1;stroke-width:0;stroke-dasharray:none"
+         x="8.9534101"
+         y="127.24696">z<tspan
+   style="font-size:65%;baseline-shift:sub"
+   id="tspan4">ice</tspan></tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:3.52778px;font-family:Sans;-inkscape-font-specification:Sans;letter-spacing:0px;baseline-shift:baseline;fill:#00b0ea;fill-opacity:1;stroke:#000000;stroke-width:0;stroke-linejoin:round;stroke-dasharray:none;stroke-opacity:1"
+       x="8.954318"
+       y="138.13818"
+       id="text3-8"><tspan
+         sodipodi:role="line"
+         id="tspan3-2"
+         style="font-size:3.52778px;baseline-shift:baseline;fill:#000000;fill-opacity:1;stroke-width:0;stroke-dasharray:none"
+         x="8.954318"
+         y="138.13818">z<tspan
+   style="font-size:65%;baseline-shift:sub"
+   id="tspan6">epi</tspan></tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:3.52778px;font-family:Sans;-inkscape-font-specification:Sans;letter-spacing:0px;baseline-shift:baseline;fill:#00b0ea;fill-opacity:1;stroke:#000000;stroke-width:0;stroke-linejoin:round;stroke-dasharray:none;stroke-opacity:1"
+       x="9.2734728"
+       y="173.69025"
+       id="text3-8-4"><tspan
+         sodipodi:role="line"
+         id="tspan3-2-1"
+         style="font-size:3.52778px;baseline-shift:baseline;fill:#000000;fill-opacity:1;stroke-width:0;stroke-dasharray:none"
+         x="9.2734728"
+         y="173.69025">z<tspan
+   style="font-size:65%;baseline-shift:sub"
+   id="tspan7">hyp</tspan></tspan></text>
+    <text
+       xml:space="preserve"
+       transform="scale(0.26458333)"
+       id="text7"
+       style="font-size:13.3333px;font-family:Sans;-inkscape-font-specification:Sans;letter-spacing:0px;white-space:pre;shape-inside:url(#rect7);fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:0;stroke-linejoin:round;stroke-dasharray:none;stroke-opacity:1"><tspan
+         x="45.119141"
+         y="788.76789"
+         id="tspan2">z<tspan
+   style="font-size:65%;baseline-shift:sub"
+   id="tspan1">ice</tspan> - ice thickness
+</tspan><tspan
+         x="45.119141"
+         y="805.43452"
+         id="tspan12">z<tspan
+   style="font-size:65%;baseline-shift:sub"
+   id="tspan5">epi</tspan> - thickness of upper lake (epilimnion)
+</tspan><tspan
+         x="45.119141"
+         y="822.10114"
+         id="tspan14">z<tspan
+   style="font-size:65%;baseline-shift:sub"
+   id="tspan13">hyp</tspan> - thickness of lower lake (metalimnion and hypolimnion)</tspan></text>
+  </g>
+</svg>
