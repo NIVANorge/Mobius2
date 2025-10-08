@@ -158,9 +158,9 @@ module("Phytoplankton 2", version(0, 0, 0),
 	phyt_par : preamble,
 ) {
 """
-A phytoplankton module that is based on non-exponential growth. This is more stable and easier to calibrate, but can some times miss growth peaks.
+A phytoplankton module that is based on exponential growth. Inspired by OxyDep.
 
-Authors: Magnus Dahler Norling, François Clayer
+Authors: Magnus Dahler Norling
 """
 
 	load("stdlib/physiochemistry.txt", library("Chemistry"))
