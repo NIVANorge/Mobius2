@@ -36,10 +36,6 @@ See the [mathematical description](autogen/easylake.html#easychem-particulate).
 
 ## EasyTox
 
-This is a contaminant module for EasyLake meant for use in combination with [SimplyTox](simply.html#simplytox). The contaminants in each lake compartment are partitioned between truly dissolved form, dissolved organic carbon and particulate organic carbon.
-
-There is also surface-air and surface-sediment exchange of contaminants that works similarly to the SimplyTox river compartment.
-
-Mathematical description is forthcoming.
+See the [separate page](easytox.html).
 
 {% include lib/mathjax.html %}
