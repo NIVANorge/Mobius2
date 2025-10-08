@@ -3,6 +3,8 @@
 model("NIVAFjord lake SimplyTox") {
 """
 TODO: Maybe we want a simpler biochemistry model for this one, not the entire NIVAFjord biochemistry...
+
+Or this could just extend nivafjord_lake_base
 """
 	
 	# Don't declare the solver configuration in simplytox because it is already done in NIVAFjord
