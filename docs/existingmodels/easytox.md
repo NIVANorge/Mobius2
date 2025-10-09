@@ -10,7 +10,7 @@ nav_order: 0
 
 **This page is under construction.**
 
-TODO: Link to math descriptions. Link to source code.
+TODO: Link to math descriptions. Link to source code. Reference to papers.
 
 EasyTox is a contaminant module for the EasyLake model, to be used in conjunction with the SimplyTox contaminant catchment model.
 
@@ -20,7 +20,7 @@ This page describes the version of the model that was built for the FuNitr proje
 
 ![Water flow diagram](../img/easytox/waterflow.png)
 
-Figure: A conceptual water balance diagram for the model.
+Figure: A conceptual water balance diagram for the model. This is a simplified diagram. It is possible to connect several river sections and lakes in arbitrary branching structures. Land hydrology can be separated into sub-catchments and land use classes.
 
 ### SimplyQ (catchment hydrology)
 
