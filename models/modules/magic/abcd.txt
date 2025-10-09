@@ -1,0 +1,81 @@
+
+module("ABCD hydrology", version(0, 1, 0),
+	hydro : compartment,
+
+) {
+"""
+This is the ABCD hydrological model, with snow sub-model taken from WASMOD.
+
+[Harold A. Thomas Jr. 1981, Improved methods for national water assessment: Final report, U.S. Geol. Surv. Water Resour. Contract WR15249270](https://doi.org/10.3133/70046351)
+
+[Guillermo F. Martinez and Hoshin V. Gupta 2010, Toward improved identification of hydrological models: A diagnostic evaluation of the “abcd” monthly water balance model for the conterminous United States, Water Resources Research 46(8)](https://doi.org/10.1029/2009WR008294)
+
+[C-Y Xu and Sven Halldin (1997). The Effect of Climate Change on River Flow and Snow Cover in the NOPEX Area Simulated by a Simple Water Balance Model. Hydrology Research 28 (4-5), pp. 273–282.](https://doi.org/10.2166/nh.1998.19)
+"""
+	
+	par_group("ABCD") {
+		int : par_real("Precipitation interception", [], 0, 0, 1, "Fraction of precipitation that is intercepted in the canopy and evaporates")
+		a : par_real("A", [], 1, 0.5, 1, "Propensity for runoff below saturation. A value of 1 means no runoff when soil moisture is below field capacity")
+		b : par_real("B", [m m], 150, 0, 500, "Field capacity")
+		c : par_real("C", [], 0.5, 0, 1, "Baseflow index")
+		d : par_real("D", [month-1], 0.1, 0, 20, "Groundwater flow rate")
+		Tmelt : par_real("Snow melts above this temperature", [deg_c], 0, -4, 4)
+		Tsnow_off : par_real("Precipitation falls as snow below this temperature", [deg_c], 0.1, 0.001, 10, "This is an offset from the snow melt temperature. Must be nonzero")
+	}
+
+	p_eff : property("Effective precipitation")
+	p_snow : property("Snowfall")
+	p_rain : property("Rainfall")
+	melt   : property("Snowmelt")
+	avail  : property("Available water")
+	pot_etp : property("Evapotranspiration opportunity")
+	etp : property("Evapotranspiration")
+	flow : property("Soil flow")
+	
+	# TODO: could have configurable initial
+	var(hydro.pack, [m m], "Snow pack") @initial { 0[m m] }
+	@override { 
+		last(pack) + (p_snow - melt)*1[month]
+	}
+	
+	var(hydro.water, [m m], "Soil moisture") @initial { b }
+	@override {
+		avail - (etp + flow)*1[month]
+	}
+	
+	var(hydro.gwwater, [m m], "Groundwater") @initial { 0[m m] }
+	@override {
+		(last(gwwater) + c*flow) / (1 + d)
+	}
+	
+	var(hydro.p_eff, [m m, month-1]) {  (1 - int)*precip }
+	
+	var(hydro.p_snow, [m m, month-1]) {
+		excess_t := min(air_t - (Tmelt + Tsnow_off), 0),
+		frac := 1 - exp(-(excess_t / Tsnow_off)^2),
+		p_eff*max(0, frac)
+	}
+	
+	var(hydro.p_rain, [m m, month-1]) {  p_eff - p_snow  }
+	
+	var(hydro.melt, [m m, month-1]) {
+		excess_t := max(0, air_t - Tmelt),
+		frac := 1 - exp(-(excess_t/Tsnow_off)^2),
+		last(pack)*max(0, frac)
+	}
+	
+	var(hydro.avail, [m m]) {
+		p_rain + melt + last(water)
+	} @no_store
+	
+	var(hydro.pot_etp, [m m, month-1]) {
+		f := (b + avail)/(2*a),
+		f - sqrt(f^2 - avail*b/a)
+	}
+	
+	var(hydro.etp, [m m, month-1]) {  pot_etp*(1 - exp(-pet/b))  }
+	
+	var(hydro.flow, [m m, month-1]) {  avail - pot_etp  }
+		
+	var(hydro.runoff, [m m, month-1]) {  (1 - c)*flow + d*gwwater  }
+}
