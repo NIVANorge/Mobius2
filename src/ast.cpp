@@ -471,6 +471,19 @@ Math_Expr_AST *
 potentially_parse_unit_conversion(Token_Stream *stream, Math_Expr_AST *lhs, bool expect_operator = true);
 
 Math_Expr_AST *
+potentially_fix_unary_exponent_combo(Binary_Operator_AST *binop) {
+	// NOTE: We want a special case so that exponentiation has precedence before unary minus. E.g. -a^2 should be read as -(a^2), not (-a)^2.
+	if(binop->oper != (Token_Type)'^') return binop;
+	auto unary = binop->exprs[0];
+	if(unary->type != Math_Expr_Type::unary_operator) return binop;
+	
+	auto unary_arg = unary->exprs[0];
+	binop->exprs[0] = unary_arg;
+	unary->exprs[0] = binop;
+	return unary;
+}
+
+Math_Expr_AST *
 potentially_parse_binary_operation_rhs(Token_Stream *stream, int prev_prec, Math_Expr_AST *lhs) {
 	
 	while(true) {
@@ -500,7 +513,8 @@ potentially_parse_binary_operation_rhs(Token_Stream *stream, int prev_prec, Math
 		binop->exprs.push_back(lhs);
 		binop->exprs.push_back(rhs);
 		binop->source_loc = token.source_loc;
-		lhs = binop;
+		
+		lhs = potentially_fix_unary_exponent_combo(binop);
 	}
 }
 
@@ -556,6 +570,18 @@ parse_math_expr(Token_Stream *stream) {
 	auto lhs = parse_primary_expr(stream);
 	return potentially_parse_binary_operation_rhs(stream, 0, lhs);
 }
+
+Math_Expr_AST *
+parse_unary(Token_Stream *stream) {
+	auto token = stream->read_token();
+	Source_Location source_loc = token.source_loc;
+	auto unary = new Unary_Operator_AST();
+	unary->oper = token.type;
+	auto expr = parse_primary_expr(stream);
+	unary->exprs.push_back(expr);
+	unary->source_loc = source_loc;
+	return unary;
+}
 	
 Math_Expr_AST *
 parse_primary_expr(Token_Stream *stream) {
@@ -563,13 +589,7 @@ parse_primary_expr(Token_Stream *stream) {
 	Token token = stream->peek_token();
 	
 	if((char)token.type == '-' || (char)token.type == '!') {
-		Source_Location source_loc = token.source_loc;
-		stream->read_token();
-		auto unary = new Unary_Operator_AST();
-		unary->oper = token.type;
-		unary->exprs.push_back(parse_primary_expr(stream));
-		unary->source_loc = source_loc;
-		result = unary;
+		result = parse_unary(stream);
 	} else if((char)token.type == '{') {
 		result = parse_math_block(stream);
 	} else if (token.type == Token_Type::identifier) {
