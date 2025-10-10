@@ -1,7 +1,13 @@
 
 module("ABCD hydrology", version(0, 1, 0),
+	comp : compartment,
 	hydro : compartment,
-
+	pack : quantity,
+	water : quantity,
+	gwwater : quantity,
+	runoff : property,
+	air_t : property,
+	precip : property,
 ) {
 """
 This is the ABCD hydrological model, with snow sub-model taken from WASMOD.
@@ -30,7 +36,11 @@ This is the ABCD hydrological model, with snow sub-model taken from WASMOD.
 	avail  : property("Available water")
 	pot_etp : property("Evapotranspiration opportunity")
 	etp : property("Evapotranspiration")
+	pet : property("Potential evapotranspiration")
 	flow : property("Soil flow")
+	
+	#Input series
+	var(hydro.pet, [m m, month-1])
 	
 	# TODO: could have configurable initial
 	var(hydro.pack, [m m], "Snow pack") @initial { 0[m m] }
@@ -43,15 +53,16 @@ This is the ABCD hydrological model, with snow sub-model taken from WASMOD.
 		avail - (etp + flow)*1[month]
 	}
 	
+	# NOTE: It is more idiomatic to put groundwater in a separate compartment, but we don't bother here.
 	var(hydro.gwwater, [m m], "Groundwater") @initial { 0[m m] }
 	@override {
-		(last(gwwater) + c*flow) / (1 + d)
+		(last(gwwater) + c*flow*1[month]) / (1 + d=>[])
 	}
 	
-	var(hydro.p_eff, [m m, month-1]) {  (1 - int)*precip }
+	var(hydro.p_eff, [m m, month-1]) {  (1 - int)*comp.precip }
 	
 	var(hydro.p_snow, [m m, month-1]) {
-		excess_t := min(air_t - (Tmelt + Tsnow_off), 0),
+		excess_t := min(comp.air_t - (Tmelt + Tsnow_off), 0),
 		frac := 1 - exp(-(excess_t / Tsnow_off)^2),
 		p_eff*max(0, frac)
 	}
@@ -59,23 +70,23 @@ This is the ABCD hydrological model, with snow sub-model taken from WASMOD.
 	var(hydro.p_rain, [m m, month-1]) {  p_eff - p_snow  }
 	
 	var(hydro.melt, [m m, month-1]) {
-		excess_t := max(0, air_t - Tmelt),
+		excess_t := max(0, comp.air_t - Tmelt),
 		frac := 1 - exp(-(excess_t/Tsnow_off)^2),
-		last(pack)*max(0, frac)
+		last(pack)*max(0, frac)*1[month-1]
 	}
 	
 	var(hydro.avail, [m m]) {
-		p_rain + melt + last(water)
+		(p_rain + melt)*1[month] + last(water)
 	} @no_store
 	
 	var(hydro.pot_etp, [m m, month-1]) {
 		f := (b + avail)/(2*a),
-		f - sqrt(f^2 - avail*b/a)
+		(f - sqrt(f^2 - avail*b/a))*1[month-1]
 	}
 	
-	var(hydro.etp, [m m, month-1]) {  pot_etp*(1 - exp(-pet/b))  }
+	var(hydro.etp, [m m, month-1]) {  pot_etp*(1 - exp(-(pet*1[month])/b))  }
 	
-	var(hydro.flow, [m m, month-1]) {  avail - pot_etp  }
+	var(hydro.flow, [m m, month-1]) {  avail*1[month-1] - pot_etp  }
 		
 	var(hydro.runoff, [m m, month-1]) {  (1 - c)*flow + d*gwwater  }
 }

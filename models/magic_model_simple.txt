@@ -2,9 +2,17 @@
 
 model("MAGIC (simple)") {
 
+	option_group("MAGIC configuration") {
+		use_mod_q : par_enum("Use modeled runoff", no, "Model the runoff with the ABCD model") {
+			no always fill_gaps
+		}
+		
+	}
+
 	ci : index_set("Compartment index")
 	
 	comp : compartment("Compartment", ci)
+	hydro : compartment("Hydrology", ci)
 	
 	con : connection("Compartment connection") @directed_graph { comp+ out } @no_cycles
 	
@@ -35,12 +43,26 @@ model("MAGIC (simple)") {
 	conc_oa    : property("Organic acid concentration")
 	temp       : property("Temperature")
 	rel_runoff : property("Area-relative runoff")
+	mod_runoff : property("Modeled runoff")
+	
+	air_t : property("Air temperature")
+	precip : property("Precipitation")
 	
 	load("modules/magic/magic_core_wrapper.txt",
 		module("MAGIC core", comp, ca, mg, na, k, nh4, so4, cl, no3, f, po4, concn, conc_all, bal, conc_oa, temp, rel_runoff))
 	
+	option(use_mod_q.no) {
+	} @otherwise {
+		pack : quantity("Snow pack")
+		water : quantity("Soil moisture")
+		gwwater : quantity("Groundwater")
+		
+		load("modules/magic/abcd.txt",
+			module("ABCD hydrology", comp, hydro, pack, water, gwwater, mod_runoff, air_t, precip))
+	}
+	
 	load("modules/magic/magic_forest_drivers.txt",
-		module("MAGIC-Forest drivers", comp, ca, mg, na, k, nh4, so4, cl, no3, f, po4, ts, ext_in, bal, conc_oa, temp, concn, conc_all, rel_runoff, rel_a, con))
+		module("MAGIC-Forest drivers", comp, hydro, ca, mg, na, k, nh4, so4, cl, no3, f, po4, ts, ext_in, bal, conc_oa, temp, concn, conc_all, mod_runoff, rel_runoff, air_t, precip, rel_a, use_mod_q, con))
 		
 	load("modules/magic/magic_forest_cnp.txt",
 		module("MAGIC-Forest CNP", comp, nh4, no3, po4, ts, ext_in))

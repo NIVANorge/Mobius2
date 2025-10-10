@@ -1,6 +1,7 @@
 
-module("MAGIC-Forest drivers", version(0, 0, 2),
+module("MAGIC-Forest drivers", version(0, 0, 3),
 	comp      : compartment,
+	hydro     : compartment,
 	ca        : quantity,
 	mg        : quantity,
 	na        : quantity,
@@ -18,8 +19,12 @@ module("MAGIC-Forest drivers", version(0, 0, 2),
 	temp      : property,
 	concn     : property,
 	conc_all  : property,
+	mod_runoff: property,
 	rel_runoff: property,
+	air_t     : property,
+	precip    : property,
 	rel_area  : par_real,
+	use_mod_q : par_enum,
 	con       : connection
 ) {
 	
@@ -86,8 +91,6 @@ module("MAGIC-Forest drivers", version(0, 0, 2),
 		max(0, oa - adjoa*(so4.conc_all*redoa) )
 	}
 	
-	air_t : property("Air temperature")
-	precip : property("Precipitation")
 	qout : property("Runoff")
 	
 	# NOTE: These three can be overridden with input series
@@ -103,15 +106,25 @@ module("MAGIC-Forest drivers", version(0, 0, 2),
 		time.step_length_in_seconds*1[month-1] / (time.days_this_year * 86400[s, day-1])
 	} @no_store
 	
-	# TODO: It is not the best solution to make the user input the ro_scale
-	# (even more complicated if you have more chained parameters)
-	# (scale is sum of rel_area of compartments before it including itself, divided by rel_area of itself)
-	# (before only counts those sideways, not those in a layer above)
-	var(comp.rel_runoff, [m, month-1]) {
-		qout*ro_scale->>
-		#(qout / rel_area)->>   if is_finite(qout) & qout > 1e-6[m m, month-1],
-		#ro_par*ts              otherwise
-	} @no_store
+	option(use_mod_q.no) {
+		# TODO: It is not the best solution to make the user input the ro_scale
+		# (even more complicated if you have more chained parameters)
+		# (scale is sum of rel_area of compartments before it including itself, divided by rel_area of itself)
+		# (before only counts those sideways, not those in a layer above)
+		var(comp.rel_runoff, [m, month-1]) {
+			qout*ro_scale->>
+			#(qout / rel_area)->>   if is_finite(qout) & qout > 1e-6[m m, month-1],
+			#ro_par*ts              otherwise
+		} @no_store
+	} @otherwise {
+		var(comp.rel_runoff, [m, month-1]) {
+			q := {
+				qout if is_finite(qout) & !use_mod_q.always,
+				hydro.mod_runoff otherwise
+			},
+			q*ro_scale->>
+		} @no_store
+	}
 	
 	tot_dep : property("Total deposition")
 	

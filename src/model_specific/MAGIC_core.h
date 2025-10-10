@@ -734,8 +734,12 @@ MagicCore(const magic_input &Input, const magic_param &Param, magic_output &Resu
 			// TODO: Have to come up with a specific way to signal an error in an
 			// external_computation, because we can't throw exceptions
 			
-			//if(Iter == 99)
-			//	fatal_error(Mobius_Error::model_specific, "(timestep: ", Timestep, ", compartment: ", CompartmentIdx, ") Core solution ion balance failed to converge in 100 iterations\n CBAL: ", ChargeBalance0, " SBC: ", Result.SumBaseCationConc, " NetAl: ", NetAlCharge, " H: ", Result.conc_H, " NH4: ", Result.conc_NH4, " SAA: ", Result.SumAcidAnionConc, " DIC: ", Result.all_DIC, " DOC: ", Result.all_DOC, " KH/H: ", Coeff.K_W/Result.conc_H, "\n", "Ca: ", Result.conc_Ca, " Mg: ", Result.conc_Mg, " Na: ", Result.conc_Na, " K: ", Result.conc_K, " SO4: ", Result.conc_SO4, " Cl: ", Result.conc_Cl, " NO3: ", Result.conc_NO3, "\n");
+			/*
+			if(Iter == 99) {
+				log_print("(timestep: ", Timestep, ", compartment: ", CompartmentIdx, ") Core solution ion balance failed to converge in 100 iterations\n CBAL: ", ChargeBalance0, " SBC: ", Result.SumBaseCationConc, " NetAl: ", NetAlCharge, " H: ", Result.conc_H, " NH4: ", Result.conc_NH4, " SAA: ", Result.SumAcidAnionConc, " DIC: ", Result.all_DIC, " DOC: ", Result.all_DOC, " KH/H: ", Coeff.K_W/Result.conc_H, "\n", "Ca: ", Result.conc_Ca, " Mg: ", Result.conc_Mg, " Na: ", Result.conc_Na, " K: ", Result.conc_K, " SO4: ", Result.conc_SO4, " Cl: ", Result.conc_Cl, " NO3: ", Result.conc_NO3, "\n");
+				break;
+			}
+			*/
 		}
 	}
 	
@@ -930,8 +934,12 @@ MagicCoreInitial(const magic_init_input &Input, const magic_param &Param, magic_
 		
 			ChargeBalance = ChargeBalance0;
 			
-			//if(Iter == 999)
-			//	log_print("WARNING: Initial solution failed to converge.\n");
+			/*
+			if(Iter == 999) {
+				log_print("WARNING: Initial solution failed to converge.\n");
+				break;
+			}
+			*/
 		}
 	}
 	
