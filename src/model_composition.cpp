@@ -363,10 +363,11 @@ index_set_is_contained_in(Mobius_Model *model, Entity_Id first, Index_Set_Tuple 
 
 
 bool
-index_sets_are_contained_in(Mobius_Model *model, Index_Set_Tuple &first, Index_Set_Tuple &second) {
+index_sets_are_contained_in(Mobius_Model *model, Index_Set_Tuple &first, Index_Set_Tuple &second, Entity_Id *err_set=nullptr) {
 	bool success = true;
 	for(auto set : first) {
 		if(!index_set_is_contained_in(model, set, second)) {
+			if(err_set) *err_set = set;
 			success = false;
 			break;
 		}
@@ -375,7 +376,7 @@ index_sets_are_contained_in(Mobius_Model *model, Index_Set_Tuple &first, Index_S
 }
 
 bool
-parameter_indexes_below_location(Model_Application *app, const Identifier_Data &dep, Index_Set_Tuple &allowed_index_sets) {
+parameter_indexes_below_location(Model_Application *app, const Identifier_Data &dep, Index_Set_Tuple &allowed_index_sets, Entity_Id *err_set) {
 		
 	auto model = app->model;
 	auto par = model->parameters[dep.par_id];
@@ -386,11 +387,11 @@ parameter_indexes_below_location(Model_Application *app, const Identifier_Data &
 	Index_Set_Tuple maximal_group_sets = group->max_index_sets;
 	maximal_group_sets.remove(exclude); // TODO: Is this always correct? Do we have to take into consideration removing union members if we remove a union??
 	
-	return index_sets_are_contained_in(model, maximal_group_sets, allowed_index_sets);
+	return index_sets_are_contained_in(model, maximal_group_sets, allowed_index_sets, err_set);
 }
 
 void
-check_valid_distribution_of_dependencies(Model_Application *app, Math_Expr_FT *function, Index_Set_Tuple &allowed_index_sets) {
+check_valid_distribution_of_dependencies(Model_Application *app, Math_Expr_FT *function, Index_Set_Tuple &allowed_index_sets, Specific_Var_Location &context_loc) {
 	
 	// TODO: The loc in this function is really the below_loc. Maybe rename it to avoid confusion.
 	
@@ -408,18 +409,26 @@ check_valid_distribution_of_dependencies(Model_Application *app, Math_Expr_FT *f
 		
 		if(dep.variable_type == Variable_Type::parameter) {
 			
-			if(!parameter_indexes_below_location(app, dep, allowed_index_sets)) {
+			Entity_Id err_set;
+			if(!parameter_indexes_below_location(app, dep, allowed_index_sets, &err_set)) {
 				source_loc.print_error_header(Mobius_Error::model_building);
-				fatal_error("This code looks up the parameter \"", app->model->parameters[dep.par_id]->name, "\". This parameter belongs to a component that is distributed over a higher number of index sets than the context location of the code.");
+				error_print("This code looks up the parameter \"", app->model->parameters[dep.par_id]->name, "\". This parameter is attached to a component that can be distributed over the index set \"", model->index_sets[err_set]->name, "\". This index set can't be indexed from the context location of the code: ");
+				error_print_location(model, context_loc);
+				error_print(" . A potential fix is to change the distribution of the compartment of the latter context location to include this index set if that makes sense for the model.");
+				mobius_error_exit();
 			}
 		} else if (dep.is_input_series()) {
 			
 			Specific_Var_Location ident_loc(app->vars[dep.var_id]->loc1, dep.restriction);
 			auto maximal_series_sets = get_allowed_index_sets(app, ident_loc);
 			
-			if(!index_sets_are_contained_in(model, maximal_series_sets, allowed_index_sets)) {
+			Entity_Id err_set;
+			if(!index_sets_are_contained_in(model, maximal_series_sets, allowed_index_sets, &err_set)) {
 				source_loc.print_error_header(Mobius_Error::model_building);
-				fatal_error("This code looks up the input series \"", app->vars[dep.var_id]->name, "\". This series has a location that is distributed over a higher number of index sets than the context location of the code.");
+				error_print("This code looks up the input series \"", app->vars[dep.var_id]->name, "\". This series has a location that can be distributed over the index set \"", model->index_sets[err_set]->name, "\". This index set can't be indexed from the context location of the code:");
+				error_print_location(model, context_loc);
+				error_print(" . A potential fix is to change the distribution of the compartment of the latter context location to include this index set if that makes sense for the model.");
+				mobius_error_exit();
 			}
 		
 		} else if (dep.is_computed_series()) {
@@ -450,9 +459,13 @@ check_valid_distribution_of_dependencies(Model_Application *app, Math_Expr_FT *f
 			Specific_Var_Location var_loc(dep_var->loc1, dep.restriction);
 			auto maximal_var_sets = get_allowed_index_sets(app, var_loc);
 			
-			if(!index_sets_are_contained_in(model, maximal_var_sets, allowed_index_sets)) {
+			Entity_Id err_set;
+			if(!index_sets_are_contained_in(model, maximal_var_sets, allowed_index_sets, &err_set)) {
 				source_loc.print_error_header(Mobius_Error::model_building);
-				fatal_error("This code looks up the state variable \"", dep_var->name, "\". The latter state variable is distributed over a higher number of index sets than the context location of the prior code.");
+				error_print("This code looks up the state variable \"", dep_var->name, "\". The latter state variable has a location that can be distributed over the index set \"", model->index_sets[err_set]->name, "\". This index set can't be indexed from the context location of the prior code: ");
+				error_print_location(model, context_loc);
+				error_print(" . A potential fix is to change the distribution of the compartment of the latter context location to include this index set if that makes sense for the model.");
+				mobius_error_exit();
 			}
 			
 		} else if (dep.variable_type == Variable_Type::is_at) {
@@ -1034,7 +1047,7 @@ get_aggregation_weight(Model_Application *app, const Var_Location &loc1, Entity_
 		Specific_Var_Location loc = loc1; // sigh
 		auto allowed_index_sets = get_allowed_index_sets(app, loc);
 		
-		check_valid_distribution_of_dependencies(app, agg_weight, allowed_index_sets);
+		check_valid_distribution_of_dependencies(app, agg_weight, allowed_index_sets, loc);
 		
 		return agg_weight;
 	}
@@ -1128,7 +1141,7 @@ get_unit_conversion(Model_Application *app, Var_Location &loc1, Var_Location &lo
 	Specific_Var_Location loc = loc1;
 	auto allowed_index_sets = get_allowed_index_sets(app, loc);
 	
-	check_valid_distribution_of_dependencies(app, unit_conv, allowed_index_sets);
+	check_valid_distribution_of_dependencies(app, unit_conv, allowed_index_sets, loc);
 	
 	return unit_conv;
 }
@@ -2031,13 +2044,14 @@ Model_Application::compose_and_resolve() {
 		
 		if(var->type != State_Var::Type::declared) continue;
 		auto var2 = as<State_Var::Type::declared>(var);
-
+		
+		auto &loc = is_located(var->loc1) ? var->loc1 : var->loc2; // TODO: get_context_location function?
 		if(var2->function_tree)
-			check_valid_distribution_of_dependencies(this, var2->function_tree.get(), var2->allowed_index_sets);
+			check_valid_distribution_of_dependencies(this, var2->function_tree.get(), var2->allowed_index_sets, loc);
 		if(var2->initial_function_tree)
-			check_valid_distribution_of_dependencies(this, var2->initial_function_tree.get(), var2->allowed_index_sets);
+			check_valid_distribution_of_dependencies(this, var2->initial_function_tree.get(), var2->allowed_index_sets, loc);
 		if(var2->specific_target)
-			check_valid_distribution_of_dependencies(this, var2->specific_target.get(), var2->allowed_index_sets);
+			check_valid_distribution_of_dependencies(this, var2->specific_target.get(), var2->allowed_index_sets, loc);
 	}
 	
 	for(auto var_id : vars.all_state_vars()) {
