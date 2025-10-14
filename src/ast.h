@@ -108,6 +108,7 @@ Math_Expr_AST : Expr_AST {
 	Math_Expr_Type               type;
 	std::vector<Math_Expr_AST *> exprs;
 	Source_Location              source_loc;
+	bool                         is_parenthesized = false;
 	
 	Math_Expr_AST(Math_Expr_Type type) : type(type) {};
 	virtual ~Math_Expr_AST() { for(auto expr : exprs) delete expr; }

@@ -17,8 +17,6 @@ close_due_to_error(OpenXLSX::XLDocument &doc, int tab, u32 row, u16 col) {
 	doc.close();
 }
 
-// Hmm, right now the cell value is often Error when generated from openpyxl. Have to figure out why
-// It is not ideal to treat Error as empty.
 bool
 is_empty_type(OpenXLSX::XLValueType val) {
 	using namespace OpenXLSX;
@@ -131,19 +129,28 @@ read_series_data_from_sheet(Data_Set *data_set, Series_Data *series, String_View
 	for(u16 col = 2; col <= sheet.columnCount(); ++col) {
 		bool got_name_this_column = false;
 		bool got_new_indexes_this_column = false;
+		bool got_new_name_this_column = false;
 		
 		auto cell = sheet.cell(1, col);
 		auto &inname = cell.value();
 		
 		if(inname.type() == XLValueType::String) {
 			got_name_this_column = true;
-			current_input_name = inname.get<std::string>();
+			std::string input_name = inname.get<std::string>();
+			if(!current_input_name.empty() && (input_name != current_input_name))
+				got_new_name_this_column = true;
+			current_input_name = std::move(input_name);
 		} else if(!is_empty_type(inname.type())) {
 			close_due_to_error(doc, tab, 1, col);
 			fatal_error("Expected a series name in string format.");
 		} else if(current_input_name.empty()) {
 			close_due_to_error(doc, tab, 1, col);
 			fatal_error("Missing a series name.");
+		}
+		
+		// NOTE: Don't carry over indexes from a previous series if that was a series with a different name.
+		if(got_new_name_this_column) {
+			for(auto &t : has_prev_index) t = false;
 		}
 		
 		std::vector<Token> index_names;

@@ -476,6 +476,7 @@ potentially_fix_unary_exponent_combo(Binary_Operator_AST *binop) {
 	if(binop->oper != (Token_Type)'^') return binop;
 	auto unary = binop->exprs[0];
 	if(unary->type != Math_Expr_Type::unary_operator) return binop;
+	if(unary->is_parenthesized) return binop;
 	
 	auto unary_arg = unary->exprs[0];
 	binop->exprs[0] = unary_arg;
@@ -626,6 +627,7 @@ parse_primary_expr(Token_Stream *stream) {
 	} else if ((char)token.type == '(') {
 		stream->read_token();
 		result = parse_math_expr(stream);
+		result->is_parenthesized = true;
 		Token token = stream->read_token();
 		if((char)token.type != ')') {
 			token.print_error_header();

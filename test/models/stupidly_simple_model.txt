@@ -11,8 +11,7 @@ model("Simple test model") {
 		}
 		
 		var(a.q, [], "A Q") {
-			0 if b = false, 
-			sin( 2*pi*time.day_of_year/time.days_this_year =>[] ) otherwise
+			(-1)^(time.step=>[])
 		}
 	}
 }
