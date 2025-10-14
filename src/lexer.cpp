@@ -345,6 +345,7 @@ Token_Stream::read_string(Token *token) {
 					read_char(); read_char();
 					--token->string_value.count;
 					for(int i = 0; i < 2; ++i) {
+						if(token->string_value.count == 0) break;
 						auto c = token->string_value[token->string_value.count-1];
 						if(c == '\n' || c == '\r')
 							--token->string_value.count;  // Trim away closing newline right before """ if it exists.						
