@@ -454,14 +454,20 @@ mobius_get_value_type(Model_Data *data, Entity_Id id) {
 	return -1;
 }
 
-// TODO: For some parameters we need to check if they are baked, and then set a flag on the Model_Application telling it it has to be recompiled before further use.
-//   This must then be reflected in mobipy so that it actually does the recompilation.
+// TODO: We could allow editing baked parameters if we trigger a reload of the model, but it is a bit tricky
+void
+check_allowed_to_edit(Model_Application *app, Entity_Id par_id) {
+	if(app->is_baked_parameter(par_id)) {
+		fatal_error(Mobius_Error::api_usage, "The parameter \"", app->model->parameters[par_id]->name, "\" can currently not be edited from this interface since its value is baked into the model compilation. It can only be edited in the data file.");
+	}
+}
 
-// TODO: These should maybe check that the parameter is indeed of that type..
+// TODO: These should maybe check that the parameter is indeed of that type.. Although that would only happen if the python layer was programmed wrong.
 DLLEXPORT void
 mobius_set_parameter_int(Model_Data *data, Entity_Id par_id, Mobius_Index_Value *indexes, s64 indexes_count, s64 value) {
 	auto app = data->app;
 	try {
+		check_allowed_to_edit(app, par_id);
 		s64 offset = get_offset_by_index_values(app, &app->parameter_structure, par_id, indexes, indexes_count);
 		(*data->parameters.get_value(offset)).val_integer = value; // Again, shouldn't matter what type we copy since the bytes will be correct.
 	} catch(int) {}
@@ -471,6 +477,7 @@ DLLEXPORT void
 mobius_set_parameter_real(Model_Data *data, Entity_Id par_id, Mobius_Index_Value *indexes, s64 indexes_count, double value) {
 	auto app = data->app;
 	try {
+		//check_allowed_to_edit(app, par_id); // I don't think this is ever the case for this type of parameter
 		s64 offset = get_offset_by_index_values(app, &app->parameter_structure, par_id, indexes, indexes_count);
 		(*data->parameters.get_value(offset)).val_real = value; // Again, shouldn't matter what type we copy since the bytes will be correct.
 	} catch(int) {}

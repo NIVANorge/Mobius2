@@ -101,8 +101,8 @@ mobius_get_entity(Model_Data *data, Entity_Id scope_id, char *handle_name);
 DLLEXPORT Var_Id
 mobius_deserialize_var(Model_Data *data, char *serial_name);
 
-DLLEXPORT Var_Id
-mobius_get_flux(Model_Data *data, Entity_Id decl_id);
+//DLLEXPORT Var_Id
+//mobius_get_flux(Model_Data *data, Entity_Id decl_id);
 
 DLLEXPORT Var_Id
 mobius_get_var_id_from_list(Model_Data *data, Entity_Id *ids, s64 id_count);

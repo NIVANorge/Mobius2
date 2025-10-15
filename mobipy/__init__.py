@@ -148,8 +148,8 @@ def load_dll() :
 	dll.mobius_deserialize_var.argtypes = [ctypes.c_void_p, ctypes.c_char_p]
 	dll.mobius_deserialize_var.restype = Var_Id
 
-	dll.mobius_get_flux.argtypes = [ctypes.c_void_p, Entity_Id]
-	dll.mobius_get_flux.restype = Var_Id
+	#dll.mobius_get_flux.argtypes = [ctypes.c_void_p, Entity_Id]
+	#dll.mobius_get_flux.restype = Var_Id
 
 	dll.mobius_get_var_id_from_list.argtypes = [ctypes.c_void_p, ctypes.POINTER(Entity_Id), ctypes.c_int64]
 	dll.mobius_get_var_id_from_list.restype = Var_Id
