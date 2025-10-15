@@ -455,6 +455,10 @@ Model_Application {
 		return std::find(baked_parameters.begin(), baked_parameters.end(), par_id) != baked_parameters.end();
 	}
 	
+	bool        is_option_parameter(Entity_Id par_id) {
+		return model->par_groups[model->parameters[par_id]->scope_id]->decl_type == Decl_Type::option_group;
+	}
+	
 	enum class Edit_Form { direct, map, disabled };
 	Edit_Form   get_parameter_edit_form(Entity_Id par_id);
 	

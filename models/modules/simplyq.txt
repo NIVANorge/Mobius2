@@ -279,5 +279,5 @@ Authors: Leah A. Jackson-Blake
         water / tc_reach
 	} @initial { init_flow } @no_store
 	
-	flux(river.water, river_target, [m 3, s-1], "Daily mean reach flow")  {  flow ->>  }
+	flux(river.water, river_target, [m 3, s-1], "Reach flow flux")  {  flow ->>  }
 }

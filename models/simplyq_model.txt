@@ -80,7 +80,7 @@ model("SimplyQ") {
 	}
 	option(river_module.manual) {
 		tc_reach : property("Reach time constant")
-		load("modules/simplyq.txt", module("SimplyQ river trapezoid", river, water, flow, tc_reach, loc(downstream)))
+		load("modules/simplyq.txt", module("SimplyQ river manual", river, water, flow, tc_reach, loc(downstream)))
 	}
 	
 	option(pet_module.degree_day) {
