@@ -131,9 +131,9 @@ function setup_model(model_file::String, data_file::String, ; store_transport_fl
 	return Model_Data(result, true)
 end
 
-function copy_data(data::Model_Data, copy_results::Bool=false)::Model_Data
-	result = ccall(copy_data_h, Ptr{Cvoid}, (Ptr{Cvoid}, Cint),
-		data.ptr, copy_results)
+function copy_data(data::Model_Data, copy_results::Bool=true, copy_inputs::Bool=false)::Model_Data
+	result = ccall(copy_data_h, Ptr{Cvoid}, (Ptr{Cvoid}, Cint, Cint),
+		data.ptr, copy_results, copy_inputs)
 	return Model_Data(result, false)
 end
 
