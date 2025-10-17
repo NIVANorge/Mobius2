@@ -325,7 +325,7 @@ struct Model_Data {
 		fatal_error(Mobius_Error::internal, "Unrecognized Var_Id::Type.");
 	}
 	
-	Model_Data *copy(bool copy_results = true);
+	Model_Data *copy(bool copy_results = true, bool copy_series = false);
 	Date_Time get_start_date_parameter();
 	Date_Time get_end_date_parameter();
 };

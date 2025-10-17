@@ -1266,14 +1266,20 @@ Model_Data::Model_Data(Model_Application *app) :
 
 // TODO: this should take flags on what to copy and what to keep a reference of!
 Model_Data *
-Model_Data::copy(bool copy_results) {
+Model_Data::copy(bool copy_results, bool copy_series) {
 	Model_Data *cpy = new Model_Data(app);
 	
 	cpy->parameters.copy_from(&this->parameters);
 	if(copy_results)
 		cpy->results.copy_from(&this->results);
-	cpy->series.refer_to(&this->series);
-	cpy->additional_series.refer_to(&this->additional_series);
+	if(copy_series) {
+		cpy->series.copy_from(&this->series);
+		cpy->additional_series.copy_from(&this->additional_series);
+	} else {
+		cpy->series.refer_to(&this->series);
+		cpy->additional_series.refer_to(&this->additional_series);
+	}
+	
 	cpy->connections.refer_to(&this->connections);
 	cpy->index_counts.refer_to(&this->index_counts);
 	return cpy;

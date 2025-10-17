@@ -123,9 +123,9 @@ mobius_delete_data(Model_Data *data) {
 }
 
 DLLEXPORT Model_Data *
-mobius_copy_data(Model_Data *data, bool copy_results) {
+mobius_copy_data(Model_Data *data, bool copy_results, bool copy_series) {
 	try {
-		return data->copy(copy_results);
+		return data->copy(copy_results, copy_series);
 	} catch(int) {}
 	return nullptr;
 }
@@ -559,6 +559,7 @@ mobius_get_entity_metadata(Model_Data *data, Entity_Id id) {
 	return result;
 }
 
+/*
 DLLEXPORT Var_Id
 mobius_get_flux(Model_Data *data, Entity_Id decl_id) {
 	try {
@@ -566,6 +567,7 @@ mobius_get_flux(Model_Data *data, Entity_Id decl_id) {
 	} catch(int) {}
 	return invalid_var;
 }
+*/
 
 DLLEXPORT s64
 mobius_entity_count(Model_Data *data, Entity_Id scope_id, Reg_Type type) {

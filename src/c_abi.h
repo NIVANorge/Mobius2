@@ -74,7 +74,7 @@ DLLEXPORT void
 mobius_delete_data(Model_Data *data);
 
 DLLEXPORT Model_Data *
-mobius_copy_data(Model_Data *data, bool copy_results);
+mobius_copy_data(Model_Data *data, bool copy_results, bool copy_series);
 
 DLLEXPORT void
 mobius_save_data_set(Model_Data *data, char *data_file);

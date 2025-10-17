@@ -1,7 +1,10 @@
 
 from .. import optim as opt
 
-def get_nh4_setup(app, calib_index='Soil', obs_index='River', obsname='Obs NH4') :
+def get_nh4_setup(app, calib_index='Soil', obs_index='River', obsname='Obs NH4', start=None, end=None) :
+	
+	if start is None : start = app.start_date[()]
+	if end is None : end = app.end_date[()]
 	
 	par_dict = {
 		'nitr' : ('MAGIC-Forest CNP', 'nitr', [calib_index], -100, 0),
@@ -11,11 +14,14 @@ def get_nh4_setup(app, calib_index='Soil', obs_index='River', obsname='Obs NH4')
 	
 	params, set_params = opt.params_from_dict(app, par_dict)
 
-	get_sim_obs = opt.residual_from_target(target, app.start_date[()], app.end_date[()])
+	get_sim_obs = opt.residual_from_target(target, start, end)
 
 	return params, set_params, target, get_sim_obs
 
-def get_no3_setup(app, calib_index='Soil', obs_index='River', obsname='Obs NO3') :
+def get_no3_setup(app, calib_index='Soil', obs_index='River', obsname='Obs NO3', start=None, end=None) :
+	
+	if start is None : start = app.start_date[()]
+	if end is None : end = app.end_date[()]
 	
 	par_dict = {
 		'denitr' : ('MAGIC-Forest CNP', 'denitr', [calib_index], -100, 0),
@@ -25,11 +31,14 @@ def get_no3_setup(app, calib_index='Soil', obs_index='River', obsname='Obs NO3')
 
 	params, set_params = opt.params_from_dict(app, par_dict)
 
-	get_sim_obs = opt.residual_from_target(target, app.start_date[()], app.end_date[()])
+	get_sim_obs = opt.residual_from_target(target, start, end)
 
 	return params, set_params, target, get_sim_obs
 	
-def get_ph_setup(app, calib_index='Soil', obsname='Obs Ph') :
+def get_ph_setup(app, calib_index='Soil', obsname='Obs Ph', start=None, end=None) :
+	
+	if start is None : start = app.start_date[()]
+	if end is None : end = app.end_date[()]
 	
 	par_dict = {
 		'oa' : ('MAGIC-Forest drivers', 'oa', [calib_index], 0, 200),
@@ -39,11 +48,14 @@ def get_ph_setup(app, calib_index='Soil', obsname='Obs Ph') :
 	
 	params, set_params = opt.params_from_dict(app, par_dict)
 
-	get_sim_obs = opt.residual_from_target(target, app.start_date[()], app.end_date[()])
+	get_sim_obs = opt.residual_from_target(target, start, end)
 
 	return params, set_params, target, get_sim_obs
 	
-def get_base_cation_weathering_setup(app, calib_index='Soil', obs_index='River', obsname='Obs %s') :
+def get_base_cation_weathering_setup(app, calib_index='Soil', obs_index='River', obsname='Obs %s', start=None, end=None) :
+	
+	if start is None : start = app.start_date[()]
+	if end is None : end = app.end_date[()]
 	
 	par_dict = {
 		'w_ca' : ('MAGIC-Forest drivers', 'w_ca', [calib_index], 0, 200),
@@ -61,11 +73,14 @@ def get_base_cation_weathering_setup(app, calib_index='Soil', obs_index='River',
 	
 	params, set_params = opt.params_from_dict(app, par_dict)
 
-	get_sim_obs = opt.residual_from_target(target, app.start_date[()], app.end_date[()])
+	get_sim_obs = opt.residual_from_target(target, start, end)
 
 	return params, set_params, target, get_sim_obs
 	
-def get_base_cation_exchangeable_fractions_setup(app, calib_index='Soil', obsname='Obs %s%%') :
+def get_base_cation_exchangeable_fractions_setup(app, calib_index='Soil', obsname='Obs %s%%', start=None, end=None) :
+	
+	if start is None : start = app.start_date[()]
+	if end is None : end = app.end_date[()]
 	
 	par_dict = {
 		'init_eca' : ('MAGIC core', 'init_eca', [calib_index], 0, 50),
@@ -83,12 +98,15 @@ def get_base_cation_exchangeable_fractions_setup(app, calib_index='Soil', obsnam
 	
 	params, set_params = opt.params_from_dict(app, par_dict)
 
-	get_sim_obs = opt.residual_from_target(target, app.start_date[()], app.end_date[()])
+	get_sim_obs = opt.residual_from_target(target, start, end)
 
 	return params, set_params, target, get_sim_obs
 	
-def get_base_cation_combined_setup(app, calib_index='Soil', obs_index='River', obsname_c='Obs %s', obsname_bs='Obs%s%%', obsname_ph=None, bs_weight=10) :
+def get_base_cation_combined_setup(app, calib_index='Soil', obs_index='River', obsname_c='Obs %s', obsname_bs='Obs%s%%', obsname_ph=None, do_al = False, bs_weight=10, start=None, end=None) :
 
+	if start is None : start = app.start_date[()]
+	if end is None : end = app.end_date[()]
+	
 	par_dict = {
 		'w_ca' : ('MAGIC-Forest drivers', 'w_ca', [calib_index], 0, 200),
 		'w_mg' : ('MAGIC-Forest drivers', 'w_mg', [calib_index], 0, 200),
@@ -101,6 +119,9 @@ def get_base_cation_combined_setup(app, calib_index='Soil', obs_index='River', o
 	}
 	#if obsname_ph :
 	par_dict['oa'] = ('MAGIC-Forest drivers', 'oa', [calib_index], 40, 100)
+	
+	if do_al :
+		par_dict['k_al'] = ('MAGIC core', 'k_al', [calib_index], 6, 14)
 	
 	target = [
 		('Ca(2+) ionic concentration', [obs_index], obsname_c%'Ca', [], 1),
@@ -117,6 +138,7 @@ def get_base_cation_combined_setup(app, calib_index='Soil', obs_index='River', o
 	
 	params, set_params = opt.params_from_dict(app, par_dict)
 
-	get_sim_obs = opt.residual_from_target(target, app.start_date[()], app.end_date[()], normalize=True)
+	get_sim_obs = opt.residual_from_target(target, start, end, normalize=True)
+	#get_sim_obs = opt.residual_from_target(target, app.start_date[()], app.end_date[()], normalize=True)
 
 	return params, set_params, target, get_sim_obs

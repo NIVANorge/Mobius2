@@ -123,7 +123,7 @@ def load_dll() :
 
 	dll.mobius_delete_data.argtypes = [ctypes.c_void_p]
 
-	dll.mobius_copy_data.argtypes = [ctypes.c_void_p, ctypes.c_bool]
+	dll.mobius_copy_data.argtypes = [ctypes.c_void_p, ctypes.c_bool, ctypes.c_bool]
 	dll.mobius_copy_data.restype  = ctypes.c_void_p
 	
 	dll.mobius_save_data_set.argtypes = [ctypes.c_void_p, ctypes.c_char_p]
@@ -434,8 +434,8 @@ class Model_Application(Scope) :
 		_check_for_errors()
 		return cls(data_ptr, True)
 	
-	def copy(self, copy_results = False) :
-		new_ptr = dll.mobius_copy_data(self.data_ptr, copy_results)
+	def copy(self, copy_results = False, copy_series = False) :
+		new_ptr = dll.mobius_copy_data(self.data_ptr, copy_results, copy_series)
 		return Model_Application(new_ptr, False)
 		
 	def run(self, ms_timeout=-1, log=False, callback=None) :
