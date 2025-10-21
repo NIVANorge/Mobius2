@@ -42,7 +42,7 @@ The lake runoff is computed using a rating curve that depends on the lake water 
 ![Lake shape](../img/easytox/lake.png)
 Figure: The subdivision and shape of a modeled lake.
 
-![Lake shape](../img/easytox/lake.png)
+![Lake shape](../img/easytox/lake_rad.png)
 Figure: Lake heat budget. Shortwave radiation goes into the lake and some of it passes through to the deep lake. In summer the heat budget also takes into account longwave, sensible and and latent heat fluxes. When there is ice cover, ice reflects most of the shortwave radiation, and the rest of the heat budget is coupled out, instead ice growth is governed by [Stefan's law for ice thickness](https://en.wikipedia.org/wiki/Stefan%27s_equation).
 
 In the EasyLake module \[Norling22\], the shape of the lake follows a formula
