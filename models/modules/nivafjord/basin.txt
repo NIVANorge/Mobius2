@@ -92,9 +92,6 @@ Authors: Magnus D. Norling
 		#K0ice  : par_real("Mixing factor reference under ice", [m 2, s-1], 0.5e-4)
 	}
 	
-	test : property("Test")
-	var(basin.test, []) { K0 =>> }
-	
 	par_group("Initial layer physical", layer) {
 		init_t : par_real("Initial layer temperature", [deg_c], 2.5)
 		init_s : par_real("Initial layer salinity", [], 20)
