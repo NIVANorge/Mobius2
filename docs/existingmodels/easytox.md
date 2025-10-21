@@ -30,7 +30,7 @@ In the soil there is also evapotranspiration which removes water from the system
 
 A so-called "baseflow index" determines what proportion of the soil runoff goes to the groundwater. The remaining proportion goes to the river.
 
-The retention time in the river is computed using Manning's formula (**REF**), and some assumptions about the river slope and bank slope.
+The retention time in the river is computed using [Manning's formula](https://en.wikipedia.org/wiki/Manning_formula), and some assumptions about the river slope and bank slope.
 
 The lake runoff is computed using a rating curve that depends on the lake water level above the outlet level.
 
