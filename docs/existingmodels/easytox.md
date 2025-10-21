@@ -48,7 +48,7 @@ Figure: Lake heat budget. Shortwave radiation goes into the lake and some of it 
 In the EasyLake module \[Norling22\], the shape of the lake follows a formula
 
 $$
-A(z) = A_0 \left(\frac{z}{z_{max}}\right)^{\theta+1\}
+A(z) = A_0 \left(\frac{z}{z_{max}}\right)^{\theta+1}
 $$
 
 where $$A(z)$$ is the area of the horizontal cross-section of the lake at level $$z$$, measured from the bottom up. The maximal depth of the lake is $$z_{max}$$. The parameter $$\theta$$ is user-configurable.
