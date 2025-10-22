@@ -189,13 +189,21 @@ Authors: Magnus D. Norling
 	
 	var(layer.water.v_w, [m, s-1]) {
 		rem_emix := max(0, basin.emix - summix),
-		v := 2.0*rem_emix / (grav*(rho[vert.below] - rho)*(dz[vert.below]+dz)),
+		f := (grav*(rho[vert.below] - rho)*(dz[vert.below]+dz)) / 2.0,
+		v := rem_emix / f,
 		max_v := 10[m, day-1]->[m, s-1], #TODO: instead use the min. B-V frequency!!
-		max(0[m, s-1], min(v, max_v))
+		v2 := { 
+			v if is_finite(v) & (f > 0), 
+			max_v if rem_emix > 0,
+			0[m, s-1] otherwise
+		},
+		max(0[m, s-1], min(v2, max_v))
 	}
 	
 	var(layer.water.emix, [W, m-2], "Used wind mixing work in layer") {
-		v_w*grav*(rho[vert.below] - rho)*(dz[vert.below]+dz)*0.5
+		f := (grav*(rho[vert.below] - rho)*(dz[vert.below]+dz)) / 2.0,
+		v_w*f if f > 0,
+		0     otherwise
 	} @no_store
 	
 	var(layer.water.summix, [W, m-2]) {

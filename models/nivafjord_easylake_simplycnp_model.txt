@@ -40,8 +40,10 @@ model("NIVAFjord-EasyLake-SimplyCNP") {
 		co2 : quantity,
 		ch4 : quantity,
 		wb_index : index_set,
-		sol : solver
+		simplyq_config_solver : constant,
 	)
+	
+	simplyq_config_solver : constant(false) # The solver config is done by NIVAFjord instead
 	
 	extend("nivafjord_simplycnp_model.txt") @exclude(
 		downstream : connection,

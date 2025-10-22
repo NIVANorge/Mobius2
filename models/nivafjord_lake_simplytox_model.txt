@@ -7,9 +7,6 @@ TODO: Maybe we want a simpler biochemistry model for this one, not the entire NI
 Or this could just extend nivafjord_lake_base
 """
 	
-	# Don't declare the solver configuration in simplytox because it is already done in NIVAFjord
-	st_config_solver : constant(false)
-	
 	extend("simplytox_model.txt") @exclude(
 		downstream : connection,
 		air : compartment,
@@ -20,9 +17,10 @@ Or this could just extend nivafjord_lake_base
 		temp : property,
 		precip : property,
 		wind : property,
-		st_config_solver : constant,
-		sol : solver
+		simplyq_config_solver : constant,
 	)
+	
+	simplyq_config_solver : constant(false) # The solver config is done by NIVAFjord instead
 	
 	has_boundaries : constant(false)
 

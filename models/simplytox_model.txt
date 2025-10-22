@@ -3,10 +3,10 @@ model("SimplyTox") {
 
 	# This is not a finished model, only partial
 
-	extend("simplyc_model.txt") @exclude(sol : solver)
-	extend("simplysed_model.txt") @exclude(sol : solver)
+	extend("simplyc_model.txt") #@exclude(sol : solver)
+	extend("simplysed_model.txt") #@exclude(sol : solver)
 	
-	
+	/*  # This was put as default in SimplyQ instead
 	st_config_solver : constant(true) # Can be overridden by extending model if it wants to config differently
 	
 	option(st_config_solver) {
@@ -18,6 +18,8 @@ model("SimplyTox") {
 	} @otherwise {
 		sol : solver("Simply solver", inca_dascru, [2, hr], 0.001)
 	}
+	*/
+	
 	solve(sol, soil.oc, dsoil.oc, gw.oc, soilair.tox,
 		river_sed.oc, river_sed.water)
 	

@@ -119,16 +119,18 @@ model("SimplyQ") {
 	
 	###### Set ODE solvers
 	
-	#par_group("Solver configuration") {
-	#	solver_h : par_real("Solver fractional step", [hr], 2)
-	#	solver_hmin : par_real("Solver relative minimal step", [], 0.01)
-	#}
-	#sol : solver("Simply solver", inca_dascru, solver_h, solver_hmin)
-	sol : solver("Simply solver", inca_dascru, [2, hr], 1e-2)
-	#sol : solver("Simply solver", euler, solver_h, solver_hmin)
+	# Note: an overriding model can set this to false if it wants to do its own solver configuration
+	simplyq_config_solver : constant(true)
+	
+	option(simplyq_config_solver) {
+		par_group("Solver step size") {
+			solver_h0    : par_real("Solver desired step", [hr], 2, 0.01, 24)
+			solver_rel_h0: par_real("Solver minimal relative step", [], 0.01, 1e-8, 0.1)
+		}
+		sol : solver("Simply solver", inca_dascru, solver_h0, solver_rel_h0)
+	}
 	
 	solve(sol, soil.water, gw.water, river.water)
-	
 	
 	option(n_soil.two) {
 		aggregation_weight(soil2, gw)    { lu_prop }

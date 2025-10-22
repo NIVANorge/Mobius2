@@ -93,7 +93,7 @@ read_series_data_from_sheet(Data_Set *data_set, Series_Data *series, String_View
 				auto index_set_id = data_set->deserialize(name, Reg_Type::index_set);
 				if(!is_valid(index_set_id)) {
 					close_due_to_error(doc, tab, row, 1);
-					fatal_error("The index set ", name, " was not previously declared in the data set.");
+					fatal_error("The index set \"", name, "\" was not previously declared in the data set.");
 				}
 				index_sets.push_back(index_set_id);
 			}

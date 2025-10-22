@@ -55,6 +55,10 @@ Authors: Magnus D. Norling
 		th_frazil : par_real("Frazil threshold", [m], 0.05, 1e-5, 0.1)
 	}
 	
+	par_group("Config") {
+		f_sens : par_real("Sensible heat transfer scaler", [], 1, 0.1, 10)
+	}
+	
 	stab   : property("Stability")
 	ced    : property("Transfer coefficient for latent heat flux")
 	chd    : property("Transfer coefficient for sensible heat flux")
@@ -112,7 +116,7 @@ Authors: Magnus D. Norling
 	}
 	
 	flux(out, top_water.heat, [J, day-1], "Sensible heat flux") {
-		(!surf.ice.indicator) * A_surf * (surf.chd * C_air * air.rho * air.wind * (air.temp->[K] - top_water.temp->[K])) ->>
+		f_sens*(!surf.ice.indicator) * A_surf * (surf.chd * C_air * air.rho * air.wind * (air.temp->[K] - top_water.temp->[K])) ->>
 	}
 	
 	var(surf.evap, [m m, day-1]) {
