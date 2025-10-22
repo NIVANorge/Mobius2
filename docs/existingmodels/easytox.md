@@ -16,7 +16,7 @@ This page describes the version of the composite model that was built for the Fu
 
 ![Water flow diagram](../img/easytox/waterflow.png)
 
-Figure: A conceptual water balance diagram for the model. This is a simplified diagram. It is possible to connect several river sections and lakes in arbitrary branching structures. Land hydrology can be separated into sub-catchments and land use classes.
+**Figure 1**: *A conceptual water balance diagram for the model. This is a simplified diagram. It is possible to connect several river sections and lakes in arbitrary branching structures. Land hydrology can be separated into sub-catchments and land use classes.*
 
 ### SimplyQ (catchment hydrology)
 
@@ -40,10 +40,12 @@ The lake runoff is computed using a rating curve that depends on the lake water 
 ### Lake physics
 
 ![Lake shape](../img/easytox/lake.png)
-Figure: The subdivision and shape of a modeled lake.
+
+**Figure 2**: *The subdivision and shape of a modeled lake.*
 
 ![Lake shape](../img/easytox/lake_rad.png)
-Figure: Lake heat budget. Shortwave radiation goes into the lake and some of it passes through to the deep lake. In summer the heat budget also takes into account longwave, sensible and and latent heat fluxes. When there is ice cover, ice reflects most of the shortwave radiation, and the rest of the heat budget is coupled out, instead ice growth is governed by [Stefan's law for ice thickness](https://en.wikipedia.org/wiki/Stefan%27s_equation).
+
+**Figure 3**: *Lake heat budget. Shortwave radiation goes into the lake and some of it passes through to the deep lake. In summer the heat budget also takes into account longwave, sensible and and latent heat fluxes. When there is ice cover, ice reflects most of the shortwave radiation, and the rest of the heat budget is coupled out, instead ice growth is governed by [Stefan's law for ice thickness](https://en.wikipedia.org/wiki/Stefan%27s_equation).*
 
 In the EasyLake module \[Norling22\], the shape of the lake follows a formula
 
@@ -63,7 +65,7 @@ Note: we also have available a more detailed lake model (NIVAFjord) that is divi
 
 ## Contaminants
 
-Dissolved contaminants will follow the water transport paths in proportion to the amount of transported water and the contaminant concentration. The exception is that evapotranspiration $$Et$$ and lake evaporation $$Ev$$ don't bring with them any contaminants.
+Dissolved contaminants will follow the water transport paths in proportion to the amount of transported water and the contaminant concentration. The exception is that evapotranspiration $$Et$$ and lake evaporation $$Ev$$ (Figure 1) don't bring with them any contaminants.
 
 All deposition of the contaminants go directly to the soil water. There is also direct deposition to the lake surface.
 

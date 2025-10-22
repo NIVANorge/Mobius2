@@ -62,9 +62,9 @@ jet_derivatives(double *v, double *d, double momentum_x, double drho_dz) {
 	double momentum = std::sqrt(v[momentum_z]*v[momentum_z] + momentum_x*momentum_x) + 1e-20; //To handle initial phase if momentum_x = 0
 
 	double sin_theta = -v[momentum_z]/momentum; // >0 for upward jet
-	//double theta = std::asin(sin_theta);
-	//double cos_theta = std::cos(theta);
-	double cos_theta = std::sqrt(1.0 - sin_theta*sin_theta); // Note, we know the angle is between 0 and pi/2.
+	double theta = std::asin(sin_theta);
+	double cos_theta = std::cos(theta);
+	//double cos_theta = std::sqrt(1.0 - sin_theta*sin_theta); // Note, if we could assume the angle is between 0 and pi/2, but that may not be the case.
 	double velocity = 2.0*momentum/v[volume_flux]; // In center of jet
 	double bsq = v[volume_flux] / (velocity * pi);
 	double b = std::sqrt(bsq);
