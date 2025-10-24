@@ -31,6 +31,8 @@ def plot_target(app, target, ax=None, sl=slice(None), legend=True) :
 	
 	if legend :
 		ax.legend()
+		
+	return ax
 
 def plot_targets(app, targets, sl, width=10, height_per=5) :
 	# For use with optimization targets.

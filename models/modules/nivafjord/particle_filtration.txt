@@ -1,0 +1,66 @@
+
+module("Filtrating organisms", version(0, 0, 1),
+	layer : compartment,
+	water : quantity,
+	sed : quantity,
+	phyt : quantity,
+	oc : quantity,
+	on : quantity,
+	op : quantity,
+	sed_area : loc,
+) {
+
+	load("stdlib/basic_math.txt", library("Response"), library("Basic"))
+	load("stdlib/physiochemistry.txt", library("Chemistry"))
+
+	par_group("Filtrating organisms") {
+		filt_r : par_real("Filtration rate", [k g, m-2, day-1], 0, 0, 10)
+		filt_cn : par_real("Organism molar C/N rate", [], 6, 1, 100)
+		#filt_cp : par_real("Organism molar C:P rate", [], 106, 1, 500)
+	}
+	
+	par_group("Filtrating by layer", layer) {
+		pres : par_real("Filtrating organism presence scaling factor", [], 1, 0, 1)
+	}
+	
+	filt : property("Filtration rate")
+	
+	# NOTE: Currently referring filtering phyto over other particles.
+	#   could instead be a weighted distribution or something
+	# Or should they just filter a constant amount of water per day?
+	
+	var(layer.water.phyt.filt, [k g, day-1], "Phytoplankton filtration") {
+		totfilt := filt_r*sed_area,
+		totfilt * s_response(layer.water.phyt, 0, 0.5*totfilt*1[day], 0, 1)
+	}
+	
+	var(layer.water.sed.filt, [k g, day-1], "Particle filtration") {
+		totfilt := filt_r*sed_area,
+		remaining := totfilt - phyt.filt,
+		remaining * s_response(layer.water.sed, 0, 0.5*totfilt*1[day], 0, 1)
+	}
+	
+	flux(layer.water.phyt, out, [k g, day-1], "Phytoplankton intake to filtration") { filt }
+	
+	flux(layer.water.sed, out, [k g, day-1], "Particle intake to filtration") { filt }
+	
+	surp_c : property("Filtration C surplus")
+	
+	var(layer.water.sed.surp_c, [k g, day-1]) {
+		consumed_c := sed.filt * conc(sed.on) * cn_molar_to_mass_ratio(filt_cn)->>,
+		max(0, sed.filt * conc(sed.oc)->> - consumed_c)
+	}
+	
+	var(layer.water.phyt.surp_c, [k g, day-1]) {
+		consumed_c := phyt.filt * conc(phyt.on) * cn_molar_to_mass_ratio(filt_cn)->>,
+		max(0, phyt.filt - consumed_c)
+	}
+	
+	flux(out, layer.water.sed, [k g, day-1], "Filtration mass surplus") {
+		safe_divide(sed.surp_c, conc(sed.oc))->> + phyt.surp_c
+	}
+	
+	flux(out, layer.water.sed.oc, [k g, day-1], "Filtration carbon surplus") {
+		sed.surp_c + phyt.surp_c
+	}
+}

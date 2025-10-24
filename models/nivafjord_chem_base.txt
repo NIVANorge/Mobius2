@@ -16,6 +16,7 @@ This can run as its own model or be extended with other components.
 		phyt_module   : par_enum("Phytoplankton module", equilibrium) { equilibrium exponential }
 		# Eventually we could have other configurations, like include zooplankton, allow multiple phyto species etc.
 		jet           : par_bool("Jet mix outlet", false)
+		use_filt      : par_bool("Use particle filtration module", false)
 	}
 	
 	sed : quantity("Sediments")
@@ -89,6 +90,12 @@ This can run as its own model or be extended with other components.
 		
 		load("modules/nivafjord/point_sources.txt",
 			module("NIVAFjord jet point source", air, jps, layer, water, o2, heat, temp, rho, z, vert, dims)
+		)
+	}
+	
+	option(use_filt) {
+		load("modules/nivafjord/particle_filtration.txt",
+			module("Filtrating organisms", layer, water, sed, fjord_phyt, oc, on, op, loc(sediment.area))
 		)
 	}
 	
