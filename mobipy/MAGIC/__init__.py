@@ -35,7 +35,7 @@ def get_no3_setup(app, calib_index='Soil', obs_index='River', obsname='Obs NO3',
 
 	return params, set_params, target, get_sim_obs
 	
-def get_ph_setup(app, calib_index='Soil', obsname='Obs Ph', start=None, end=None) :
+def get_ph_setup(app, calib_index='Soil', obsname='Obs Ph', do_al=False, obsal='Observed LAL', start=None, end=None) :
 	
 	if start is None : start = app.start_date[()]
 	if end is None : end = app.end_date[()]
@@ -43,8 +43,12 @@ def get_ph_setup(app, calib_index='Soil', obsname='Obs Ph', start=None, end=None
 	par_dict = {
 		'oa' : ('MAGIC-Forest drivers', 'oa', [calib_index], 0, 200),
 	}
+	if do_al :
+		par_dict['k_al'] = ('MAGIC core', 'k_al', [calib_index], 1, 20)
 	
-	target = ('pH', [calib_index], obsname, [])
+	target = [('pH', [calib_index], obsname, [])]
+	if do_al :
+		target.append(('Total aluminum in solution (ionic + SO4-F-DOC complexes)', [calib_index], obsal, []))
 	
 	params, set_params = opt.params_from_dict(app, par_dict)
 
@@ -121,7 +125,7 @@ def get_base_cation_combined_setup(app, calib_index='Soil', obs_index='River', o
 	par_dict['oa'] = ('MAGIC-Forest drivers', 'oa', [calib_index], 40, 100)
 	
 	if do_al :
-		par_dict['k_al'] = ('MAGIC core', 'k_al', [calib_index], 6, 14)
+		par_dict['k_al'] = ('MAGIC core', 'k_al', [calib_index], 1, 20)
 	
 	target = [
 		('Ca(2+) ionic concentration', [obs_index], obsname_c%'Ca', [], 1),

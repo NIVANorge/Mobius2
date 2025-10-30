@@ -5,7 +5,7 @@ module("NIVAFjord lake discharge", version(0, 0, 1),
 	basin : compartment,
 	layer : compartment,
 	water : quantity,
-	#flow  : property,
+	flow  : property,
 	dz    : property,
 	#river_lake : connection,
 	vert  : connection,
@@ -22,9 +22,12 @@ This is a module that can be used if a NIVAFjord basin is to be treated as a lak
 	
 	# TODO: more detailed rating curve?
 	# TODO: Possibly connect this up to a downstream river network again?
-	flux(layer.water[vert.top], out, [m 3, s-1], "Lake outlet discharge") {
-		excess := max(0, dz[vert.top] - dz0[vert.top]),
+	var(basin.flow, [m 3, s-1], "Lake discharge") {
+		excess := max(0, layer.dz[vert.top] - dz0[vert.top]),
 		rl * excess
+	} @no_store
+	
+	flux(layer.water[vert.top], out, [m 3, s-1], "Lake outlet discharge") {
+		basin.flow
 	}
-
 }

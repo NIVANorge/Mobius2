@@ -5,10 +5,6 @@ model("NIVAFjord") {
 	has_boundaries : constant(true) 
 	default_airsea : constant(true)
 	
-	option_group("NIVAFjord configurations") {
-		allow_extraction : par_bool("Allow extraction", false)
-	}
-	
 	basin_idx     : index_set("Basin index")
 	
 	option(has_boundaries) {
@@ -90,10 +86,6 @@ model("NIVAFjord") {
 			module("NIVAFjord boundary", bnd_basin, bnd_layer, water, heat, salt, temp, salinity, dz, h, rho, pressure, vert, dims))
 			
 		solve(sol, bnd_basin.h)
-	}
-	
-	option(allow_extraction) {
-		load("modules/nivafjord/point_sources.txt", module("NIVAFjord extraction", layer, water))
 	}
 	
 	option(has_boundaries) {

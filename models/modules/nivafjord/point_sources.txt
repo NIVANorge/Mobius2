@@ -237,14 +237,20 @@ module("NIVAFjord jet point source", version(0, 0, 1),
 
 module("NIVAFjord extraction", version(0, 0, 1),
 	layer : compartment,
-	water : quantity
+	water : quantity,
+	lake_q : loc,
 ) {
 
 	par_group("Extraction", layer) {
-		ext : par_real("Extraction rate", [m 3, day-1], 0, 0, 10000)
+		ext : par_real("Extraction rate", [m 3, s-1], 0, 0, 10000)
 	}
 	
-	flux(layer.water, out, [m 3, day-1], "Layer extraction") {
-		ext
+	par_group("Extraction limit") {
+		min_q : par_real("Minimal lake runoff", [m 3, s-1], 0, 0, 10000)
+	}
+	
+	flux(layer.water, out, [m 3, s-1], "Layer extraction") {
+		ext    if lake_q > min_q,
+		0      otherwise
 	}
 }

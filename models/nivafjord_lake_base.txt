@@ -8,13 +8,23 @@ This is NIVAFjord (with biochemistry component) as a lake model.
 	has_boundaries : constant(false)
 
 	extend("nivafjord_chem_base.txt") @exclude(has_boundaries : constant) # Overrule the has_boundaries from the base model.
-
+	
+	flow : property("Flow")
+	
 	load("modules/nivafjord/lake_discharge.txt",
-		module("NIVAFjord lake discharge", basin, layer, water, dz, vert, dims)
+		module("NIVAFjord lake discharge", basin, layer, water, flow, dz, vert, dims)
 	)
 	
 	load("modules/nivafjord/horizontal_fluxes.txt",
 		#module("NIVAFjord immediate realignment", basin, layer, water, horz, horz2, vert)
 		module("NIVAFjord simple realignment", basin, layer, water, dz, vert, dims)
 	)
+	
+	option_group("Lake configurations") {
+		allow_extraction : par_bool("Allow extraction", false)
+	}
+	
+	option(allow_extraction) {
+		load("modules/nivafjord/point_sources.txt", module("NIVAFjord extraction", layer, water, loc(basin.flow)))
+	}
 }
