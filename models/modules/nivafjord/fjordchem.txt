@@ -77,6 +77,8 @@ Authors: Magnus Dahler Norling, François Clayer
 	par_group("Initial chem", layer) {
 		init_O2  : par_real("Initial O₂ saturation", [], 1, 0, 1)
 		init_DOC : par_real("Initial DOC concentration", [m g, l-1], 0, 0, 100)
+		init_CN  : par_real("Initial DOM molar C/N rate", [], 6.625, 1, 1000)
+		init_CP  : par_real("Initial DOM molar C/P rate", [], 106, 1, 1000)
 		init_NO3 : par_real("Initial NO3 concentration", [m g, l-1], 0, 0, 100)
 		init_PO4 : par_real("Initial PO4 concentration", [m g, l-1], 0, 0, 100)
 		init_ss  : par_real("Initial suspended sediment concentration", [m g, l-1], 0, 0, 100)
@@ -112,11 +114,11 @@ Authors: Magnus Dahler Norling, François Clayer
 	
 	var(layer.water.din, [k g], [m g, l-1], "Layer DIN") @initial_conc { init_NO3 }
 	
-	var(layer.water.on, [k g], [m g, l-1], "Layer DON")
+	var(layer.water.on, [k g], [m g, l-1], "Layer DON") @initial_conc { init_DOC / cn_molar_to_mass_ratio(init_CN) }
 	
 	var(layer.water.phos, [k g], [m g, l-1], "Layer DIP") @initial_conc { init_PO4 }
 	
-	var(layer.water.op, [k g], [m g, l-1], "Layer DOP")
+	var(layer.water.op, [k g], [m g, l-1], "Layer DOP") @initial_conc { init_DOC / cp_molar_to_mass_ratio(init_CP) }
 	
 	var(layer.water.sed, [k g], [m g, l-1], "Layer suspended sediments") @initial_conc { init_ss }
 	

@@ -46,11 +46,12 @@ struct magic_output
 	double ChargeBalanceAlk;   // Charge balance alkalinity         (SumBaseCationConc + NH4 - SumAcidAnionConc)  (= Acid neutralizing capacity)
 	double WeakAcidAlk;        // Weak acid alkalinity (HCO3 + 2*CO3 + OH - H - Alxx)  (limnological definition)
 	
-	double exchangeable_Ca;    // Exchangeable Calcium on soil as % of cation exchange capacity (meq - ECa/meq - CEC)    (%)
-	double exchangeable_Mg;    // Exchangeable Magnesium on soil as % of cation exchange capacity (meq - EMg/meq - CEC)  (%)
-	double exchangeable_Na;    // Exchangeable Sodium on soil as % of cation exchange capacity (meq - ENa/meq - CEC)     (%)
-	double exchangeable_K;     // Exchangeable Potassium on soil as % of cation exchange capacity (meq - EK/meq - CEC)   (%)
-	double exchangeable_SO4;   // Exchangeable Sulfate on soil as % of cation exchange capacity (meq - ESO4/meq - MaxCap)(%)
+	// NOTE: These were previously documented as being %, but in this file they are always 0-1. However in the layer that is exposed to the user in the Mobius2 model, they are still converted to % .
+	double exchangeable_Ca;    // Exchangeable Calcium on soil as % of cation exchange capacity (meq - ECa/meq - CEC)    (fraction)
+	double exchangeable_Mg;    // Exchangeable Magnesium on soil as % of cation exchange capacity (meq - EMg/meq - CEC)  (fraction)
+	double exchangeable_Na;    // Exchangeable Sodium on soil as % of cation exchange capacity (meq - ENa/meq - CEC)     (fraction)
+	double exchangeable_K;     // Exchangeable Potassium on soil as % of cation exchange capacity (meq - EK/meq - CEC)   (fraction)
+	double exchangeable_SO4;   // Exchangeable Sulfate on soil as % of cation exchange capacity (meq - ESO4/meq - MaxCap)(fraction)
 	double BaseSaturationSoil; // Base saturation of soil (ECa + EMg + ENa + EK)
 	
 	double conc_H;             // Hydrogen ion concentration       (mmol/m3)
