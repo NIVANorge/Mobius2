@@ -303,7 +303,7 @@ def run_minimizer(app, params, set_params, residual_fun, method='nelder', use_in
 		success = data.run(run_timeout)
 		if success :
 			sim, obs = residual_fun(data)
-			sim[~np.isfinite(sim)] = np.inf # To cause the run to be discarded if there were nan simulated values.
+			#sim[~np.isfinite(sim)] = np.inf # To cause the run to be discarded if there were nan simulated values.
 			resid = sim - obs
 		else :
 			resid = np.array([np.inf])
