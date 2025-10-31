@@ -433,6 +433,9 @@ class Model_Application(Scope) :
 		data_ptr = dll.mobius_build_from_model_and_data_file(_c_str(model_file), _c_str(data_file), _c_str(base_path), cfgptr)
 		_check_for_errors()
 		return cls(data_ptr, True)
+		
+	def get_run_steps(self) :
+		return dll.mobius_get_steps(self.data_ptr, 0)
 	
 	def copy(self, copy_results = False, copy_series = False) :
 		new_ptr = dll.mobius_copy_data(self.data_ptr, copy_results, copy_series)

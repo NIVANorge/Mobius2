@@ -303,19 +303,23 @@ def run_minimizer(app, params, set_params, residual_fun, method='nelder', use_in
 		success = data.run(run_timeout)
 		if success :
 			sim, obs = residual_fun(data)
-			#sim[~np.isfinite(sim)] = np.inf # To cause the run to be discarded if there were nan simulated values.
+			sim[~np.isfinite(sim)] = np.inf # To cause the run to be discarded if there were nan simulated values.
 			resid = sim - obs
 		else :
-			resid = np.array([np.inf])
+			resid = np.array([np.inf]*steps)
+			resid[0]=0
 		del data
 		
 		# There is currently a bug in lmfit where it can't find the correct result if there is only one valid residual!
-		# So we have to fake add another one.
-		if sum(~np.isnan(resid)) < 2 :
-			resid = np.append(resid, 0)
-			
+		# So we have to fake add another one. (NOTE: The optimizer effectively treats a missing (nan) value as a 0 any way)
 		
-		return resid
+		#resid[np.where(np.isnan(resid))[0][0]] = 0
+		#print(len(resid))
+		
+		r = float(np.nansum(np.square(resid)))
+		return r
+		
+		#return resid
 	
 	mi = lmfit.Minimizer(get_residuals, params, nan_policy='omit')
 
@@ -323,6 +327,7 @@ def run_minimizer(app, params, set_params, residual_fun, method='nelder', use_in
     
 	init = None
 	if use_init : init = params
+	
 	
 	if method in ['leastsq', 'dual_annealing'] : # These don't accept options
 		res = mi.minimize(method=method, params=init)
