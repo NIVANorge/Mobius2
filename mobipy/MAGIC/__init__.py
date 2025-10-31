@@ -116,7 +116,7 @@ def get_base_cation_combined_setup(app, calib_index='Soil', obs_index='River', o
 		'w_mg' : ('MAGIC-Forest drivers', 'w_mg', [calib_index], 0, 200),
 		'w_na' : ('MAGIC-Forest drivers', 'w_na', [calib_index], 0, 200),
 		'w_k' : ('MAGIC-Forest drivers', 'w_k', [calib_index], 0, 200),
-		'init_eca' : ('MAGIC core', 'init_eca', [calib_index], 0, 50),
+		'init_eca' : ('MAGIC core', 'init_eca', [calib_index], 0, 39),
 		'init_emg' : ('MAGIC core', 'init_emg', [calib_index], 0, 20),
 		'init_ena' : ('MAGIC core', 'init_ena', [calib_index], 0, 20),
 		'init_ek' : ('MAGIC core', 'init_ek', [calib_index], 0, 20),
