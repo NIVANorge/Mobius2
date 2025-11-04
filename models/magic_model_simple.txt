@@ -6,7 +6,9 @@ model("MAGIC (simple)") {
 		use_mod_q : par_enum("Use modeled runoff", no, "Model the runoff with the ABCD model") {
 			no always fill_gaps
 		}
-		
+		cnp_module : par_enum("Soil CNP module", simple) {
+			simple gundersen
+		}
 	}
 
 	ci : index_set("Compartment index")
@@ -39,6 +41,7 @@ model("MAGIC (simple)") {
 	concn      : property("Ionic concentration")
 	conc_all   : property("Total concentration")
 	ext_in     : property("External inputs")
+	upt        : property("Dynamic sink")
 	bal        : property("Mass balance")
 	conc_oa    : property("Organic acid concentration")
 	temp       : property("Temperature")
@@ -62,10 +65,7 @@ model("MAGIC (simple)") {
 	}
 	
 	load("modules/magic/magic_forest_drivers.txt",
-		module("MAGIC-Forest drivers", comp, hydro, ca, mg, na, k, nh4, so4, cl, no3, f, po4, ts, ext_in, bal, conc_oa, temp, concn, conc_all, mod_runoff, rel_runoff, air_t, precip, rel_a, use_mod_q, con))
-		
-	load("modules/magic/magic_forest_cnp.txt",
-		module("MAGIC-Forest CNP", comp, nh4, no3, po4, ts, ext_in))
+		module("MAGIC-Forest drivers", comp, hydro, ca, mg, na, k, nh4, so4, cl, no3, f, po4, ts, ext_in, bal, conc_oa, temp, concn, conc_all, mod_runoff, rel_runoff, air_t, precip, upt, rel_a, use_mod_q, con))
 	
 	par_group("Solver resolution") {
 		step : par_real("Solver step size", [month], 0.1, 0.0001, 1)
@@ -73,4 +73,23 @@ model("MAGIC (simple)") {
 	
 	sol : solver("MAGIC solver", euler, step)
 	solve(sol, comp.ca, comp.mg, comp.na, comp.k, comp.nh4, comp.so4, comp.cl, comp.no3, comp.f, comp.po4)
+	
+	
+	option(cnp_module.simple) {
+		load("modules/magic/magic_forest_cnp.txt",
+			module("MAGIC-Forest CNP", comp, nh4, no3, po4, ts, ext_in))
+	}
+	option(cnp_module.gundersen) {
+		org_c : quantity("Soil organic C")
+		org_n : quantity("Soil organic N")
+		org_p : quantity("Soil organic P")
+	
+		load("modules/magic/magic_forest_cnp.txt",
+			module("MAGIC-Forest CNP Gundersen", comp, org_c, org_n, org_p, nh4, no3, po4, ext_in, upt, ts))
+			
+		solve(sol, comp.org_c, comp.org_n, comp.org_p)
+		
+		unit_conversion(comp.org_n, comp.nh4) { 1[eq, mol-1] }
+		unit_conversion(comp.org_p, comp.po4) { 3[eq, mol-1] }
+	}
 }

@@ -23,6 +23,7 @@ module("MAGIC-Forest drivers", version(0, 0, 3),
 	rel_runoff: property,
 	air_t     : property,
 	precip    : property,
+	upt       : property,
 	rel_area  : par_real,
 	use_mod_q : par_enum,
 	con       : connection
@@ -274,28 +275,41 @@ module("MAGIC-Forest drivers", version(0, 0, 3),
 		-ext_in*(u=>[])*0.01 otherwise
 	}
 	
-	upt : property("Dynamic sink")
-	var(comp.ca.upt, [m eq, m-2, month-1], "Ca dynamic sink") @clear_nan
-	var(comp.mg.upt, [m eq, m-2, month-1], "Mg dynamic sink") @clear_nan
-	var(comp.na.upt, [m eq, m-2, month-1], "Na dynamic sink") @clear_nan
-	var(comp.k.upt, [m eq, m-2, month-1], "K dynamic sink") @clear_nan
-	var(comp.nh4.upt, [m eq, m-2, month-1], "NH4 dynamic sink") @clear_nan
-	var(comp.so4.upt, [m eq, m-2, month-1], "SO4 dynamic sink") @clear_nan
-	var(comp.cl.upt, [m eq, m-2, month-1], "Cl dynamic sink") @clear_nan
-	var(comp.no3.upt, [m eq, m-2, month-1], "NO3 dynamic sink") @clear_nan
-	var(comp.f.upt, [m eq, m-2, month-1], "F dynamic sink") @clear_nan
-	var(comp.po4.upt, [m eq, m-2, month-1], "PO4 dynamic sink") @clear_nan
+	upt_in : property("Uptake inputs")
 	
-	flux(comp.ca, out, [m eq, m-2, month-1], "Ca sinks") { compute_uptake(u_ca, upt, ext_in, ts) }
-	flux(comp.mg, out, [m eq, m-2, month-1], "Mg sinks") { compute_uptake(u_mg, upt, ext_in, ts) }
-	flux(comp.na, out, [m eq, m-2, month-1], "Na sinks") { compute_uptake(u_na, upt, ext_in, ts) }
-	flux(comp.k, out, [m eq, m-2, month-1], "K sinks") { compute_uptake(u_k, upt, ext_in, ts) }
-	flux(comp.nh4, out, [m eq, m-2, month-1], "NH4 sinks") { compute_uptake(u_nh4, upt, ext_in, ts) }
-	flux(comp.so4, out, [m eq, m-2, month-1], "SO4 sinks") { compute_uptake(u_so4, upt, ext_in, ts) }
-	flux(comp.cl, out, [m eq, m-2, month-1], "Cl sinks") { compute_uptake(u_cl, upt, ext_in, ts) }
-	flux(comp.no3, out, [m eq, m-2, month-1], "NO3 sinks") { compute_uptake(u_no3, upt, ext_in, ts) }
-	flux(comp.f, out, [m eq, m-2, month-1], "F sinks") { compute_uptake(u_f, upt, ext_in, ts) }
-	flux(comp.po4, out, [m eq, m-2, month-1], "PO4 sinks") { compute_uptake(u_po4, upt, ext_in, ts) }
+	var(comp.ca.upt_in, [m eq, m-2, month-1], "Ca dynamic sink") @clear_nan
+	var(comp.mg.upt_in, [m eq, m-2, month-1], "Mg dynamic sink") @clear_nan
+	var(comp.na.upt_in, [m eq, m-2, month-1], "Na dynamic sink") @clear_nan
+	var(comp.k.upt_in, [m eq, m-2, month-1], "K dynamic sink") @clear_nan
+	var(comp.nh4.upt_in, [m eq, m-2, month-1], "NH4 dynamic sink") @clear_nan
+	var(comp.so4.upt_in, [m eq, m-2, month-1], "SO4 dynamic sink") @clear_nan
+	var(comp.cl.upt_in, [m eq, m-2, month-1], "Cl dynamic sink") @clear_nan
+	var(comp.no3.upt_in, [m eq, m-2, month-1], "NO3 dynamic sink") @clear_nan
+	var(comp.f.upt_in, [m eq, m-2, month-1], "F dynamic sink") @clear_nan
+	var(comp.po4.upt_in, [m eq, m-2, month-1], "PO4 dynamic sink") @clear_nan
+	
+	var(comp.ca.upt, [m eq, m-2, month-1], "Ca sink")  { compute_uptake(u_ca, upt_in, ext_in, ts) } @no_store
+	var(comp.mg.upt, [m eq, m-2, month-1], "Mg dynamic sink") { compute_uptake(u_mg, upt_in, ext_in, ts) } @no_store
+	var(comp.na.upt, [m eq, m-2, month-1], "Na dynamic sink") { compute_uptake(u_na, upt_in, ext_in, ts) } @no_store
+	var(comp.k.upt, [m eq, m-2, month-1], "K dynamic sink") { compute_uptake(u_k, upt_in, ext_in, ts) } @no_store
+	var(comp.nh4.upt, [m eq, m-2, month-1], "NH4 dynamic sink") { compute_uptake(u_nh4, upt_in, ext_in, ts) } @no_store
+	var(comp.so4.upt, [m eq, m-2, month-1], "SO4 dynamic sink") { compute_uptake(u_so4, upt_in, ext_in, ts) } @no_store
+	var(comp.cl.upt, [m eq, m-2, month-1], "Cl dynamic sink") { compute_uptake(u_cl, upt_in, ext_in, ts) } @no_store
+	var(comp.no3.upt, [m eq, m-2, month-1], "NO3 dynamic sink")  { compute_uptake(u_no3, upt_in, ext_in, ts) } @no_store
+	var(comp.f.upt, [m eq, m-2, month-1], "F dynamic sink") { compute_uptake(u_f, upt_in, ext_in, ts) } @no_store
+	var(comp.po4.upt, [m eq, m-2, month-1], "PO4 dynamic sink") { compute_uptake(u_po4, upt_in, ext_in, ts) } @no_store
+	
+	
+	flux(comp.ca, out, [m eq, m-2, month-1], "Ca sinks") { upt }
+	flux(comp.mg, out, [m eq, m-2, month-1], "Mg sinks") { upt }
+	flux(comp.na, out, [m eq, m-2, month-1], "Na sinks") { upt }
+	flux(comp.k, out, [m eq, m-2, month-1], "K sinks") { upt }
+	flux(comp.nh4, out, [m eq, m-2, month-1], "NH4 sinks") { upt }
+	flux(comp.so4, out, [m eq, m-2, month-1], "SO4 sinks") { upt }
+	flux(comp.cl, out, [m eq, m-2, month-1], "Cl sinks") { upt }
+	flux(comp.no3, out, [m eq, m-2, month-1], "NO3 sinks") { upt }
+	flux(comp.f, out, [m eq, m-2, month-1], "F sinks") { upt }
+	flux(comp.po4, out, [m eq, m-2, month-1], "PO4 sinks") { upt }
 	
 	#TODO: Would be nice to use automatic transport, but it would require more framework functionality
 	# This is because the transported concentration is not the total mass divided by water for all these

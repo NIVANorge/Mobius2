@@ -8,7 +8,9 @@ module("MAGIC-Forest CNP", version(0, 0, 0),
 	ext_in : property,
 ) {
 """
-Missing a lot of functionality, only the basics for now
+Very basic version, where N retention is given directly by parameter values and does not rely on soil carbon processes. Note that "Denitrification" in this module is meant to cover all NO3 retention, so it is really a combination of denitrification, uptake and immobilisation.
+
+This module is a bit misnamed, it should be called "Simple N retention" or something like that, but we have to be careful with changing the name since many parameter files refer to it already.
 """
 	
 	par_group("C, N and P", comp) {
@@ -33,10 +35,35 @@ Missing a lot of functionality, only the basics for now
 }
 
 module("MAGIC-Forest CNP Gundersen", version(0, 0, 1),
-
+	comp : compartment,
+	org_c : quantity,
+	org_n : quantity,
+	org_p : quantity,
+	nh4 : quantity,
+	no3 : quantity,
+	po4 : quantity,
+	
+	ext_in : property,
+	upt : property,
+	ts : property,
 ) {
+"""
+This one is not finished yet
+"""
 
-	par_group("C, N and P", comp) {
+	load("stdlib/basic_math.txt", library("Response"), library("Basic"))
+
+
+	par_group("Nitrogen", comp) {
+		nitr : par_real("Nitrification", [m eq, m-2, year-1], 0, -100, 500, "NH4->NO3. Negative rate sets value as % of inputs")
+	}
+	
+	# TODO: Some of the soil carbon dynamics should be separated out as a different module. Same with N, P dynamics. This module should only control the immmobilisation fraction.
+	
+	# TODO: Problem now is that "Sinks" is computed first, so they don't take into account nitrification inputs, so it is difficult to get rid of "enough" NO3-
+	# May have to pull the "Sinks" computation into this module for N and P related ions at least.
+
+	par_group("Soil processes", comp) {
 		init_c : par_real("Initial soil organic C", [mol, m-2], 0, 0, 100000)
 		init_cn : par_real("Initial soil C/N", [], 0, 40, 1000)
 		init_cp : par_real("Initial soil C/P", [], 0, 200, 10000)
@@ -52,38 +79,75 @@ module("MAGIC-Forest CNP Gundersen", version(0, 0, 1),
 		cn_lo_nh4 : par_real("Lower threshold for NH4 immobilization", [], 30, 0, 100, "Below this threshold, no immobilisation happens")
 		cn_up_nh4 : par_real("Upper threshold for NH4 immobilization", [], 30, 0, 100, "Above this threshold, full immobilisation happens")
 		cp_lo_po4 : par_real("Lower threshold for PO4 immobilization", [], 30, 0, 100, "Below this threshold, no immobilisation happens")
-		cn_up_po4 : par_real("Upper threshold for PO4 immobilization", [], 30, 0, 100, "Above this threshold, full immobilisation happens")
+		cp_up_po4 : par_real("Upper threshold for PO4 immobilization", [], 30, 0, 100, "Above this threshold, full immobilisation happens")
 	}
 	
 	cn : property("C/N ratio")
 	cp : property("C/P ratio")
 	lit : property("Litter")
 	dec : property("Decomposition")
+	immob_frac : property("Immobilisation fraction")
 	
 	var(comp.org_c, [m mol, m-2], "Soil organic C") @initial { init_c ->> }
-	var(comp.org_n, [m mol, m-2], "Soil organic N") @initial { (init_c / init_cn) ->> }
-	var(comp.org_p, [m mol, m-2], "Soil organic P") @initial { (init_c / init_cp) ->> }
+	var(comp.org_n, [m mol, m-2], "Soil organic N") @initial { safe_divide(init_c, init_cn) ->> }
+	var(comp.org_p, [m mol, m-2], "Soil organic P") @initial { safe_divide(init_c, init_cp) ->> }
 	
 	var(comp.cn, []) { safe_divide(org_c, org_n) } @initial { init_cn }
 	var(comp.cp, []) { safe_divide(org_c, org_p) } @initial { init_cp }
 	
-	var(comp.org_c.lit, [m mol, m-2, month-1], "Organic C litter") { c_lit }
-	var(comp.org_n.lit, [m mol, m-2, month-1], "Organic N litter") { safe_divide(c_lit, cn_lit) }
-	var(comp.org_p.lit, [m mol, m-2, month-1], "Organic P litter") { safe_divide(c_lit, cp_lit) }
+	var(comp.org_c.lit, [m mol, m-2, month-1], "Organic C litter") { c_lit } @no_store
+	var(comp.org_n.lit, [m mol, m-2, month-1], "Organic N litter") { safe_divide(c_lit, cn_lit) } @no_store
+	var(comp.org_p.lit, [m mol, m-2, month-1], "Organic P litter") { safe_divide(c_lit, cp_lit) } @no_store
 	
-	flux(out, comp.org_c, [m mol, m-2, month-1], "Organic C litter input") { c_lit }
-	flux(out, comp.org_n, [m mol, m-2, month-1], "Organic N litter input") { n_lit }
-	flux(out, comp.org_p, [m mol, m-2, month-1], "Organic P litter input") { p_lit }
+	flux(out, comp.org_c, [m mol, m-2, month-1], "Organic C litter input") { lit }
+	flux(out, comp.org_n, [m mol, m-2, month-1], "Organic N litter input") { lit }
+	flux(out, comp.org_p, [m mol, m-2, month-1], "Organic P litter input") { lit }
 	
-	var(comp.org_c.dec, [m mol, m-2, month-1], "Organic C decomposition") { c_dec }
-	var(comp.org_n.dec, [m mol, m-2, month-1], "Organic N decomposition") { safe_divide(c_dec, cn_dec) }
-	var(comp.org_p.dec, [m mol, m-2, month-1], "Organic P decomposition") { safe_divide(c_dec, cp_dec) }
+	var(comp.org_c.dec, [m mol, m-2, month-1], "Organic C decomposition") { 
+		wants := c_dec,
+		min(wants, org_c*time.fractional_step*1[month-1])
+	} @no_store
 	
-	flux(comp.org_c, out, [m mol, m-2, month-1], "Organic C mineralization") { max(c_dec, org_c*time.fractional_step) }
-	flux(comp.org_n, comp.no3, [m mol, m-2, month-1], "Organic N mineralization") { max(n_dec, org_n*time.fractional_step) }
-	flux(comp.org_p, comp.po4, [m mol, m-2, month-1], "Organic P mineralization") { max(p_dec, org_p*time.fractional_step) }
+	var(comp.org_n.dec, [m mol, m-2, month-1], "Organic N decomposition") {
+		wants := safe_divide(c_dec, cn_dec),
+		min(wants, org_n*time.fractional_step*1[month-1])
+	} @no_store
 	
-	# TODO: nitrif, denit, immob, uptake (although uptake could just be folded into sinks?)
+	var(comp.org_p.dec, [m mol, m-2, month-1], "Organic P decomposition") {
+		wants := safe_divide(c_dec, cp_dec),
+		min(wants, org_p*time.fractional_step*1[month-1])
+	} @no_store
 	
+	flux(comp.org_c, out, [m mol, m-2, month-1], "Organic C mineralization") { dec }
+	flux(comp.org_n, comp.nh4, [m mol, m-2, month-1], "Organic N mineralization") { dec }
+	flux(comp.org_p, comp.po4, [m mol, m-2, month-1], "Organic P mineralization") { dec }
 	
+	var(comp.no3.immob_frac, []) {  linear_response(comp.cn, cn_lo_no3, cn_up_no3, 0, 1)  }
+	var(comp.nh4.immob_frac, []) {  linear_response(comp.cn, cn_lo_nh4, cn_up_nh4, 0, 1)  }
+	var(comp.po4.immob_frac, []) {  linear_response(comp.cp, cp_lo_po4, cp_up_po4, 0, 1)  }
+	
+	# This assumes that the user makes sure that nit + upt doesn't exceed 100%. Alternatively, nit could be % of remaining after upt, but that could also be confusing..
+	nit : property("Nitrification rate")
+	var(comp.nh4.nit, [m eq, m-2, month-1]) {
+		nitr*ts                   if nitr > 0.0,
+		(ext_in + org_n.dec=>>)*(-(nitr=>[])*0.01) otherwise
+	} @no_store
+	
+	flux(comp.nh4, comp.no3, [m eq, m-2, month-1], "Nitrification") { nit }
+
+	flux(comp.no3, out, [m eq, m-2, month-1], "NO3 immobilisation") {
+		net := ext_in + nh4.nit - upt,
+		max(0=>>, net*immob_frac)
+	}
+
+	flux(comp.nh4, out, [m eq, m-2, month-1], "NH4 immobilisation") {
+		net := ext_in - nit - upt,
+		net*immob_frac
+	}
+	
+	flux(comp.po4, out, [m eq, m-2, month-1], "PO4 immobilisation") {
+		net := ext_in - upt,
+		net*immob_frac
+	}
+
 }
