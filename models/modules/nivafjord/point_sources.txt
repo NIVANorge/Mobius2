@@ -250,7 +250,6 @@ module("NIVAFjord extraction", version(0, 0, 1),
 	}
 	
 	flux(layer.water, out, [m 3, s-1], "Layer extraction") {
-		ext    if lake_q > min_q,
-		0      otherwise
+		min(ext, max(lake_q - min_q, 0))
 	}
 }
