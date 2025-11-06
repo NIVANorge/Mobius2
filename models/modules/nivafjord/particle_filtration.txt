@@ -32,13 +32,13 @@ module("Filtrating organisms", version(0, 0, 1),
 	var(layer.water.phyt.filt, [k g, day-1], "Phytoplankton filtration") {
 		totfilt := filt_r*sed_area,
 		totfilt * s_response(layer.water.phyt, 0, 0.5*totfilt*1[day], 0, 1)
-	}
+	} @no_store
 	
 	var(layer.water.sed.filt, [k g, day-1], "Particle filtration") {
 		totfilt := filt_r*sed_area,
 		remaining := totfilt - phyt.filt,
 		remaining * s_response(layer.water.sed, 0, 0.5*totfilt*1[day], 0, 1)
-	}
+	} @no_store
 	
 	flux(layer.water.phyt, out, [k g, day-1], "Phytoplankton intake to filtration") { filt }
 	
