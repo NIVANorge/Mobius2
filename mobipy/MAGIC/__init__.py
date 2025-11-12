@@ -45,6 +45,8 @@ def get_ph_setup(app, calib_index='Soil', obsname='Obs Ph', do_al=False, obsal='
 	}
 	if do_al :
 		par_dict['k_al'] = ('MAGIC core', 'k_al', [calib_index], 1, 20)
+		#TODO nockeckin, just testing
+		#par_dict['e_al'] = ('MAGIC core', 'e_al', [calib_index], 2.5, 3)
 	
 	target = [('pH', [calib_index], obsname, [])]
 	if do_al :

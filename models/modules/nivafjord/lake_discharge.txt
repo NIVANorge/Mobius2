@@ -17,7 +17,7 @@ This is a module that can be used if a NIVAFjord basin is to be treated as a lak
 """
 	
 	par_group("Lake discharge", basin) {
-		rl : par_real("Rating curve linear component", [m 2, s-1], 1, 0.1, 1000)
+		rl : par_real("Rating curve linear component", [m 3, s-1], 1, 0.1, 1000)
 		power : par_real("Rating curve power", [], 1, 1, 3)
 	}
 	
@@ -25,7 +25,7 @@ This is a module that can be used if a NIVAFjord basin is to be treated as a lak
 	# TODO: Possibly connect this up to a downstream river network again?
 	var(basin.flow, [m 3, s-1], "Lake discharge") {
 		excess := max(0, layer.dz[vert.top] - dz0[vert.top])->[m],
-		1[m]*rl*(excess=>[])^power
+		rl*(excess=>[])^power
 	} @no_store
 	
 	flux(layer.water[vert.top], out, [m 3, s-1], "Lake outlet discharge") {

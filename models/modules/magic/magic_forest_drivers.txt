@@ -313,6 +313,7 @@ module("MAGIC-Forest drivers", version(0, 0, 3),
 	
 	#TODO: Would be nice to use automatic transport, but it would require more framework functionality
 	# This is because the transported concentration is not the total mass divided by water for all these
+	# Maybe allow specifying a @transportable_concentration note.
 	
 	flux(comp.ca,  con, [m eq, m-2, month-1], "Ca discharge")  { concn*rel_runoff }
 	flux(comp.mg,  con, [m eq, m-2, month-1], "Mg discharge")  { concn*rel_runoff }
