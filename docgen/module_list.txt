@@ -5,6 +5,6 @@
 
 "EasyLake", "easylake_simplycnp_model_new.txt", "EasyLake", "Phytoplankton parameters Lake", "Phytoplankton Lake", "EasyChem", "EasyChem-Particulate";
 
-"NIVAFjord", "nivafjord_simplycnp_model.txt", "NIVAFjord dimensions", "NIVAFjord basin", "NIVAFjord chemistry rates", "NIVAFjord chemistry", "NIVAFjord sediments";
+"NIVAFjord", "nivafjord_simplycnp_model.txt", "NIVAFjord dimensions", "NIVAFjord basin", "NIVAFjord chemistry rates", "NIVAFjord chemistry", "NIVAFjord sediments", "Phytoplankton parameters Fjord 2", "Phytoplankton Fjord 2";
 
 "Auxiliary", "easylake_simplycnp_model.txt", "Degree-day PET", "HBVSnow", "Simply soil temperature", "RiverTemperature", "Atmospheric", "AirSea Lake", "AirSeaGas Lake", "Simple river TOC", "Organic CNP land", "Simple organic NP";

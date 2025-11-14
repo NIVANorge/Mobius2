@@ -13,7 +13,7 @@ Since the modules can be dynamically loaded with different arguments, this docum
 
 See the note on [notation](autogen.html#notation).
 
-The file was generated at 2025-06-17 16:00:51.
+The file was generated at 2025-11-14 14:18:15.
 
 ---
 
@@ -756,6 +756,18 @@ Authors: Leah A. Jackson-Blake, Magnus D. Norling
 
 ### State variables
 
+#### **Net soil P input**
+
+Location: **soil.p_in**
+
+Unit: kg ha⁻¹ year⁻¹
+
+Value:
+
+$$
+\mathrm{p\_input}
+$$
+
 #### **EPC0**
 
 Location: **soil.epc0**
@@ -785,7 +797,7 @@ Conc. unit: mg l⁻¹
 Value:
 
 $$
-\begin{cases}\begin{pmatrix}\mathrm{q} = \left(\mathrm{last}\left(\mathrm{out\_flux}\left(\mathrm{soil}.\mathrm{water}\right)\right)\rightarrow \mathrm{mm}\,\mathrm{day}^{-1}\,\right) \\ \mathrm{days} = \left(\mathrm{time}.\mathrm{step\_length\_in\_seconds}\rightarrow \mathrm{day}\,\right) \\ \mathrm{pin} = \left(\mathrm{p\_input}\cdot \frac{\mathrm{days}}{\mathrm{time}.\mathrm{days\_this\_year}}\rightarrow \mathrm{kg}\,\mathrm{km}^{-2}\,\right) \\ \mathrm{m\_soil} = \left(\mathrm{m\_soil\_m2}\rightarrow \mathrm{kg}\,\mathrm{km}^{-2}\,\right) \\ \mathrm{a} = \mathrm{pin}+\mathrm{kf}\cdot \mathrm{m\_soil}\cdot \mathrm{epc0} \\ \mathrm{bV} = \mathrm{kf}\cdot \mathrm{m\_soil}+\mathrm{q}\cdot \mathrm{days} \\ \mathrm{b} = \frac{\mathrm{bV}}{\mathrm{last}\left(\mathrm{water}\right)} \\ \frac{\mathrm{a}}{\mathrm{b}}+\left(\mathrm{last}\left(\mathrm{water}.\mathrm{phos}\right)-\frac{\mathrm{a}}{\mathrm{b}}\right)\cdot e^{-\mathrm{b}}\end{pmatrix} & \text{if}\;\mathrm{dyn\_epc0} \\ \left(\mathrm{init\_epc0}\cdot \mathrm{water}\rightarrow \mathrm{kg}\,\mathrm{km}^{-2}\,\right) & \text{otherwise}\end{cases}
+\begin{cases}\begin{pmatrix}\mathrm{q} = \left(\mathrm{last}\left(\mathrm{out\_flux}\left(\mathrm{soil}.\mathrm{water}\right)\right)\rightarrow \mathrm{mm}\,\mathrm{day}^{-1}\,\right) \\ \mathrm{days} = \left(\mathrm{time}.\mathrm{step\_length\_in\_seconds}\rightarrow \mathrm{day}\,\right) \\ \mathrm{pin} = \left(\mathrm{p\_in}\cdot \frac{\mathrm{days}}{\mathrm{time}.\mathrm{days\_this\_year}}\rightarrow \mathrm{kg}\,\mathrm{km}^{-2}\,\right) \\ \mathrm{m\_soil} = \left(\mathrm{m\_soil\_m2}\rightarrow \mathrm{kg}\,\mathrm{km}^{-2}\,\right) \\ \mathrm{a} = \mathrm{pin}+\mathrm{kf}\cdot \mathrm{m\_soil}\cdot \mathrm{epc0} \\ \mathrm{bV} = \mathrm{kf}\cdot \mathrm{m\_soil}+\mathrm{q}\cdot \mathrm{days} \\ \mathrm{b} = \frac{\mathrm{bV}}{\mathrm{last}\left(\mathrm{water}\right)} \\ \frac{\mathrm{a}}{\mathrm{b}}+\left(\mathrm{last}\left(\mathrm{water}.\mathrm{phos}\right)-\frac{\mathrm{a}}{\mathrm{b}}\right)\cdot e^{-\mathrm{b}}\end{pmatrix} & \text{if}\;\mathrm{dyn\_epc0} \\ \left(\mathrm{init\_epc0}\cdot \mathrm{water}\rightarrow \mathrm{kg}\,\mathrm{km}^{-2}\,\right) & \text{otherwise}\end{cases}
 $$
 
 Initial value (concentration):
@@ -803,7 +815,7 @@ Unit: kg km⁻²
 Value:
 
 $$
-\begin{cases}\begin{pmatrix}\mathrm{q} = \left(\mathrm{last}\left(\mathrm{out\_flux}\left(\mathrm{soil}.\mathrm{water}\right)\right)\rightarrow \mathrm{mm}\,\mathrm{day}^{-1}\,\right) \\ \mathrm{days} = \left(\mathrm{time}.\mathrm{step\_length\_in\_seconds}\rightarrow \mathrm{day}\,\right) \\ \mathrm{pin} = \left(\mathrm{p\_input}\cdot \frac{\mathrm{days}}{\mathrm{time}.\mathrm{days\_this\_year}}\rightarrow \mathrm{kg}\,\mathrm{km}^{-2}\,\right) \\ \mathrm{m\_soil} = \left(\mathrm{m\_soil\_m2}\rightarrow \mathrm{kg}\,\mathrm{km}^{-2}\,\right) \\ \mathrm{a} = \mathrm{pin}+\mathrm{kf}\cdot \mathrm{m\_soil}\cdot \mathrm{epc0} \\ \mathrm{bV} = \mathrm{kf}\cdot \mathrm{m\_soil}+\mathrm{q}\cdot \mathrm{days} \\ \mathrm{b} = \frac{\mathrm{bV}}{\mathrm{last}\left(\mathrm{water}\right)} \\ \mathrm{sorp} = \mathrm{kf}\cdot \mathrm{m\_soil}\cdot \left(\frac{1}{\mathrm{bV}}\cdot \left(\mathrm{a}+\left(\mathrm{last}\left(\mathrm{water}.\mathrm{phos}\right)-\frac{\mathrm{a}}{\mathrm{b}}\right)\cdot \left(1-e^{-\mathrm{b}}\right)\right)-\mathrm{epc0}\right) \\ \mathrm{last}\left(\mathrm{plab}\right)+\mathrm{sorp}\end{pmatrix} & \text{if}\;\mathrm{dyn\_epc0} \\ \mathrm{last}\left(\mathrm{plab}\right) & \text{otherwise}\end{cases}
+\begin{cases}\begin{pmatrix}\mathrm{q} = \left(\mathrm{last}\left(\mathrm{out\_flux}\left(\mathrm{soil}.\mathrm{water}\right)\right)\rightarrow \mathrm{mm}\,\mathrm{day}^{-1}\,\right) \\ \mathrm{days} = \left(\mathrm{time}.\mathrm{step\_length\_in\_seconds}\rightarrow \mathrm{day}\,\right) \\ \mathrm{pin} = \left(\mathrm{p\_in}\cdot \frac{\mathrm{days}}{\mathrm{time}.\mathrm{days\_this\_year}}\rightarrow \mathrm{kg}\,\mathrm{km}^{-2}\,\right) \\ \mathrm{m\_soil} = \left(\mathrm{m\_soil\_m2}\rightarrow \mathrm{kg}\,\mathrm{km}^{-2}\,\right) \\ \mathrm{a} = \mathrm{pin}+\mathrm{kf}\cdot \mathrm{m\_soil}\cdot \mathrm{epc0} \\ \mathrm{bV} = \mathrm{kf}\cdot \mathrm{m\_soil}+\mathrm{q}\cdot \mathrm{days} \\ \mathrm{b} = \frac{\mathrm{bV}}{\mathrm{last}\left(\mathrm{water}\right)} \\ \mathrm{sorp} = \mathrm{kf}\cdot \mathrm{m\_soil}\cdot \left(\frac{1}{\mathrm{bV}}\cdot \left(\mathrm{a}+\left(\mathrm{last}\left(\mathrm{water}.\mathrm{phos}\right)-\frac{\mathrm{a}}{\mathrm{b}}\right)\cdot \left(1-e^{-\mathrm{b}}\right)\right)-\mathrm{epc0}\right) \\ \mathrm{last}\left(\mathrm{plab}\right)+\mathrm{sorp}\end{pmatrix} & \text{if}\;\mathrm{dyn\_epc0} \\ \mathrm{last}\left(\mathrm{plab}\right) & \text{otherwise}\end{cases}
 $$
 
 Initial value:

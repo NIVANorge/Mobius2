@@ -13,7 +13,7 @@ Since the modules can be dynamically loaded with different arguments, this docum
 
 See the note on [notation](autogen.html#notation).
 
-The file was generated at 2025-06-17 16:00:51.
+The file was generated at 2025-11-14 14:18:15.
 
 ---
 
@@ -656,6 +656,8 @@ Authors: Magnus D. Norling
 | Ice albedo | **ice_alb** |  |  |
 | Ice attenuation coefficient | **ice_att_c** | m⁻¹ |  |
 | Frazil threshold | **th_frazil** | m |  |
+| **Config** | | |  |
+| Sensible heat transfer scaler | **f_sens** |  |  |
 
 ### State variables
 
@@ -892,7 +894,7 @@ Unit: J day⁻¹
 Value:
 
 $$
-\left(\;\text{not}\;\mathrm{surf}.\mathrm{ice}.\mathrm{indicator}\cdot \mathrm{A\_surf}\cdot \mathrm{surf}.\mathrm{chd}\cdot \mathrm{C\_air}\cdot \mathrm{air}.\mathrm{rho}\cdot \mathrm{air}.\mathrm{wind}\cdot \left(\left(\mathrm{air}.\mathrm{temp}\rightarrow \mathrm{K}\,\right)-\left(\mathrm{top\_water}.\mathrm{temp}\rightarrow \mathrm{K}\,\right)\right)\rightarrow \mathrm{J}\,\mathrm{day}^{-1}\,\right)
+\left(\mathrm{f\_sens}\cdot \;\text{not}\;\mathrm{surf}.\mathrm{ice}.\mathrm{indicator}\cdot \mathrm{A\_surf}\cdot \mathrm{surf}.\mathrm{chd}\cdot \mathrm{C\_air}\cdot \mathrm{air}.\mathrm{rho}\cdot \mathrm{air}.\mathrm{wind}\cdot \left(\left(\mathrm{air}.\mathrm{temp}\rightarrow \mathrm{K}\,\right)-\left(\mathrm{top\_water}.\mathrm{temp}\rightarrow \mathrm{K}\,\right)\right)\rightarrow \mathrm{J}\,\mathrm{day}^{-1}\,\right)
 $$
 
 #### **Evaporation**

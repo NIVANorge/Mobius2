@@ -13,7 +13,7 @@ Since the modules can be dynamically loaded with different arguments, this docum
 
 See the note on [notation](autogen.html#notation).
 
-The file was generated at 2025-06-17 16:00:51.
+The file was generated at 2025-11-14 14:18:15.
 
 ---
 
@@ -372,7 +372,7 @@ Unit: m s⁻¹
 Value:
 
 $$
-\mathrm{rem\_emix} = \mathrm{max}\left(0,\, \mathrm{basin}.\mathrm{emix}-\mathrm{summix}\right) \\ \mathrm{v} = 2\cdot \frac{\mathrm{rem\_emix}}{\mathrm{grav}\cdot \left(\mathrm{rho}\lbrack\mathrm{vert}.\mathrm{below}\rbrack-\mathrm{rho}\right)\cdot \left(\mathrm{dz}\lbrack\mathrm{vert}.\mathrm{below}\rbrack+\mathrm{dz}\right)} \\ \mathrm{max\_v} = \left(10 \mathrm{m}\,\mathrm{day}^{-1}\,\rightarrow \mathrm{m}\,\mathrm{s}^{-1}\,\right) \\ \mathrm{max}\left(0 \mathrm{m}\,\mathrm{s}^{-1}\,,\, \mathrm{min}\left(\mathrm{v},\, \mathrm{max\_v}\right)\right)
+\mathrm{rem\_emix} = \mathrm{max}\left(0,\, \mathrm{basin}.\mathrm{emix}-\mathrm{summix}\right) \\ \mathrm{f} = \frac{\mathrm{grav}\cdot \left(\mathrm{rho}\lbrack\mathrm{vert}.\mathrm{below}\rbrack-\mathrm{rho}\right)\cdot \left(\mathrm{dz}\lbrack\mathrm{vert}.\mathrm{below}\rbrack+\mathrm{dz}\right)}{2} \\ \mathrm{v} = \frac{\mathrm{rem\_emix}}{\mathrm{f}} \\ \mathrm{max\_v} = \left(10 \mathrm{m}\,\mathrm{day}^{-1}\,\rightarrow \mathrm{m}\,\mathrm{s}^{-1}\,\right) \\ \mathrm{v2} = \begin{cases}\mathrm{v} & \text{if}\;\mathrm{is\_finite}\left(\mathrm{v}\right)\;\text{and}\;\mathrm{f}>0 \\ \mathrm{max\_v} & \text{if}\;\mathrm{rem\_emix}>0 \\ 0 \mathrm{m}\,\mathrm{s}^{-1}\, & \text{otherwise}\end{cases} \\ \mathrm{max}\left(0 \mathrm{m}\,\mathrm{s}^{-1}\,,\, \mathrm{min}\left(\mathrm{v2},\, \mathrm{max\_v}\right)\right)
 $$
 
 #### **Used wind mixing work in layer**
@@ -384,7 +384,7 @@ Unit: W m⁻²
 Value:
 
 $$
-\mathrm{v\_w}\cdot \mathrm{grav}\cdot \left(\mathrm{rho}\lbrack\mathrm{vert}.\mathrm{below}\rbrack-\mathrm{rho}\right)\cdot \left(\mathrm{dz}\lbrack\mathrm{vert}.\mathrm{below}\rbrack+\mathrm{dz}\right)\cdot 0.5
+\mathrm{f} = \frac{\mathrm{grav}\cdot \left(\mathrm{rho}\lbrack\mathrm{vert}.\mathrm{below}\rbrack-\mathrm{rho}\right)\cdot \left(\mathrm{dz}\lbrack\mathrm{vert}.\mathrm{below}\rbrack+\mathrm{dz}\right)}{2} \\ \begin{cases}\mathrm{v\_w}\cdot \mathrm{f} & \text{if}\;\mathrm{f}>0 \\ 0 & \text{otherwise}\end{cases}
 $$
 
 #### **Sum used wind mixing energy**
@@ -575,6 +575,8 @@ Authors: Magnus Dahler Norling, François Clayer
 | **Initial chem** | | | Distributes like: `layer` |
 | Initial O₂ saturation | **init_O2** |  |  |
 | Initial DOC concentration | **init_DOC** | mg l⁻¹ |  |
+| Initial DOM molar C/N rate | **init_CN** |  |  |
+| Initial DOM molar C/P rate | **init_CP** |  |  |
 | Initial NO3 concentration | **init_NO3** | mg l⁻¹ |  |
 | Initial PO4 concentration | **init_PO4** | mg l⁻¹ |  |
 | Initial suspended sediment concentration | **init_ss** | mg l⁻¹ |  |
@@ -653,6 +655,12 @@ Unit: kg
 
 Conc. unit: mg l⁻¹
 
+Initial value (concentration):
+
+$$
+\frac{\mathrm{init\_DOC}}{\href{stdlib.html#chemistry}{\mathrm{cn\_molar\_to\_mass\_ratio}}\left(\mathrm{init\_CN}\right)}
+$$
+
 #### **Layer DIP**
 
 Location: **layer.water.phos**
@@ -674,6 +682,12 @@ Location: **layer.water.op**
 Unit: kg
 
 Conc. unit: mg l⁻¹
+
+Initial value (concentration):
+
+$$
+\frac{\mathrm{init\_DOC}}{\href{stdlib.html#chemistry}{\mathrm{cp\_molar\_to\_mass\_ratio}}\left(\mathrm{init\_CP}\right)}
+$$
 
 #### **Layer suspended sediments**
 
@@ -1490,6 +1504,327 @@ Value:
 
 $$
 \mathrm{epc0} = \left(\frac{\mathrm{conc}\left(\mathrm{sediment}.\mathrm{sed}.\mathrm{phos}\right)}{\mathrm{k\_sorp}}\rightarrow \mathrm{mg}\,\mathrm{l}^{-1}\,\right) \\ \mathrm{epc0\_} = \mathrm{min}\left(\mathrm{epc0},\, 0 \mathrm{mg}\,\mathrm{l}^{-1}\,\right) \\ \mathrm{r\_sorp}\cdot \left(\left(\mathrm{ox\_fac}\cdot \left(\mathrm{conc}\left(\mathrm{water}.\mathrm{phos}\right)-\mathrm{epc0\_}\right)\cdot \mathrm{water}\rightarrow \mathrm{kg}\,\right)-\left(1-\mathrm{ox\_fac}\right)\cdot \mathrm{sediment}.\mathrm{sed}.\mathrm{phos}\right)
+$$
+
+---
+
+## Phytoplankton parameters Fjord 2
+
+Version: 0.0.1
+
+File: [modules/plankton.txt](https://github.com/NIVANorge/Mobius2/tree/main/models/modules/plankton.txt)
+
+### External symbols
+
+| Name | Symbol | Type |
+| ---- | ------ | ---- |
+| Fjord phytoplankton | **phyt** | quantity |
+| Basin | **basin** | compartment |
+
+### Constants
+
+| Name | Symbol | Unit | Value |
+| ---- | ------ | ---- | ----- |
+| Fraction of PAR in SW radiation | **f_par** |  | 0.45 |
+| Phytoplankton oxicity threshold | **phyt_ox_th** | mg l⁻¹ | 2 |
+| Phytoplankton increased death rate from anoxicity | **phyt_death_anox** |  | 10 |
+
+### Parameters
+
+| Name | Symbol | Unit |  Description |
+| ---- | ------ | ---- |  ----------- |
+| **Phytoplankton** | | | Distributes like: `fjord_phyt` |
+| Q10 of Phyto growth | **phyt_q10** |  | Adjustment of rate with 10°C change in temperature |
+| Phyto max growth rate | **phyt_grow** | day⁻¹ | At 20°C |
+| Phyto death rate | **phyt_death** | day⁻¹ |  |
+| Optimal PAR intensity | **iopt** | W m⁻² |  |
+| Half-saturation for nutrient uptake | **alpha** |  |  |
+| Molar C/N ratio in Phytoplankton | **phyt_cn** |  | The default is the Redfield ratio |
+| Molar C/P ratio in Phytoplankton | **phyt_cp** |  | The default is the Redfield ratio |
+| Phytoplankton excretion rate | **excr** | day⁻¹ |  |
+| Chl-a fraction | **chl_a_f** | % | How large a fraction of the phytoplankton mass is chlorophyll a |
+
+---
+
+## Phytoplankton Fjord 2
+
+Version: 0.0.0
+
+File: [modules/plankton.txt](https://github.com/NIVANorge/Mobius2/tree/main/models/modules/plankton.txt)
+
+### Description
+
+A phytoplankton module that is based on exponential growth. Inspired by OxyDep.
+
+Authors: Magnus Dahler Norling
+
+### External symbols
+
+| Name | Symbol | Type |
+| ---- | ------ | ---- |
+| Fjord phytoplankton | **phyt** | quantity |
+| Fjord layer | **layer** | compartment |
+| Organic nitrogen | **on** | quantity |
+| Water | **water** | quantity |
+| Temperature | **temp** | property |
+| Organic carbon | **oc** | quantity |
+| Organic phosphorous | **op** | quantity |
+| O₂ | **o2** | quantity |
+| Nitrate | **din** | quantity |
+| Phosphate | **phos** | quantity |
+| Sediments | **sed** | quantity |
+| Chlorophyll-a | **chl_a** | property |
+| Shortwave radiation | **sw** | property |
+
+### Constants
+
+| Name | Symbol | Unit | Value |
+| ---- | ------ | ---- | ----- |
+| Min phyto saturation | **minphyt** | mg l⁻¹ | 0.01 |
+
+### Parameters
+
+| Name | Symbol | Unit |  Description |
+| ---- | ------ | ---- |  ----------- |
+| **Initial phytoplankton** | | | Distributes like: `layer`, `fjord_phyt` |
+| Initial chl-a concentration | **init_chla** | µg l⁻¹ |  |
+
+### State variables
+
+#### **Layer phytoplankton**
+
+Location: **layer.water.phyt**
+
+Unit: kg
+
+Conc. unit: mg l⁻¹
+
+Initial value (concentration):
+
+$$
+\left(\frac{\mathrm{init\_chla}}{\mathrm{chl\_a\_f}}\rightarrow \mathrm{kg}\,\right)
+$$
+
+#### **Phytoplankton C**
+
+Location: **layer.water.phyt.oc**
+
+Unit: kg
+
+Value (concentration):
+
+$$
+1
+$$
+
+#### **Phytoplankton N**
+
+Location: **layer.water.phyt.on**
+
+Unit: kg
+
+Value (concentration):
+
+$$
+\frac{1}{\href{stdlib.html#chemistry}{\mathrm{cn\_molar\_to\_mass\_ratio}}\left(\mathrm{phyt\_cn}\right)}
+$$
+
+#### **Phytoplankton P**
+
+Location: **layer.water.phyt.op**
+
+Unit: kg
+
+Value (concentration):
+
+$$
+\frac{1}{\href{stdlib.html#chemistry}{\mathrm{cp\_molar\_to\_mass\_ratio}}\left(\mathrm{phyt\_cp}\right)}
+$$
+
+#### **Light limitation**
+
+Location: **layer.water.phyt.light_lim**
+
+Unit: 
+
+Value:
+
+$$
+\mathrm{par\_sw} = \mathrm{sw}\cdot \mathrm{f\_par} \\ \mathrm{f} = \frac{\mathrm{par\_sw}}{\mathrm{max}\left(0.5\cdot \mathrm{par\_sw},\, \mathrm{iopt}\right)} \\ \mathrm{f}\cdot e^{1-\mathrm{f}}
+$$
+
+#### **Nitrogen limitation**
+
+Location: **layer.water.phyt.N_lim**
+
+Unit: 
+
+Value:
+
+$$
+\mathrm{p} = \mathrm{min}\left(\mathrm{conc}\left(\mathrm{phyt}\right),\, \mathrm{minphyt}\right)\cdot \mathrm{water} \\ \mathrm{phyt\_mol\_n} = \left(\frac{\mathrm{p}}{\mathrm{phyt\_cn}\cdot \mathrm{c\_mol\_mass}}\rightarrow \mathrm{mol}\,\right) \\ \mathrm{nut\_mol\_n} = \left(\frac{\mathrm{water}.\mathrm{din}}{\mathrm{n\_mol\_mass}}\rightarrow \mathrm{mol}\,\right) \\ \mathrm{ratio2} = \left(\frac{\mathrm{nut\_mol\_n}}{\mathrm{phyt\_mol\_n}}\right)^{2} \\ \frac{\mathrm{ratio2}}{\mathrm{ratio2}+\mathrm{alpha}}
+$$
+
+#### **Phosphorus limitation**
+
+Location: **layer.water.phyt.P_lim**
+
+Unit: 
+
+Value:
+
+$$
+\mathrm{p} = \mathrm{min}\left(\mathrm{conc}\left(\mathrm{phyt}\right),\, \mathrm{minphyt}\right)\cdot \mathrm{water} \\ \mathrm{phyt\_mol\_p} = \left(\frac{\mathrm{p}}{\mathrm{phyt\_cp}\cdot \mathrm{c\_mol\_mass}}\rightarrow \mathrm{mol}\,\right) \\ \mathrm{nut\_mol\_p} = \left(\frac{\mathrm{water}.\mathrm{phos}}{\mathrm{p\_mol\_mass}}\rightarrow \mathrm{mol}\,\right) \\ \mathrm{ratio2} = \left(\frac{\mathrm{nut\_mol\_p}}{\mathrm{phyt\_mol\_p}}\right)^{2} \\ \frac{\mathrm{ratio2}}{\mathrm{ratio2}+\mathrm{alpha}}
+$$
+
+#### **Photosynthetic C fixation**
+
+Location: **layer.water.phyt.fix**
+
+Unit: kg day⁻¹
+
+Value:
+
+$$
+\mathrm{lim} = \mathrm{min}\left(\mathrm{light\_lim},\, \mathrm{min}\left(\mathrm{N\_lim},\, \mathrm{P\_lim}\right)\right) \\ \mathrm{maxrate} = \href{stdlib.html#response}{\mathrm{q10\_adjust}}\left(\mathrm{phyt\_grow},\, 20 \mathrm{°C}\,,\, \mathrm{temp},\, \mathrm{phyt\_q10}\right) \\ \left(\mathrm{maxrate}\cdot \mathrm{lim}\cdot \mathrm{phyt}\rightarrow \mathrm{kg}\,\mathrm{day}^{-1}\,\right)
+$$
+
+#### **Phyto chl-a**
+
+Location: **layer.water.phyt.chl_a**
+
+Unit: mg l⁻¹
+
+Value:
+
+$$
+\left(\mathrm{conc}\left(\mathrm{phyt}\right)\cdot \mathrm{chl\_a\_f}\rightarrow \mathrm{mg}\,\mathrm{l}^{-1}\,\right)
+$$
+
+#### **Layer chl-a**
+
+Location: **layer.water.chl_a**
+
+Unit: mg l⁻¹
+
+Value:
+
+$$
+\mathrm{aggregate}\left(\mathrm{phyt}.\mathrm{chl\_a}\right)
+$$
+
+### Fluxes
+
+#### **Phytoplankton growth**
+
+Source: out
+
+Target: layer.water.phyt
+
+Unit: kg day⁻¹
+
+Value:
+
+$$
+\mathrm{fix}
+$$
+
+#### **Phytoplankton growth N uptake**
+
+Source: layer.water.phyt.on
+
+Target: layer.water.din
+
+Unit: kg day⁻¹
+
+Value:
+
+$$
+\frac{-\mathrm{phyt}.\mathrm{fix}}{\href{stdlib.html#chemistry}{\mathrm{cn\_molar\_to\_mass\_ratio}}\left(\mathrm{phyt\_cn}\right)}
+$$
+
+#### **Phytoplankton growth P uptake**
+
+Source: layer.water.phyt.op
+
+Target: layer.water.phos
+
+Unit: kg day⁻¹
+
+Value:
+
+$$
+\frac{-\mathrm{phyt}.\mathrm{fix}}{\href{stdlib.html#chemistry}{\mathrm{cp\_molar\_to\_mass\_ratio}}\left(\mathrm{phyt\_cp}\right)}
+$$
+
+#### **Phytoplankton C excretion**
+
+Source: layer.water.phyt
+
+Target: layer.water.oc
+
+Unit: kg day⁻¹
+
+Value:
+
+$$
+\mathrm{excr}\cdot \mathrm{phyt}
+$$
+
+#### **Phytoplankton N excretion**
+
+Source: layer.water.phyt.on
+
+Target: layer.water.on
+
+Unit: kg day⁻¹
+
+Value:
+
+$$
+\mathrm{excr}\cdot \mathrm{phyt}.\mathrm{on}
+$$
+
+#### **Phytoplankton P excretion**
+
+Source: layer.water.phyt.op
+
+Target: layer.water.op
+
+Unit: kg day⁻¹
+
+Value:
+
+$$
+\mathrm{excr}\cdot \mathrm{phyt}.\mathrm{op}
+$$
+
+#### **Phytoplankton death**
+
+Source: layer.water.phyt
+
+Target: layer.water.sed
+
+Unit: kg day⁻¹
+
+Value:
+
+$$
+\mathrm{wd} = 0.5 \\ \mathrm{o2\_factor} = \href{stdlib.html#response}{\mathrm{s\_response}}\left(\mathrm{conc}\left(\mathrm{o2}\right),\, \left(1-\mathrm{wd}\right)\cdot \mathrm{phyt\_ox\_th},\, \left(1+\mathrm{wd}\right)\cdot \mathrm{phyt\_ox\_th},\, \mathrm{phyt\_death\_anox},\, 1\right) \\ \mathrm{phyt\_death}\cdot \mathrm{phyt}\cdot \mathrm{o2\_factor}
+$$
+
+#### **Layer O₂ photosynthesis**
+
+Source: out
+
+Target: layer.water.o2
+
+Unit: kg day⁻¹
+
+Value:
+
+$$
+\mathrm{aggregate}\left(\mathrm{phyt}.\mathrm{fix}\right)\cdot \frac{\mathrm{o2\_mol\_mass}}{\mathrm{c\_mol\_mass}}
 $$
 
 

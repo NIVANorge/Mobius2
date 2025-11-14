@@ -14,7 +14,7 @@ The standard library provides common functions and constants for many models.
 
 See the note on [notation](autogen.html#notation).
 
-The file was generated at 2025-06-17 16:00:51.
+The file was generated at 2025-11-14 14:18:15.
 
 ---
 

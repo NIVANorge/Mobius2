@@ -680,7 +680,13 @@ generate_docs(int navorder, std::vector<std::string> &tuple) {
 	infile << "../models/" << tuple[1];
 	std::string infilestr = infile.str();
 	
-	Mobius_Model *model = load_model(infilestr.c_str());
+	Model_Options opt;
+	opt.options = {
+		{"FjordChem configurations\\Phytoplankton module", "exponential"}
+	};
+	
+	
+	Mobius_Model *model = load_model(infilestr.c_str(), nullptr, &opt);
 	
 	std::stringstream ss;
 	
