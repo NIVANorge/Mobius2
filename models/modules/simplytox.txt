@@ -311,6 +311,7 @@ module("SimplyTox river", version(0, 0, 1),
 	tox   : quantity,
 	e_fact : property,
 	temp   : property,
+	flow   : property,
 	A_surf : loc,
 	phys  : preamble
 ) {
@@ -354,6 +355,7 @@ River-specific contaminant processes that are not covered by the partitioning mo
 	dissconc : property("Total contaminant dissolved concentration")
 	partconc : property("Total contaminant particulate concentration")
 	totconc : property("Total contaminant concentration")
+	tottrans : property("Total contaminant transport")
 	
 	# Summary statistics
 	var(river.water.tox.dissconc, [n g, l-1]) {
@@ -366,6 +368,10 @@ River-specific contaminant processes that are not covered by the partitioning mo
 	
 	var(river.water.tox.totconc, [n g, l-1]) {
 		dissconc + partconc
+	}
+	
+	var(river.water.tox.tottrans, [n g, day-1]) {
+		totconc*flow ->>
 	}
 	
 	sed_dens : constant("Sediment density", [k g, m-3], 2600)

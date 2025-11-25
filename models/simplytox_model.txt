@@ -47,7 +47,7 @@ model("SimplyTox") {
 		module("SimplyTox partitioning", "SimplyTox river water", river, water, oc, tox, temp, loc(river.water.sed.oc), [n g], constant(true), phys),
 		module("SimplyTox air-water", "SimplyTox river air-water", air, river, water, tox, temp, wind, loc(eff_a), phys),
 		module("SimplyTox partitioning", "SimplyTox river bed", river_sed, water, oc, tox, temp, loc(river_sed.oc), [n g, m-2], constant(false), phys),
-		module("SimplyTox river", air, soil, river, river_sed, water, oc, sed, tox, e_fact, temp, loc(eff_a), phys)
+		module("SimplyTox river", air, soil, river, river_sed, water, oc, sed, tox, e_fact, temp, flow, loc(eff_a), phys)
 	)
 	
 	unit_conversion(soil.oc.tox, river.water.sed.oc.tox) { a_catch }
