@@ -958,9 +958,11 @@ Index_Data::transfer_data(Index_Data &other, Entity_Id data_id) {
 	
 	auto set_data = catalog->index_sets[data_id];
 	if(!is_valid(target_id)) {
-		// TODO: Should be just a warning here instead, but then we have to follow up and make it properly handle declarations of series data that is indexed over this index set.
-		set_data->source_loc.print_error_header();
-		fatal_error("\"", set_data->name, "\" has not been declared as an index set in the model \"", other.catalog->model_name, "\".");
+		set_data->source_loc.print_log_header();
+		log_print("WARNING: \"", set_data->name, "\" has not been declared as an index set in the model \"", other.catalog->model_name, "\".");
+		//set_data->source_loc.print_error_header();
+		//fatal_error("\"", set_data->name, "\" has not been declared as an index set in the model \"", other.catalog->model_name, "\".");
+		return;
 	}
 	auto set = other.catalog->index_sets[target_id];
 	
