@@ -86,7 +86,7 @@ DLLEXPORT Model_Data *
 mobius_build_from_model_and_data_object(char *model_file, Data_Set *data_set, char *base_path, Mobius_Base_Config *cfg);
 
 DLLEXPORT void
-mobius_delete_application(Model_Data *data);
+mobius_delete_application(Model_Data *data, bool del_data);
 
 DLLEXPORT void
 mobius_delete_data(Model_Data *data);
@@ -195,6 +195,9 @@ DLLEXPORT Data_Set *
 mobius_load_data_set_from_file(char *data_file);
 
 DLLEXPORT void
-mobius_resize_data_set(Data_Set *data_set, s64 set_count, Mobius_New_Indexes *list);
+mobius_delete_data_set(Data_Set *data_set);
+
+DLLEXPORT void
+mobius_resize_data_set(Data_Set *data_set, s64 set_count, Mobius_New_Indexes *list, s64 connection_count, char **conn_names, char **conn_data);
 
 #endif

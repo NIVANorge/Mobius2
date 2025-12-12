@@ -605,6 +605,72 @@ maybe_make_edge_index(Data_Set *data_set, Connection_Data *connection, std::pair
 }
 
 void
+Connection_Data::process_directed_graph(Data_Set *data_set, Entity_Id edge_set_id, Directed_Graph_AST* graph_data, Source_Location err_loc) {
+	
+	if(!arrows.empty())
+		fatal_error(Mobius_Error::internal, "Trying to process data set connection graph data twice for the same connection without clearing it first");
+	
+	if(is_valid(edge_set_id)) {
+		auto edge_set = data_set->index_sets[edge_set_id];
+		
+		if(is_valid(edge_set->is_edge_of_connection)) {
+			err_loc.print_error_header();
+			fatal_error("This index set is already the edge of another connection.");
+		}
+		edge_set->is_edge_of_connection = id;
+		
+		if(!edge_set->union_of.empty()) {
+			edge_set->source_loc.print_error_header();
+			fatal_error("An edge index set can not be a union.");
+		}
+		
+		if(data_set->index_data.are_all_indexes_set(edge_set_id)) {
+			edge_set->source_loc.print_error_header();
+			fatal_error("Edge index sets should not receive index data explicitly.");
+		}
+		
+		data_set->index_data.initialize_edge_index_set(edge_set_id, edge_set->source_loc);
+				
+		for(auto component_id : scope.by_type(Reg_Type::component)) {
+			auto component = data_set->components[component_id];
+			component->can_have_edge_index_set = false;
+			if(component->index_sets.size() == 1) {
+				if(data_set->index_data.can_be_sub_indexed_to(component->index_sets[0], edge_set_id))
+					component->can_have_edge_index_set = true;
+			} else if(component->index_sets.empty())
+				component->can_have_edge_index_set = true;   // TODO: Hmm, wouldn't this only be the case if all the components were not indexed?
+			
+		}
+	}
+	
+	auto process_node = [](Data_Set *data_set, Decl_Scope &scope, Directed_Graph_AST::Node &node, Compartment_Ref &ref) {
+		if(node.identifier.string_value == "out") {
+			ref.id = invalid_entity_id;
+			if(!node.indexes.empty()) {
+				node.identifier.print_error_header();
+				fatal_error("Didn't expect indexes for 'out'.");
+			}
+		} else {
+			ref.id = scope.expect(Reg_Type::component, &node.identifier);
+			auto component = data_set->components[ref.id];
+			data_set->index_data.find_indexes(component->index_sets, node.indexes, ref.indexes);
+		}
+	};
+	
+	for(auto &arrow : graph_data->arrows) {
+		auto &node1 = graph_data->nodes[arrow.first];
+		auto &node2 = graph_data->nodes[arrow.second];
+		// Hmm, we are actually double-storing node data here. Could store it the same way as in the AST instead. Could even de-duplicate at this stage, but maybe not necessary.
+		arrows.emplace_back();
+		auto &arr = arrows.back();
+		process_node(data_set, scope, node1, arr.first);
+		process_node(data_set, scope, node2, arr.second);
+		// If necessary, create an edge index for this arrow in the edge index set of the graph.
+		maybe_make_edge_index(data_set, this, arr);
+	}
+}
+
+void
 Connection_Data::process_declaration(Catalog *catalog) {
 	
 	match_declaration(decl, {{Token_Type::quoted_string}}, false, -1);
@@ -652,65 +718,15 @@ Connection_Data::process_declaration(Catalog *catalog) {
 	
 	int which = match_data_declaration(graph_decl, {{}, {Decl_Type::index_set}});
 	
+	Source_Location err_loc;
 	if(which == 1) {
 		edge_index_set = scope.resolve_argument(Reg_Type::index_set, graph_decl->args[0]);
-		auto edge_set = catalog->index_sets[edge_index_set];
-		
-		if(is_valid(edge_set->is_edge_of_connection)) {
-			graph_decl->args[0]->source_loc().print_error_header();
-			fatal_error("This index set is already the edge of another connection.");
-		}
-		edge_set->is_edge_of_connection = id;
-		
-		if(!edge_set->union_of.empty()) {
-			edge_set->source_loc.print_error_header();
-			fatal_error("An edge index set can not be a union.");
-		}
-		
-		if(data_set->index_data.are_all_indexes_set(edge_index_set)) {
-			edge_set->source_loc.print_error_header();
-			fatal_error("Edge index sets should not receive index data explicitly.");
-		}
-		
-		data_set->index_data.initialize_edge_index_set(edge_index_set, edge_set->source_loc);
-				
-		for(auto component_id : scope.by_type(Reg_Type::component)) {
-			auto component = data_set->components[component_id];
-			if(component->index_sets.size() == 1) {
-				if(data_set->index_data.can_be_sub_indexed_to(component->index_sets[0], edge_index_set))
-					component->can_have_edge_index_set = true;
-			} else if(component->index_sets.empty())
-				component->can_have_edge_index_set = true;   // TODO: Hmm, wouldn't this only be the case if all the components were not indexed?
-		}
+		err_loc = graph_decl->args[0]->source_loc();
 	}
 	
 	auto graph_data = static_cast<Directed_Graph_AST *>(graph_decl->data);
 	
-	auto process_node = [](Data_Set *data_set, Decl_Scope &scope, Directed_Graph_AST::Node &node, Compartment_Ref &ref) {
-		if(node.identifier.string_value == "out") {
-			ref.id = invalid_entity_id;
-			if(!node.indexes.empty()) {
-				node.identifier.print_error_header();
-				fatal_error("Didn't expect indexes for 'out'.");
-			}
-		} else {
-			ref.id = scope.expect(Reg_Type::component, &node.identifier);
-			auto component = data_set->components[ref.id];
-			data_set->index_data.find_indexes(component->index_sets, node.indexes, ref.indexes);
-		}
-	};
-	
-	for(auto &arrow : graph_data->arrows) {
-		auto &node1 = graph_data->nodes[arrow.first];
-		auto &node2 = graph_data->nodes[arrow.second];
-		// Hmm, we are actually double-storing node data here. Could store it the same way as in the AST instead. Could even de-duplicate at this stage, but maybe not necessary.
-		arrows.emplace_back();
-		auto &arr = arrows.back();
-		process_node(data_set, scope, node1, arr.first);
-		process_node(data_set, scope, node2, arr.second);
-		// If necessary, create an edge index for this arrow in the edge index set of the graph.
-		maybe_make_edge_index(data_set, this, arr);
-	}
+	process_directed_graph(data_set, edge_index_set, graph_data, err_loc);
 	
 	has_been_processed = true;
 }

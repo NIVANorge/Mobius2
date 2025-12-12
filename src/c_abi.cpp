@@ -132,9 +132,10 @@ mobius_build_from_model_and_data_object(char *model_file, Data_Set *data_set, ch
 }
 
 DLLEXPORT void
-mobius_delete_application(Model_Data *data) {
+mobius_delete_application(Model_Data *data, bool del_data) {
 	auto app = data->app;
-	delete app->data_set;
+	if(del_data)
+		delete app->data_set;
 	delete app->model;
 	delete app;
 }
@@ -673,13 +674,12 @@ mobius_load_data_set_from_file(char *data_file) {
 	return nullptr;
 }
 
-/*
-struct
-New_Indexes {
-	char *index_set;
-	std::vector<std::pair<Token, std::vector<Token>>> data;
-};
-*/
+DLLEXPORT void
+mobius_delete_data_set(Data_Set *data_set) {
+	
+	delete data_set;
+	
+}
 
 
 // NOTE: This is only meant as a helper function where it is used right now. A lot of safety and liftime concerns are omitted.
@@ -710,7 +710,7 @@ convert_index_value_to_token(Mobius_Index_Value val) {
 }
 
 DLLEXPORT void
-mobius_resize_data_set(Data_Set *data_set, s64 set_count, Mobius_New_Indexes *list) {
+mobius_resize_data_set(Data_Set *data_set, s64 set_count, Mobius_New_Indexes *list, s64 connection_count, char **conn_names, char **conn_data) {
 	
 	try {
 		
@@ -745,7 +745,17 @@ mobius_resize_data_set(Data_Set *data_set, s64 set_count, Mobius_New_Indexes *li
 			new_indexes.emplace_back(std::move(ni));
 		}
 		
-		resize_data_set(data_set, new_indexes);
+		std::vector<New_Connections> nc;
+		
+		for(s64 i = 0; i < connection_count; ++i) {
+			New_Connections n = {};
+			n.connection = conn_names[i];
+			n.graph_data = conn_data[i];
+			nc.push_back(n);
+		}
+		
+		
+		resize_data_set(data_set, new_indexes, nc);
 	
 	} catch(int) {
 	}

@@ -138,6 +138,7 @@ Connection_Data : Registration_Base {
 	Entity_Id edge_index_set = invalid_entity_id;
 	
 	void process_declaration(Catalog *catalog);
+	void process_directed_graph(Data_Set *data_set, Entity_Id edge_set_id, Directed_Graph_AST *graph_data, Source_Location err_loc);
 };
 
 struct

@@ -136,7 +136,7 @@ def load_dll() :
 	dll.mobius_build_from_model_and_data_object.argtypes = [ctypes.c_char_p, ctypes.c_void_p, ctypes.c_char_p, ctypes.POINTER(Mobius_Base_Config)]
 	dll.mobius_build_from_model_and_data_object.restype  = ctypes.c_void_p
 
-	dll.mobius_delete_application.argtypes = [ctypes.c_void_p]
+	dll.mobius_delete_application.argtypes = [ctypes.c_void_p, ctypes.c_bool]
 
 	dll.mobius_delete_data.argtypes = [ctypes.c_void_p]
 
@@ -224,7 +224,9 @@ def load_dll() :
 	dll.mobius_load_data_set_from_file.argtypes = [ctypes.c_char_p]
 	dll.mobius_load_data_set_from_file.restype = ctypes.c_void_p
 	
-	dll.mobius_resize_data_set.argtypes = [ctypes.c_void_p, ctypes.c_int64, ctypes.POINTER(Mobius_New_Indexes)]
+	dll.mobius_delete_data_set.argtypes = [ctypes.c_void_p]
+	
+	dll.mobius_resize_data_set.argtypes = [ctypes.c_void_p, ctypes.c_int64, ctypes.POINTER(Mobius_New_Indexes), ctypes.c_int64, ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(ctypes.c_char_p)]
 	
 	return dll
 
@@ -260,6 +262,10 @@ def _check_for_errors() :
 
 def _c_str(string) :
 	return string.encode('utf-8')
+	
+def _c_strs(str_list) :
+	cstrs = [_c_str(s) for s in str_list]
+	return (ctypes.c_char_p * len(cstrs))(*cstrs)
 
 def _pack_index(index) :
 	if isinstance(index, str) :
@@ -400,7 +406,7 @@ class Scope :
 	#	return self.__getattr_(identifier)
 		
 	def __setattr__(self, identifier, value) :
-		if identifier in ['data_ptr', 'scope_id', 'entity_id', 'superscope_id', 'is_main'] :
+		if identifier in ['data_ptr', 'scope_id', 'entity_id', 'superscope_id', 'is_main', 'owns_ds'] :
 			super().__setattr__(identifier, value)
 		else :
 			self.__getattr__(identifier).__setitem__((), value)
@@ -428,9 +434,9 @@ class Data_Set :
 		return cls(data_ptr)
 		
 	def __del__(self) :
-		pass #TODO
+		dll.mobius_delete_data_set.argtypes(self.data_ptr)
 		
-	def reshape(self, indexes) :
+	def reshape(self, indexes, connections=None) :
 		set_replacements = []
 		for name in indexes :
 			mni = Mobius_New_Indexes()
@@ -444,21 +450,32 @@ class Data_Set :
 				mnil.count = len(v)
 				mnil.list = _pack_indexes(v)
 				entries.append(mnil)
-			else :
-				#TODO!
-				raise ValueError('We currently only support listed indexes, not sub-indexed ones.')
+			elif isinstance(v, dict) :
+				for k in v :
+					mnil = Mobius_New_Index_List()
+					mnil.parent_index = _pack_index(k)
+					mnil.count = len(v[k])
+					mnil.list = _pack_indexes(v[k])
+					entries.append(mnil)
 			
 			mni.count = len(entries)
 			mni.lists = (Mobius_New_Index_List * mni.count)(*entries)
 			
 			set_replacements.append(mni)
-			
-		#for p in set_replacements :
-		#	for q in p.lists :
-		#		print(q.parent_index.value)
 		
-		n = len(set_replacements)
-		dll.mobius_resize_data_set(self.data_ptr, n, (Mobius_New_Indexes * n)(*set_replacements))
+		nset = len(set_replacements)
+		setarg = (Mobius_New_Indexes * nset)(*set_replacements)
+		
+		connarg = None
+		conndat = None
+		nconn = 0
+		if connections :
+			connarg, conndat = zip(*connections.items())
+			connarg = _c_strs(connarg)
+			conndat = _c_strs(conndat)
+			nconn = len(connarg)
+		
+		dll.mobius_resize_data_set(self.data_ptr, nset, setarg, nconn, connarg, conndat)
 		_check_for_errors()
 		
 	def save_to_file(self, filename) :
@@ -466,15 +483,16 @@ class Data_Set :
 		
 
 class Model_Application(Scope) :
-	def __init__(self, data_ptr, is_main) :
+	def __init__(self, data_ptr, is_main, owns_ds) :
 		super().__init__(data_ptr, invalid_entity_id)
 		self.is_main = is_main
+		self.owns_ds = owns_ds
 		
 	
 	def __del__(self) :
 		#TODO: If we have made copies and the main is deleted, the copies should be invalidated somehow.
 		if self.is_main :
-			dll.mobius_delete_application(self.data_ptr)
+			dll.mobius_delete_application(self.data_ptr, owns_ds)
 		else :
 			dll.mobius_delete_data(self.data_ptr)
 	
@@ -500,19 +518,21 @@ class Model_Application(Scope) :
 		
 		if isinstance(data_file, str) :
 			data_ptr = dll.mobius_build_from_model_and_data_file(_c_str(model_file), _c_str(data_file), _c_str(base_path), cfgptr)
+			owns_ds = False
 		else :
 			#TODO: In this case we should mark the dataset as non-owned and not delete it when the app is deleted!
 			data_ptr = dll.mobius_build_from_model_and_data_object(_c_str(model_file), data_file.data_ptr, _c_str(base_path), cfgptr)
+			owns_ds = True
 			
 		_check_for_errors()
-		return cls(data_ptr, True)
+		return cls(data_ptr, True, owns_ds)
 		
 	def get_run_steps(self) :
 		return dll.mobius_get_steps(self.data_ptr, 0)
 	
 	def copy(self, copy_results = False, copy_series = False) :
 		new_ptr = dll.mobius_copy_data(self.data_ptr, copy_results, copy_series)
-		return Model_Application(new_ptr, False)
+		return Model_Application(new_ptr, False, False)
 		
 	def run(self, ms_timeout=-1, log=False, callback=None) :
 		if callback :

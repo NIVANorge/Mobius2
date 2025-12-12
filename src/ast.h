@@ -296,6 +296,9 @@ parse_math_block(Token_Stream *stream);
 Math_Expr_AST *
 parse_regex_list(Token_Stream *stream, bool outer);
 
+Data_AST *
+parse_directed_graph(Token_Stream *stream);
+
 
 inline Token *
 single_arg(Decl_Base_AST *decl, int which) {

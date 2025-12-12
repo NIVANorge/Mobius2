@@ -4,8 +4,8 @@
 void
 resize_data_set(
 	Data_Set *data_set,
-	std::vector<New_Indexes> &new_indexes
-	// TODO: Connection data
+	std::vector<New_Indexes> &new_indexes,
+	std::vector<New_Connections> &new_connections
 ) {
 
 	Index_Data old_index_data = data_set->index_data;
@@ -17,27 +17,26 @@ resize_data_set(
 	// TODO: If you edit a parent index set, every sub-indexed index set should be cleared
 		// Or at least reshape it if no new indexes were provided for it. (Depending on what new indexes are for the parent)
 		// (see also comment in index_data.cpp)
-	// TODO: Does it 
 	
 	//// Setting new index values.
 	
-	std::set<Entity_Id> was_changed;
+	std::set<Entity_Id> modified_sets;
 	
 	for(auto &entry : new_indexes) {
 		
-		auto reg = data_set->top_scope[entry.index_set];
-		if(!reg || !is_valid(reg->id) || reg->id.reg_type != Reg_Type::index_set)
-			fatal_error(Mobius_Error::api_usage, "Could not find an index set with identifier '", entry.index_set, "' in the data set.");
+		auto set_id = data_set->top_scope.deserialize(entry.index_set, Reg_Type::index_set);
+		if(!is_valid(set_id))
+			fatal_error(Mobius_Error::api_usage, "Could not find an index set with name \"", entry.index_set, "\" in the data set.");
 		
-		auto index_set = data_set->index_sets[reg->id];
+		auto index_set = data_set->index_sets[set_id];
 		if(entry.data.size() > 1 && !is_valid(index_set->sub_indexed_to))
 			// Better error message? However, this is unlikely to be triggered.
-			fatal_error(Mobius_Error::api_usage, "Received multiple index data for index set '", entry.index_set, "' that is not sub-indexed");
+			fatal_error(Mobius_Error::api_usage, "Received multiple index data for index set \"", entry.index_set, "\" that is not sub-indexed");
 		
-		if(old_index_data.has_position_map(reg->id))
-			fatal_error(Mobius_Error::api_usage, "Unable to resize index set '", entry.index_set, "' that is on position map form.");
+		if(old_index_data.has_position_map(set_id))
+			fatal_error(Mobius_Error::api_usage, "Unable to resize index set \"", entry.index_set, "\" that is on position map form.");
 		
-		data_set->index_data.clear_index_data(reg->id);
+		data_set->index_data.clear_index_data(set_id);
 		
 		for(auto &pair : entry.data) {
 			
@@ -46,16 +45,69 @@ resize_data_set(
 			
 			Index_T parent_index = Index_T::no_index();
 			if(is_valid(&parent_name)) {
-				//log_print(name(parent_name.type), " ", parent_name.string_value, " ", parent_name.val_int, "\n");
-				fatal_error("Sub-indexing not yet supported in resize_dataset."); // TODO!!
+				if(!is_valid(index_set->sub_indexed_to))
+					fatal_error(Mobius_Error::api_usage, "Trying to set sub-indexing scheme for index set \"", entry.index_set, "\", which is not sub-indexed.");
+				parent_index = data_set->index_data.find_index(index_set->sub_indexed_to, &parent_name);
 			}
 			
-			data_set->index_data.set_indexes(reg->id, index_list, parent_index);
+			data_set->index_data.set_indexes(set_id, index_list, parent_index);
 			
 		}
 		
-		was_changed.insert(reg->id);
+		modified_sets.insert(set_id);
 		
+	}
+	
+	// TODO: Allow user to input position map reshapings.
+	
+	//// Reshaping connection data
+	
+	std::set<Entity_Id> modified_conns;
+	
+	for(auto &entry : new_connections) {
+		
+		auto conn_id = data_set->top_scope.deserialize(entry.connection, Reg_Type::connection);
+		if(!is_valid(conn_id))
+			fatal_error(Mobius_Error::api_usage, "Could not find a connection with name \"", entry.connection, "\" in the data set.");
+		
+		auto connection = data_set->connections[conn_id];
+		
+		if(connection->type != Connection_Data::Type::directed_graph)
+			fatal_error(Mobius_Error::api_usage, "Currently only support reshaping connections of type directed_graph.");
+		
+		if(is_valid(connection->edge_index_set))
+			data_set->index_data.clear_index_data(connection->edge_index_set);
+		
+		connection->arrows.clear();
+		
+		Token_Stream stream("(API call)", entry.graph_data);
+		Directed_Graph_AST *graph_data = static_cast<Directed_Graph_AST *>(parse_directed_graph(&stream));
+		
+		Source_Location err_loc = {};
+		connection->process_directed_graph(data_set, connection->edge_index_set, graph_data, err_loc);
+		
+		modified_conns.insert(conn_id);
+		
+		delete graph_data;
+	}
+	
+	// Check if connections that were not edited were invalidated by an index set edit.
+	// NOTE: We could instead try to fix up the indexes and delete arrows where needed, but probably not worth it
+	//   since the user most likely would want to input new data in this case.
+	for(auto conn_id : data_set->connections) {
+		if(modified_conns.find(conn_id) != modified_conns.end()) continue;
+		
+		auto connection = data_set->connections[conn_id];
+		
+		for(Entity_Id comp_id : connection->scope.by_type(Reg_Type::component)) {
+			auto comp = data_set->components[comp_id];
+			for(auto set_id : comp->index_sets) {
+				if(modified_sets.find(set_id) != modified_sets.end()) {
+					auto set = data_set->index_sets[set_id];
+					fatal_error(Mobius_Error::api_usage, "The connection \"", connection->name, "\" has components that are distributed over the reshaped index set \"", set->name, "\". For this reason you need to input new connection data for this connection in the reshape call.");
+				}
+			}
+		}
 	}
 	
 	//// Reshaping parameter data
@@ -67,7 +119,7 @@ resize_data_set(
 		
 		bool reshaped = false;
 		for(auto set_id : group->index_sets) {
-			if(was_changed.find(set_id) != was_changed.end()) {
+			if(modified_sets.find(set_id) != modified_sets.end()) {
 				reshaped = true;
 				break;
 			}
@@ -119,9 +171,45 @@ resize_data_set(
 
 	}
 	
-	
-	//// TODO: Reshaping connection data
-	
-	
 	//// TODO: Checking consistency of input data (what to do if error?).
+		// In case of error, probably best just to delete that series and output a WARNING telling the user to fix the input source file.
+		
+	for(auto ser_id : data_set->series) {
+		auto ser = data_set->series[ser_id];
+		for(auto &series_set : ser->series) {
+			
+		
+			for(int i = 0; i < series_set.header_data.size(); ++i) {
+				
+				auto &hdr = series_set.header_data[i];
+				
+				for(auto &old_idx : hdr.indexes) {
+					
+					bool need_update = false;
+					
+					for(auto &idx : old_idx.indexes) {
+						if(modified_sets.find(idx.index_set) != modified_sets.end())
+							need_update = true;
+					}
+					
+					if(need_update) {
+						//std::vector<std::string> old_names;
+						//old_index_data.get_index_names(old_idx, old_names);
+						// Currently mapping them is annoying. We should write support code for it in index_data.cpp
+						// For now, just error.
+						
+						begin_error(Mobius_Error::api_usage);
+						error_print("The file \"", ser->file_name, "\"");
+						if(!series_set.sheet.empty())
+							error_print(" sheet \"", series_set.sheet, "\"");
+						error_print(" contains a series \"", hdr.name, "\" that is distributed over an index set that was edited. This is currently not supported.");
+						mobius_error_exit();
+					}
+				}
+			}
+			
+			
+			
+		}
+	}
 }
