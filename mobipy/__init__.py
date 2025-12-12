@@ -76,6 +76,20 @@ class Mobius_Base_Config(ctypes.Structure) :
 		("developer_mode", ctypes.c_bool),
 	]
 
+class Mobius_New_Index_List(ctypes.Structure) :
+	_fields_ = [
+		("parent_idx", Mobius_Index_Value),
+		("count", ctypes.c_int64),
+		("list", ctypes.POINTER(Mobius_Index_Value)),
+	]
+	
+class Mobius_New_Indexes(ctypes.Structure) :
+	_fields_ = [
+		("index_set_name", ctypes.c_char_p),
+		("count", ctypes.c_int64),
+		("lists", ctypes.POINTER(Mobius_New_Index_List)),
+	]
+
 def mobius2_path() :
 	#NOTE: We have to add a trailing slash to the path for Mobius2 to understand it.
 	return f'{pathlib.Path(__file__).parent.resolve().parent}{os.sep}'
@@ -118,6 +132,9 @@ def load_dll() :
 
 	dll.mobius_build_from_model_and_data_file.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p, ctypes.POINTER(Mobius_Base_Config)]
 	dll.mobius_build_from_model_and_data_file.restype  = ctypes.c_void_p
+	
+	dll.mobius_build_from_model_and_data_object.argtypes = [ctypes.c_char_p, ctypes.c_void_p, ctypes.c_char_p, ctypes.POINTER(Mobius_Base_Config)]
+	dll.mobius_build_from_model_and_data_object.restype  = ctypes.c_void_p
 
 	dll.mobius_delete_application.argtypes = [ctypes.c_void_p]
 
@@ -203,6 +220,11 @@ def load_dll() :
 	dll.mobius_index_names.argtypes = [ctypes.c_void_p, Entity_Id, ctypes.POINTER(Mobius_Index_Value)]
 	
 	dll.mobius_allow_logging.argtypes = [ctypes.c_bool]
+	
+	dll.mobius_load_data_set_from_file.argtypes = [ctypes.c_char_p]
+	dll.mobius_load_data_set_from_file.restype = ctypes.c_void_p
+	
+	dll.mobius_resize_data_set.argtypes = [ctypes.c_void_p, ctypes.c_int64, ctypes.POINTER(Mobius_New_Indexes)]
 	
 	return dll
 
@@ -395,7 +417,53 @@ class Scope :
 		_check_for_errors()
 		
 		return [(id.decode('utf-8'), n.decode('utf-8')) for id, n in zip(idents, names)]
+
+class Data_Set :
+	def __init__(self, data_ptr) :
+		self.data_ptr = data_ptr
 	
+	@classmethod
+	def load_from_file(cls, data_file):
+		data_ptr = dll.mobius_load_data_set_from_file(_c_str(data_file))
+		return cls(data_ptr)
+		
+	def __del__(self) :
+		pass #TODO
+		
+	def reshape(self, indexes) :
+		set_replacements = []
+		for name in indexes :
+			mni = Mobius_New_Indexes()
+			mni.index_set_name = _c_str(name)
+			v = indexes[name]
+			
+			entries = []
+			if isinstance(v, list) :
+				mnil = Mobius_New_Index_List()
+				mnil.parent_idx = Mobius_Index_Value(_c_str(''), -1)#_pack_index(-1)
+				mnil.count = len(v)
+				mnil.list = _pack_indexes(v)
+				entries.append(mnil)
+			else :
+				#TODO!
+				raise ValueError('We currently only support listed indexes, not sub-indexed ones.')
+			
+			mni.count = len(entries)
+			mni.lists = (Mobius_New_Index_List * mni.count)(*entries)
+			
+			set_replacements.append(mni)
+			
+		#for p in set_replacements :
+		#	for q in p.lists :
+		#		print(q.parent_index.value)
+		
+		n = len(set_replacements)
+		dll.mobius_resize_data_set(self.data_ptr, n, (Mobius_New_Indexes * n)(*set_replacements))
+		_check_for_errors()
+		
+	def save_to_file(self, filename) :
+		pass
+		
 
 class Model_Application(Scope) :
 	def __init__(self, data_ptr, is_main) :
@@ -423,14 +491,19 @@ class Model_Application(Scope) :
 		
 		base_path = mobius2_path()
 		
-		# TODO: We could use the args as dict thing here to make this more dynamic.
+		# TODO: We could use the args-as-dict thing here to make this more dynamic.
 		config = Mobius_Base_Config()
 		config.store_all_series = store_all_series
 		config.dev_mode = dev_mode
 		config.store_transport_fluxes = store_transport_fluxes
-		
 		cfgptr = ctypes.POINTER(Mobius_Base_Config)(config)
-		data_ptr = dll.mobius_build_from_model_and_data_file(_c_str(model_file), _c_str(data_file), _c_str(base_path), cfgptr)
+		
+		if isinstance(data_file, str) :
+			data_ptr = dll.mobius_build_from_model_and_data_file(_c_str(model_file), _c_str(data_file), _c_str(base_path), cfgptr)
+		else :
+			#TODO: In this case we should mark the dataset as non-owned and not delete it when the app is deleted!
+			data_ptr = dll.mobius_build_from_model_and_data_object(_c_str(model_file), data_file.data_ptr, _c_str(base_path), cfgptr)
+			
 		_check_for_errors()
 		return cls(data_ptr, True)
 		

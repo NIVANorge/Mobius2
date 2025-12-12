@@ -246,6 +246,20 @@ Index_Data::set_indexes(Entity_Id index_set_id, const std::vector<Token> &names,
 }
 
 void
+Index_Data::clear_index_data(Entity_Id index_set_id) {
+
+	auto &data = index_data[index_set_id.id];
+	
+	data.index_counts.clear();
+	data.name_to_index.clear();
+	data.index_names.clear();
+	
+	data.type = Index_Record::Type::none;
+	
+	// TODO: Need to clear position map stuff?
+}
+
+void
 Index_Data::initialize_union(Entity_Id index_set_id, Source_Location source_loc) {
 	
 	s64 id = index_set_id.id;
@@ -795,7 +809,7 @@ Index_Data::for_each_helper(
 
 void
 Index_Data::for_each(
-	std::vector<Entity_Id> &index_sets, 
+	const std::vector<Entity_Id> &index_sets, 
 	const std::function<void(Indexes &indexes)> &do_stuff,
 	const std::function<void(int)> &new_level
 ) {

@@ -64,6 +64,7 @@ read_series_data_from_sheet(Data_Set *data_set, Series_Data *series, String_View
 	series->series.push_back({});
 	auto &data = series->series.back();
 	data.has_date_vector = true;
+	data.sheet = sheet.name();
 	
 	std::vector<Entity_Id> index_sets;
 	

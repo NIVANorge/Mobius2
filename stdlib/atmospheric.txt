@@ -113,7 +113,7 @@ The formulas are based on [FAO paper 56](https://www.fao.org/3/x0490e/x0490e07.h
 		orbit_rad              := (2*pi*day_of_year)/365[day],
 		lat_rad                := radians(latitude),
 		solar_decl             := solar_declination(day_of_year),
-		sunset_hour_angle      := acos(-tan(lat_rad)*tan(solar_decl)),
+		sunset_hour_angle      := acos(clamp(-tan(lat_rad)*tan(solar_decl), -1, 1)),
 		inv_rel_dist_earth_sun := 1.0 + 0.033*cos(orbit_rad),
 		
 		(solar_constant / pi)*inv_rel_dist_earth_sun*(sunset_hour_angle*sin(lat_rad)*sin(solar_decl) + cos(lat_rad)*cos(solar_decl)*sin(sunset_hour_angle))
@@ -124,7 +124,7 @@ The formulas are based on [FAO paper 56](https://www.fao.org/3/x0490e/x0490e07.h
 		
 		lat_rad                := radians(latitude),
 		solar_decl             := solar_declination(day_of_year),
-		sunset_hour_angle      := acos(-tan(lat_rad)*tan(solar_decl)),
+		sunset_hour_angle      := acos(clamp(-tan(lat_rad)*tan(solar_decl), -1, 1)),
 		
 		cosshr := cos(sunset_hour_angle),
 		factor := pi*(cos(hour_angle) - cosshr) / (sin(sunset_hour_angle) - sunset_hour_angle*cosshr),

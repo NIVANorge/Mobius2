@@ -62,6 +62,7 @@ Series_Set {
 	Date_Time                        end_date;    // Invalid if the series doesn't have a date vector.
 	s64                              time_steps;  // For series that don't have a date vector.
 	bool has_date_vector;
+	std::string                      sheet;       // If this came from an xlsx.
 	std::vector<Series_Header>       header_data;
 	std::vector<Date_Time>           dates;
 	std::vector<std::vector<double>> raw_values;

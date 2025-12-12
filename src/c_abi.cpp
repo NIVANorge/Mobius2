@@ -1,7 +1,7 @@
 
 #include "c_abi.h"
 #include "model_application.h"
-
+#include "support/resize_data_set.h"
 
 
 #ifndef MOBIUS_ERROR_STREAMS
@@ -94,6 +94,28 @@ mobius_build_from_model_and_data_file(char * model_file, char * data_file, char 
 		Data_Set *data_set = new Data_Set;
 		data_set->read_from_file(data_file);
 		
+		Model_Options options;
+		data_set->get_model_options(options);
+		
+		Mobius_Model *model = load_model(model_file, &config, &options);
+		auto app = new Model_Application(model);
+		
+		app->build_from_data_set(data_set);
+		app->compile();
+		
+		return &app->data;
+	} catch(int) {}
+	
+	return nullptr;
+}
+
+DLLEXPORT Model_Data *
+mobius_build_from_model_and_data_object(char *model_file, Data_Set *data_set, char *base_path, Mobius_Base_Config *cfg) {
+	
+	Mobius_Config config = *cfg;
+	config.mobius_base_path = base_path;
+	
+	try {
 		Model_Options options;
 		data_set->get_model_options(options);
 		
@@ -637,6 +659,97 @@ mobius_index_names(Model_Data *data, Entity_Id index_set_id, Mobius_Index_Value 
 			fatal_error(Mobius_Error::internal, "Unsupported index data type in mobius_index_names.");
 		
 	} catch(int) {}
+}
+
+DLLEXPORT Data_Set *
+mobius_load_data_set_from_file(char *data_file) {
+	try {
+		
+		Data_Set *data_set = new Data_Set;
+		data_set->read_from_file(data_file);
+		return data_set;
+		
+	} catch(int) {}
+	return nullptr;
+}
+
+/*
+struct
+New_Indexes {
+	char *index_set;
+	std::vector<std::pair<Token, std::vector<Token>>> data;
+};
+*/
+
+
+// NOTE: This is only meant as a helper function where it is used right now. A lot of safety and liftime concerns are omitted.
+Token
+convert_index_value_to_token(Mobius_Index_Value val) {
+	Token result;
+	
+	result.source_loc.type = Source_Location::Type::internal;
+	
+	if(val.name && strlen(val.name) > 0) {
+		result.string_value = val.name;
+		result.type = Token_Type::quoted_string;
+		
+		//log_print("Packing string index: ", val.name, "\n");
+	} else if (val.value >= 0) {
+		result.val_int = val.value;
+		result.string_value = "";
+		result.type = Token_Type::integer;
+		
+		//log_print("Packing integer index: ", val.value, "\n");
+	} else {
+		result.type = Token_Type::unknown;
+		
+		//log_print("Packing invalid index\n");
+	}
+	
+	return result;
+}
+
+DLLEXPORT void
+mobius_resize_data_set(Data_Set *data_set, s64 set_count, Mobius_New_Indexes *list) {
+	
+	try {
+		
+		// Glue code... :(
+		
+		std::vector<New_Indexes> new_indexes;
+	
+		for(s64 i = 0; i < set_count; ++i) {
+			
+			New_Indexes ni;
+			auto &ni_in = list[i];
+			
+			ni.index_set = ni_in.index_set_name;
+			
+			for(s64 j = 0; j < ni_in.count; ++j) {
+				
+				std::pair<Token, std::vector<Token>> lists;
+				
+				auto lists_in = ni_in.lists[j];
+				
+				lists.first = convert_index_value_to_token(lists_in.parent_idx);
+				
+				for(s64 k = 0; k < lists_in.count; ++k) {
+					
+					lists.second.push_back(convert_index_value_to_token(lists_in.list[k]));
+				}
+				
+				ni.data.emplace_back(std::move(lists));
+				
+			}
+			
+			new_indexes.emplace_back(std::move(ni));
+		}
+		
+		resize_data_set(data_set, new_indexes);
+	
+	} catch(int) {
+	}
+	
 }
 
 

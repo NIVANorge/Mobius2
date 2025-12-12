@@ -16,6 +16,7 @@
 //struct Model_Application;
 
 struct Model_Data;
+struct Data_Set;
 
 // Hmm, do we really need both Mobius_Index_Value and Mobius_Index_Slice?
 struct
@@ -54,6 +55,20 @@ Mobius_Entity_Metadata {
 	Parameter_Value max;
 };
 
+struct
+Mobius_New_Index_List {
+	Mobius_Index_Value parent_idx;
+	s64 count;
+	Mobius_Index_Value *list;
+};
+
+struct
+Mobius_New_Indexes {
+	char *index_set_name;
+	s64 count;
+	Mobius_New_Index_List *lists;
+};
+
 
 DLLEXPORT s64
 mobius_encountered_error(char *msg_out, s64 buf_len);
@@ -65,7 +80,10 @@ DLLEXPORT void
 mobius_allow_logging(bool allow);
 
 DLLEXPORT Model_Data *
-mobius_build_from_model_and_data_file(char * model_file, char * data_file, char *base_path, Mobius_Base_Config *cfg);
+mobius_build_from_model_and_data_file(char *model_file, char *data_file, char *base_path, Mobius_Base_Config *cfg);
+
+DLLEXPORT Model_Data *
+mobius_build_from_model_and_data_object(char *model_file, Data_Set *data_set, char *base_path, Mobius_Base_Config *cfg);
 
 DLLEXPORT void
 mobius_delete_application(Model_Data *data);
@@ -172,5 +190,11 @@ mobius_index_count(Model_Data *data, Entity_Id index_set_id);
 
 DLLEXPORT void
 mobius_index_names(Model_Data *data, Entity_Id id, Mobius_Index_Value *indexes_out);
+
+DLLEXPORT Data_Set *
+mobius_load_data_set_from_file(char *data_file);
+
+DLLEXPORT void
+mobius_resize_data_set(Data_Set *data_set, s64 set_count, Mobius_New_Indexes *list);
 
 #endif

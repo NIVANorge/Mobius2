@@ -88,6 +88,8 @@ Index_Data {
 	
 	Index_Data(Catalog *catalog) : catalog(catalog) {}
 	
+	void clear_index_data(Entity_Id index_set);
+	
 	void set_indexes(Entity_Id index_set, const std::vector<Token> &names, Index_T parent_idx = Index_T::no_index());
 	void initialize_union(Entity_Id index_set_id, Source_Location source_loc);
 	
@@ -131,7 +133,7 @@ Index_Data {
 	void transfer_data(Index_Data &other, Entity_Id index_set_id);
 	
 	void for_each(
-		std::vector<Entity_Id> &index_sets, 
+		const std::vector<Entity_Id> &index_sets, 
 		const std::function<void(Indexes &indexes)> &do_stuff,
 		const std::function<void(int)> &new_level = [](int){}
 		);
