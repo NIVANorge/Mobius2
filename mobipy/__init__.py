@@ -492,7 +492,7 @@ class Model_Application(Scope) :
 	def __del__(self) :
 		#TODO: If we have made copies and the main is deleted, the copies should be invalidated somehow.
 		if self.is_main :
-			dll.mobius_delete_application(self.data_ptr, owns_ds)
+			dll.mobius_delete_application(self.data_ptr, self.owns_ds)
 		else :
 			dll.mobius_delete_data(self.data_ptr)
 	

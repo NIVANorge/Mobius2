@@ -13,7 +13,6 @@ resize_data_set(
 	// TODO: We should think about making the operation so that nothing is changed if there is an error underway,
 	//   otherwise the dataset will be corrupted.
 	
-	// TODO: Would be better to sort entries on entity_id to guarantee having sub-indexed index sets after their parents.
 	// TODO: If you edit a parent index set, every sub-indexed index set should be cleared
 		// Or at least reshape it if no new indexes were provided for it. (Depending on what new indexes are for the parent)
 		// (see also comment in index_data.cpp)
@@ -27,6 +26,13 @@ resize_data_set(
 		auto set_id = data_set->top_scope.deserialize(entry.index_set, Reg_Type::index_set);
 		if(!is_valid(set_id))
 			fatal_error(Mobius_Error::api_usage, "Could not find an index set with name \"", entry.index_set, "\" in the data set.");
+		
+		modified_sets.insert(set_id);
+	}
+	
+	// NOTE: The index sets are now sorted by the entity id, so that they are processed in the correct order.
+	
+	for(auto set_id : modified_sets) {
 		
 		auto index_set = data_set->index_sets[set_id];
 		if(entry.data.size() > 1 && !is_valid(index_set->sub_indexed_to))
@@ -53,8 +59,6 @@ resize_data_set(
 			data_set->index_data.set_indexes(set_id, index_list, parent_index);
 			
 		}
-		
-		modified_sets.insert(set_id);
 		
 	}
 	
@@ -90,6 +94,30 @@ resize_data_set(
 		
 		delete graph_data;
 	}
+	
+	// Fix union index sets that had members that were edited.
+	std::set<Entity_Id> modified_unions;
+	for(auto set_id : data_set->index_sets) {
+		auto index_set = data_set->index_sets[set_id];
+		if(index_set->union_of.empty()) continue;
+		
+		bool reset = false;
+		for(auto other_id : modified_sets) {
+			if(index_set->union_of.find(other_id) != index_set->union_of.end()) {
+				reset = true;
+				break;
+			}
+		}
+		if(reset) {
+			data_set->index_data.clear_index_data(set_id);
+			Source_Location err_loc = {};
+			data_set->index_data.initialize_union(set_id, err_loc);
+			modified_unions.insert(set_id);
+		}
+	}
+	modified_sets.insert(modified_unions.begin(), modified_unions.end());
+	
+	
 	
 	// Check if connections that were not edited were invalidated by an index set edit.
 	// NOTE: We could instead try to fix up the indexes and delete arrows where needed, but probably not worth it
