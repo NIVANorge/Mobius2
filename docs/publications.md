@@ -20,6 +20,8 @@ Norling, M.D., Jackson-Blake, L.A., Calidonio, J.-L.G., Sample, J.E.: *Rapid dev
 
 ### Other research papers
 
+Hawtree, D., Mellander, P.-E., Adams, R., Ezzati, G., Jackson-Blake, L., Zurovec, O., Norling, M., Galloway, J. *Application of a Parsimonious Phosphorus Model (SimplyP) to Two Hydrologically Contrasting Agricultural Catchments*, Water 18, 6. [https://doi.org/10.3390/w18010006](https://doi.org/10.3390/w18010006), 2025
+
 Hammarlund, E. U., Bukkuri, A., Norling, M. D., Islam, M., Posth, N. R., Baratchart, E., Carroll, C., Amend, S. R., Gatenby, R. A., Pienta, K. J., Brown, J. S., Peters, S. E., Hancke, K. *Benthic diel oxygen variability and stress as potential drivers for animal diversification in the Neoproterozoic-Palaeozoic*, Nature Communications 16 [https://doi.org/10.1038/s41467-025-57345-0](https://doi.org/10.1038/s41467-025-57345-0), 2025 
 
 Rankinen, K., Cano Bernal, J. E., Holmberg, M., Norling, M., Schulz, T., Mäkelä, A., Mikkonen, N., Kujala, H., Jackson-Blake, L. A., de Wit, H., Forsius, M. *Modelling the Effects of Forest use Change on Brownification of Finnish Rivers under Atmospheric Pressure*, Environmental Management. [https://doi.org/10.1007/s00267-024-02058-1](https://doi.org/10.1007/s00267-024-02058-1), 2024
@@ -41,5 +43,3 @@ Norling, M. D., Clayer, F., Gundersen, C. B.: *Levels of nitramines and nitrosam
 Mercado-Bettín D., Clayer, F., Shikhani, M., Moore, T.N., Frías, M.D., Jackson-Blake, L., Sample, J., Iturbide, M., Herrera, S., French, A.S., Norling, M.D., Rinke, K., Marcé, R.: *Forecasting water temperature in lakes and reservoirs using seasonal climate prediction*, Water Research, 201, [https://doi.org/10.1016/j.watres.2021.117286](https://doi.org/10.1016/j.watres.2021.117286), 2021
 
 Whitehead, P.G., Bussi, G., Hughes, J.M.R., Castro-Castellon, A.T., Norling, M.D., Jeffers, E.S., Rampley, C.P.N., Read, D.S., Horton, A.A.: *Modelling Microplastics in the River Thames: Sources, Sinks and Policy Implications*. Water, 13(6), 861, [https://doi.org/10.3390/w13060861](https://doi.org/10.3390/w13060861), 2021
-
-(2 more papers are under review)
