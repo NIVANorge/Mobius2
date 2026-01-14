@@ -50,7 +50,7 @@ def get_ph_setup(app, calib_index='Soil', obsname='Obs Ph', do_al=False, obsal='
 	
 	target = [('pH', [calib_index], obsname, [])]
 	if do_al :
-		target.append(('Total aluminum in solution (ionic + SO4-F-DOC complexes)', [calib_index], obsal, []))
+		target.append(('Al(3+) ionic concentration', [calib_index], obsal, []))
 	
 	params, set_params = opt.params_from_dict(app, par_dict)
 
