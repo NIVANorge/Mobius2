@@ -25,6 +25,7 @@ Authors: Magnus D. Norling
 		t_melt    : par_real("Temperature at which snow melts", [deg_c], 0, -4, 4)
 		refr_eff  : par_real("Refreeze efficiency", [], 0.5, 0, 1, "Speed of refreeze of liquid water in snow relative to speed of melt at the opposite temperature differential")
 		snow_liq  : par_real("Liquid water fraction", [], 0.1, 0, 1, "How many mm liquid water one mm of snow (water equivalents) can hold before the water is released")
+        m_snow    : par_real("Snowfall adjustment factor", [], 1, 0.5, 2, "Adjustment factor to accomodate for potential misestimations of snowfall in the input dataset. Should only be different from 1 if you think there is good reason to believe the input data could be wrong.")
 		init_snow : par_real("Initial snow depth (water equivalents)", [m m], 0, 0, 50000)
 	}
 	
@@ -36,7 +37,7 @@ Authors: Magnus D. Norling
 	var(snow_box.water, [m m], "Snow water") #@initial { 0 }             # Not necessary to declare initial here, default is 0.
 	
 	p_snow :
-	flux(out, snow_box.snow, [m m, day-1], "Precipitation falling as snow") {  air.precip * (air.temp <= t_snow)  } # Making use of auto-cast of boolean->real
+	flux(out, snow_box.snow, [m m, day-1], "Precipitation falling as snow") {  air.precip * (air.temp <= t_snow) * m_snow  } # Making use of auto-cast of boolean->real
 	
 	p_rain :
 	flux(out, snow_box.water, [m m, day-1], "Precipitation falling as rain")  {  air.precip * (air.temp > t_snow)  }

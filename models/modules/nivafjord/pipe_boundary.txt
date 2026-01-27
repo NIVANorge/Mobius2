@@ -26,6 +26,9 @@ module("Basin inflow", version(0, 0, 1),
 	
 	dims : preamble
 ) {
+"""
+NOTE: This module was made for a very specific setup, and is probably not generally reusable without modifications.
+"""
 
 	load("stdlib/physiochemistry.txt", library("Water utils"), library("Basic constants"), library("Chemistry"))
 	load("stdlib/seawater.txt", library("Seawater"), library("Sea oxygen"))
