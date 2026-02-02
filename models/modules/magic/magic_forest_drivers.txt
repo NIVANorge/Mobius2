@@ -28,6 +28,12 @@ module("MAGIC-Forest drivers", version(0, 0, 3),
 	use_mod_q : par_enum,
 	con       : connection
 ) {
+"""
+This module computes the main driving mass balance ion fluxes. This includes
+- pure sources (deposition, weathering) or sinks.
+- fluxes between compartments (e.g. from soil to lake). 
+This module does not include more advanced fluxes like biological uptake and processing.
+"""
 	
 	par_group("Overall climate parameters") {
 		pr_par: par_real("Precipitation", [m, year-1], 1, 0, 5000, "Used when time series is not available")
@@ -211,8 +217,10 @@ module("MAGIC-Forest drivers", version(0, 0, 3),
 	}
 	
 	var(comp.so4.dep, [m eq, m-2, month-1], "SO4 deposition") {
+		# clwet is not comp.cl.dep, so it does not take into Cl deposition sequences. This was necessary for compatibility with old 1000lakes setups, but is not
+		# ideal for future applications..
 		wet := precip*d_so4->>,
-		clwet := precip*d_cl->>, # not comp.cl.dep, should not take into account cl dep sequence it looks like (?)
+		clwet := precip*d_cl->>,
 		compute_deposition_sea_salt(wet, wetds, tot_dep, is_top, clwet, 0.1040) if sea_salt,
 		compute_deposition(wet, wetds, tot_dep, is_top) otherwise
 	}
@@ -245,7 +253,7 @@ module("MAGIC-Forest drivers", version(0, 0, 3),
 	var(comp.po4.ext_in, [m eq, m-2, month-1]) { w_po4*ts + dep } @no_store
 	
 	#NOTE: These are the mass balance of all inputs - all outputs except for the discharge output.
-	# Only used to compute initial concentrations
+	# Only used to compute steady-state initial concentrations
 	var(comp.ca.bal, [m eq, m-2, month-1]) { in_flux(ca) - out_flux(ca) + in_flux(con, ca) } @no_store
 	var(comp.mg.bal, [m eq, m-2, month-1]) { in_flux(mg) - out_flux(mg) + in_flux(con, mg) } @no_store
 	var(comp.na.bal, [m eq, m-2, month-1]) { in_flux(na) - out_flux(na) + in_flux(con, na) } @no_store

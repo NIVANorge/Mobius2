@@ -19,7 +19,7 @@ module("MAGIC core", version(0, 0, 3),
 	rel_runoff : property
 ) {
 """
-This module is for now just for testing calling the MAGIC core from Mobius2. Will be turned into a full MAGIC model eventually.
+This module computes the core charge balance, adsorption and ion speciation inside each individual compartment.
 """
 	
 	par_group("Convergence") {

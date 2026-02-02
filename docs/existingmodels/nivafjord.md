@@ -33,7 +33,7 @@ You can also create boundary basins where all physiochemical characteristics are
 
 ## FjordChem
 
-![NIVAFjord biochemistry](../img/nivafjord/nivafjord.png)
+![NIVAFjord biochemistry](../img/nivafjord/nivafjord_en.png)
 
 This is the biochemical component of NIVAFjord, simulating nutrients (CNP), phytoplankton, microbial processes and suspended particles.
 
