@@ -15,8 +15,12 @@ LLVM is the library that is used to compile intermediate representations of code
 
 You can install and build LLVM on Windows using this guide:
 https://llvm.org/docs/GettingStartedVS.html
+*But with the folowing modifications!!:*
+- Mobius2 is not yet updated to the latest llvm version, so you need to checkout version 18. For instance after cloning llvm-project you can `git checkout llvmorg-18.1.8`.
+- You should use the following command to run cmake from inside the llvm-project folder:
+`cmake -S llvm -B build -DLLVM_ENABLE_PROJECTS=clang -DLLVM_TARGETS_TO_BUILD=X86 -DLLVM_STATIC_LINK_CXX_STDLIB=ON -Thost=x64`.
 
-If you have made it to step 13., you will have an llvm.sln file in your build folder that you can open in Visual Studio Community edition.
+If you have made it to step 13., you will have an LLVM.slnx file in your build folder that you can open in Visual Studio Community edition.
 Inside Visual Studio, select the Release build and build it (you can also build the Debug build, but both will take a couple of hours to build, and you will not need the debug build unless you are a developer of the Mobius2 framework).
 
 Depending on how you chose to set things up you will have a path to the clone of the llvm repository and a path to your build of LLVM. The build of Mobius2 will need to link to files in both of these paths.
@@ -53,4 +57,4 @@ You should clone MobiView2 to
 upp/MyApps/MobiView2
 
 unfortunately the build system I set up for MobiView2 also assumes specific paths to Mobius2 and LLVM for now :(
-It also has a few other dependencies like Dlib and Graphviz.
+It also has a few other dependencies like Dlib.

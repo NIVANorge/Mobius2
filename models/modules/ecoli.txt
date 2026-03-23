@@ -1,0 +1,63 @@
+
+
+preamble("E.coli general") {
+
+	par_group("E.coli lifetime") {
+		hl20 : par_real("Half life at 20C", [hr], 1, 0.01, 100)
+		q10 : par_real("Q10 coefficient", [], 1, 1, 5)
+	}
+
+}
+
+module("Catchment E.coli", version(0, 0, 0),
+
+	soil : compartment,
+	river : compartment,
+	water : quantity,
+	ecoli : quantity,
+	temp  : property,
+	pars : preamble,
+) {
+
+	load("stdlib/basic_math.txt", library("Response"))
+	
+	var(river.water.ecoli, [], [1/100, m l-1], "River E.coli")
+	
+	flux(river.water.ecoli, out, [day-1]) {
+		ref_rate := hl_to_rate(hl20),
+		rate := q10_adjust(ref_rate, 20[deg_c], temp),
+		ecoli*rate
+	}
+	
+	# TODO: Add mobilization from land somehow, dependent on availability e.g. from animals or outdoor toilets.
+}
+
+module("Lake E.coli", version(0, 0, 0),
+	
+	epi : compartment,
+	hyp : compartment,
+	water : quantity,
+	ecoli : quantity,
+	temp : property,
+	pars : preamble,
+) {
+
+	load("stdlib/basic_math.txt", library("Response"))
+	
+	var(epi.water.ecoli, [], [1/100, m l-1], "Epilimnion E.coli")
+	var(hyp.water.ecoli, [], [1/100, m l-1], "Hypolimnion E.coli")
+	
+	flux(epi.water.ecoli, out, [day-1]) {
+		ref_rate := hl_to_rate(hl20),
+		rate := q10_adjust(ref_rate, 20[deg_c], temp),
+		ecoli*rate
+	}
+	
+	flux(hyp.water.ecoli, out, [day-1]) {
+		ref_rate := hl_to_rate(hl20),
+		rate := q10_adjust(ref_rate, 20[deg_c], temp),
+		ecoli*rate
+	}
+	
+	# Probably nothing else we want to do here?
+}

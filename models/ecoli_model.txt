@@ -1,0 +1,19 @@
+
+model("EasyLake-Simply-Ecoli-Model") {
+
+
+	extend("easylake_simplyq_model")
+	
+	ecoli : quantity("E.coli")
+	
+	pt : compartment("River point source buffer", sc)
+	
+	load("modules/ecoli.txt", 
+		pars: preamble("E.coli general"),
+		module("Catchment E.coli", soil, river, water, ecoli, temp, pars),
+		module("Lake E.coli", epi, hyp, water, ecoli, temp, pars),
+	)
+	load("modules/river_point_sources.txt", 
+		module("River point source inputs", river, pt, water, flow, ecoli)
+	)
+}

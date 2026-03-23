@@ -35,16 +35,24 @@ resize_data_set(
 	for(auto set_id : modified_sets) {
 		
 		auto index_set = data_set->index_sets[set_id];
-		if(entry.data.size() > 1 && !is_valid(index_set->sub_indexed_to))
+		
+		// Ouch, Apparently I made a mistake somewhere. This is just a quick fix. Improve it.
+		New_Indexes *entry = nullptr;
+		for(auto &e : new_indexes) {
+			if(e.index_set == index_set->name)
+				entry = &e;
+		}
+		
+		if(entry->data.size() > 1 && !is_valid(index_set->sub_indexed_to))
 			// Better error message? However, this is unlikely to be triggered.
-			fatal_error(Mobius_Error::api_usage, "Received multiple index data for index set \"", entry.index_set, "\" that is not sub-indexed");
+			fatal_error(Mobius_Error::api_usage, "Received multiple index data for index set \"", entry->index_set, "\" that is not sub-indexed");
 		
 		if(old_index_data.has_position_map(set_id))
-			fatal_error(Mobius_Error::api_usage, "Unable to resize index set \"", entry.index_set, "\" that is on position map form.");
+			fatal_error(Mobius_Error::api_usage, "Unable to resize index set \"", entry->index_set, "\" that is on position map form.");
 		
 		data_set->index_data.clear_index_data(set_id);
 		
-		for(auto &pair : entry.data) {
+		for(auto &pair : entry->data) {
 			
 			auto &parent_name = pair.first;
 			auto &index_list = pair.second;
@@ -52,7 +60,7 @@ resize_data_set(
 			Index_T parent_index = Index_T::no_index();
 			if(is_valid(&parent_name)) {
 				if(!is_valid(index_set->sub_indexed_to))
-					fatal_error(Mobius_Error::api_usage, "Trying to set sub-indexing scheme for index set \"", entry.index_set, "\", which is not sub-indexed.");
+					fatal_error(Mobius_Error::api_usage, "Trying to set sub-indexing scheme for index set \"", entry->index_set, "\", which is not sub-indexed.");
 				parent_index = data_set->index_data.find_index(index_set->sub_indexed_to, &parent_name);
 			}
 			
@@ -103,7 +111,8 @@ resize_data_set(
 		
 		bool reset = false;
 		for(auto other_id : modified_sets) {
-			if(index_set->union_of.find(other_id) != index_set->union_of.end()) {
+			auto find = std::find(index_set->union_of.begin(), index_set->union_of.end(), other_id);
+			if(find != index_set->union_of.end()) {
 				reset = true;
 				break;
 			}

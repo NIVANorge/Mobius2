@@ -9,7 +9,7 @@ def get_so4_setup(app, calib_index='Soil', obs_index='River', obsname='Obs SO4',
     par_dict = {
         'd_so4' : ('MAGIC-Forest drivers', 'd_so4', [], 0, 20),
         'so4_hs' : ('MAGIC core', 'so4_hs', [calib_index], 0, 1000),
-        'so4_max' : ('MAGIC core', 'so4_max', [calib_index], 0, 5),
+        'so4_max' : ('MAGIC core', 'so4_max', [calib_index], 0, 1),
     }
     
     target = ('SO4(2-) ionic concentration', [obs_index], obsname, [])
