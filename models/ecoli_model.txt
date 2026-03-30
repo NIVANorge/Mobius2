@@ -2,7 +2,7 @@
 model("EasyLake-Simply-Ecoli-Model") {
 
 
-	extend("easylake_simplyq_model")
+	extend("easylake_simplyq_model.txt")
 	
 	ecoli : quantity("E.coli")
 	
@@ -13,7 +13,9 @@ model("EasyLake-Simply-Ecoli-Model") {
 		module("Catchment E.coli", soil, river, water, ecoli, temp, pars),
 		module("Lake E.coli", epi, hyp, water, ecoli, temp, pars),
 	)
-	load("modules/river_point_sources.txt", 
+	load("modules/river_point_source.txt", 
 		module("River point source inputs", river, pt, water, flow, ecoli)
 	)
+	
+	solve(sol, pt.ecoli)
 }

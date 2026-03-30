@@ -1,6 +1,6 @@
 
 
-preamble("E.coli general") {
+preamble("E.coli general", version(0, 0, 0)) {
 
 	par_group("E.coli lifetime") {
 		hl20 : par_real("Half life at 20C", [hr], 1, 0.01, 100)
@@ -23,10 +23,10 @@ module("Catchment E.coli", version(0, 0, 0),
 	
 	var(river.water.ecoli, [], [1/100, m l-1], "River E.coli")
 	
-	flux(river.water.ecoli, out, [day-1]) {
+	flux(river.water.ecoli, out, [day-1], "River E.coli decay") {
 		ref_rate := hl_to_rate(hl20),
-		rate := q10_adjust(ref_rate, 20[deg_c], temp),
-		ecoli*rate
+		rate := q10_adjust(ref_rate, 20[deg_c], temp, q10),
+		ecoli*rate->>
 	}
 	
 	# TODO: Add mobilization from land somehow, dependent on availability e.g. from animals or outdoor toilets.
@@ -47,16 +47,16 @@ module("Lake E.coli", version(0, 0, 0),
 	var(epi.water.ecoli, [], [1/100, m l-1], "Epilimnion E.coli")
 	var(hyp.water.ecoli, [], [1/100, m l-1], "Hypolimnion E.coli")
 	
-	flux(epi.water.ecoli, out, [day-1]) {
+	flux(epi.water.ecoli, out, [day-1], "Epilimnion E.coli decay") {
 		ref_rate := hl_to_rate(hl20),
-		rate := q10_adjust(ref_rate, 20[deg_c], temp),
-		ecoli*rate
+		rate := q10_adjust(ref_rate, 20[deg_c], temp, q10),
+		ecoli*rate->>
 	}
 	
-	flux(hyp.water.ecoli, out, [day-1]) {
+	flux(hyp.water.ecoli, out, [day-1], "Hypolimnio E.coli decay") {
 		ref_rate := hl_to_rate(hl20),
-		rate := q10_adjust(ref_rate, 20[deg_c], temp),
-		ecoli*rate
+		rate := q10_adjust(ref_rate, 20[deg_c], temp, q10),
+		ecoli*rate->>
 	}
 	
 	# Probably nothing else we want to do here?
