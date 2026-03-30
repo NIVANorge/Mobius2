@@ -210,7 +210,7 @@ Index_Data::set_indexes(Entity_Id index_set_id, const std::vector<Token> &names,
 	if(data.type == Index_Record::Type::numeric1) {
 		if(names.size() > 1) {
 			names[0].print_error_header();
-			fatal_error("Got more than one value for index set size.");
+			fatal_error("Got more than one value for index set size. Check that you haven't named an index as a plain number by mistake");
 		}
 		if(names[0].type != Token_Type::integer) {
 			names[0].print_error_header();
