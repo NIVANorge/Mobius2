@@ -850,7 +850,7 @@ pre_process_connection_data(Model_Application *app, Data_Set *data_set, Entity_I
 		}
 	} else if (is_valid(connection->edge_index_set)) {
 		connection_data->source_loc.print_error_header();
-		fatal_error("This connection was given an edge index set in the model, but not in the data set."); 
+		fatal_error("This connection was given an edge index set in the model, but not in the data set.");
 	}
 	
 	for(auto comp_data_id : connection_data->scope.by_type(Reg_Type::component)) {
@@ -900,7 +900,7 @@ pre_process_connection_data(Model_Application *app, Data_Set *data_set, Entity_I
 			arrow.source_indexes.add_index(Index_T { index_set, (s16)arr.first.indexes.indexes[idx].index });
 			++idx;
 		}
-		
+		// NOTE: It is intentional that we can insert an invalid id here, because then later we know that 'out' is a possible target.
 		source->possible_targets.insert(arrow.target_id);
 		
 		if(is_valid(arrow.target_id)) {
@@ -908,7 +908,21 @@ pre_process_connection_data(Model_Application *app, Data_Set *data_set, Entity_I
 			target->possible_sources.insert(arrow.source_id);
 			source->max_target_indexes = std::max((int)target->index_sets.size(), source->max_target_indexes);
 		
-			// TODO: Maybe assert the two vectors are the same size.
+			// NOTE: This should not have happened unless the dataset was wrongly constructed. This should have been handled in the data set loading already
+			// TODO: Should really check that the index sets of the indexes match too.
+			if(target->index_sets.size() != arr.second.indexes.indexes.size()) {
+				begin_error(Mobius_Error::internal);
+				error_print("Got wrong amount of indexes in the target of an arrow in the connection data for the connection \"", connection->name, "\". ");
+				error_print("Expected index sets: ");
+				for(auto set_id : target->index_sets) {
+					error_print("\"", model->index_sets[set_id]->name, "\" ");
+				}
+				error_print("Got index sets: ");
+				for(auto &idx : arr.second.indexes.indexes) {
+					error_print("\"", data_set->index_sets[idx.index_set]->name, "\" ");
+				}
+				mobius_error_exit();
+			}
 			
 			// TODO: See same comment as above.
 			int idx = 0;

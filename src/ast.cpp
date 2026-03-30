@@ -1024,6 +1024,9 @@ parse_directed_graph(Token_Stream *stream) {
 			if(peek.type == Token_Type::arr_r) {
 				stream->read_token();
 				last_node = nodeidx;
+			} else if ((char)peek.type != ']' && peek.type != Token_Type::identifier) {
+				peek.print_error_header();
+				fatal_error("Unexpected token type: ", name(peek.type));
 			} else
 				last_node = -1;
 			
