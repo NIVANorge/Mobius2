@@ -20,6 +20,8 @@ Norling, M.D., Jackson-Blake, L.A., Calidonio, J.-L.G., Sample, J.E.: *Rapid dev
 
 ### Other research papers
 
+Newman, K. B., Naha, S., Jackson-Blake, L. B., Topp, C., Glendell, M., Butler, A. *Global sensitivity analysis workflows and rankings: A practical comparison for researchers*, Environmental Modelling & Software, 200, [https://doi.org/10.1016/j.envsoft.2026.106956](https://doi.org/10.1016/j.envsoft.2026.106956), 2026
+
 Hawtree, D., Mellander, P.-E., Adams, R., Ezzati, G., Jackson-Blake, L., Zurovec, O., Norling, M., Galloway, J. *Application of a Parsimonious Phosphorus Model (SimplyP) to Two Hydrologically Contrasting Agricultural Catchments*, Water 18, 6. [https://doi.org/10.3390/w18010006](https://doi.org/10.3390/w18010006), 2025
 
 Hammarlund, E. U., Bukkuri, A., Norling, M. D., Islam, M., Posth, N. R., Baratchart, E., Carroll, C., Amend, S. R., Gatenby, R. A., Pienta, K. J., Brown, J. S., Peters, S. E., Hancke, K. *Benthic diel oxygen variability and stress as potential drivers for animal diversification in the Neoproterozoic-Palaeozoic*, Nature Communications 16 [https://doi.org/10.1038/s41467-025-57345-0](https://doi.org/10.1038/s41467-025-57345-0), 2025 

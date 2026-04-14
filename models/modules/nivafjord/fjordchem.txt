@@ -91,6 +91,7 @@ Authors: Magnus Dahler Norling, François Clayer
 	}
 	
 	par_group("Suspended particles") {
+		floc     : par_real("DOM flocculation rate", [day-1], 0, 0, 1)
 		sett_vel : par_real("Settling velocity", [m, day-1], 2, 0, 1)
 	}
 	
@@ -169,6 +170,14 @@ Authors: Magnus Dahler Norling, François Clayer
 	flux(layer.water.sed.on, layer.water.on, [k g, day-1], "Layer PON dissolution") {
 		diss_r * sed.on
 	}
+	
+	flux(layer.water.oc, layer.water.sed.oc, [k g, day-1], "Layer DOC flocculation") {
+		floc * oc
+	}
+	
+	flux(out, layer.water.sed, [k g, day-1], "Layer DOC flocculation mass increase") {
+		floc * oc
+	} @no_store
 	
 	var(layer.water.attn, [m-1], "Layer attenuation constant") {
 		# TODO: Maybe DOC has a smaller shading effect than particles?
