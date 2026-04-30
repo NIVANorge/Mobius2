@@ -1582,9 +1582,9 @@ Solver_Registration::process_declaration(Catalog *catalog) {
 	
 	// TODO: There is a weakness with the matcher that it can't know the type of an identifier, so an identifier matches any Decl_Type.
 	// Hence this hack..
-	auto h_tmp = scope->resolve_argument(Reg_Type::unrecognized, decl->args[2]);
-	if(h_tmp.reg_type == Reg_Type::parameter)
-		which += 2;
+	//auto h_tmp = scope->resolve_argument(Reg_Type::unrecognized, decl->args[2]);
+	//if(h_tmp.reg_type == Reg_Type::parameter)
+	//	which += 2;
 	
 	
 	if(which == 0 || which == 1) {
