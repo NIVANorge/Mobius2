@@ -51,16 +51,16 @@ This module does not include more advanced fluxes like biological uptake and pro
 	}
 	
 	par_group("Weathering", comp) {
-		w_ca  : par_real("Ca weathering", [m eq, m-2, year-1], 0)
-		w_mg  : par_real("Mg weathering", [m eq, m-2, year-1], 0)
-		w_na  : par_real("Na weathering", [m eq, m-2, year-1], 0)
-		w_k   : par_real("K weathering", [m eq, m-2, year-1], 0)
-		w_nh4 : par_real("NH4 weathering", [m eq, m-2, year-1], 0)
-		w_so4 : par_real("SO4 weathering", [m eq, m-2, year-1], 0)
-		w_cl  : par_real("Cl weathering", [m eq, m-2, year-1], 0)
-		w_no3 : par_real("NO3 weathering", [m eq, m-2, year-1], 0)
-		w_f   : par_real("F weathering", [m eq, m-2, year-1], 0)
-		w_po4 : par_real("PO4 weathering", [m eq, m-2, year-1], 0)
+		w_ca  : par_real("Ca weathering", [m eq, m-2, year-1], 0, 0, 200)
+		w_mg  : par_real("Mg weathering", [m eq, m-2, year-1], 0, 0, 200)
+		w_na  : par_real("Na weathering", [m eq, m-2, year-1], 0, 0, 200)
+		w_k   : par_real("K weathering", [m eq, m-2, year-1], 0, 0, 200)
+		w_nh4 : par_real("NH4 weathering", [m eq, m-2, year-1], 0, 0, 200)
+		w_so4 : par_real("SO4 weathering", [m eq, m-2, year-1], 0, 0, 200)
+		w_cl  : par_real("Cl weathering", [m eq, m-2, year-1], 0, 0, 200)
+		w_no3 : par_real("NO3 weathering", [m eq, m-2, year-1], 0, 0, 200)
+		w_f   : par_real("F weathering", [m eq, m-2, year-1], 0, 0, 200)
+		w_po4 : par_real("PO4 weathering", [m eq, m-2, year-1], 0, 0, 200)
 	}
 	
 	par_group("Sink parameters", comp) {
