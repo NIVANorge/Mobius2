@@ -263,7 +263,7 @@ def add_wls_params(params, muinit, mumin, mumax, siminit, simin, simax, sym=None
     params[muname].user_data = {}
     params[signame].user_data = {}
 
-def run_latin_hypercube_sample(app, params, set_params, target_stat, n_samples, run_timeout=-1, verbose=1) :
+def latin_hypercube_sample(params, n_samples) :
     
     # Draw the latin hypercube sample of parameters
     par_data = lhs(len(params), samples=n_samples)
@@ -273,14 +273,24 @@ def run_latin_hypercube_sample(app, params, set_params, target_stat, n_samples, 
         par = params[par_name]
         par_data[:, i] = par.min + (par.max - par.min)*par_data[:, i]
     
+    return par_data
+    
+def set_hypercube_sample(app, params, set_params, par_data, n_run) :
+    
+    pars = params.copy()
+    for i, par_name in enumerate(pars) :
+        pars[par_name].value = par_data[n_run, i]
+    set_params(app, pars)
+
+def run_latin_hypercube_sample(app, params, set_params, target_stat, n_samples, run_timeout=-1, verbose=1) :
+    
+    par_data = latin_hypercube_sample(params, n_samples)
+    
     def sample_fun(n_run) :
-        
-        pars = params.copy()
-        for i, par_name in enumerate(pars) :
-            pars[par_name].value = par_data[n_run, i]
-        
         data = app.copy()
-        set_params(data, pars)
+        
+        set_hypercube_sample(data, params, set_params, par_data, n_run)
+        
         success = data.run(run_timeout)
         if success :
             stat = target_stat(data, pars, n_run)
