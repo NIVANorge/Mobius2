@@ -12,7 +12,8 @@ module("NIVAFjord boundary", version(0, 0, 1),
 	rho       : property,
 	pressure  : property,
 	vert      : connection,
-	dims      : preamble
+	dims      : preamble,
+	allow_random : par_bool,
 ) {
 
 	load("stdlib/physiochemistry.txt", library("Water utils"), library("Basic constants"))
@@ -25,23 +26,78 @@ module("NIVAFjord boundary", version(0, 0, 1),
 	var(bnd_layer.water.temp,     [deg_c], "Boundary layer temperature")
 	var(bnd_layer.water.salinity, [],      "Boundary layer salinity")
 	
-	#TODO: The code for this one could be put on the property directly
-	var(bnd_layer.water.rho, [k g, m-3], "Potential density") {
-		seawater_pot_dens(temp, salinity)
-	} @no_store
+	option(allow_random) {
 	
-	# These are needed for automatic transport with fluxes going from the boundary into a basin.
-	# See note in basin.txt about maybe having salinity dependence of C_water
-	var(bnd_layer.water.heat, [J], "Boundary layer thermal energy")     @override_conc { C_water * (temp -> [K]) * rho_water } @no_store
-	var(bnd_layer.water.salt, [k g], [k g, m-3], "Boundary layer salt") @override_conc { 1e-3*salinity*rho_water } @no_store
+		# This allows you to add an AR(1) Gaussian process as noise to the boundary temperature and salinity terms.
+	
+		par_group("Boundary physical randomness") {
+			rand_l : par_real("Autocorrelation length of random perturbations", [day], 1, 0.01, 10, "How long does it take for a random perturbation to 'forget' the past")
+			asalin : par_real("Amplitude of salinity random perturbations", [], 0, 0, 10, "Approximate standard deviation of the randomness over time")
+			atemp  : par_real("Amplitude of temperature random perturbations", [deg_c], 0, 0, 10, "Approximate standard deviation of the randomness over time")
+		}
+	
+		noise_gen : property("Noise generator")
+		noise : property("Random noise")
+		
+		var(bnd_basin.heat.noise_gen, [], "Temperature noise generator") {
+			f := (time.step_length_in_seconds/rand_l->[]),
+			last(noise_gen)*(1-f) + normal(0, f)
+		} @initial { 0 } #TODO: Not sure why we need this. Seems like a bug in Mobius2.
+		
+		var(bnd_basin.heat.noise, [deg_c], "Temperature noise") {
+			f := (time.step_length_in_seconds/rand_l->[]),
+			factor := sqrt(f/(2-f)),
+			atemp*noise_gen/factor
+		} @no_store
+		
+		var(bnd_basin.salt.noise_gen, [], "Salinity noise generator") {
+			f := (time.step_length_in_seconds/rand_l->[]),
+			last(noise_gen)*(1-f) + normal(0, f)
+		} @initial { 0 } #TODO: See above.
+		
+		var(bnd_basin.salt.noise, [], "Salinity noise") {
+			f := (time.step_length_in_seconds/rand_l->[]),
+			factor := sqrt(f/(2-f)),
+			asalin*noise_gen/factor
+		} @no_store
+		
+		
+		var(bnd_layer.water.rho, [k g, m-3], "Potential density") {
+			mod_temp := temp + bnd_basin.heat.noise,
+			mod_salin := salinity + bnd_basin.salt.noise,
+			seawater_pot_dens(mod_temp, mod_salin)
+		} @no_store
+		
+		var(bnd_layer.water.heat, [J], "Boundary layer thermal energy")     @override_conc {
+			mod_temp := temp + bnd_basin.heat.noise,
+			C_water * (mod_temp -> [K]) * rho_water 
+		} @no_store
+		
+		var(bnd_layer.water.salt, [k g], [k g, m-3], "Boundary layer salt") @override_conc {
+			mod_salin := salinity + bnd_basin.salt.noise,
+			1e-3*mod_salin*rho_water 
+		} @no_store
+		
+		
+	} @otherwise {
+		#TODO: The code for this one could be put on the property directly
+		var(bnd_layer.water.rho, [k g, m-3], "Potential density") {
+			seawater_pot_dens(temp, salinity)
+		} @no_store
+		
+		# These are needed for automatic transport with fluxes going from the boundary into a basin.
+		# See note in basin.txt about maybe having salinity dependence of C_water
+		var(bnd_layer.water.heat, [J], "Boundary layer thermal energy")     @override_conc { C_water * (temp -> [K]) * rho_water } @no_store
+		var(bnd_layer.water.salt, [k g], [k g, m-3], "Boundary layer salt") @override_conc { 1e-3*salinity*rho_water } @no_store
+	}
 	
 	sea_level_component : function(amp : [c m], phase : [deg], per : [hr], t : [hr]) {
 		amp * cos( (pi/180[deg])*(t*360[deg]/per - phase) )
 	}
 	
 	sea_level : function(t : [hr]) {
-		# TODO: Parametrize and put in a library. This one in particular is for Oscarsborg.
-		# Although it is better if the user just always overrides it..
+		# NOTE: This is an approximation for Oscarsborg just to have a default. It should in general be overridden by the user with an input series.
+		
 		  sea_level_component(11.2[c m], 282[deg], 365.24*24[hr], t)
 		+ sea_level_component(13.4[c m], 152[deg], 12.42[hr], t)
 		+ sea_level_component( 3.4[c m], 101[deg], 12.00[hr], t)

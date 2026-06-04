@@ -4,18 +4,23 @@ model("EasyLake-Simply-Ecoli-Model") {
 
 	extend("easylake_simplyq_model.txt")
 	
-	ecoli : quantity("E.coli")
+	pathogen_type : index_set("Pathogen type")
+	animal_type   : index_set("Animal type")
+	
+	pathogen : quantity("Pathogen", pathogen_type)
+	animal   : quantity("Animal", animal_type)
 	
 	pt : compartment("River point source buffer", sc)
 	
 	load("modules/ecoli.txt", 
-		pars: preamble("E.coli general"),
-		module("Catchment E.coli", soil, river, water, ecoli, temp, pars),
-		module("Lake E.coli", epi, hyp, water, ecoli, temp, pars),
-	)
-	load("modules/river_point_source.txt", 
-		module("River point source inputs", river, pt, water, flow, ecoli)
+		pars: preamble("Pathogen general", pathogen, animal),
+		module("Catchment pathogen", soil, river, water, pathogen, animal, temp, pars, a_catch),
+		module("Lake pathogen", epi, hyp, water, pathogen, temp, pars),
 	)
 	
-	solve(sol, pt.ecoli)
+	load("modules/river_point_source.txt", 
+		module("River point source inputs", river, pt, water, flow, pathogen)
+	)
+	
+	solve(sol, pt.pathogen)
 }

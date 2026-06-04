@@ -80,15 +80,20 @@ model("NIVAFjord") {
 		
 	load("modules/nivafjord/basin.txt",
 		module("NIVAFjord basin", air, basin, layer, water, salt, heat, temp, salinity, pressure, wind, g_rad, rho, attn, z, dz, h, area, freeze_t, sw, cos_z, loc(basin.ice.indicator), vert, sw_vert, loc(sediment.heat), dims))
-	
-	option(has_boundaries) {
-		load("modules/nivafjord/boundary_basin.txt",
-			module("NIVAFjord boundary", bnd_basin, bnd_layer, water, heat, salt, temp, salinity, dz, h, rho, pressure, vert, dims))
-			
-		solve(sol, bnd_basin.h)
+		
+		
+	# TODO: Ideally this should be inside the has_boundaries option, but the dependency resolver doesn't allow that.
+	option_group("Boundary configuration") {
+		allow_random  : par_bool("Allow random perturbations in boundary", false)
 	}
 	
 	option(has_boundaries) {
+	
+		load("modules/nivafjord/boundary_basin.txt",
+			module("NIVAFjord boundary", bnd_basin, bnd_layer, water, heat, salt, temp, salinity, dz, h, rho, pressure, vert, dims, allow_random))
+			
+		solve(sol, bnd_basin.h)
+	
 		horz : connection("Fjord horizontal") @directed_graph(e_idx) { 
 			layer+ bnd_layer?
 		} #@no_cycles

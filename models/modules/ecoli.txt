@@ -1,62 +1,105 @@
 
 
-preamble("E.coli general", version(0, 0, 0)) {
+preamble("Pathogen general", version(0, 0, 1),
+	pathogen : quantity,
+	animal : quantity,
+) {
 
-	par_group("E.coli lifetime") {
+	par_group("Pathogen lifetime", pathogen) {
 		hl20 : par_real("Half life at 20C", [hr], 1, 0.01, 100)
 		q10 : par_real("Q10 coefficient", [], 1, 1, 5)
+		pmob : par_real("Mobilization power", [], 1, 1, 3, "Is mobilization from land linear (1) or quadratic (2) proportionally to water runoff?")
+	}
+	
+	par_group("Animal grazing", animal) {
+		graz_start : par_real("Animal grazing period start", [day], 50, 1, 365)
+		graz_end   : par_real("Animal grazing period end", [day], 200, 1, 365)
+	}
+	
+	par_group("Animal pathogens", animal, pathogen) {
+		#TODO: could parametrize this differently here or do that computation outside the model.
+		prod : par_real("Animal pathogen production", [day-1], 0, 0, 1e15)
 	}
 
 }
 
-module("Catchment E.coli", version(0, 0, 0),
+module("Catchment pathogen", version(0, 0, 1),
 
 	soil : compartment,
 	river : compartment,
 	water : quantity,
-	ecoli : quantity,
+	pathogen : quantity,
+	animal : quantity,
 	temp  : property,
 	pars : preamble,
+	a_catch : par_real,
 ) {
 
 	load("stdlib/basic_math.txt", library("Response"))
 	
-	var(river.water.ecoli, [], [1/100, m l-1], "River E.coli")
-	
-	flux(river.water.ecoli, out, [day-1], "River E.coli decay") {
-		ref_rate := hl_to_rate(hl20),
-		rate := q10_adjust(ref_rate, 20[deg_c], temp, q10),
-		ecoli*rate->>
+	par_group("Land animals", soil, animal) {
+		n_animal : par_real("Number of animals", [k m-2], 0, 0, 100000)
 	}
 	
-	# TODO: Add mobilization from land somehow, dependent on availability e.g. from animals or outdoor toilets.
+	product : property("Pathogen production")
+	
+	
+	# TODO: beiteperiode (dager av året de er ute på beite)
+	var(soil.animal.pathogen.product, [k m-2, day-1]) {
+		day := time.day_of_year,
+		n_animal * prod   if (day >= graz_start) & (day <= graz_end),
+		0                 otherwise
+	}
+	
+	var(river.water.pathogen, [], [1/100, m l-1], "River pathogen")
+	
+	mob_fact : property("Motilization potential")
+	
+	var(soil.pathogen.mob_fact, [k m-2, day-1], "Soil pathogen mobilization potential") {
+		# Temperature dependence?
+		aggregate(soil.animal.pathogen.product)
+	}
+	
+	var(river.water.pathogen.mob_fact, [], "Runoff mobilization potential") {
+		(((in_flux(water)/a_catch)->[m m, day-1])=>[])^pmob
+	}
+	
+	flux(out, river.water.pathogen, [day-1], "Pathogen mobilization from land") {
+		a_catch*aggregate(soil.pathogen.mob_fact)*river.water.pathogen.mob_fact
+	}
+	
+	flux(river.water.pathogen, out, [day-1], "River pathogen decay") {
+		ref_rate := hl_to_rate(hl20),
+		rate := q10_adjust(ref_rate, 20[deg_c], temp, q10),
+		pathogen*rate->>
+	}
 }
 
-module("Lake E.coli", version(0, 0, 0),
+module("Lake pathogen", version(0, 0, 1),
 	
 	epi : compartment,
 	hyp : compartment,
 	water : quantity,
-	ecoli : quantity,
+	pathogen : quantity,
 	temp : property,
 	pars : preamble,
 ) {
 
 	load("stdlib/basic_math.txt", library("Response"))
 	
-	var(epi.water.ecoli, [], [1/100, m l-1], "Epilimnion E.coli")
-	var(hyp.water.ecoli, [], [1/100, m l-1], "Hypolimnion E.coli")
+	var(epi.water.pathogen, [], [1/100, m l-1], "Epilimnion pathogen")
+	var(hyp.water.pathogen, [], [1/100, m l-1], "Hypolimnion pathogen")
 	
-	flux(epi.water.ecoli, out, [day-1], "Epilimnion E.coli decay") {
+	flux(epi.water.pathogen, out, [day-1], "Epilimnion pathogen decay") {
 		ref_rate := hl_to_rate(hl20),
 		rate := q10_adjust(ref_rate, 20[deg_c], temp, q10),
-		ecoli*rate->>
+		pathogen*rate->>
 	}
 	
-	flux(hyp.water.ecoli, out, [day-1], "Hypolimnio E.coli decay") {
+	flux(hyp.water.pathogen, out, [day-1], "Hypolimnio pathogen decay") {
 		ref_rate := hl_to_rate(hl20),
 		rate := q10_adjust(ref_rate, 20[deg_c], temp, q10),
-		ecoli*rate->>
+		pathogen*rate->>
 	}
 	
 	# Probably nothing else we want to do here?
