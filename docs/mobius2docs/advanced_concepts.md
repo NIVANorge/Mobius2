@@ -439,4 +439,49 @@ If there are circular dependencies (e.g. `x -> y -> x`), the framework will not 
 
 If you work with ODE equations this is usually much easier. This is because the values of the ODE equations are advanced "in parallel" using a solver algorithm. So if your equation depends on the value of an ODE equation, you usually don't need to worry about it. Most errors with circular dependencies also happen when you forgot to put a quantity state variable on a solver to make it an ODE.
 
+## Constant parameters and options
+
+Some parameters are considered **constant**, meaning that they can change the model structure and how the model is compiled. This means that the parameter can not be changed without recompiling the model. If you are using MobiView2, it will recompile the model for you when you change such a parameter.
+
+The following parameters are considered to be constant:
+- Any parameter that is declared inside an `option_group`.
+- Any parameter that is of type `par_bool` or `par_enum` and which is not distributed over index sets.
+
+Some model features require conditions to be determinable at compile time. Constant parameters can be determined at compile time since they are not allowed to change without a re-compilation.
+
+### Options
+
+In a model or module, you can have an `option` declaration that has a constant or a constant parameter as its condition. Anything inside the option body will only be compiled into the model if the condition is true. For instance
+
+```python
+option_group("Model configuration") {
+	use_pm : par_bool("Use Penman-Monteith PET formulation", true)
+}
+
+option(use_pm) {
+	load("modules/pet.txt", module("Penman-Monteith", ...))
+}
+```
+
+### `no_override`
+
+The `no_override` keyword can be used to cancel an `@override` or `@override_conc` and use mass balance after all, but only if it can be determined at compile time if a branch resolves to `no_override` or not. Example:
+
+```python
+par_group("Groundwater") {
+	const_gw : par_bool("Use constant groundwater NO3 concentration", true)
+	gw_no3   : par_real("Initial groundwater NO3 concentration")
+}
+
+# this works because const_gw can be considered to be a constant parameter
+# since it is of type par_bool and is not distributed.
+
+var(gw.water.no3, [k g, k m-2], [m g, l-1], "Groundwater NO3")
+	@initial_conc { gw_no3 }
+	@override_conc {
+		gw_no3      if const_gw,
+		no_override otherwise
+	}
+```
+
 {% include lib/mathjax.html %}
