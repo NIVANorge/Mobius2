@@ -10,6 +10,8 @@ This is a (potentially incomplete) list of publications about Mobius or that use
 
 ## Mobius2
 
+Vogt, R.D., Sekkenes, M.S., Norling, M.D., Austnes, K., de Wit, H.A., Kaste. Ø.: *Climate Effects on Water Chemistry in Acid-Sensitive Catchments*, Water 18(14), 1731, [https://doi.org/10.3390/w18141731](https://doi.org/10.3390/w18141731), 2026 
+
 Clayer, F., Gundersen, C. B., Norling, M.D., Pozzoli, L., Gragne, A.S., Berglen, T.F.,: *Safeguarding drinking water in north-western europe by modelling the fate of amines from CO2 capture*, Energy and Environmental Science, 9, [https://doi.org/10.1039/D5EE07330H](https://doi.org/10.1039/D5EE07330H), 2026
 
 ## Mobius1
