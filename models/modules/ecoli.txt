@@ -2,70 +2,70 @@
 
 preamble("Pathogen general", version(0, 0, 1),
 	pathogen : quantity,
-	animal : quantity,
 ) {
 
 	par_group("Pathogen lifetime", pathogen) {
 		hl20 : par_real("Half life at 20C", [hr], 1, 0.01, 100)
 		q10 : par_real("Q10 coefficient", [], 1, 1, 5)
-		pmob : par_real("Mobilization power", [], 1, 1, 3, "Is mobilization from land linear (1) or quadratic (2) proportionally to water runoff?")
-	}
-	
-	par_group("Animal grazing", animal) {
-		graz_start : par_real("Animal grazing period start", [day], 50, 1, 365)
-		graz_end   : par_real("Animal grazing period end", [day], 200, 1, 365)
-	}
-	
-	par_group("Animal pathogens", animal, pathogen) {
-		#TODO: could parametrize this differently here or do that computation outside the model.
-		prod : par_real("Animal pathogen production", [day-1], 0, 0, 1e15)
 	}
 
 }
 
 module("Catchment pathogen", version(0, 0, 1),
 
+    air : compartment,
 	soil : compartment,
 	river : compartment,
 	water : quantity,
 	pathogen : quantity,
-	animal : quantity,
 	temp  : property,
 	pars : preamble,
 	a_catch : par_real,
 ) {
 
 	load("stdlib/basic_math.txt", library("Response"))
-	
-	par_group("Land animals", soil, animal) {
-		n_animal : par_real("Number of animals", [k m-2], 0, 0, 100000)
+    
+    par_group("Animal pathogens", river, pathogen) {
+		prod_summer : par_real("Animal pathogen production summer", [day-1], 0, 0, 1e15)
+        prod_winter : par_real("Animal pathogen production winter", [day-1], 0, 0, 1e15)
 	}
-	
-	product : property("Pathogen production")
-	
-	
-	# TODO: beiteperiode (dager av året de er ute på beite)
-	var(soil.animal.pathogen.product, [k m-2, day-1]) {
+    
+    par_group("Animal grazing") {
+        graz_start : par_int("Animal grazing start", [day], 135, 1, 365, "Default is May 15th")
+        graz_end   : par_int("Animal grazing end", [day], 258, 1, 365, "Default is September 15th")
+    }
+    
+    par_group("Mobilization") {
+        amob : par_real("Mobilization scale", [day, m m-1], 0.1, 0, 10)
+		pmob : par_real("Mobilization power", [], 1, 1, 3, "Is mobilization from land linear (1) or quadratic (2) proportionally to water runoff?")
+    }
+
+	# This is actually soil pathogen in the catchment, just put on "river" compartment for convenience.
+    # Is not auto-transported by river.water
+    var(river.pathogen, [], "Land pathogen")
+    
+	flux(out, river.pathogen, [day-1], "Animal pathogen to land surface") {
 		day := time.day_of_year,
-		n_animal * prod   if (day >= graz_start) & (day <= graz_end),
-		0                 otherwise
+		prod_summer   if (day >= graz_start) & (day <= graz_end),
+		prod_winter   otherwise
 	}
+    
+    flux(river.pathogen, out, [day-1], "Land pathogen decay") {
+        ref_rate := hl_to_rate(hl20),
+		rate := q10_adjust(ref_rate, 20[deg_c], air.temp, q10),
+		pathogen*rate->>
+    }
 	
 	var(river.water.pathogen, [], [1/100, m l-1], "River pathogen")
 	
-	mob_fact : property("Motilization potential")
+	mob_fact : property("Mobilization potential")
 	
-	var(soil.pathogen.mob_fact, [k m-2, day-1], "Soil pathogen mobilization potential") {
-		# Temperature dependence?
-		aggregate(soil.animal.pathogen.product)
+	var(river.water.pathogen.mob_fact, [day-1], "Runoff mobilization potential") {
+		(amob*(in_flux(water)/a_catch)->[])^pmob => [day-1]
 	}
 	
-	var(river.water.pathogen.mob_fact, [], "Runoff mobilization potential") {
-		(((in_flux(water)/a_catch)->[m m, day-1])=>[])^pmob
-	}
-	
-	flux(out, river.water.pathogen, [day-1], "Pathogen mobilization from land") {
-		a_catch*aggregate(soil.pathogen.mob_fact)*river.water.pathogen.mob_fact
+	flux(river.pathogen, river.water.pathogen, [day-1], "Pathogen mobilization from land") {
+		river.pathogen*river.water.pathogen.mob_fact
 	}
 	
 	flux(river.water.pathogen, out, [day-1], "River pathogen decay") {
