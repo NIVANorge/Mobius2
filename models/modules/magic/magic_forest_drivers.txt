@@ -284,7 +284,7 @@ This module does not include more advanced fluxes like biological uptake and pro
 		-ext_in*(u=>[])*0.01 otherwise
 	}
 	
-	upt_in : property("Uptake inputs")
+	upt_in : property("Uptake series")
 	
 	var(comp.ca.upt_in, [m eq, m-2, month-1], "Ca dynamic sink") @clear_nan
 	var(comp.mg.upt_in, [m eq, m-2, month-1], "Mg dynamic sink") @clear_nan
