@@ -1,0 +1,172 @@
+
+
+module("Eelgrass", version(0, 0,0),
+	layer : compartment,
+	sediment : compartment,
+	water : quantity,
+	din : quantity,
+	phos : quantity,
+	sed : quantity,
+	oc : quantity,
+	on : quantity,
+	op : quantity,
+	leaf : quantity,
+	stem : quantity,
+	root : quantity,
+	tuber : quantity,
+	temp : property,
+	sw : property,
+	area : property,
+) {
+"""
+Eelgrass module for NIVAFjord. Based on
+
+Khangaonkar et. al. 2021, *Projections of algae, eelgrass, and zooplankton ecological interactions in 
+the inner Salish Sea – for future climate, and altered oceanic states*
+
+This implementation is a work in progress.
+"""
+
+	par_group("Eelgrass general") {
+	
+		acdw : par_real("Plant carbon dry weight ratio", [g, g-1], 0.5, 0.1, 1, "Gram carbon per gram total dry weight")
+		
+		p_lf_max : par_real("Maximal leaf specific production rate", [day-1], 0)
+		topt : par_real("Optimal temperature for leaf growth", [deg_c], 20)
+		ktg1 : par_real("Effect of low temperature on leaf growth", [deg_c-2], 0)
+		ktg2 : par_real("Effect of high temperature on leaf growth", [deg_c-2], 0)
+		
+		fam : par_real("Fraction of production devoted to active metabolism", [], 0, 0, 1)
+		fp_lf : par_real("Fraction of production routed to leaf biomass", [], 0, 0, 1)
+		fp_st : par_real("Fraction of production routed to stem biomass", [], 0, 0, 1)
+		fp_rt : par_real("Fraction of production routed to root biomass", [], 0, 0, 1)
+		fp_tb : par_real("Fraction of production routed to tuber biomass", [], 0, 0, 1)
+		
+		bm_lf : par_real("Leaf basal metabolism", [day-1], 0)
+		bm_st : par_real("Stem basal metabolism", [day-1], 0)
+		bm_rt : par_real("Root basal metabolism", [day-1], 0)
+		bm_tb : par_real("Tuber basal metabolism", [day-1], 0)
+		
+		tr_tblf : par_real("Specific transfer rate tuber-leaf", [day-1], 0)
+		
+		iopt          : par_real("Optimal PAR intensity", [W, m-2], 100, 50, 250)
+		alpha         : par_real("Half-saturation for nutrient uptake", [m mol, m-3], 1.65625, 1, 10)
+		
+		# Assuming uniform CN and CP, not specific to parts of plant.
+		eel_cn       : par_real("Molar C/N ratio in eelgrass", [], 6.625, 1, 100)
+		eel_cp       : par_real("Molar C/P ratio in eelgrass", [], 106, 50, 200)
+	}
+	
+	par_group("Eelgrass initial", sediment) {
+		init_eg : par_real("Initial eelgrass", [g, m-2], 0)
+	}
+	
+	var(sediment.leaf, [g, m-2], "Eelgrass leaf") @initial { init_eg*fp_lf }
+	
+	var(sediment.stem, [g, m-2], "Eelgrass stem") @initial { init_eg*fp_st }
+	
+	var(sediment.root, [g, m-2], "Eelgrass root") @initial { init_eg*fp_rt }
+	
+	var(sediment.tuber, [g, m-2], "Eelgrass tuber") @initial { init_eg*fp_tb }
+	
+	bmprod : property("Total biomass production")
+	light_lim : property("Light limitation")
+	N_lim     : property("Nitrogen limitation")
+	P_lim     : property("Phosphorus limitation")
+	
+	f_par : constant("Fraction of PAR in SW radiation", [], 0.45)  # Photosynthetically available radiation
+	
+	temp_response : function(t : [deg_c], topt : [deg_c], ktg1 : [deg_c-2], ktg2 : [deg_c-2]) {
+		ktg := ktg1 if t < topt, ktg2 otherwise,
+		exp(-ktg*(t - topt)^2)
+	}
+	
+	var(sediment.leaf.light_lim, []) {
+		par_sw := layer.sw*f_par,
+		f := par_sw/max(0.5*par_sw, iopt),
+		f*exp(1 - f)
+	} @no_store
+	
+	var(sediment.leaf.N_lim, []) {
+		#NOTE: Use N molar mass instead of NO3 since that is what we track in the model (e.g. DIN is modeled as mg(N)/l)
+		cmol := conc(layer.water.din)/n_mol_mass->[m mol, m-3],
+		cmol^2 / ((alpha/eel_cn)^2 + cmol^2)
+	} @no_store
+	
+	var(sediment.leaf.P_lim, []) {
+		#NOTE: Use P molar mass instead of PO4 since that is what we track in the model
+		cmol := conc(layer.water.phos)/p_mol_mass->[m mol, m-3],
+		cmol^2 / ((alpha/eel_cp)^2 + cmol^2)
+	} @no_store
+	
+	var(sediment.leaf.bmprod, [g, m-2, day-1]) {
+		# TODO: add light, n, p, limitations
+		lim := min(N_lim, min(P_lim, light_lim))
+		p_lf := p_lf_max * lim * temp_response(water.temp, topt, ktg1, ktg2) / acdw,
+		leaf * p_lf
+	}
+	
+	# TODO: Maybe produce O2 through photosynthesis?.
+
+	flux(layer.water.din, out, [g, day-1], "Eelgrass N uptake") {
+		sediment.area*sediment.leaf.bmprod*acdw/cn_molar_to_mass_ratio(eel_cn)
+	}
+	flux(layer.water.phos, out, [g, day-1], "Eelgrass P uptake") {
+		sediment.area*sediment.leaf.bmprod*acdw/cp_molar_to_mass_ratio(eel_cp)
+	}
+	
+	flux(out, sediment.leaf, [g, m-2, day-1], "Leaf production") {
+		bmprod*fp_lf
+	}
+	
+	flux(sediment.leaf, out, [g, m-2, day-1], "Leaf metabolism") {
+		leaf*bm_lf + fam*bmprod*fp_lf
+	}
+	
+	flux(out, sediment.stem, [g, m-2, day-1], "Stem production") {
+		leaf.bmprod*fp_st
+	}
+	
+	flux(sediment.stem, out, [g, m-2, day-1], "Stem metabolism") {
+		stem*bm_st + fam*leaf.bmprod*fp_st
+	}
+	
+	flux(out, sediment.root, [g, m-2, day-1], "Root production") {
+		leaf.bmprod*fp_rt
+	}
+	
+	flux(sediment.root, out, [g, m-2, day-1], "Root metabolism") {
+		root*bm_st + fam*leaf.bmprod*fp_rt
+	}
+	
+	flux(out, sediment.tuber, [g, m-2, day-1], "Tuber production") {
+		leaf.bmprod*fp_tb
+	}
+	
+	flux(sediment.tuber, out, [g, m-2, day-1], "Tuber metabolism") {
+		tuber*bm_tb +  + fam*leaf.bmprod*fp_tb
+	}
+	
+	flux(sediment.tuber, sediment.leaf, [g, m-2, day-1], "Tuber-leaf transfer") {
+		tuber*tr_tblf
+	}
+	
+	bmloss : property("Total dead biomass production")
+	var(sediment.leaf.bmloss, [g, day-1]) {
+		(leaf.bmprod + leaf*fp_lf + stem*fp_st + root*fp_rt + tuber*fp_tb)*area
+	} @no_store
+	
+	# NOTE: put it to the water column so that burial works properly in the sediment module.
+	flux(out, water.sed, [g, day-1], "Eelgrass dead biomass production") {
+		leaf.bmloss
+	}
+	flux(out, water.sed.oc, [g, day-1], "Eelgrass dead organic C production") {
+		leaf.bmloss*acdw
+	}
+	flux(out, water.sed.on, [g, day-1], "Eelgrass dead organic N production") {
+		leaf.bmloss*acdw/cn_molar_to_mass_ratio(eel_cn)
+	}
+	flux(out, water.sed.op, [g, day-1], "Eelgrass dead organic P production") {
+		leaf.bmloss*acdw/cp_molar_to_mass_ratio(eel_cp)
+	}
+}
