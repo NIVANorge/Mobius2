@@ -995,6 +995,8 @@ resolve_identifier(Identifier_Chain_AST *ident, Function_Resolve_Data *data, Fun
 			result.fun  = make_literal(const_decl->value.val_real);
 		else if(const_decl->value_type == Value_Type::boolean)
 			result.fun  = make_literal((bool)const_decl->value.val_boolean);
+		else if(const_decl->value_type == Value_Type::integer)
+			result.fun  = make_literal((s64)const_decl->value.val_integer);
 		else
 			fatal_error(Mobius_Error::internal, "Unimplemented value type for constant.");
 		if(is_valid(const_decl->unit))

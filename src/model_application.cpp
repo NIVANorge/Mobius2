@@ -516,19 +516,36 @@ read_single_parameter_data(Model_Application *app, Entity_Id par_id, Parameter_D
 }
 
 void
-gather_former_names(Model_Application *app, std::map<std::string, Entity_Id> &former_names) {
+gather_former_names(Model_Application *app, std::vector<std::pair<std::string, Entity_Id>> &former_names) {
 	auto model = app->model;
 	
 	for(auto par_id : model->parameters) {
 		auto par = model->parameters[par_id];
 		if(!par->former_name.empty())
-			former_names[par->former_name] = par_id;
+			former_names.emplace_back(par->former_name, par_id);
+	}
+}
+
+void
+try_to_identify_by_former_name(Data_Set *data_set, Mobius_Model *model, Entity_Id data_id, std::vector<std::pair<std::string, Entity_Id>> &former_names, std::vector<Entity_Id> &par_ids) {
+	std::string serial = data_set->serialize(data_id);
+	//log_print("Looking for: ", serial);
+	for (auto &pair : former_names) {
+		if (pair.first == serial) {
+			auto par_id = pair.second;
+			log_print("Note: The parameter \"", serial, "\" has been renamed to \"", model->parameters[par_id]->name, "\". This will be automatically updated in the dataset if you save it.\n");
+		
+			// Mark the old version of the parameter for deletion from the dataset.
+			// The value will from now on be saved under the new name.
+			data_set->parameters[data_id]->mark_for_deletion = true;
+			par_ids.push_back(par_id);
+		}
 	}
 }
 
 
 void
-process_parameters(Model_Application *app, Data_Set *data_set, Entity_Id par_group_data_id, std::vector<u8> &warned_module_already, std::map<std::string, Entity_Id> &former_names) {
+process_parameters(Model_Application *app, Data_Set *data_set, Entity_Id par_group_data_id, std::vector<u8> &warned_module_already, std::vector<std::pair<std::string, Entity_Id>> &former_names) {
 	
 	if(!app->parameter_structure.has_been_set_up)
 		fatal_error(Mobius_Error::internal, "We tried to process parameter data before the parameter structure was set up.");
@@ -584,20 +601,14 @@ process_parameters(Model_Application *app, Data_Set *data_set, Entity_Id par_gro
 		
 		auto par_id = map_id(data_set, model, par_data_id);
 		
-		if(!is_valid(par_id)) {
-			std::string serial = data_set->serialize(par_data_id);
-			auto find = former_names.find(serial);
-			if(find != former_names.end()) {
-				par_id = find->second;
-				log_print("Note: The parameter \"", serial, "\" has been renamed to \"", model->parameters[par_id]->name, "\". This will be automatically updated in the dataset if you save it.\n");
-				
-				// Mark the old version of the parameter for deletion from the dataset.
-				// The value will from now on be saved under the new name.
-				par_data->mark_for_deletion = true;
-			}
+		std::vector<Entity_Id> par_ids;
+		if (is_valid(par_id)) {
+			par_ids.push_back(par_id);
+		} else {
+			try_to_identify_by_former_name(data_set, model, par_data_id, former_names, par_ids);
 		}
 		
-		if(!is_valid(par_id)) {
+		if(par_ids.empty()) {
 			if(module_is_outdated) {
 				par_data->source_loc.print_log_header();
 				log_print("The parameter group \"", par_group_data->name, "\" in the module \"", model->modules[module_id]->name, "\" does not contain a parameter named \"", par_data->name, "\". The version of the module in the model code is newer than the version in the data, so this may be due to a change in the model. If you save over this data file, the parameter will be removed from the data.\n");
@@ -609,14 +620,16 @@ process_parameters(Model_Application *app, Data_Set *data_set, Entity_Id par_gro
 			continue;
 		}
 		
-		auto par = model->parameters[par_id];
-		
-		if(par->decl_type != par_data->decl_type) {
-			par_data->source_loc.print_error_header();
-			fatal_error("The parameter \"", par_data->name, "\" should be of type ", name(par->decl_type), ", not of type ", name(par_data->decl_type), ".");
+		for (auto par_id : par_ids) {
+			auto par = model->parameters[par_id];
+			
+			if(par->decl_type != par_data->decl_type) {
+				par_data->source_loc.print_error_header();
+				fatal_error("The parameter \"", par_data->name, "\" should be of type ", name(par->decl_type), ", not of type ", name(par_data->decl_type), ".");
+			}
+			
+			read_single_parameter_data(app, par_id, par_data);
 		}
-		
-		read_single_parameter_data(app, par_id, par_data);
 		
 	}
 }
@@ -1107,7 +1120,7 @@ Model_Application::build_from_data_set(Data_Set *data_set) {
 	set_up_parameter_structure(&par_group_index_sets);
 	
 	std::vector<u8> warned_module_already(data_set->modules.count());
-	std::map<std::string, Entity_Id> former_names;
+	std::vector<std::pair<std::string, Entity_Id>> former_names;
 	gather_former_names(this, former_names);
 	
 	for(auto par_group_data_id : data_set->par_groups)

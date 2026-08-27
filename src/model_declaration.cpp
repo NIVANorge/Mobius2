@@ -566,9 +566,15 @@ Constant_Registration::process_declaration(Catalog *catalog) {
 	} else if (which==1) {
 		value.val_boolean = single_arg(decl, 0)->val_bool;
 		value_type = Value_Type::boolean;
+<<<<<<< .mine
 	} else if (which==2) {
 		value.val_int = single_arg(decl, 0)->val_int;
 		value_type = Value_Type::integer;
+=======
+	} else if (which==2) {
+		value.val_integer = single_arg(decl, 0)->val_int;
+		value_type = Value_Type::integer;
+>>>>>>> .theirs
 	}
 	
 	has_been_processed = true;
