@@ -73,7 +73,7 @@ Authors: Magnus Dahler Norling, François Clayer
 	
 	var(layer.water.phyt.N_lim, []) {
 		#NOTE: Use N molar mass instead of NO3 since that is what we track in the model (e.g. DIN is modeled as mg(N)/l)
-		cmol := phyt_cn*conc(water.din)/n_mol_mass->[m mol, m-3],
+		cmol := conc(water.din)/n_mol_mass->[m mol, m-3],
 		cmol^2 / ((alpha/phyt_cn)^2 + cmol^2)
 	} @no_store
 	

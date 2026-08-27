@@ -14,6 +14,7 @@ This can run as its own model or be extended with other components.
 		compute_dic   : par_bool("Compute DIC (CO₂, CH₄)", true)
 		point_sources : par_enum("Point sources type", none) { none constant dynamic }
 		phyt_module   : par_enum("Phytoplankton module", equilibrium) { equilibrium exponential }
+		eelgrass      : par_bool("Include eelgrass", false)
 		# Eventually we could have other configurations, like include zooplankton, allow multiple phyto species etc.
 		jet           : par_bool("Jet mix outlet", false)
 		use_filt      : par_bool("Use particle filtration module", false)
@@ -97,6 +98,23 @@ This can run as its own model or be extended with other components.
 		load("modules/nivafjord/particle_filtration.txt",
 			module("Filtrating organisms", layer, water, sed, fjord_phyt, oc, on, op, loc(sediment.area))
 		)
+	}
+	
+	option(eelgrass) {
+		leaf : quantity("Eelgrass leaf")
+		stem : quantity("Eelgrass stem")
+		root : quantity("Eelgrass root")
+		tuber : quantity("Eelgrass tuber")
+		
+		load("modules/nivafjord/eelgrass.txt",
+			module("Eelgrass", 
+				layer, sediment,
+				water, din, phos, sed, oc, on, op,
+				leaf, stem, root, tuber,
+				temp, sw, area)
+				
+		)
+		solve(sol, sediment.leaf, sediment.stem, sediment.root, sediment.tuber)
 	}
 	
 	
