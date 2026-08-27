@@ -1,4 +1,5 @@
 
+#include <algorithm>
 #include "resize_data_set.h"
 
 void
