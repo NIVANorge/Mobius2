@@ -820,7 +820,7 @@ struct magic_init_input
 	double exchangeable_Ca;    // Exchangeable Calcium on soil as % of cation exchange capacity (meq - ECa/meq - CEC)    (%)
 	double exchangeable_Mg;    // Exchangeable Magnesium on soil as % of cation exchange capacity (meq - EMg/meq - CEC)  (%)
 	double exchangeable_Na;    // Exchangeable Sodium on soil as % of cation exchange capacity (meq - ENa/meq - CEC)     (%)
-	double exchangeable_K;     // Exchangeable Potassium on soil as % of cation exchange capacity 
+	double exchangeable_K;     // Exchangeable Potassium on soil as % of cation exchange capacity
 };
 
 struct magic_init_result

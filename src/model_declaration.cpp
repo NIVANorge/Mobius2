@@ -552,7 +552,8 @@ Constant_Registration::process_declaration(Catalog *catalog) {
 	int which = match_declaration(decl, 
 		{
 			{Token_Type::quoted_string, Decl_Type::unit, Token_Type::real},
-			{Token_Type::boolean}
+			{Token_Type::boolean},
+			{Token_Type::integer},
 		});
 	
 	if(which == 0) {
@@ -562,9 +563,12 @@ Constant_Registration::process_declaration(Catalog *catalog) {
 		unit = scope->resolve_argument(Reg_Type::unit, decl->args[1]);
 		value.val_real = single_arg(decl, 2)->double_value();
 		value_type = Value_Type::real;
-	} else {
+	} else if (which==1) {
 		value.val_boolean = single_arg(decl, 0)->val_bool;
 		value_type = Value_Type::boolean;
+	} else if (which==2) {
+		value.val_integer = single_arg(decl, 0)->val_int;
+		value_type = Value_Type::integer;
 	}
 	
 	has_been_processed = true;

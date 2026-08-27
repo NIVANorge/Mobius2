@@ -119,7 +119,8 @@ This module does not include more advanced fluxes like biological uptake and pro
 		# (scale is sum of rel_area of compartments before it including itself, divided by rel_area of itself)
 		# (before only counts those sideways, not those in a layer above)
 		var(comp.rel_runoff, [m, month-1]) {
-			qout*ro_scale->>
+			qout*ro_scale->>        if is_finite(qout),
+			ro_par*ts*ro_scale  	otherwise
 			#(qout / rel_area)->>   if is_finite(qout) & qout > 1e-6[m m, month-1],
 			#ro_par*ts              otherwise
 		} @no_store
