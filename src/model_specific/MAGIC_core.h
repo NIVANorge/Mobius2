@@ -128,7 +128,14 @@ struct magic_coeff
 };
 
 
-
+void
+log_debug(const std::string &log, bool flush=false) {
+	auto mode = flush ? "wb" : "ab";
+	auto *f = fopen("magic_debug_log.txt", mode);
+	fwrite(log.data(), 1, log.size(), f);
+	fwrite("\n", 1, 1, f);
+	fclose(f);
+}
 
 void
 SetEquilibriumConstants(const magic_param &Param, magic_coeff &CoeffOut, bool IsSoil, double IonicStrength, double SoilCationExchange)
@@ -243,7 +250,7 @@ SolveFreeFluoride(const magic_coeff &Coeff, double all_F, double conc_Al)
 	// Solve for free Fluoride ion concen (mmol/m3) from aqueous Fluoride concen (mmol/m3) and trivalent Al ion concen (mmol/m3)
 	
 	// If total F concen is low, solutions are unstable,  F is set to zero (mmol/m3).
-	if(all_F < .0000001) return 0.0;
+	if(all_F < .0000001 || !std::isfinite(all_F)) return 0.0;
 	
 	// Iteratively solve the nested set of 6 simultaneous equilibrium equations for AL-F complexes
 	double Term2 = all_F / (1.0 + conc_Al*Coeff.K_F[0]);
@@ -845,7 +852,6 @@ MagicCoreInitial(const magic_init_input &Input, const magic_param &Param, magic_
 {
 	// This is supposed to be run once at the beginning of the simulation to compute some initial values.
 	// It does almost exactly the same as the MagicCore, but instead of computing most exchangeable fractions, it assumes they are known and computes selectivity coefficients instead.
-	
 	
 	//TODO: We should guard against values being out of range here, so that we don't run into infinite loop problems
 	
