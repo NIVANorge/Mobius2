@@ -40,8 +40,8 @@ Or this could just extend nivafjord_lake_base
 	)
 							
 	load("modules/simplytox.txt",
-		module("SimplyTox partitioning", "SimplyTox fjord layer", layer, water, oc, tox, temp, loc(layer.water.sed.oc), [n g], constant(true), phys),
-		module("SimplyTox partitioning", "SimplyTox fjord sediments", sediment, water, oc, tox, temp, loc(sediment.sed.oc), [n g], constant(false), phys),
+		module("SimplyTox partitioning", "SimplyTox fjord layer", layer, water, oc, tox, temp, loc(layer.water.sed.oc), [n g], constant(0), phys),
+		module("SimplyTox partitioning", "SimplyTox fjord sediments", sediment, water, oc, tox, temp, loc(sediment.sed.oc), [n g], constant(2), phys),
 		module("SimplyTox air-water",    "SimplyTox lake air-water", air, basin, water, tox, temp, wind, loc(basin.area), phys)
 	)
 	

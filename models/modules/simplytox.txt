@@ -33,13 +33,17 @@ Parameters for specifying various physiochemical properties of a contaminant.
 		raw         : par_real("Water-air rate coefficient", [m, day-1], 0.05, 0, 3, "Inside soil pores only.")
 		raa         : par_real("Soil atmosphere exchange rate", [m, day-1], 0.05, 0, 10, "Between soil pore air and atmosphere")
 		
-		hlfast      : par_real("Contaminant half life", [day], 2000, 0.1, 2e10, "Used for dissolved contaminants in soil and surface water")
+		hlsurf      : par_real("Contaminant half life in surface waters", [day], 2000, 0.1, 2e10, "Used for dissolved contaminants in soil and surface water")
+            @formerly("SimplyTox physiochemical\Physiochemistry\Contaminant half life")
+        hlsoil      : par_real("Contaminant half life in soil waters", [day], 2000, 0.1, 2e10, "Used for dissolved contaminants in soil and surface water")
+            @formerly("SimplyTox physiochemical\Physiochemistry\Contaminant half life")
 		hlslow      : par_real("Contaminant half life (slow accessible carbon)", [day], 20000, 0.1, 2e10, "Used for slow-accessible carbon-bound contaminants in soil and in deep soil and sediments.")
 		hlgw        : par_real("Contaminant half life (groundwater and sediments)", [day], 20000, 0.1, 2e10, "Used for dissolved contaminants in groundwater and sediment pore water.")
 		degrq10     : par_real("Contaminant degradation Q10", [], 1, 1, 5, "Change in the rate with a change of 10°C change in temperature")
 		degrref     : par_real("Temperature at which the half life is given.", [deg_c], 25, 0, 40)
 		
-		dep_dissolved : par_bool("Contaminan deposition is dissolved", true, "If on, deposition to the soil compartment goes to purely dissolved phase, otherwise it goes to the solid phase")
+		dep_dissolved : par_bool("Contaminant deposition is dissolved", true, "If on, deposition to the soil compartment goes to purely dissolved phase, otherwise it goes to the solid phase")
+			@formerly("SimplyTox physiochemical\Physiochemistry\Contaminan deposition is dissolved")
 	}
 	
 	Kow   : property("Octanol-water partitioning coefficient") {
@@ -99,7 +103,7 @@ module("SimplyTox partitioning", version(0, 0, 0),
 	temp : property,
 	solid_oc : loc,
 	mass_unit : unit,
-	fast_degr : constant,
+	degr_type : constant,
 	phys : preamble
 ) {
 """
@@ -156,17 +160,17 @@ A module for partitioning a contaminant between solid organic carbon, dissolved 
 	} @no_store
 	
 	flux(comp.water.tox, out, flux_unit, "Dissolved contaminant decay") {
-		hl := { hlfast if fast_degr, hlgw otherwise },
+		hl := { hlsurf if degr_type=0, hlsoil if degr_type=1, hlgw otherwise },
 		degr(hl, degrq10, degrref, temp)*tox
 	} @no_store
 	
 	flux(comp.water.oc.tox, out, flux_unit, "DOC contaminant decay") {
-		hl := { hlfast if fast_degr, hlgw otherwise },
+		hl := { hlsurf if degr_type=0, hlsoil if degr_type=1, hlgw otherwise },
 		degr(hl, degrq10, degrref, temp)*tox
 	} @no_store
 	
 	flux(solid_oc.tox, out, flux_unit, "SOC contaminant decay") {
-		hl := { hlfast if fast_degr, hlslow otherwise },
+		hl := { hlsurf if degr_type=0, hlsoil if degr_type=1, hlslow otherwise },
 		degr(hl, degrq10, degrref, temp)*tox
 	} @no_store
 }
