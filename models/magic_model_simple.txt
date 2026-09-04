@@ -91,5 +91,9 @@ model("MAGIC (simple)") {
 		
 		unit_conversion(comp.org_n, comp.nh4) { 1[eq, mol-1] }
 		unit_conversion(comp.org_p, comp.po4) { 3[eq, mol-1] }
+        
+        unit_conversion(comp.no3, comp.org_n) { 1[mol, eq-1] }
+        unit_conversion(comp.nh4, comp.org_n) { 1[mol, eq-1] }
+        unit_conversion(comp.po4, comp.org_p) { 1[mol, eq-1]/3.0 }
 	}
 }

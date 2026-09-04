@@ -134,18 +134,19 @@ This one is not finished yet
 	} @no_store
 	
 	flux(comp.nh4, comp.no3, [m eq, m-2, month-1], "Nitrification") { nit }
-
-	flux(comp.no3, out, [m eq, m-2, month-1], "NO3 immobilisation") {
+	
+	# TODO: Immob must be a source to org_n !!
+	flux(comp.no3, comp.org_n, [m eq, m-2, month-1], "NO3 immobilisation") {
 		net := ext_in + nh4.nit - upt,
 		max(0=>>, net*immob_frac)
 	}
 
-	flux(comp.nh4, out, [m eq, m-2, month-1], "NH4 immobilisation") {
+	flux(comp.nh4, comp.org_n, [m eq, m-2, month-1], "NH4 immobilisation") {
 		net := ext_in - nit - upt,
 		net*immob_frac
 	}
 	
-	flux(comp.po4, out, [m eq, m-2, month-1], "PO4 immobilisation") {
+	flux(comp.po4, comp.org_p, [m eq, m-2, month-1], "PO4 immobilisation") {
 		net := ext_in - upt,
 		net*immob_frac
 	}
