@@ -81,9 +81,10 @@ register_state_variable(Model_Application *app, Entity_Id decl_id, bool is_serie
 		store_series = true;
 	
 	Var_Id::Type id_type = Var_Id::Type::state_var;
-	if(is_series)
+	if(is_series) {
 		id_type = Var_Id::Type::series;
-	else if(!store_series)
+		store_series = true; // Input series are always stored.
+	} else if(!store_series)
 		id_type = Var_Id::Type::temp_var;
 	else if(decl_id.reg_type == Reg_Type::assert)
 		id_type = Var_Id::Type::assertion;
