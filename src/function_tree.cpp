@@ -1388,7 +1388,7 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 				arguments_must_be_values(new_local, scope);
 				
 				new_local->name = local_name;
-				new_local->value_type = Value_Type::none;//new_local->exprs[0]->value_type;  // The assignment expression does itself not have a value.
+				new_local->value_type = Value_Type::none;  // The assignment expression does itself not have a value.
 				
 				result.fun = new_local;
 				result.unit = std::move(arg_units[0]);
@@ -1411,9 +1411,9 @@ resolve_function_tree(Math_Expr_AST *ast, Function_Resolve_Data *data, Function_
 				
 				arguments_must_be_values(new_assign, scope);
 				
-				// Make sure it keeps the value type it was declared with.
+				// Make sure is assigned a value of the type the identifier was declared with originally.
 				new_assign->exprs[0] = make_cast(new_assign->exprs[0], ident.value_type);
-				new_assign->value_type = Value_Type::none;//ident.value_type;
+				new_assign->value_type = Value_Type::none;
 				
 				if(!match_exact(&old_unit, &arg_units[0])) {
 					local->source_loc.print_error_header();
