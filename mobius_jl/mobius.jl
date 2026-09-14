@@ -7,7 +7,7 @@ using Libdl, Dates
 dll_path = @static Sys.iswindows() ? "../mobipy/c_abi.dll" : "../mobipy/c_abi.so"
 mobius_dll = dlopen(dll_path)
 
-export setup_model, run_model, get_entity, get_var_from_list, get_var, conc, transport, get_var_by_name, get_steps, get_dates, get_series_data, invalid_entity_id, invalid_var, no_index
+export setup_model, run_model, get_entity, get_entity_by_name, get_var_from_list, get_var, conc, transport, get_var_by_name, get_steps, get_dates, get_series_data, invalid_entity_id, invalid_var, no_index
 
 setup_model_h       = dlsym(mobius_dll, "mobius_build_from_model_and_data_file")
 copy_data_h         = dlsym(mobius_dll, "mobius_copy_data")
@@ -211,28 +211,38 @@ function get_steps(var_ref::Var_Ref)::Int64
 	return result
 end
 
+const DATE_ONLY_FORMAT = dateformat"yyyy-mm-dd"
+const DATE_TIME_FORMAT = dateformat"yyyy-mm-dd HH:MM:SS"
+
+function parse_start_date(s::AbstractString)::DateTime
+    s = rstrip(s)
+    if occursin(' ', s)
+        return DateTime(s, DATE_TIME_FORMAT)
+    else
+        return DateTime(Date(s, DATE_ONLY_FORMAT))
+    end
+end
+
 function get_dates(var_ref::Var_Ref)::Vector{DateTime}
-	steps = get_steps(var_ref)
-	start_d = " "^32
-	ccall(get_start_date_h, Cstring, (Ptr{Cvoid}, Cint, Cstring),
-		var_ref.data, var_ref.var_id.type, start_d)
-		
-	#TODO: We have to detect if the string contains timestamp or not
-	
-	start_d_str = first(start_d, 10)
-	start_date = DateTime(Date(start_d_str))
-	
-	step_size = ccall(get_time_step_size_h, Time_Step_Size, (Ptr{Cvoid},),
-		var_ref.data)
-	check_error()
-	
-	mag = step_size.magnitude
-	if step_size.unit == 0 # seconds
-		return start_date .+ Second.(0:mag:((steps-1)*mag))
-	end
-	throw(ErrorException("Not yet implemented for monthly time steps."))
-	
-	return []
+    steps = get_steps(var_ref)
+
+    buf = Vector{UInt8}(undef, 32)
+    ccall(get_start_date_h, Cvoid, (Ptr{Cvoid}, Cint, Ptr{UInt8}),
+        var_ref.data, var_ref.var_id.type, buf)
+
+    start_date = parse_start_date(unsafe_string(pointer(buf)))
+
+    step_size = ccall(get_time_step_size_h, Time_Step_Size, (Ptr{Cvoid},),
+        var_ref.data)
+    check_error()
+
+    mag = step_size.magnitude
+    if step_size.unit == 0 # seconds
+        return start_date .+ Second.(0:mag:((steps-1)*mag))
+    end
+    throw(ErrorException("Not yet implemented for monthly time steps."))
+
+    return []
 end
 
 function make_index(index::Any)::Mobius_Index_Value
