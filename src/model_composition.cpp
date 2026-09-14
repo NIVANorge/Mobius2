@@ -195,22 +195,11 @@ check_location(Model_Application *app, Source_Location &source_loc, Specific_Var
 	}
 }
 
-/*
-struct
-Code_Special_Lookups {
-	std::map<std::tuple<Var_Id, Entity_Id, bool>, std::vector<Var_Id>>     in_fluxes;
-	std::map<Var_Id, std::pair<std::set<Entity_Id>, std::vector<Var_Id>>>  aggregates;
-	
-	std::map<Entity_Id, std::pair<std::set<Entity_Id>, std::vector<Var_Id>>> par_aggregates;
-};
-*/
-
 struct
 Code_Special_Lookups {
 	std::map<std::tuple<Var_Id, Entity_Id, bool>, std::vector<Var_Id>>     in_fluxes;
 	std::map<Var_Id, std::map<std::pair<Entity_Id, Index_Set_Tuple>, std::vector<Var_Id>>> aggregates;
 	std::map<Entity_Id, std::map<std::pair<Entity_Id, Index_Set_Tuple>, std::vector<Var_Id>>> par_aggregates;
-	//std::map<Entity_Id, std::pair<std::set<Entity_Id>, std::vector<Var_Id>>> par_aggregates;
 };
 
 void
