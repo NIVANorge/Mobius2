@@ -17,3 +17,7 @@ See examples [here](https://github.com/NIVANorge/Mobius2/blob/main/example_noteb
 To use mobius.jl you need to follow the installation procedure for mobipy:
 - Windows: download mobipy/c_abi.dll from ftp://mobiserver.niva.no/Mobius2 and put it in your local Mobius2/mobipy folder.
 - Linux: see [the mobipy installation documentation](../mobipydocs/linux_install.html).
+
+Then, to install the Mobius package in your local environment, open julia from the command line, then run
+
+`] dev <insert-your-install-path>/Mobius2/mobius_jl`

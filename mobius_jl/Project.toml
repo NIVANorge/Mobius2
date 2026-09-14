@@ -1,0 +1,12 @@
+name = "Mobius"
+uuid = "59981159-e024-4412-ac38-145be67424d7"
+version = "0.1.0"
+authors = ["Magnus Norling <magnus.norling@niva.no>"]
+
+[deps]
+Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
+Libdl = "8f399da3-3557-5675-b5ff-fb832c97cbdb"
+
+[compat]
+Dates = "1.11.0"
+Libdl = "1.11.0"
