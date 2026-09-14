@@ -25,11 +25,10 @@
 #
 #   2. OpenXLSX — Clone from https://github.com/troldal/OpenXLSX.
 #      built+installed with its own CMake (follow instructions from https://github.com/troldal/OpenXLSX#building-as-a-separate-library)
+#      install location is typically something like -DOpenXLSX_DIR=<install-path>/lib/cmake/OpenXLSX
 #
-# Typical configure line for building this project:
-#   cmake -B build -DCMAKE_BUILD_TYPE=Release \
-#         -DLLVM_DIR=<path-to-llvm-cmake-dir> \
-#         -DOpenXLSX_DIR=<path-to-openxlsx-cmake-dir>
+# Then build this project using:
+#   cmake -B build -DCMAKE_BUILD_TYPE=Release -DLLVM_DIR=<path-to-llvm-cmake-dir> -DOpenXLSX_DIR=<path-to-openxlsx-cmake-dir>
 #   cmake --build build --config Release
 #
 # ---------------------------------------------------------------------------
