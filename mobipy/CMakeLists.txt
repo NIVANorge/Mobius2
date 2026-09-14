@@ -1,29 +1,32 @@
-# CMakeLists.txt for mobipy's c_abi shared library
 #
-# Place this file in Mobius2/mobipy/ (same folder as compile.sh / compile_dll.bat).
-# It builds the same target those scripts build (c_abi.so / c_abi.dll / c_abi.dylib)
-# from the same sources, on Linux, Windows (MSVC) and macOS.
+# This is an experimental build system for the shared library used by mobipy and Mobius.jl. 
+#  It has been tested on Windows. Hopefully we will be able to smooth out any remaining difficulties.
 #
 # ---------------------------------------------------------------------------
-# WHAT YOU STILL NEED TO POINT CMAKE AT (these are external, not vendored):
+# You have to install LLVM (version 18.x.x) and OpenXLSX yourself, then
+# point cmake at their locations when you build this project using -DLLVM_DIR and -DOpenXLSX_DIR (see below).
 #
-#   1. LLVM 18 — built with CMake and installed/exported, so that
-#      `find_package(LLVM 18 REQUIRED CONFIG)` can find LLVMConfig.cmake.
-#        - Linux:   apt.llvm.org's package installs this already
-#                    (usually under /usr/lib/llvm-18/lib/cmake/llvm).
-#        - Windows: point at your llvm-project build dir, e.g.
+#   1. LLVM 18
+#        - Linux:   Install LLVM 18 from apt:
+#                       wget https://apt.llvm.org/llvm.sh
+#						chmod +x llvm.sh
+#						./llvm.sh 18
+#						rm llvm.sh
+#                    (the install path is usually -DLLVM_DIR=/usr/lib/llvm-18/lib/cmake/llvm).
+#        - Windows: You can build it yourself (see https://github.com/NIVANorge/Mobius2/blob/main/HOW_TO_BUILD.md#get-llvm )
+#                    A typical install directory is:
 #                    -DLLVM_DIR=C:/Data/llvm-project/build/lib/cmake/llvm
+#                   Alternatively, it may be possible to install it using 
+#                      winget install LLVM.LLVM --version 18.1.8
+#                  (untested, but maybe much faster)
 #        - macOS:   `brew install llvm@18` installs it under
 #                    /opt/homebrew/opt/llvm@18/lib/cmake/llvm (Apple Silicon)
 #                    or /usr/local/opt/llvm@18/lib/cmake/llvm (Intel).
 #
 #   2. OpenXLSX — Clone from https://github.com/troldal/OpenXLSX.
-#      built+installed with its own CMake (it exports an
-#      OpenXLSXConfig.cmake, so `find_package(OpenXLSX REQUIRED)` works once
-#      it's been `cmake --install`'d, or you point CMAKE_PREFIX_PATH /
-#      OpenXLSX_DIR at its build folder).
+#      built+installed with its own CMake (follow instructions from their github page)
 #
-# Typical configure line:
+# Typical configure line for building this project:
 #   cmake -B build -DCMAKE_BUILD_TYPE=Release \
 #         -DLLVM_DIR=<path-to-llvm-cmake-dir> \
 #         -DOpenXLSX_DIR=<path-to-openxlsx-cmake-dir>
@@ -42,9 +45,6 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
 endif()
  
-# ---------------------------------------------------------------------------
-# Sources (mirrors compile.sh / compile_dll.bat exactly)
-# ---------------------------------------------------------------------------
 set(SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../src)
  
 set(MOBIPY_SOURCES
@@ -80,20 +80,13 @@ set(MOBIPY_SOURCES
  
 add_library(c_abi SHARED ${MOBIPY_SOURCES})
  
-# Output "c_abi.so" / "c_abi.dll" / "c_abi.dylib" (no "lib" prefix), same as
-# the hand-written scripts produce, and land it directly in mobipy/ (this
-# CMakeLists.txt's own folder) rather than inside the build directory --
-# matching where compile.sh / compile_dll.bat used to drop it, since that's
-# where mobipy's Python code expects to import it from.
 set_target_properties(c_abi PROPERTIES
     PREFIX ""
     OUTPUT_NAME "c_abi"
     LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"   # .so (Linux/macOS)
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"   # .dll (Windows)
 )
-# Multi-config generators (Visual Studio, Xcode) ignore the plain properties
-# above and append a Release/Debug subfolder unless you also set the
-# per-config variants -- so set those too, for every config CMake knows about.
+
 foreach(_cfg ${CMAKE_CONFIGURATION_TYPES})
     string(TOUPPER ${_cfg} _CFG)
     set_target_properties(c_abi PROPERTIES
@@ -135,8 +128,7 @@ target_compile_definitions(c_abi PRIVATE
 )
  
 # Component list mirrors what's needed for JIT compilation + native x86
-# codegen (this is what the giant .lib list in compile_dll.bat resolves to
-# on Windows; llvm_map_components_to_libnames() picks the right static libs
+# codegen llvm_map_components_to_libnames() picks the right static libs
 # on Windows and the right shared libLLVM-18 on Linux/macOS automatically).
 llvm_map_components_to_libnames(llvm_libs
     core
