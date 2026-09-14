@@ -1,24 +1,8 @@
 
 model("SimplyTox") {
 
-	# This is not a finished model, only partial
-
-	extend("simplyc_model.txt") #@exclude(sol : solver)
-	extend("simplysed_model.txt") #@exclude(sol : solver)
-	
-	/*  # This was put as default in SimplyQ instead
-	st_config_solver : constant(true) # Can be overridden by extending model if it wants to config differently
-	
-	option(st_config_solver) {
-		par_group("Solver step size") {
-			solver_h0    : par_real("Solver desired step", [hr], 2, 0.01, 24)
-			solver_rel_h0: par_real("Solver minimal relative step", [], 0.01, 1e-8, 0.1)
-		}
-		sol : solver("Simply solver", inca_dascru, solver_h0, solver_rel_h0)
-	} @otherwise {
-		sol : solver("Simply solver", inca_dascru, [2, hr], 0.001)
-	}
-	*/
+	extend("simplyc_model.txt")
+	extend("simplysed_model.txt")
 	
 	solve(sol, soil.oc, dsoil.oc, gw.oc, soilair.tox,
 		river_sed.oc, river_sed.water)

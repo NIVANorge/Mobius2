@@ -1,38 +1,51 @@
 # Package to run Mobius2 models from the Julia language. Not yet fully featured, but contains enough to run a model and extract results.
 
-module mobius
+module Mobius
 
 using Libdl, Dates
 
-dll_path = @static Sys.iswindows() ? "../mobipy/c_abi.dll" : "../mobipy/c_abi.so"
-mobius_dll = dlopen(dll_path)
+export setup_model, run_model, get_entity, get_entity_by_name, get_var_from_list, get_var, conc, transport, get_var_by_name, get_steps, get_dates, get_series_data, invalid_entity_id, invalid_var, no_index
 
-export setup_model, run_model, get_entity, get_var_from_list, get_var, conc, transport, get_var_by_name, get_steps, get_dates, get_series_data, invalid_entity_id, invalid_var, no_index
+const DLL_FUNCTIONS = [
+    :setup_model_h          => "mobius_build_from_model_and_data_file",
+    :copy_data_h            => "mobius_copy_data",
+    :free_model_h           => "mobius_delete_application",
+    :free_data_h            => "mobius_delete_data",
+    :encountered_error_h    => "mobius_encountered_error",
+    :encountered_log_h      => "mobius_encountered_log",
+    :run_model_h            => "mobius_run_model",
+    :get_entity_h           => "mobius_get_entity",
+    :get_var_id_from_list_h => "mobius_get_var_id_from_list",
+    :get_special_var_h      => "mobius_get_special_var",
+    :get_steps_h            => "mobius_get_steps",
+    :get_time_step_size_h   => "mobius_get_time_step_size",
+    :get_start_date_h       => "mobius_get_start_date",
+    :get_series_data_h      => "mobius_get_series_data",
+    :deserialize_entity_h   => "mobius_deserialize_entity",
+    :deserialize_var_h      => "mobius_deserialize_var",
+    :get_value_type_h       => "mobius_get_value_type",
+    :set_parameter_int_h    => "mobius_set_parameter_int",
+    :set_parameter_real_h   => "mobius_set_parameter_real",
+    :get_parameter_numeric_h => "mobius_get_parameter_numeric",
+    :set_parameter_string_h  => "mobius_set_parameter_string",
+    :get_parameter_string_h  => "mobius_get_parameter_string",
+    :resolve_slice_h         => "mobius_resolve_slice",
+    :get_series_data_slice_h => "mobius_get_series_data_slice",
+]
 
-setup_model_h       = dlsym(mobius_dll, "mobius_build_from_model_and_data_file")
-copy_data_h         = dlsym(mobius_dll, "mobius_copy_data")
-free_model_h        = dlsym(mobius_dll, "mobius_delete_application")
-free_data_h         = dlsym(mobius_dll, "mobius_delete_data")
-encountered_error_h = dlsym(mobius_dll, "mobius_encountered_error")
-encounterer_log_h   = dlsym(mobius_dll, "mobius_encountered_log")
-run_model_h         = dlsym(mobius_dll, "mobius_run_model")
-get_entity_h        = dlsym(mobius_dll, "mobius_get_entity")
-get_var_id_from_list_h = dlsym(mobius_dll, "mobius_get_var_id_from_list")
-get_special_var_h   = dlsym(mobius_dll, "mobius_get_special_var")
-get_steps_h         = dlsym(mobius_dll, "mobius_get_steps")
-get_time_step_size_h = dlsym(mobius_dll, "mobius_get_time_step_size")
-get_start_date_h    = dlsym(mobius_dll, "mobius_get_start_date")
-get_series_data_h   = dlsym(mobius_dll, "mobius_get_series_data")
-deserialize_entity_h = dlsym(mobius_dll, "mobius_deserialize_entity")
-deserialize_var_h   = dlsym(mobius_dll, "mobius_deserialize_var")
-get_value_type_h    = dlsym(mobius_dll, "mobius_get_value_type")
-set_parameter_int_h = dlsym(mobius_dll, "mobius_set_parameter_int")
-set_parameter_real_h = dlsym(mobius_dll, "mobius_set_parameter_real")
-get_parameter_numeric_h = dlsym(mobius_dll, "mobius_get_parameter_numeric")
-set_parameter_string_h = dlsym(mobius_dll, "mobius_set_parameter_string")
-get_parameter_string_h = dlsym(mobius_dll, "mobius_get_parameter_string")
-resolve_slice_h        = dlsym(mobius_dll, "mobius_resolve_slice")
-get_series_data_slice_h = dlsym(mobius_dll, "mobius_get_series_data_slice")
+for (jl_name, _) in DLL_FUNCTIONS
+    @eval const $jl_name = Ref{Ptr{Cvoid}}(C_NULL)
+end
+
+const dll_path = joinpath(@__DIR__, "..", "..", "mobipy", "c_abi." * Libdl.dlext)
+const mobius_dll = Ref{Ptr{Cvoid}}(C_NULL)
+
+function __init__()
+    mobius_dll[] = dlopen(dll_path)
+    for (jl_name, c_name) in DLL_FUNCTIONS
+        getfield(@__MODULE__, jl_name)[] = dlsym(mobius_dll[], c_name)
+    end
+end
 
 struct Model_Data
 	ptr::Ptr{Cvoid}
@@ -92,47 +105,51 @@ invalid_var       = Var_Id(-1, -1)
 no_index          = Mobius_Index_Value(C_NULL, 0)
 invalid_entity_ref = Entity_Ref(C_NULL, invalid_entity_id)
 
+function is_valid(e::Entity_Ref)::Bool
+	return (e.entity_id.id >= 0)
+end
+
 function check_error()
 	# First check log buffer
-	buf = " "^512
-	len = ccall(encounterer_log_h, Clonglong, (Cstring, Clonglong), buf, length(buf))
+	buf = Vector{UInt8}(undef, 512)
+	len = ccall(encountered_log_h[], Clonglong, (Ptr{UInt8}, Clonglong), buf, length(buf))
 	while len > 0
-		print(first(buf, len))
-		buf = " "^512
-		len = ccall(encounterer_log_h, Clonglong, (Cstring, Clonglong), buf, length(buf))
+		print(String(buf[1:len]))
+		len = ccall(encountered_log_h[], Clonglong, (Ptr{UInt8}, Clonglong), buf, length(buf))
 	end
 	
 	# Then check error buffer
+	buf = Vector{UInt8}(undef, 512)
+	io = IOBuffer()
 	was_error = false
-	message::String = ""
-	buf = " "^512
-	len = ccall(encountered_error_h, Clonglong, (Cstring, Clonglong), buf, length(buf))
+	len = ccall(encountered_error_h[], Clonglong, (Ptr{UInt8}, Clonglong), buf, length(buf))
 	while len > 0
 		was_error = true
-		message = string(message, first(buf, len))
-		buf = " "^512
-		len = ccall(encountered_error_h, Clonglong, (Cstring, Clonglong), buf, length(buf))
+		write(io, view(buf, 1:len))
+		len = ccall(encountered_error_h[], Clonglong, (Ptr{UInt8}, Clonglong), buf, length(buf))
 	end
+	
 	if was_error
+		message = String(take!(io))
 		throw(ErrorException(message))
 	end
 end
 
 function setup_model(model_file::String, data_file::String, ; store_transport_fluxes::Bool = false, store_all_series::Bool = false, dev_mode::Bool = false)::Model_Data
-	#mobius_path = string(dirname(dirname(Base.source_path())), "\\") # Doesn't work in IJulia
-	mobius_path = string(dirname(dirname(@__FILE__)), Base.Filesystem.path_separator)
+
+	mobius_path = dirname(dirname(@__DIR__)) * Base.Filesystem.path_separator
 	
 	cfg = Mobius_Base_Config(store_transport_fluxes, store_all_series, dev_mode)
 	cfgptr = Ref(cfg)
 	
-	result =  ccall(setup_model_h, Ptr{Cvoid}, (Cstring, Cstring, Cstring, Ptr{Mobius_Base_Config}), 
+	result =  ccall(setup_model_h[], Ptr{Cvoid}, (Cstring, Cstring, Cstring, Ptr{Mobius_Base_Config}), 
 		model_file, data_file, mobius_path, cfgptr)
 	check_error()
 	return Model_Data(result, true)
 end
 
 function copy_data(data::Model_Data, copy_results::Bool=true, copy_inputs::Bool=false)::Model_Data
-	result = ccall(copy_data_h, Ptr{Cvoid}, (Ptr{Cvoid}, Cint, Cint),
+	result = ccall(copy_data_h[], Ptr{Cvoid}, (Ptr{Cvoid}, Cint, Cint),
 		data.ptr, copy_results, copy_inputs)
 	return Model_Data(result, false)
 end
@@ -140,9 +157,9 @@ end
 # TODO: As in the python wrapper, it would be nice if we could invalidate all other references to the ptr after the free..
 function free(data::Model_Data)
 	if data.original
-		ccall(free_model_h, Cvoid, (Ptr{Cvoid},), data.ptr)
+		ccall(free_model_h[], Cvoid, (Ptr{Cvoid},), data.ptr)
 	else
-		ccall(free_data_h, Cvoid, (Ptr{Cvoid},), data.ptr)
+		ccall(free_data_h[], Cvoid, (Ptr{Cvoid},), data.ptr)
 	end
 end
 
@@ -150,21 +167,25 @@ finalize!(data::Model_Data) = free(data)
 
 # TODO: Could allow callback here too..
 function run_model(data::Model_Data, ms_timeout::Int64=-1)::Bool
-	result = ccall(run_model_h, Cint, (Ptr{Cvoid}, Clonglong, Ptr{Cvoid}),
+	result = ccall(run_model_h[], Cint, (Ptr{Cvoid}, Clonglong, Ptr{Cvoid}),
 		data.ptr, ms_timeout, C_NULL)
 	check_error()
 	return result
 end
 
 function get_entity(data::Model_Data, identifier::String, scope_id::Entity_Ref = invalid_entity_ref)::Entity_Ref
-	result = ccall(get_entity_h, Entity_Id, (Ptr{Cvoid}, Entity_Id, Cstring),
+	result = ccall(get_entity_h[], Entity_Id, (Ptr{Cvoid}, Entity_Id, Cstring),
 		data.ptr, scope_id.entity_id, identifier)
 	check_error()
-	return Entity_Ref(data.ptr, result)
+	result2 = Entity_Ref(data.ptr, result)
+	if !is_valid(result2)
+		throw(ErrorException("Could not find an entity with identifier '$identifier'"))
+	end
+	return result2
 end
 
 function get_var_from_list(data::Model_Data, ids::Vector{Entity_Id})::Var_Ref
-	result = ccall(get_var_id_from_list_h, Var_Id, (Ptr{Cvoid}, Ptr{Entity_Id}, Clonglong),
+	result = ccall(get_var_id_from_list_h[], Var_Id, (Ptr{Cvoid}, Ptr{Entity_Id}, Clonglong),
 		data.ptr, ids, length(ids))
 	check_error()
 	return Var_Ref(data.ptr, result)
@@ -179,61 +200,62 @@ function get_var(data::Model_Data, identifiers::Vector{String}, scope_id::Entity
 end
 
 function conc(var_ref::Var_Ref)::Var_Ref
-	result = ccall(get_special_var_h, Var_Id, (Ptr{Cvoid}, Var_Id, Entity_Id, Cshort),
+	result = ccall(get_special_var_h[], Var_Id, (Ptr{Cvoid}, Var_Id, Entity_Id, Cshort),
 		var_ref.data, var_ref.var_id, invalid_entity_id, 5)
 	check_error()
 	return Var_Ref(var_ref.data, result)
 end
 
 function transport(var_ref::Var_Ref, q::String)::Var_Ref
-	q_id = ccall(get_entity_h, Entity_Id, (Ptr{Cvoid}, Entity_Id, Cstring),
+	q_id = ccall(get_entity_h[], Entity_Id, (Ptr{Cvoid}, Entity_Id, Cstring),
 		var_ref.data, invalid_entity_id, q)
 	
-	result = ccall(get_special_var_h, Var_Id, (Ptr{Cvoid}, Var_Id, Entity_Id, Cshort),
+	result = ccall(get_special_var_h[], Var_Id, (Ptr{Cvoid}, Var_Id, Entity_Id, Cshort),
 		var_ref.data, var_ref.var_id, q_id, 4)
 	check_error()
 	return Var_Ref(var_ref.data, result)
 end
 
 function get_steps(var_ref::Var_Ref)::Int64
-	result = ccall(get_steps_h, Clonglong, (Ptr{Cvoid}, Cint),
+	result = ccall(get_steps_h[], Clonglong, (Ptr{Cvoid}, Cint),
 		var_ref.data, var_ref.var_id.type)
 		
 	check_error()
 	return result
 end
 
-function copy_str(str::Cstring)::String
-	# This is super weird, there should be an inbuilt function for converting Cstring->String, but I can't find it.
-	# It is a bit hacky that we hijack the internal memory of the String and write to it, but it works I guess.
-	len = @ccall strlen(str::Cstring)::Csize_t
-	result = " "^len
-	@ccall memcpy(Base.unsafe_convert(Cstring, result)::Cstring, str::Cstring, len::Csize_t)::Ptr{Cvoid}
-	return result
+const DATE_ONLY_FORMAT = dateformat"yyyy-mm-dd"
+const DATE_TIME_FORMAT = dateformat"yyyy-mm-dd HH:MM:SS"
+
+function parse_mobius_date(s::AbstractString)::DateTime
+    s = rstrip(s)
+    if occursin(' ', s)
+        return DateTime(s, DATE_TIME_FORMAT)
+    else
+        return DateTime(Date(s, DATE_ONLY_FORMAT))
+    end
 end
 
 function get_dates(var_ref::Var_Ref)::Vector{DateTime}
-	steps = get_steps(var_ref)
-	start_d = " "^32
-	ccall(get_start_date_h, Cstring, (Ptr{Cvoid}, Cint, Cstring),
-		var_ref.data, var_ref.var_id.type, start_d)
-		
-	#TODO: We have to detect if the string contains timestamp or not
-	
-	start_d_str = first(start_d, 10)
-	start_date = DateTime(Date(start_d_str))
-	
-	step_size = ccall(get_time_step_size_h, Time_Step_Size, (Ptr{Cvoid},),
-		var_ref.data)
-	check_error()
-	
-	mag = step_size.magnitude
-	if step_size.unit == 0 # seconds
-		return start_date .+ Second.(0:mag:((steps-1)*mag))
-	end
-	throw(ErrorException("Not yet implemented for monthly time steps."))
-	
-	return []
+    steps = get_steps(var_ref)
+
+    buf = Vector{UInt8}(undef, 32)
+    ccall(get_start_date_h[], Cvoid, (Ptr{Cvoid}, Cint, Ptr{UInt8}),
+        var_ref.data, var_ref.var_id.type, buf)
+
+    start_date = parse_mobius_date(unsafe_string(pointer(buf)))
+
+    step_size = ccall(get_time_step_size_h[], Time_Step_Size, (Ptr{Cvoid},),
+        var_ref.data)
+    check_error()
+
+    mag = step_size.magnitude
+    if step_size.unit == 0 # seconds
+        return start_date .+ Second.(0:mag:((steps-1)*mag))
+    end
+    throw(ErrorException("Not yet implemented for monthly time steps."))
+
+    return []
 end
 
 function make_index(index::Any)::Mobius_Index_Value
@@ -286,7 +308,7 @@ function get_series_data(var_ref::Var_Ref, indexes::Vector{Any}) #::Vector{Float
 		
 		slices = make_slices(indexes)
 		ranges = Vector{Mobius_Index_Range}(undef, length(indexes))
-		ccall(resolve_slice_h, Cvoid, (Ptr{Cvoid}, Var_Id, Ptr{Mobius_Index_Slice}, Clonglong, Ptr{Mobius_Index_Range}),
+		ccall(resolve_slice_h[], Cvoid, (Ptr{Cvoid}, Var_Id, Ptr{Mobius_Index_Slice}, Clonglong, Ptr{Mobius_Index_Range}),
 			var_ref.data, var_ref.var_id, slices, length(slices), ranges)
 		check_error()
 		
@@ -308,7 +330,7 @@ function get_series_data(var_ref::Var_Ref, indexes::Vector{Any}) #::Vector{Float
 		series = Vector{Cdouble}(undef, dim)
 		idx_pos = Vector{Cdouble}(undef, idx_dim)
 		
-		ccall(get_series_data_slice_h, Cvoid, (Ptr{Cvoid}, Var_Id, Ptr{Mobius_Index_Range}, Clonglong, Ptr{Cdouble}, Ptr{Cdouble}, Clonglong),
+		ccall(get_series_data_slice_h[], Cvoid, (Ptr{Cvoid}, Var_Id, Ptr{Mobius_Index_Range}, Clonglong, Ptr{Cdouble}, Ptr{Cdouble}, Clonglong),
 			var_ref.data, var_ref.var_id, ranges, length(ranges), idx_pos, series, steps)
 		check_error()
 		
@@ -322,7 +344,7 @@ function get_series_data(var_ref::Var_Ref, indexes::Vector{Any}) #::Vector{Float
 		
 		idxs = make_indexes(indexes)
 		
-		ccall(get_series_data_h, Cvoid, (Ptr{Cvoid}, Var_Id, Ptr{Mobius_Index_Value}, Clonglong, Ptr{Cdouble}, Clonglong),
+		ccall(get_series_data_h[], Cvoid, (Ptr{Cvoid}, Var_Id, Ptr{Mobius_Index_Value}, Clonglong, Ptr{Cdouble}, Clonglong),
 			var_ref.data, var_ref.var_id, idxs, length(idxs), result, length(result))
 		check_error()
 		
@@ -338,14 +360,14 @@ Base.getindex(var_ref::Var_Ref) = get_series_data(var_ref, Any[])
 #TODO: set_series_data, etc.
 
 function get_entity_by_name(data::Model_Data, name::String, scope_id::Entity_Ref=invalid_entity_ref)::Entity_Ref
-	result = ccall(deserialize_entity_h, Entity_Id, (Ptr{Cvoid}, Entity_Id, Cstring),
+	result = ccall(deserialize_entity_h[], Entity_Id, (Ptr{Cvoid}, Entity_Id, Cstring),
 		data.ptr, scope_id.entity_id, name)
 	check_error()
 	return Entity_Ref(data.ptr, result)
 end
 
 function get_var_by_name(data::Model_Data, name::String)::Var_Ref
-	result = ccall(deserialize_var_h, Var_Id, (Ptr{Cvoid}, Cstring),
+	result = ccall(deserialize_var_h[], Var_Id, (Ptr{Cvoid}, Cstring),
 		data.ptr, name)
 	check_error()
 	return Var_Ref(data.ptr, result)
@@ -353,7 +375,7 @@ end
 
 #TODO: Maybe store the type in the Entity_Ref from begin with (when it is a parameter, not some other object)
 function get_type(ref::Entity_Ref)
-	type = ccall(get_value_type_h, Clonglong, (Ptr{Cvoid}, Entity_Id),
+	type = ccall(get_value_type_h[], Clonglong, (Ptr{Cvoid}, Entity_Id),
 		ref.data, ref.entity_id)
 	check_error()
 	return type
@@ -365,7 +387,7 @@ function set_parameter(ref::Entity_Ref, indexes::Vector{Any}, value::Float64)
 		throw(ErrorException("Tried to set a non-float parameter with float value."))
 	end
 	idxs = make_indexes(indexes)
-	ccall(set_parameter_real_h, Cvoid, (Ptr{Cvoid}, Entity_Id, Ptr{Mobius_Index_Value}, Clonglong, Cdouble),
+	ccall(set_parameter_real_h[], Cvoid, (Ptr{Cvoid}, Entity_Id, Ptr{Mobius_Index_Value}, Clonglong, Cdouble),
 		ref.data, ref.entity_id, idxs, length(idxs), value)
 	check_error()
 end
@@ -377,10 +399,10 @@ function set_parameter(ref::Entity_Ref, indexes::Vector{Any}, value::Int64)
 	end
 	idxs = make_indexes(indexes)
 	if type == 0
-		ccall(set_parameter_real_h, Cvoid, (Ptr{Cvoid}, Entity_Id, Ptr{Mobius_Index_Value}, Clonglong, Cdouble),
+		ccall(set_parameter_real_h[], Cvoid, (Ptr{Cvoid}, Entity_Id, Ptr{Mobius_Index_Value}, Clonglong, Cdouble),
 			ref.data, ref.entity_id, idxs, length(idxs), convert(Float64, value))
 	else
-		ccall(set_parameter_int_h, Cvoid, (Ptr{Cvoid}, Entity_Id, Ptr{Mobius_Index_Value}, Clonglong, Clonglong),
+		ccall(set_parameter_int_h[], Cvoid, (Ptr{Cvoid}, Entity_Id, Ptr{Mobius_Index_Value}, Clonglong, Clonglong),
 			ref.data, ref.entity_id, idxs, length(idxs), value)
 	end
 	check_error()
@@ -392,7 +414,7 @@ function set_parameter(ref::Entity_Ref, indexes::Vector{Any}, value::Bool)
 		throw(ErrorException("Tried to set a non-bool parameter with bool value."))
 	end
 	idxs = make_indexes(indexes)
-	ccall(set_parameter_int_h, Cvoid, (Ptr{Cvoid}, Entity_Id, Ptr{Mobius_Index_Value}, Clonglong, Clonglong),
+	ccall(set_parameter_int_h[], Cvoid, (Ptr{Cvoid}, Entity_Id, Ptr{Mobius_Index_Value}, Clonglong, Clonglong),
 		ref.data, ref.entity_id, idxs, length(idxs), value)
 	check_error()
 end
@@ -403,7 +425,7 @@ function set_parameter(ref::Entity_Ref, indexes::Vector{Any}, value::String)
 		throw(ErrorException("Tried to set a parameter that is not datetime or enum with a string value."))
 	end
 	idxs = make_indexes(indexes)
-	ccall(set_parameter_string_h, Cvoid, (Ptr{Cvoid}, Entity_Id, Ptr{Mobius_Index_Value}, Clonglong, Cstring),
+	ccall(set_parameter_string_h[], Cvoid, (Ptr{Cvoid}, Entity_Id, Ptr{Mobius_Index_Value}, Clonglong, Cstring),
 		ref.data, ref.entity_id, idxs, length(idxs), Base.unsafe_convert(Cstring, value))
 	check_error()
 end
@@ -415,7 +437,7 @@ function set_parameter(ref::Entity_Ref, indexes::Vector{Any}, value::DateTime)
 	end
 	datestr = Dates.format(value, "yyyy-mm-dd HH:MM:SS")
 	idxs = make_indexes(indexes)
-	ccall(set_parameter_string_h, Cvoid, (Ptr{Cvoid}, Entity_Id, Ptr{Mobius_Index_Value}, Clonglong, Cstring),
+	ccall(set_parameter_string_h[], Cvoid, (Ptr{Cvoid}, Entity_Id, Ptr{Mobius_Index_Value}, Clonglong, Cstring),
 		ref.data, ref.entity_id, idxs, length(idxs), Base.unsafe_convert(Cstring, datestr))
 	check_error()
 end
@@ -441,24 +463,23 @@ function get_parameter(ref::Entity_Ref, indexes::Vector{Any})::Any
 	idxs = make_indexes(indexes)
 	result::Any = undef
 	if type == 0
-		result = ccall(get_parameter_numeric_h, Cdouble, (Ptr{Cvoid}, Entity_Id, Ptr{Mobius_Index_Value}, Clonglong),
+		result = ccall(get_parameter_numeric_h[], Cdouble, (Ptr{Cvoid}, Entity_Id, Ptr{Mobius_Index_Value}, Clonglong),
 			ref.data, ref.entity_id, idxs, length(idxs))::Float64
 	elseif type == 1
-		result = ccall(get_parameter_numeric_h, Clonglong, (Ptr{Cvoid}, Entity_Id, Ptr{Mobius_Index_Value}, Clonglong),
+		result = ccall(get_parameter_numeric_h[], Clonglong, (Ptr{Cvoid}, Entity_Id, Ptr{Mobius_Index_Value}, Clonglong),
 			ref.data, ref.entity_id, idxs, length(idxs))::Int64
 	elseif type == 2
-		result = ccall(get_parameter_numeric_h, Clonglong, (Ptr{Cvoid}, Entity_Id, Ptr{Mobius_Index_Value}, Clonglong),
+		result = ccall(get_parameter_numeric_h[], Clonglong, (Ptr{Cvoid}, Entity_Id, Ptr{Mobius_Index_Value}, Clonglong),
 			ref.data, ref.entity_id, idxs, length(idxs))::Bool
 	elseif type == 3
-		str = ccall(get_parameter_string_h, Cstring, (Ptr{Cvoid}, Entity_Id, Ptr{Mobius_Index_Value}, Clonglong),
+		str = ccall(get_parameter_string_h[], Cstring, (Ptr{Cvoid}, Entity_Id, Ptr{Mobius_Index_Value}, Clonglong),
 			ref.data, ref.entity_id, idxs, length(idxs))
-		result = copy_str(str)
+		result = unsafe_string(str)
 	elseif type == 4
-		str = ccall(get_parameter_string_h, Cstring, (Ptr{Cvoid}, Entity_Id, Ptr{Mobius_Index_Value}, Clonglong),
+		str = ccall(get_parameter_string_h[], Cstring, (Ptr{Cvoid}, Entity_Id, Ptr{Mobius_Index_Value}, Clonglong),
 			ref.data, ref.entity_id, idxs, length(idxs))
-		datestr = copy_str(str)
-		# TODO! Should detect if it has a timestamp or not!
-		result = DateTime(Date(datestr))
+		datestr = unsafe_string(str)
+		result = parse_mobius_date(datestr)
 	end
 	check_error()
 	return result

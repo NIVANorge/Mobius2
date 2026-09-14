@@ -121,7 +121,7 @@ Authors: François Clayer, Magnus D. Norling
 		
 		th_epi_s                                             if spring_mixing,
 		th_epi_w                                             if is_winter,
-		last(th) + (dz_epi)*time.step_length_in_seconds->>   otherwise
+		min(z_outflow*0.9, last(th) + (dz_epi)*time.step_length_in_seconds->>)   otherwise
 	} @initial { th_epi_w }
 	
 	flux(epi.water, hyp.water, [m 3, day-1], "Metalimnion movement") {
