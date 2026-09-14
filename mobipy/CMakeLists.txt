@@ -16,9 +16,9 @@
 #        - Windows: You can build it yourself (see https://github.com/NIVANorge/Mobius2/blob/main/HOW_TO_BUILD.md#get-llvm )
 #                    A typical install directory is:
 #                    -DLLVM_DIR=C:/Data/llvm-project/build/lib/cmake/llvm
-#                   Alternatively, it may be possible to install it using 
-#                      winget install LLVM.LLVM --version 18.1.8
-#                  (untested, but maybe much faster)
+#                   Alternatively, it may be possible to just download an installation from 
+#                    https://github.com/llvm/llvm-project/releases/download/llvmorg-18.1.8/clang+llvm-18.1.8-x86_64-pc-windows-msvc.tar.xz 
+#                    - untested, but potentially much faster.
 #        - macOS:   `brew install llvm@18` installs it under
 #                    /opt/homebrew/opt/llvm@18/lib/cmake/llvm (Apple Silicon)
 #                    or /usr/local/opt/llvm@18/lib/cmake/llvm (Intel).
