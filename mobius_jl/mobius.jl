@@ -14,7 +14,7 @@ copy_data_h         = dlsym(mobius_dll, "mobius_copy_data")
 free_model_h        = dlsym(mobius_dll, "mobius_delete_application")
 free_data_h         = dlsym(mobius_dll, "mobius_delete_data")
 encountered_error_h = dlsym(mobius_dll, "mobius_encountered_error")
-encounterer_log_h   = dlsym(mobius_dll, "mobius_encountered_log")
+encountered_log_h   = dlsym(mobius_dll, "mobius_encountered_log")
 run_model_h         = dlsym(mobius_dll, "mobius_run_model")
 get_entity_h        = dlsym(mobius_dll, "mobius_get_entity")
 get_var_id_from_list_h = dlsym(mobius_dll, "mobius_get_var_id_from_list")
@@ -92,28 +92,32 @@ invalid_var       = Var_Id(-1, -1)
 no_index          = Mobius_Index_Value(C_NULL, 0)
 invalid_entity_ref = Entity_Ref(C_NULL, invalid_entity_id)
 
+function is_valid(e::Entity_Ref)::Bool
+	return (e.entity_id.id >= 0)
+end
+
 function check_error()
 	# First check log buffer
-	buf = " "^512
-	len = ccall(encounterer_log_h, Clonglong, (Cstring, Clonglong), buf, length(buf))
+	buf = Vector{UInt8}(undef, 512)
+	len = ccall(encountered_log_h, Clonglong, (Ptr{UInt8}, Clonglong), buf, length(buf))
 	while len > 0
-		print(first(buf, len))
-		buf = " "^512
-		len = ccall(encounterer_log_h, Clonglong, (Cstring, Clonglong), buf, length(buf))
+		print(String(buf[1:len]))
+		len = ccall(encountered_log_h, Clonglong, (Ptr{UInt8}, Clonglong), buf, length(buf))
 	end
 	
 	# Then check error buffer
+	buf = Vector{UInt8}(undef, 512)
+	io = IOBuffer()
 	was_error = false
-	message::String = ""
-	buf = " "^512
-	len = ccall(encountered_error_h, Clonglong, (Cstring, Clonglong), buf, length(buf))
+	len = ccall(encountered_error_h, Clonglong, (Ptr{UInt8}, Clonglong), buf, length(buf))
 	while len > 0
 		was_error = true
-		message = string(message, first(buf, len))
-		buf = " "^512
-		len = ccall(encountered_error_h, Clonglong, (Cstring, Clonglong), buf, length(buf))
+		write(io, view(buf, 1:len))
+		len = ccall(encountered_error_h, Clonglong, (Ptr{UInt8}, Clonglong), buf, length(buf))
 	end
+	
 	if was_error
+		message = String(take!(io))
 		throw(ErrorException(message))
 	end
 end
@@ -160,7 +164,11 @@ function get_entity(data::Model_Data, identifier::String, scope_id::Entity_Ref =
 	result = ccall(get_entity_h, Entity_Id, (Ptr{Cvoid}, Entity_Id, Cstring),
 		data.ptr, scope_id.entity_id, identifier)
 	check_error()
-	return Entity_Ref(data.ptr, result)
+	result2 = Entity_Ref(data.ptr, result)
+	if !is_valid(result2)
+		throw(ErrorException("Could not find an entity with identifier '$identifier'"))
+	end
+	return result2
 end
 
 function get_var_from_list(data::Model_Data, ids::Vector{Entity_Id})::Var_Ref
@@ -200,15 +208,6 @@ function get_steps(var_ref::Var_Ref)::Int64
 		var_ref.data, var_ref.var_id.type)
 		
 	check_error()
-	return result
-end
-
-function copy_str(str::Cstring)::String
-	# This is super weird, there should be an inbuilt function for converting Cstring->String, but I can't find it.
-	# It is a bit hacky that we hijack the internal memory of the String and write to it, but it works I guess.
-	len = @ccall strlen(str::Cstring)::Csize_t
-	result = " "^len
-	@ccall memcpy(Base.unsafe_convert(Cstring, result)::Cstring, str::Cstring, len::Csize_t)::Ptr{Cvoid}
 	return result
 end
 
@@ -452,11 +451,11 @@ function get_parameter(ref::Entity_Ref, indexes::Vector{Any})::Any
 	elseif type == 3
 		str = ccall(get_parameter_string_h, Cstring, (Ptr{Cvoid}, Entity_Id, Ptr{Mobius_Index_Value}, Clonglong),
 			ref.data, ref.entity_id, idxs, length(idxs))
-		result = copy_str(str)
+		result = unsafe_str(str)
 	elseif type == 4
 		str = ccall(get_parameter_string_h, Cstring, (Ptr{Cvoid}, Entity_Id, Ptr{Mobius_Index_Value}, Clonglong),
 			ref.data, ref.entity_id, idxs, length(idxs))
-		datestr = copy_str(str)
+		datestr = unsafe_str(str)
 		# TODO! Should detect if it has a timestamp or not!
 		result = DateTime(Date(datestr))
 	end
