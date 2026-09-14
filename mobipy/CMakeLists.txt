@@ -17,7 +17,8 @@
 #                    /opt/homebrew/opt/llvm@18/lib/cmake/llvm (Apple Silicon)
 #                    or /usr/local/opt/llvm@18/lib/cmake/llvm (Intel).
 #
-#   2. OpenXLSX — built+installed with its own CMake (it exports an
+#   2. OpenXLSX — Clone from https://github.com/troldal/OpenXLSX.
+#      built+installed with its own CMake (it exports an
 #      OpenXLSXConfig.cmake, so `find_package(OpenXLSX REQUIRED)` works once
 #      it's been `cmake --install`'d, or you point CMAKE_PREFIX_PATH /
 #      OpenXLSX_DIR at its build folder).
