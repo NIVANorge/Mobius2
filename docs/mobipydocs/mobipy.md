@@ -30,6 +30,10 @@ This assumes you have already followed the [getting started guide](../gettingsta
 - Windows: To be able to run mobipy on Windows you need to download mobipy/c_abi.dll from ftp://mobiserver.niva.no/Mobius2 and put it in your local Mobius2/mobipy folder.
 - Linux: See the [separate document](linux_install.html)
 
+To install the mobipy package so that you can import it using `import mobipy`, run the following in a command line:
+
+`python -m pip install -e <insert-your-install-path-here>/Mobius2/mobipy`
+
 ## Known issues
 
 - It can be problematic to use mobipy from an Anaconda environment (including through Pycharm).

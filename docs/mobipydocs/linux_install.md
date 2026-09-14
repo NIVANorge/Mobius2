@@ -75,6 +75,12 @@ chmod +x compile.sh
 
 You should re-run `compile.sh` every time you pull the Mobius2 repository to get the latest changes and fixes.
 
-## 4. Test it
+## 4. Install the mobipy package (not necessary for Julia users)
+
+To install the mobipy package so that you can import it using `import mobipy`, run the following in a command line:
+
+`pip install -e <insert-your-install-path-here>/Mobius2/mobipy`
+
+## 5. Test it
 
 Try to test mobipy or mobius.jl using one of the [example notebooks](https://github.com/NIVANorge/Mobius2/blob/main/example_notebooks/).
