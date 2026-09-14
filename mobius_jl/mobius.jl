@@ -214,7 +214,7 @@ end
 const DATE_ONLY_FORMAT = dateformat"yyyy-mm-dd"
 const DATE_TIME_FORMAT = dateformat"yyyy-mm-dd HH:MM:SS"
 
-function parse_start_date(s::AbstractString)::DateTime
+function parse_mobius_date(s::AbstractString)::DateTime
     s = rstrip(s)
     if occursin(' ', s)
         return DateTime(s, DATE_TIME_FORMAT)
@@ -230,7 +230,7 @@ function get_dates(var_ref::Var_Ref)::Vector{DateTime}
     ccall(get_start_date_h, Cvoid, (Ptr{Cvoid}, Cint, Ptr{UInt8}),
         var_ref.data, var_ref.var_id.type, buf)
 
-    start_date = parse_start_date(unsafe_string(pointer(buf)))
+    start_date = parse_mobius_date(unsafe_stringing(pointer(buf)))
 
     step_size = ccall(get_time_step_size_h, Time_Step_Size, (Ptr{Cvoid},),
         var_ref.data)
@@ -461,13 +461,12 @@ function get_parameter(ref::Entity_Ref, indexes::Vector{Any})::Any
 	elseif type == 3
 		str = ccall(get_parameter_string_h, Cstring, (Ptr{Cvoid}, Entity_Id, Ptr{Mobius_Index_Value}, Clonglong),
 			ref.data, ref.entity_id, idxs, length(idxs))
-		result = unsafe_str(str)
+		result = unsafe_string(str)
 	elseif type == 4
 		str = ccall(get_parameter_string_h, Cstring, (Ptr{Cvoid}, Entity_Id, Ptr{Mobius_Index_Value}, Clonglong),
 			ref.data, ref.entity_id, idxs, length(idxs))
-		datestr = unsafe_str(str)
-		# TODO! Should detect if it has a timestamp or not!
-		result = DateTime(Date(datestr))
+		datestr = unsafe_string(str)
+		result = parse_mobius_date(datestr)
 	end
 	check_error()
 	return result
