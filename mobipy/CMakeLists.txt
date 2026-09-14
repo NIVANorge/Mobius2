@@ -1,5 +1,5 @@
 #
-# This is an experimental build system for the shared library used by mobipy and Mobius.jl. 
+# This is an experimental build system for the shared library (c_abi) used by mobipy and Mobius.jl. 
 #  It has been tested on Windows. Hopefully we will be able to smooth out any remaining difficulties.
 #
 # ---------------------------------------------------------------------------
@@ -24,7 +24,7 @@
 #                    or /usr/local/opt/llvm@18/lib/cmake/llvm (Intel).
 #
 #   2. OpenXLSX — Clone from https://github.com/troldal/OpenXLSX.
-#      built+installed with its own CMake (follow instructions from their github page)
+#      built+installed with its own CMake (follow instructions from https://github.com/troldal/OpenXLSX#building-as-a-separate-library)
 #
 # Typical configure line for building this project:
 #   cmake -B build -DCMAKE_BUILD_TYPE=Release \
