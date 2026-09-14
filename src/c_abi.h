@@ -5,7 +5,7 @@
 
 #if (defined(_WIN32) || defined(_WIN64))
 	#define DLLEXPORT extern "C" __declspec(dllexport)
-#elif (defined(__unix__) || defined(__linux__) || defined(__unix) || defined(unix))
+#elif (defined(__unix__) || defined(__linux__) || defined(__unix) || defined(unix)) || defined(__APPLE__)
 	#define DLLEXPORT extern "C" __attribute((visibility("default")))
 #endif
 
