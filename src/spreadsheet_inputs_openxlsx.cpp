@@ -42,16 +42,11 @@ can_be_date(OpenXLSX::XLCellValueProxy &val, Date_Time *datetime = nullptr) {
 	} else if (val.type() == XLValueType::String) {
 		// NOTE: Dates before 1900 will be formatted as strings in Excel
 		
-		// TODO: Could we do get<const char *>, and would that make it more efficient?
-		// TODO: Parse hour, minute, second here too (if applicable).
 		auto str = val.get<std::string>();
-		int y, m, d;
-		if(sscanf(str.c_str(), "%d-%d-%d", &y, &m, &d) == 3) {
-			bool success = false;
-			Date_Time dt(y, m, d, &success);
-			if(success && datetime) *datetime = dt;
-			return success;
-		}
+		bool success;
+		auto dt = from_string_time(str.c_str(), &success);
+		if(success && datetime) *datetime = dt;
+		return success;
 	}
 	return false;
 }
