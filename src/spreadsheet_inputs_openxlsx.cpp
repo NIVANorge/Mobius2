@@ -86,12 +86,46 @@ read_series_data_from_sheet(Data_Set *data_set, Series_Data *series, String_View
 				empty = true;
 			else {
 				// Expect the name of an index set.
-				auto index_set_id = data_set->deserialize(name, Reg_Type::index_set);
+				auto parts = split(name, '@');
+				
+				auto index_set_id = data_set->deserialize(parts[0], Reg_Type::index_set);
 				if(!is_valid(index_set_id)) {
 					close_due_to_error(doc, tab, row, 1);
-					fatal_error("The index set \"", name, "\" was not previously declared in the data set.");
+					fatal_error("The index set \"", parts[0], "\" was not previously declared in the data set.");
 				}
 				index_sets.push_back(index_set_id);
+				
+				// Parse spatial flags
+				if(parts.size() > 2) {
+					close_due_to_error(doc, tab, row, 1);
+					fatal_error("Expected only one '@'.");
+				}
+				if(parts.size() == 2) {
+					// TODO: Factor out flag parsing between here and below.
+					Series_Data_Flags flags = series_data_none;
+					Token_Stream stream("", parts[1]);
+					while(true) {
+						Token token = stream.peek_token();
+						if(token.type == Token_Type::identifier) {
+							bool success = set_flag(&flags, token.string_value);
+							if(success) {
+								stream.read_token();
+								continue;
+							} else {
+								close_due_to_error(doc, tab, row, 1);
+								fatal_error("Unrecognized input flag \"", token.string_value, "\".");
+							}
+						} else if ( token.type == Token_Type::eof ) {
+							break;
+						} else {
+							close_due_to_error(doc, tab, row, 1);
+							fatal_error("Unexpected token \"", token.string_value, "\".");
+						}
+					}
+					if(flags != series_data_none) {
+						data.spatial_flags.emplace_back(index_set_id, flags);
+					}
+				}
 			}
 		} else if(is_empty_type(val.type())) {
 			
@@ -245,7 +279,7 @@ read_series_data_from_sheet(Data_Set *data_set, Series_Data *series, String_View
 		
 		// TODO: Same here, need to intercept error.
 		Indexes indexes;
-		data_set->index_data.find_indexes(active_index_sets, index_names, indexes); 
+		data_set->index_data.find_indexes(active_index_sets, index_names, indexes);
 		
 		data.header_data.push_back({});
 		auto &header = data.header_data.back();
@@ -364,7 +398,6 @@ read_series_data_from_sheet(Data_Set *data_set, Series_Data *series, String_View
 			}
 			else {
 				const char *typenames[] = {"Empty", "Boolean", "Integer", "Float", "Error", "String"}; //TODO: Can we do better. This breaks if openxlsx changes.
-				// TODO: Should we attempt to parse strings as numbers?
 				// Should we default to NaN instead of having error? (Probably not, better to alert the user).
 				close_due_to_error(doc, tab, row, col);
 				fatal_error("This is not a valid number representation. (The type is ", typenames[(int)t], ").");

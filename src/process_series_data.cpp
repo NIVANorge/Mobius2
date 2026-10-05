@@ -185,6 +185,16 @@ interpolate(Model_Application *app, std::vector<Date_Time> &dates,
 	}
 }
 
+struct
+Spatial_Interp_Spec {
+	Series_Data_Flags flags;
+	Entity_Id index_set;
+	std::vector<Indexes> indexes;
+};
+
+void
+do_spatial_interpolations(Model_Application *app, std::map<Var_Id, Spatial_Interp_Spec> &spatial_interpolations);
+
 void
 process_series(Model_Application *app, Data_Set *data_set, Entity_Id series_data_id, Date_Time end_date) {
 	
@@ -200,8 +210,11 @@ process_series(Model_Application *app, Data_Set *data_set, Entity_Id series_data
 		
 		auto model = app->model;
 		
+		std::map<Var_Id, Spatial_Interp_Spec> spatial_interpolations;
+		
 		// TODO: Maybe make an overwrite guard. I.e. record what input series have already been provided (which we have to do any way),
 		//		then check against that if there is an overwrite.
+		
 		
 		int header_idx = 0;
 		for(auto &header : series.header_data) {
@@ -240,6 +253,9 @@ process_series(Model_Application *app, Data_Set *data_set, Entity_Id series_data
 						fatal_error("Got wrong number of index sets for input series. Expected ", expected_index_sets.size(), ", got ", indexes.indexes.size(), ".");
 					}
 					
+					Entity_Id interp_index_set = invalid_entity_id;
+					Series_Data_Flags interp_flags = series_data_none;
+					
 					for(auto &index : indexes.indexes) {
 						auto idx_set = data_set->index_sets[index.index_set];
 						Entity_Id index_set = model->top_scope.deserialize(idx_set->name, Reg_Type::index_set);
@@ -258,12 +274,34 @@ process_series(Model_Application *app, Data_Set *data_set, Entity_Id series_data
 								fatal_error("Expected \"", model->index_sets[expected]->name, " to be index set number ", index_idx+1, " for input series \"", header.name, "\".");
 							}
 						}
+						// TODO: Does this break if we have multiple index tuples given for a series (as is possible in csv?)
+						// probably need to do indexes_int.indexes.clear() at end of each loop or something?
 						indexes_int.add_index(use_index);
+						
+						for(auto &pair : series.spatial_flags) {
+							if(pair.first == index.index_set) {
+								if(is_valid(interp_index_set)) {
+									header.source_loc.print_error_header();
+									fatal_error("Spatial interpolation flags can for now only be provided on one index set per series.");
+								}
+								interp_index_set = use_index.index_set;
+								interp_flags = pair.second;
+								break;
+							}
+						}
+						
 						++index_idx;
 					}
 					
 					s64 offset = data->structure->get_offset(id, indexes_int);
 					offsets[header_idx].push_back(offset);
+					
+					if(is_valid(interp_index_set) && interp_flags != series_data_none) {
+						auto &sp = spatial_interpolations[id];
+						sp.flags = interp_flags;
+						sp.index_set = interp_index_set;
+						sp.indexes.push_back(indexes_int);
+					}
 				}
 			}
 			++header_idx;
@@ -354,5 +392,99 @@ process_series(Model_Application *app, Data_Set *data_set, Entity_Id series_data
 				}
 			}
 		}
+		
+		do_spatial_interpolations(app, spatial_interpolations);
+	}
+}
+
+
+void
+do_spatial_interpolations(Model_Application *app, std::map<Var_Id, Spatial_Interp_Spec> &spatial_interpolations) {
+	
+	// TODO: This does not quite work. We need also to pass the state of the other index sets and group by the values of those.
+	
+	
+	if(spatial_interpolations.empty())
+		return;
+	
+	for(auto &pair : spatial_interpolations) {
+		
+		auto id = pair.first;
+		auto flags = pair.second.flags;
+		auto index_set = pair.second.index_set;
+		auto index_tuples = pair.second.indexes;
+		
+		// TODO: We need to group the index tuples on the non-varying indexes.
+		// Current implementation assumes they are all the same!!!!!
+		int varying_pos = 0;
+		for(auto &idx : index_tuples[0].indexes) {
+			if(idx.index_set == index_set)
+				break;
+			varying_pos++;
+		}
+		if(varying_pos < 0 || varying_pos >= index_tuples[0].indexes.size()) {
+			fatal_error(Mobius_Error::internal, "Something went wrong with spatial interpolation");
+		}
+		std::vector<Index_T> varying_indexes(index_tuples.size());
+		int i = 0;
+		for(auto &t : index_tuples) {
+			varying_indexes[i++] = t.indexes[varying_pos];
+		}
+		
+		std::sort(varying_indexes.begin(), varying_indexes.end());
+		
+		if(flags == series_data_none)
+			continue;
+		if(flags != series_data_interp_linear) {
+			// TODO: We need access to a Source_Loc here for the error reporting.
+			fatal_error("For now we only support linear_interpolation for spatial interpolation");
+		}
+		
+		// TODO: Ideally we could reuse some code between temporal and spatial interpolation
+		
+		auto &data = app->data.get_storage(id.type);
+		
+		Indexes indexes_a = index_tuples[0];
+		Indexes indexes_b = index_tuples[0];
+		Indexes indexes_t = index_tuples[0];
+		
+		// TODO: This does interp inside only. Harmonize functionality wrt. outside extrapolation and how this is specified in flags.
+		for(int i = 0; i < (int)varying_indexes.size()-1; ++i) {
+			
+			Index_T idx_a = varying_indexes[i];
+			Index_T idx_b = varying_indexes[i+1];
+			
+			indexes_a.indexes[varying_pos] = idx_a;
+			indexes_b.indexes[varying_pos] = idx_b;
+			
+			s64 offset_a = data.structure->get_offset(id, indexes_a);
+			s64 offset_b = data.structure->get_offset(id, indexes_b);
+			
+			double pos_a = app->index_data.get_position(idx_a);
+			double pos_b = app->index_data.get_position(idx_b);
+			
+			Index_T idx_t = idx_a;
+			idx_t.index++;
+			for(; idx_t.index < idx_b.index; idx_t.index++) {
+				
+				indexes_t.indexes[varying_pos] = idx_t;
+				s64 offset_t = data.structure->get_offset(id, indexes_t);
+				double pos_t = app->index_data.get_position(idx_t);
+				
+				double tt = (pos_b - pos_t)/(pos_b - pos_a);
+				
+				// TODO: Should we only interpolate within the start and end date of the passed series header? In that case we need to pass those here.
+				for(s64 ts = 0; ts < data.time_steps; ++ts) {
+					
+					// TODO: Hmm, may be better to reorder loops?
+					double val_a = *data.get_value(offset_a, ts);
+					double val_b = *data.get_value(offset_b, ts);
+					
+					*data.get_value(offset_t, ts) = val_a*(1.0 - tt) + val_b*tt;
+				}
+			}
+			
+		}
+		
 	}
 }
