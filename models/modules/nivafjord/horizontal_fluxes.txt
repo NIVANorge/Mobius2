@@ -85,7 +85,7 @@ module("NIVAFjord horizontal fluxes", version(0, 0, 2),
 	dims   : preamble
 ) {
 """
-This one is for if there is a boundary compartment and river inputs
+This connects two basins or a basin with a boundary basin.
 """
 
 	load("stdlib/seawater.txt", library("Seawater"))
@@ -104,6 +104,13 @@ This one is for if there is a boundary compartment and river inputs
 	par_group("Fjord horizontal boundary 2", edge_layer2) {
 		w_bnd2  : par_real("Boundary width", [m], 0, 0, 10000)
 	}
+    
+    par_group("Boundary method", edge) {
+        compute_exchange : par_bool("Compute horizontal exchange", true)
+    }
+    par_group("Boundary method 2", edge2) {
+        compute_exchange2 : par_bool("Compute horizontal exchange", true)
+    }
 	
 	
 	vert_target : property("Vertical exchange target")
@@ -168,14 +175,20 @@ This one is for if there is a boundary compartment and river inputs
 	} @allow_connection(bnd_layer, horz2)
 	
 	var(edge_layer.horz_flow_vel, [m, s-1], "Layer horizontal flow velocity") {
-		#copysign(sqrt(2*alpha_u*abs(dP)/rho_water), dP)->>
 		sqrt(2*alpha_u*abs(dP)/rho_water)   if dP > 0 & w_bnd > 0,
 		0                                   otherwise
 	}
+    
+    flow_inp : property("Boundary flow forcing")
+    var(edge_layer.flow_inp, [m 3, s-1])
+    var(edge_layer2.flow_inp, [m 3, s-1], "Boundary flow forcing reverse")
 	
 	flux(layer.water, layer.water[horz.below, vert.specific], [m 3, day-1], "Layer horizontal outflow flux") {
-		w := 0.5*(w_bnd + w_bnd[vert.below]),
-		edge_layer.horz_flow_vel*w*layer.dz->>
+		{
+            w := 0.5*(w_bnd + w_bnd[vert.below]),
+            edge_layer.horz_flow_vel*w*layer.dz->>
+        }          if compute_exchange,
+        edge_layer.flow_inp->>   otherwise
 	} @specific {
 		edge_layer.vert_target
 	}
@@ -190,15 +203,17 @@ This one is for if there is a boundary compartment and river inputs
 		layer.water.pressure[horz.below]
 	} @allow_connection(layer, horz)
 	
-	var(edge_layer2.horz_flow_vel, [m, s-1], "Layer horizontal flow velocity") {
-		#copysign(sqrt(2*alpha_u*abs(dP)/rho_water), dP)->>
+	var(edge_layer2.horz_flow_vel, [m, s-1], "Boundary layer horizontal flow velocity") {
 		sqrt(2*alpha_u*abs(dP)/rho_water)   if dP > 0 & w_bnd2 > 0,
 		0                                   otherwise
 	}
 	
 	flux(bnd_layer.water, bnd_layer.water[horz2.below, vert.specific], [m 3, day-1], "Boundary layer horizontal outflow flux") {
-		w := 0.5*(w_bnd2 + w_bnd2[vert.below]),
-		edge_layer2.horz_flow_vel*w*bnd_layer.dz->>
+        {
+            w := 0.5*(w_bnd2 + w_bnd2[vert.below]),
+            edge_layer2.horz_flow_vel*w*bnd_layer.dz->>
+        }           if compute_exchange2,
+        edge_layer2.flow_inp->>    otherwise
 	} @specific {
 		edge_layer2.vert_target
 	}

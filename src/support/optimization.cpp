@@ -94,7 +94,7 @@ Optimization_Model::Optimization_Model(Model_Data *data, Expr_Parameters &parame
 }
 
 double
-Optimization_Model::evaluate(const std::vector<double> &values) {//double *values) {
+Optimization_Model::evaluate(const std::vector<double> &values) {
 	
 	set_parameters(data, *parameters, values);
 	
@@ -225,7 +225,7 @@ Expr_Parameters::copy(const Expr_Parameters &other) {
 
 
 void
-set_parameters(Model_Data *data, Expr_Parameters &pars, const std::vector<double> &values) {//const double *values) {
+set_parameters(Model_Data *data, Expr_Parameters &pars, const std::vector<double> &values) {
 	Parameter_Value val;
 	int active_idx = 0;
 

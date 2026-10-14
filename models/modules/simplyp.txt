@@ -102,8 +102,11 @@ Authors: Leah A. Jackson-Blake, Magnus D. Norling
 	
 	par_group("Groundwater P", gw) {
 		gw_tdp : par_real("Groundwater TDP concentration", [m g, l-1], 0, 0, 10)
-		#gw_type : par_enum("Groundwater TDP computation type", const) { const mass_bal }
 	}
+    
+    par_group("Groundwater config") {
+        gw_type : par_enum("Groundwater TDP computation type", const) { const mass_bal }
+    }
 	
 	p_in : property("Net soil P input")
 	
@@ -159,14 +162,14 @@ Authors: Leah A. Jackson-Blake, Magnus D. Norling
 	var(gw.water.phos, [k g, k m-2], [m g, l-1], "Groundwater DIP")
 	@initial_conc { gw_tdp }
 	@override_conc { 
-		gw_tdp      #if gw_type.const,
-		#no_override otherwise
+		gw_tdp      if gw_type.const,
+		no_override otherwise
 	}
 	
 	var(river.water.phos, [k g], [m g, l-1], "River DIP") @initial_conc { gw_tdp }
 	
 	var(river.water.sed.phos, [k g], "River PP")
-	@show_conc(river.water, [m g, l-1])      # The default concentration displayed is the conc of phos in sed. We want MobiView to display conc of phos in water.
+	@show_conc(river.water, [m g, l-1])      # The default concentration displayed is the conc of phos in sed (dry weight fraction). We want MobiView2 to display conc of phos in water.
 	
 	pp_fact : property("PP mobilization factor")
 

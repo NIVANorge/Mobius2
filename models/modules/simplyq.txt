@@ -105,7 +105,7 @@ module("SimplyQ groundwater karstic", version(0, 0, 0),
 	par_group("Groundwater", gw) {
 		tc_g    : par_real("Groundwater time constant", [day],          30,  1,  400)
 		gw_ret  : par_real("Groundwater retention volume", [m m],        0,  1, 1e4)
-		gw_stf  : par_real("Groundwater subterranean flow fraction", [], 0, 0, 1)
+		gw_stf  : par_real("Groundwater subterranean flow fraction", [], 0,  0, 1)
 		gw_init : par_real("Initial groundwater excess volume", [m m],   0,  0, 1e4)
 	}
 	
@@ -194,8 +194,6 @@ The reach discharge is then computed using the [Manning formula](https://en.wiki
 
 Authors: Magnus D. Norling
 """
-
-	load("stdlib/basic_math.txt", library("Response"))
 
 	par_group("Reach parameters", river) {
 		slope          : par_real("Reach slope", [],                             0.014, 0.00001,        3)
