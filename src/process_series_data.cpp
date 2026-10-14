@@ -17,7 +17,7 @@ fill_constant_range(Model_Application *app, Date_Time d0, Date_Time d1, double y
 }
 
 void
-interpolate(Model_Application *app, std::vector<Date_Time> &dates, 
+interpolate(Model_Application *app, std::vector<Date_Time> &dates,
 	std::vector<double> &vals, std::vector<s64> &write_offsets, Series_Data_Flags &flags, Date_Time end_date, Data_Storage<double, Var_Id> *data) {
 	
 	std::vector<Date_Time> x_vals;
@@ -401,9 +401,6 @@ process_series(Model_Application *app, Data_Set *data_set, Entity_Id series_data
 void
 do_spatial_interpolations(Model_Application *app, std::map<Var_Id, Spatial_Interp_Spec> &spatial_interpolations) {
 	
-	// TODO: This does not quite work. We need also to pass the state of the other index sets and group by the values of those.
-	
-	
 	if(spatial_interpolations.empty())
 		return;
 	
@@ -414,77 +411,113 @@ do_spatial_interpolations(Model_Application *app, std::map<Var_Id, Spatial_Inter
 		auto index_set = pair.second.index_set;
 		auto index_tuples = pair.second.indexes;
 		
-		// TODO: We need to group the index tuples on the non-varying indexes.
-		// Current implementation assumes they are all the same!!!!!
-		int varying_pos = 0;
-		for(auto &idx : index_tuples[0].indexes) {
-			if(idx.index_set == index_set)
-				break;
-			varying_pos++;
-		}
-		if(varying_pos < 0 || varying_pos >= index_tuples[0].indexes.size()) {
-			fatal_error(Mobius_Error::internal, "Something went wrong with spatial interpolation");
-		}
-		std::vector<Index_T> varying_indexes(index_tuples.size());
-		int i = 0;
-		for(auto &t : index_tuples) {
-			varying_indexes[i++] = t.indexes[varying_pos];
-		}
-		
-		std::sort(varying_indexes.begin(), varying_indexes.end());
-		
-		if(flags == series_data_none)
-			continue;
-		if(flags != series_data_interp_linear) {
-			// TODO: We need access to a Source_Loc here for the error reporting.
-			fatal_error("For now we only support linear_interpolation for spatial interpolation");
-		}
-		
-		// TODO: Ideally we could reuse some code between temporal and spatial interpolation
-		
-		auto &data = app->data.get_storage(id.type);
-		
-		Indexes indexes_a = index_tuples[0];
-		Indexes indexes_b = index_tuples[0];
-		Indexes indexes_t = index_tuples[0];
-		
-		// TODO: This does interp inside only. Harmonize functionality wrt. outside extrapolation and how this is specified in flags.
-		for(int i = 0; i < (int)varying_indexes.size()-1; ++i) {
-			
-			Index_T idx_a = varying_indexes[i];
-			Index_T idx_b = varying_indexes[i+1];
-			
-			indexes_a.indexes[varying_pos] = idx_a;
-			indexes_b.indexes[varying_pos] = idx_b;
-			
-			s64 offset_a = data.structure->get_offset(id, indexes_a);
-			s64 offset_b = data.structure->get_offset(id, indexes_b);
-			
-			double pos_a = app->index_data.get_position(idx_a);
-			double pos_b = app->index_data.get_position(idx_b);
-			
-			Index_T idx_t = idx_a;
-			idx_t.index++;
-			for(; idx_t.index < idx_b.index; idx_t.index++) {
+		std::vector<std::vector<Indexes>> grouped_indexes;
+		{
+			// Group these by the non-varying indexes.
+			bool found = false;
+			for(auto &tuple : index_tuples) {
 				
-				indexes_t.indexes[varying_pos] = idx_t;
-				s64 offset_t = data.structure->get_offset(id, indexes_t);
-				double pos_t = app->index_data.get_position(idx_t);
-				
-				double tt = (pos_b - pos_t)/(pos_b - pos_a);
-				
-				// TODO: Should we only interpolate within the start and end date of the passed series header? In that case we need to pass those here.
-				for(s64 ts = 0; ts < data.time_steps; ++ts) {
-					
-					// TODO: Hmm, may be better to reorder loops?
-					double val_a = *data.get_value(offset_a, ts);
-					double val_b = *data.get_value(offset_b, ts);
-					
-					*data.get_value(offset_t, ts) = val_a*(1.0 - tt) + val_b*tt;
+				for(auto &group : grouped_indexes) {
+					if(tuple.indexes.size() != group[0].indexes.size()) {
+						fatal_error(Mobius_Error::internal, "Something went wrong with grouping indexes for spatial interpolation of the input variable \"", app->vars[id]->name, "\".");
+					}
+					bool match_group = true;
+					for(int i = 0; i < tuple.indexes.size(); ++i) {
+						auto idxa = tuple.indexes[i];
+						auto idxb = group[0].indexes[i];
+						if(idxa.index_set != idxb.index_set) {
+							fatal_error(Mobius_Error::internal, "Mismatch of index sets for spatial interpolation of the input variable \"", app->vars[id]->name, "\".");
+						}
+						if(idxa.index_set == index_set) continue; // Only group by the indexes that are not supposed to vary in the interpolation
+						if(idxa != idxb) {
+							match_group = false;
+							break;
+						}
+					}
+					if(match_group) {
+						found = true;
+						group.push_back(tuple);
+						break;
+					}
 				}
+				if(!found) {
+					grouped_indexes.push_back({tuple});
+				}
+			}
+		}
+		
+		for(auto &tuples : grouped_indexes) {
+		
+			int varying_pos = 0;
+			for(auto &idx : tuples[0].indexes) {
+				if(idx.index_set == index_set)
+					break;
+				varying_pos++;
+			}
+			if(varying_pos >= tuples[0].indexes.size()) {
+				fatal_error(Mobius_Error::internal, "Something went wrong with spatial interpolation");
+			}
+			std::vector<Index_T> varying_indexes(tuples.size());
+			int i = 0;
+			for(auto &t : tuples) {
+				varying_indexes[i++] = t.indexes[varying_pos];
+			}
+			
+			std::sort(varying_indexes.begin(), varying_indexes.end());
+			
+			if(flags == series_data_none)
+				continue;
+			if(flags != series_data_interp_linear) {
+				// TODO: We need access to a Source_Loc here for the error reporting.
+				fatal_error("For now we only support linear_interpolation for spatial interpolation");
+			}
+			
+			// TODO: Ideally we could reuse some code between temporal and spatial interpolation
+			
+			auto &data = app->data.get_storage(id.type);
+			
+			Indexes indexes_a = tuples[0];
+			Indexes indexes_b = tuples[0];
+			Indexes indexes_t = tuples[0];
+			
+			// TODO: This does interp inside only. Harmonize functionality wrt. outside extrapolation and how this is specified in flags.
+			for(int i = 0; i < (int)varying_indexes.size()-1; ++i) {
+				
+				Index_T idx_a = varying_indexes[i];
+				Index_T idx_b = varying_indexes[i+1];
+				
+				indexes_a.indexes[varying_pos] = idx_a;
+				indexes_b.indexes[varying_pos] = idx_b;
+				
+				s64 offset_a = data.structure->get_offset(id, indexes_a);
+				s64 offset_b = data.structure->get_offset(id, indexes_b);
+				
+				double pos_a = app->index_data.get_position(idx_a);
+				double pos_b = app->index_data.get_position(idx_b);
+				
+				Index_T idx_t = idx_a;
+				idx_t.index++;
+				for(; idx_t.index < idx_b.index; idx_t.index++) {
+					
+					indexes_t.indexes[varying_pos] = idx_t;
+					s64 offset_t = data.structure->get_offset(id, indexes_t);
+					double pos_t = app->index_data.get_position(idx_t);
+					
+					double tt = (pos_b - pos_t)/(pos_b - pos_a);
+					
+					// TODO: Should we only interpolate within the start and end date of the passed series header? In that case we need to pass those here.
+					for(s64 ts = 0; ts < data.time_steps; ++ts) {
+						
+						// TODO: Hmm, may be better to reorder loops?
+						double val_a = *data.get_value(offset_a, ts);
+						double val_b = *data.get_value(offset_b, ts);
+						
+						*data.get_value(offset_t, ts) = val_a*(1.0 - tt) + val_b*tt;
+					}
+				}
+				
 			}
 			
 		}
-		
 	}
 }
