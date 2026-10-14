@@ -759,7 +759,7 @@ resolve_special_directive(Function_Call_AST *ast, Directive directive, Function_
 				auto ident2 = static_cast<Identifier_FT *>(new_fun->exprs[0]);
 				if(ident2->variable_type != Variable_Type::connection) error = true;
 				else {
-					ident->other_connection = ident2->other_connection; 
+					ident->other_connection = ident2->other_connection;
 					delete ident2;
 				}
 			}

@@ -66,6 +66,7 @@ Series_Set {
 	std::vector<Series_Header>       header_data;
 	std::vector<Date_Time>           dates;
 	std::vector<std::vector<double>> raw_values;
+	std::vector<std::pair<Entity_Id, Series_Data_Flags>> spatial_flags;
 	
 	Series_Set() : has_date_vector(true) {};
 };

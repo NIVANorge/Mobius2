@@ -16,7 +16,7 @@ enum class Token_Type : char {
 
 inline const char *
 name(Token_Type type) {
-	if(type <= Token_Type::max_multichar) {            
+	if(type <= Token_Type::max_multichar) {
 		switch(type) {
 			#define ENUM_VALUE(handle, name) case Token_Type::handle: return name;
 			#include "token_types.incl"

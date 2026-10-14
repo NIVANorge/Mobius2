@@ -244,6 +244,24 @@ from_spreadsheet_time_fractional(double days_since_1900) {
 	return result;
 }
 
+inline Date_Time
+from_string_time(const char *str, bool *success) {
+	Date_Time dt;
+	*success = false;
+	int y, m, d;
+	int offset = 0;
+	if(sscanf(str, "%d-%d-%d%n", &y, &m, &d, &offset) == 3) {
+		dt = Date_Time(y, m, d, success);
+		if(*success) {
+			int hh, mm, ss;
+			if(sscanf(str + offset, " %d:%d:%d", &hh, &mm, &ss) == 3) {
+				*success = dt.add_timestamp(hh, mm, ss);
+			}
+		}
+	}
+	return dt;
+}
+
 struct Time_Step_Size {
 	enum Unit : s32 {
 		second = 0,
