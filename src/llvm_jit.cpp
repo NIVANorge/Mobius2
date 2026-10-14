@@ -466,11 +466,11 @@ llvm::Value *build_binary_ir(llvm::Value *lhs, Value_Type type1, llvm::Value *rh
 			rhs = data->builder->CreateTrunc(rhs, llvm::Type::getInt32Ty(*data->context));
 			std::vector<llvm::Type *> arg_types = { llvm::Type::getDoubleTy(*data->context), llvm::Type::getInt32Ty(*data->context) };
 			llvm::Function *fun = llvm::Intrinsic::getDeclaration(data->module.get(), llvm::Intrinsic::powi, arg_types);
-			result = data->builder->CreateCall(fun, { lhs, rhs }, "powtmp");
+			result = data->builder->CreateCall(fun, { lhs, rhs }, "powitmp");
 		} else if(type2 == Value_Type::real) {
 			std::vector<llvm::Type *> arg_types = { llvm::Type::getDoubleTy(*data->context) };
 			llvm::Function *fun = llvm::Intrinsic::getDeclaration(data->module.get(), llvm::Intrinsic::pow, arg_types);
-			result = data->builder->CreateCall(fun, { lhs, rhs }, "powitmp");
+			result = data->builder->CreateCall(fun, { lhs, rhs }, "powtmp");
 		}
 	} else
 		fatal_error(Mobius_Error::internal, "build_binary_ir() unhandled operator ", name(oper), " .");

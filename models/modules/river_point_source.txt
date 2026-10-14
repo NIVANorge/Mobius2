@@ -26,10 +26,13 @@ Authors: Magnus Dahler Norling
 	par_group("Point source apportionment parameters") {
 		a : par_real("Point source flow mobilization scaler", [day-1], 0.1)
 	}
+    
+    dyn_in : property("Dynamic river point source")
+    var(pt.dyn_in, s_rate_u_d)
 	
 	var(pt.s, s_u, "Point source buffer")
 	
-	flux(out, pt.s, s_rate_u_d, "Point source buffer inputs") { inrate }
+	flux(out, pt.s, s_rate_u_d, "Point source buffer inputs") { inrate + dyn_in }
 	
 	pt_src :
 	flux(pt.s, river.water.s, s_rate_u_d, "River point source input rate") {
