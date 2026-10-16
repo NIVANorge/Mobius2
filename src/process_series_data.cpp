@@ -503,7 +503,7 @@ do_spatial_interpolations(Model_Application *app, std::map<Var_Id, Spatial_Inter
 					s64 offset_t = data.structure->get_offset(id, indexes_t);
 					double pos_t = app->index_data.get_position(idx_t);
 					
-					double tt = (pos_b - pos_t)/(pos_b - pos_a);
+					double tt = (pos_t - pos_a)/(pos_b - pos_a);
 					
 					// TODO: Should we only interpolate within the start and end date of the passed series header? In that case we need to pass those here.
 					for(s64 ts = 0; ts < data.time_steps; ++ts) {

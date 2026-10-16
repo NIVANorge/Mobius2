@@ -30,6 +30,16 @@ nivafjord_place_horizontal_fluxes(Value_Access *values) {
 	auto &pressure1  = values[3];
 	auto &pressure2  = values[4];
 	auto &widths     = values[5];
+	//auto &compute_exchange = values[6];
+	
+	/*
+	if(!compute_exchange.bool_at(0)) {
+		for(int layer = 0; layer < target_out.count; ++layer) {
+			target_out[layer] = layer;
+		}
+		return;
+	}
+	*/
 	
 	for(int layer = 0; layer < target_out.count; ++layer) {
 		
@@ -53,20 +63,6 @@ nivafjord_place_horizontal_fluxes(Value_Access *values) {
 		} else
 			target_out[layer] = layer; // Should not be used..
 		
-		/*else {
-			double dens = densities2[layer];
-			for(int layer2 = layer; layer2 < densities1.count; ++layer2) {
-				double abs = std::abs(dens - densities1[layer2]);
-				if(abs < minabs) {
-					closest = layer2;
-					minabs = abs;
-				} else
-					break;
-			}
-			target_out[closest] = (double)layer; // This instead gives the level of the other layer that flows to this one.
-		}
-		*/
-		
 	}
 }
 
@@ -79,8 +75,24 @@ nivafjord_compute_pressure_difference(Value_Access *values) {
 	auto &dz1 = values[4];
 	auto &P0 = values[5];
 	auto &P1 = values[6];
+	auto &compute_exchange = values[7];
 	
 	// Compute the pressure difference between two horizontally neighbouring layers.
+
+	if(!compute_exchange.bool_at(0)) {
+		// Only compute the pressure difference coming from a difference in sea level
+		double level_a = 0.0;
+		double level_b = 0.0;
+		for(int layer = 0; layer < dPout.count; ++layer) {
+			level_a += dz0[layer];
+			level_b += dz1[layer];
+		}
+		double dP = 1025*9.81*(level_a - level_b);
+		for(int layer = 0; layer < dPout.count; ++layer) {
+			dPout[layer] = dP;
+		}
+		return;
+	}
 
 	int other_layer = 0;
 	double zbot_other;
