@@ -94,8 +94,8 @@ initialize_llvm() {
 	else
 		fatal_error(Mobius_Error::internal, "Failed to initialize LLVM.");
 	
-// Unfortunately, automatic symbol lookup doesn't work on Linux
-#ifdef __unix__
+// Unfortunately, automatic symbol lookup doesn't work on Linux and Apple
+#if defined(__unix__) || defined(__APPLE__)
 	auto &jd = global_jit->getMainJITDylib();
 	auto mangle = llvm::orc::MangleAndInterner(jd.getExecutionSession(), global_jit->getDataLayout());
 	
@@ -115,6 +115,8 @@ initialize_llvm() {
 	
 	// TODO: Handle error
 	llvm::Error err = jd.define(materializer);
+	//if (auto err = jd.define(llvm::orc::absoluteSymbols(std::move(symbol_map))))
+	//		fatal_error(Mobius_Error::internal, "Failed to register JIT symbols: ", llvm::toString(std::move(err)));
 #endif
 	
 	llvm_initialized = true;
