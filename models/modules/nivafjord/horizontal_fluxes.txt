@@ -107,9 +107,11 @@ This connects two basins or a basin with a boundary basin.
     
     par_group("Boundary method", edge) {
         compute_exchange : par_bool("Compute horizontal exchange", true)
+        alpha_0 : par_real("Extra exchange adjustment", [], 1)
     }
     par_group("Boundary method 2", edge2) {
         compute_exchange2 : par_bool("Compute horizontal exchange", true)
+        alpha_0_2 : par_real("Extra exchange adjustment", [], 1)
     }
 	
 	
@@ -190,8 +192,8 @@ This connects two basins or a basin with a boundary basin.
 		w := 0.5*(w_bnd + w_bnd[vert.below]),
         pressure_driven := edge_layer.horz_flow_vel*w*layer.dz->>,
         
-        pressure_driven          if compute_exchange,
-        pressure_driven + edge_layer.flow_inp->>   otherwise   # Note, in this case the pressure difference only takes sea level difference into account
+        pressure_driven                                    if compute_exchange,
+        alpha_0*pressure_driven + edge_layer.flow_inp->>   otherwise   # Note, in this case the pressure difference only takes sea level difference into account
 	} @specific {
 		edge_layer.vert_target
 	}
@@ -215,8 +217,8 @@ This connects two basins or a basin with a boundary basin.
 	flux(bnd_layer.water, bnd_layer.water[horz2.below, vert.specific], [m 3, day-1], "Boundary layer horizontal outflow flux") {
         w := 0.5*(w_bnd2 + w_bnd2[vert.below]),
         pressure_driven := edge_layer2.horz_flow_vel*w*bnd_layer.dz->>,
-        pressure_driven if compute_exchange2,
-        pressure_driven + edge_layer2.flow_inp->>    otherwise
+        pressure_driven                                        if compute_exchange2,
+        alpha_0_2*pressure_driven + edge_layer2.flow_inp->>    otherwise
 	} @specific {
 		edge_layer2.vert_target
 	}
