@@ -14,7 +14,7 @@ See the [background on the MAGIC model and its implementation in Mobius](magic.h
 
 ## Installation
 
-Install Mobius2 and MobiView2 (and maybe also mobipy) by following the [getting started guide](../gettingstarted/gettingstarted.html).
+Install Mobius2 and MobiView2 by following the [getting started guide](../gettingstarted/gettingstarted.html).
 
 To test the MAGIC model, use MobiView2.exe to open `Mobius2/models/magic_model_simple.txt` and then `Mobius2/models/example_data/MAGIC/birkenes_test.dat`.
 
@@ -46,9 +46,11 @@ See the general (not MAGIC-specific) [specification of the input format](../data
 
 Note that Mobius2-MAGIC can currently only run on a monthly step. To run without seasonal variations, just prepare your input series so that they are constant within each year. This can be done using the `step_interpolate` flag as in the Birkenes example.
 
-### Automation
+### Setup automation
 
 You can use python to automate generation of model setups. This is useful if you have hundreds or thousands of sites to set up. We will not cover the details here, but you can contact us for example code.
+
+See how to [install mobipy](../mobipydocs/mobipy.html#installation).
 
 
 ## Calibrate your setup
