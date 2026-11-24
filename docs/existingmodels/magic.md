@@ -3,6 +3,7 @@ layout: default
 title: MAGIC
 parent: Existing models
 nav_order: 3
+has_children: true
 ---
 
 # MAGIC
@@ -18,6 +19,8 @@ In the Mobius2 version the core ion balance model is mathematically identical to
 The latest paper describing the Mobius1 version is \[Norling24\]. Not all the features of the Mobius1 version (forest growth, advanced soil CNP processes) are available in Mobius2 yet.
 
 The implementation of MAGIC in Mobius was funded by the CatchCaN project (The fate and future of carbon in forests), funded by the Technology Agency of the Czech Republic (TA CR) project number TO 01000220.
+
+See the [user guide](magic_guide.html) for MAGIC in Mobius2.
 
 ## Citations
 

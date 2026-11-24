@@ -38,7 +38,10 @@ Parameters for specifying various physiochemical properties of a contaminant.
         hlsoil      : par_real("Contaminant half life in soil waters", [day], 2000, 0.1, 2e10, "Used for dissolved contaminants in soil and surface water")
             @formerly("SimplyTox physiochemical\Physiochemistry\Contaminant half life")
 		hlslow      : par_real("Contaminant half life (slow accessible carbon)", [day], 20000, 0.1, 2e10, "Used for slow-accessible carbon-bound contaminants in soil and in deep soil and sediments.")
-		hlgw        : par_real("Contaminant half life (groundwater and sediments)", [day], 20000, 0.1, 2e10, "Used for dissolved contaminants in groundwater and sediment pore water.")
+		hlgw        : par_real("Contaminant half life in groundwater", [day], 20000, 0.1, 2e10, "Used for dissolved contaminants in groundwater.")
+            @formerly("SimplyTox physiochemical\Physiochemistry\Contaminant half life (groundwater and sediments)")
+        hlsed       : par_real("Contaminant half life in sediments", [day], 20000, 0.1, 2e10, "Used for dissolved contaminants in sediment pore water.")
+            @formerly("SimplyTox physiochemical\Physiochemistry\Contaminant half life (groundwater and sediments)")
 		degrq10     : par_real("Contaminant degradation Q10", [], 1, 1, 5, "Change in the rate with a change of 10°C change in temperature")
 		degrref     : par_real("Temperature at which the half life is given.", [deg_c], 25, 0, 40)
 		
@@ -160,17 +163,17 @@ A module for partitioning a contaminant between solid organic carbon, dissolved 
 	} @no_store
 	
 	flux(comp.water.tox, out, flux_unit, "Dissolved contaminant decay") {
-		hl := { hlsurf if degr_type=0, hlsoil if degr_type=1, hlgw otherwise },
+		hl := { hlsurf if degr_type=0, hlsoil if degr_type=1, hlgw if degr_type=2, hlsed otherwise },
 		degr(hl, degrq10, degrref, temp)*tox
 	} @no_store
 	
 	flux(comp.water.oc.tox, out, flux_unit, "DOC contaminant decay") {
-		hl := { hlsurf if degr_type=0, hlsoil if degr_type=1, hlgw otherwise },
+		hl := { hlsurf if degr_type=0, hlsoil if degr_type=1, hlgw if degr_type=2, hlsed otherwise },
 		degr(hl, degrq10, degrref, temp)*tox
 	} @no_store
 	
 	flux(solid_oc.tox, out, flux_unit, "SOC contaminant decay") {
-		hl := { hlsurf if degr_type=0, hlsoil if degr_type=1, hlslow otherwise },
+		hl := { hlsurf if degr_type=0, hlsoil if degr_type=1, hlsed if degr_type=3, hlslow otherwise },
 		degr(hl, degrq10, degrref, temp)*tox
 	} @no_store
 }
