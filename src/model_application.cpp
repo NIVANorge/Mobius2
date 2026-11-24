@@ -840,8 +840,11 @@ pre_process_connection_data(Model_Application *app, Data_Set *data_set, Entity_I
 	auto conn_id = map_id(data_set, model, conn_data_id);
 	
 	if(!is_valid(conn_id)) {
-		connection_data->source_loc.print_error_header();
-		fatal_error("The connection structure \"", connection_data->name, "\" has not been declared in the model.");
+		//connection_data->source_loc.print_error_header();
+		//fatal_error("The connection structure \"", connection_data->name, "\" has not been declared in the model.");
+		connection_data->source_loc.print_log_header();
+		log_print("WARNING: The connection structure \"", connection_data->name, "\" has not been declared in the model and will be ignored.\n");
+		return;
 	}
 
 	auto connection = model->connections[conn_id];

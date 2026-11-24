@@ -111,9 +111,8 @@ initialize_llvm() {
 	ADD_EXT_COMP(_normal_random_real_)
 	#undef ADD_EXT_COMP
 	
-	auto materializer = llvm::orc::absoluteSymbols(symbol_map);
-	
 	// TODO: Handle error
+	auto materializer = llvm::orc::absoluteSymbols(symbol_map);
 	llvm::Error err = jd.define(materializer);
 	//if (auto err = jd.define(llvm::orc::absoluteSymbols(std::move(symbol_map))))
 	//		fatal_error(Mobius_Error::internal, "Failed to register JIT symbols: ", llvm::toString(std::move(err)));
